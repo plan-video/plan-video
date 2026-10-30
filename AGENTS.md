@@ -50,6 +50,10 @@ The most common bug here is a change that works where it was tried and is missin
 - Never wait on sleeps or timers in a test. Wait for the event or result itself.
 - A change people can see gets one pass in a real browser before it's called done.
 
+## Comments
+
+Default to no comment. Write one only for a constraint, an outside quirk, or an invariant the code can't show, in one line where you can and four at most. Don't restate names or signatures, narrate steps, record history, or explain the fix you just made: the commit carries that. Keep the MPL notice at the top of every file that has one, and the comments tools act on (`eslint-disable`, `@ts-expect-error`, `@vite-ignore` and the like).
+
 ## Commit messages and pull requests
 
 Every commit uses [Conventional Commits](https://www.conventionalcommits.org): a type, the part of plan.video it touches, and what changes, in plain words.

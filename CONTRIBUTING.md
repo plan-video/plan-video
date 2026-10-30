@@ -40,7 +40,7 @@ Pull requests are squash-merged, so the title becomes the commit on `main`.
 
 Match the code around your change. A few things hold everywhere:
 
-- **Comments say why.** They're plain sentences above the code they explain, written for someone reading it for the first time.
+- **Comments are rare.** Write one only for a constraint, an outside quirk, or an invariant the code can't show, in four lines at most. Don't narrate the code or its history: the commit carries that.
 - **Every word people read is translated.** Wrap it in `t()`, as in [Translations](apps/web/src/content/docs/translations.md), and run `node scripts/i18n.mjs unwrapped <path>` to catch any you missed.
 - **Secrets stay on the server.** Anything with the `VITE_` prefix ends up in the browser. Network tokens never go to a browser: the publisher keeps them.
 - **Test what you change.** The services use Node's own test runner, with `*.test.mjs` files beside the code. The packages use Vitest.
