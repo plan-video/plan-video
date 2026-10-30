@@ -10,17 +10,13 @@ type DashboardSearchPanelProps = {
   value: Accessor<string>;
   onChange: (value: string) => void;
   placeholder: string;
-  /** The page's buttons, after the search. */
   action?: JSX.Element;
-  /** How many the search leaves of how many, while it leaves out some. */
   shown?: number;
   total?: number;
-  /** Nothing to search yet: the header holds only the page's name, and the page's picture says the rest. */
   empty?: boolean;
   children: JSX.Element;
 };
 
-/** A page whose header holds a search field and its buttons, like Projects and Trash. */
 export function DashboardSearchPanel(props: DashboardSearchPanelProps) {
   return (
     <div class="flex min-h-0 flex-1 flex-col">

@@ -65,12 +65,6 @@ import {
 } from "./shared";
 import { parseTimestamp } from "./utils";
 
-/**
- * Where the prompt lands: a project chosen from the recents, a folder chosen
- * from the picker — any folder will do, `resolveTarget` makes it a plan.video
- * project — or, until either is chosen, a fresh project under the
- * application folder.
- */
 type PromptTarget =
   | { kind: "new" }
   | { kind: "project"; project: ProjectInfo }
@@ -79,18 +73,15 @@ type PromptTarget =
 /** Cards that fit the one row the design gives recents, the new one included. */
 const RECENT_COLUMNS = 5;
 
-/** Recent projects the target menu offers before it gets unwieldy. */
 const MENU_PROJECTS = 8;
 
 
-/** The edits the placeholder cycles through, one whole line at a time. */
 const PROMPT_EXAMPLES = [
   msg("Turn this footage into a polished YouTube video. Add readable captions and an attention-grabbing graphic in the opening to give viewers a strong visual hook."),
   msg("Can you pull the best 30-second moment from https://youtu.be/MtQ0qxyf-Ds and make a vertical version for social?"),
   msg("Name three recurring locations and give one visual cue that distinguishes each. https://youtu.be/dQw4w9WgXcQ"),
 ];
 
-/** Milliseconds a line takes to fade in or out, and how long it stays readable. */
 const FADE_MS = 500;
 const HOLD_MS = 2400;
 const PROMPT_MAX_HEIGHT_PX = 200;
@@ -119,18 +110,13 @@ export function DashboardHomeView() {
     textarea.style.height = `${Math.min(textarea.scrollHeight, PROMPT_MAX_HEIGHT_PX)}px`;
   });
 
-  // Only worth animating while the field is empty — the placeholder is not on
-  // screen behind text the user has typed.
   const placeholder = createFadingPlaceholder(() => prompt().length === 0);
 
-  // The projects the app knows — created here, or opened from a folder —
-  // refetched whenever that list changes.
   const [projects, { refetch: refetchProjects }] = createResource(
     projectsRevision,
     async () => {
       const list = await listProjects();
-      // The covers the row will show, prepared before the cards paint, so
-      // they don't decode on screen.
+      // Prepared before the cards paint, so the covers don't decode on screen.
       const recent = [...list].sort(
         (a, b) => parseTimestamp(b.modifiedAt) - parseTimestamp(a.modifiedAt),
       );
@@ -138,9 +124,6 @@ export function DashboardHomeView() {
       return list;
     },
   );
-  // The model is shared with the chat panel and remembered across sessions;
-  // the picker is fed by the agent host's probes, so what it offers is what
-  // is installed and signed in.
   const model = createMemo(() => currentModel());
 
   const recentProjects = createMemo(() =>
@@ -169,20 +152,11 @@ export function DashboardHomeView() {
     }
   };
 
-  /**
-   * The folder the agent will work in. A picked folder is opened as a project,
-   * which scaffolds an entry into it when it is not one already — so any
-   * folder on disk can be the answer, not only a project we made. With none
-   * picked, a fresh project under the application folder.
-   */
   const resolveTarget = async (): Promise<ProjectInfo | null> => {
     const current = target();
-    // A project off the list is its record; the folder is looked at now.
     if (current.kind === "project") return openProjectFromList(current.project);
     if (current.kind === "folder") return openProjectFolder(current.dir);
 
-    // Waits for the roots to come back from the database, and asks for one
-    // when there is none to wait for.
     if (!(await ensureProjectsRoot())) return null;
     return createProject(generateProjectName());
   };
@@ -205,9 +179,8 @@ export function DashboardHomeView() {
         target: target().kind,
         attachments: paths.length,
       });
-      // The chat starts before the page switches: the host has the turn as
-      // soon as it answers, and the editor lands with the reply streaming.
-      // On failure the text survives as the project's draft (see startChat).
+      // The chat starts before the page switches, so the editor lands with the reply
+      // streaming. On failure the text survives as the project's draft (see startChat).
       await startChat({ project, text, attachments: paths, model: ref });
       setPrompt("");
       setAttachments([]);
@@ -227,13 +200,10 @@ export function DashboardHomeView() {
     setAttachments((current) => current.filter((entry) => entry.key !== key));
   };
 
-  // Enter sends, shift+enter breaks the line — and the dashboard's global
-  // shortcuts have no business reading what is typed here.
+  // The dashboard's global shortcuts must not read what is typed here.
   const handleKeyDown = (event: KeyboardEvent) => {
     event.stopPropagation();
 
-    // Tab takes the example that is on screen, which is only offered while the
-    // field is empty; with something typed, tab is still tab and moves focus.
     if (event.key === "Tab" && !event.shiftKey && prompt().length === 0) {
       event.preventDefault();
       setPrompt(placeholder.line());
@@ -246,8 +216,6 @@ export function DashboardHomeView() {
     void handleSubmit();
   };
 
-  // Anything outside a card clears the selection — the grid's gaps, the space
-  // around it, and the composer above it. A click on a card is that card's.
   const clearSelection = createBackgroundClickHandler(() =>
     setSelectedProject(null),
   );
@@ -319,9 +287,6 @@ export function DashboardHomeView() {
                 </DropdownMenuTrigger>
                 <DropdownMenuPortal>
                   <DropdownMenuContent class="w-60">
-                    {/* One action, not a new/open pair: the picker takes any
-                        folder, and a folder that is not a project yet becomes
-                        one when the prompt is sent. */}
                     <DropdownMenuGroup>
                       <DropdownMenuItem onSelect={handlePickFolder}>
                         <Icon name="plus-add" />
@@ -365,9 +330,7 @@ export function DashboardHomeView() {
               onDrop={drop.onDrop}
             >
               <Show when={attachments().length > 0}>
-                {/* The remove buttons overhang the tiles' corners, and a
-                    scrolling row clips at its edge — so the row pads for them
-                    and pulls itself back up by the same amount. */}
+                {/* The remove buttons overhang the tiles and a scrolling row clips at its edge, so the row pads and pulls back up. */}
                 <div class="-mt-2.5 flex w-full items-start gap-2 overflow-x-auto pt-2.5 pr-2.5">
                   <For each={attachments()}>
                     {(entry) => (
@@ -481,12 +444,6 @@ export function DashboardHomeView() {
   );
 }
 
-/**
- * The composer's placeholder, cycling through {@link PROMPT_EXAMPLES}: each
- * prompt fades in whole, however many lines it wraps to, holds long enough
- * to be read, fades out, and the next one follows. It pauses whenever `active` goes false, and for anyone who asked
- * the system for less motion it settles on the first line and stays there.
- */
 function createFadingPlaceholder(active: () => boolean) {
   const [index, setIndex] = createSignal(0);
   const line = () => t(PROMPT_EXAMPLES[index()]);
@@ -529,7 +486,6 @@ function createFadingPlaceholder(active: () => boolean) {
   return { line, visible };
 }
 
-/** The last segment of a path, for naming a folder the user picked. */
 function folderName(dir: string): string {
   return (
     dir

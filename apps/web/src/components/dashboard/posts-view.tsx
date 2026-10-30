@@ -2,10 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The calendar's List view. It stays on the calendar, so the sidebar and
-// header stay put. Posts are grouped by day, with sending, failed and past
-// due kept at the top, then what's coming up, then what came before.
-
 import { useSearchParams } from "@solidjs/router";
 import { For, Index, Match, Show, Switch, createEffect, createMemo, createSignal, on, onCleanup, onMount } from "solid-js";
 import { toast } from "somoto";
@@ -60,7 +56,6 @@ import { thumbnailFromFile } from "@/lib/post-thumbnail";
 import type { PostStatus, SelectedEvent, StoredEvent } from "@/components/calendar/types";
 import type { DashboardView, PostsTab } from "@/components/dashboard/types";
 
-/** `earlier` marks the first group of past days, which starts under its own heading. */
 type Group = { key: string; label: string; note?: string; earlier?: boolean; posts: StoredEvent[] };
 
 type ListRow = { key: string; post: StoredEvent; showDay: boolean };
@@ -120,7 +115,6 @@ function inTab(post: StoredEvent, tab: PostsTab) {
 
 const PLATFORM_SET = new Set<string>(PLATFORM_IDS);
 
-/** When the post goes out. All-day posts count from the start of their day. */
 function momentOf(post: StoredEvent): number {
   return atLocal(post.day, post.allDay ? "00:00" : post.start)?.getTime() ?? 0;
 }
@@ -141,13 +135,11 @@ function dayLabel(key: string) {
   return (key.slice(0, 4) === todayKey().slice(0, 4) ? DAY_FORMAT : DAY_YEAR_FORMAT)().format(dateFromKey(key));
 }
 
-/** A day short enough to sit under a time: Today, or Sat 3 Oct. */
 function shortDay(key: string) {
   const label = dayLabel(key);
   return label === fullDate(key) ? SHORT_DAY_FORMAT().format(dateFromKey(key)) : label;
 }
 
-/** The date in full, under a label like Today that leaves it out. */
 function fullDate(key: string) {
   return (key.slice(0, 4) === todayKey().slice(0, 4) ? DAY_FORMAT : DAY_YEAR_FORMAT)().format(dateFromKey(key));
 }
@@ -166,8 +158,6 @@ function byDay(posts: StoredEvent[], newestFirst: boolean): Group[] {
   return groups;
 }
 
-/** Sending, or sent somewhere and failed: those group on their own, above the rest. */
-/** Shows why an Undo couldn't put a post back, such as the Free plan's limit on scheduled posts. */
 const undo = (failure: string | undefined) => failure && toast.error(t(failure));
 
 const needsWatching = (post: StoredEvent) => isGoingOut(post) || hasFailed(post);
@@ -183,11 +173,7 @@ function matches(post: StoredEvent, query: string) {
   return words.every((word) => text.includes(word));
 }
 
-/**
- * Upcoming posts soonest first, then the earlier ones newest first. Posts
- * going out or waiting to, ones that failed, and scheduled ones whose time passed go on top:
- * scheduled posts don't go out on their own yet.
- */
+// Past-due scheduled posts sort to the top: they don't go out on their own yet.
 function groupPosts(posts: StoredEvent[], tab: PostsTab, now: number): Group[] {
   if (tab === "posted") return byDay(posts, true);
 
@@ -215,18 +201,11 @@ function groupPosts(posts: StoredEvent[], tab: PostsTab, now: number): Group[] {
   return groups;
 }
 
-/** A still of the post's video, at its cover when one was picked, or its picture. Read once a session. */
 const thumbnails = new Map<string, Promise<string | null>>();
-/** The ones read so far, so a row drawn again shows its picture at once rather than the placeholder first. */
 const readThumbnails = new Map<string, string | null>();
 
-/** The id YouTube gave the video, once it went up there. */
 const youtubeVideoId = (post: StoredEvent) => (post.deliveries?.youtube?.state === "sent" ? post.deliveries.youtube.publishId : undefined);
 
-/**
- * The post's picture: its own file when this browser has it, else the cover of
- * the project it came from, else YouTube's thumbnail of the uploaded video.
- */
 function thumbnailOf(post: StoredEvent): Promise<string | null> {
   if (post.thumbnail) return Promise.resolve(post.thumbnail);
   const key = thumbnailKey(post);
@@ -235,7 +214,6 @@ function thumbnailOf(post: StoredEvent): Promise<string | null> {
     found = (async () => {
       const file = await postFile(everyFileOf(post)[0] ?? post.id);
       if (file) {
-        // Kept on the post, so browsers without the video show it too.
         const made = await thumbnailFromFile(file, post.coverTime);
         if (made) setPostThumbnail(post.id, made);
         return made;
@@ -257,21 +235,14 @@ function thumbnailOf(post: StoredEvent): Promise<string | null> {
   return found;
 }
 
-/** What the post's picture is read from: when this changes, so may the picture. */
 function thumbnailKey(post: StoredEvent) {
   return post.thumbnail ?? `${everyFileOf(post)[0] ?? post.id}:${post.coverTime ?? ""}:${post.projectId ?? ""}:${youtubeVideoId(post) ?? ""}`;
 }
 
-/** The post's picture when it's already known, else undefined. */
 function knownThumbnail(post: StoredEvent) {
   return post.thumbnail || readThumbnails.get(thumbnailKey(post));
 }
 
-/**
- * Loads once the row scrolls near the screen, so a long list doesn't read
- * every video at once. One read before shows at once, and a post given
- * another picture, as by an edit on another device, shows the new one.
- */
 export function PostThumbnail(props: { post: StoredEvent }) {
   const [src, setSrc] = createSignal<string | null>(knownThumbnail(props.post) ?? null);
   let near = false;
@@ -317,7 +288,7 @@ export function PostThumbnail(props: { post: StoredEvent }) {
 const MONTH_FORMAT = localized((locale) => new Intl.DateTimeFormat(locale, { month: "long", year: "numeric", timeZone: "UTC" }));
 const MONTH_NAME = localized((locale) => new Intl.DateTimeFormat(locale, { month: "long", timeZone: "UTC" }));
 
-/** Whether a post's day is in a YYYY-MM month. A series sits on its first day, as its row does. */
+/** A series counts in the month of its first day, as its row does. */
 const inMonth = (post: StoredEvent, month: string) => post.day.startsWith(month);
 
 function passesFilter(post: StoredEvent) {
@@ -343,19 +314,17 @@ function toSections(groups: Group[]): ListSection[] {
 
 const sameKeys = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((key, i) => key === b[i]);
 
-/** The list's search, typed in the page header like the other pages' searches. */
 const [listQuery, setListQuery] = createSignal("");
 export { listQuery, setListQuery };
 
 export function CalendarPostList(props: {
   date: string;
-  /** One day picked in the small calendar: the list shows just that day. */
   picked?: string | null;
   onShowMonth?(): void;
 }) {
   const [, setParams] = useSearchParams();
   const query = listQuery;
-  // Leaving the list clears it, so it doesn't filter the list unseen next time.
+  // Cleared on leave so it doesn't filter the list unseen next time.
   onCleanup(() => setListQuery(""));
   const [selected, setSelected] = createSignal<SelectedEvent | null>(null);
   const [now, setNow] = createSignal(Date.now());
@@ -385,14 +354,8 @@ export function CalendarPostList(props: {
   );
 
   const visible = () => allPosts().filter(passesFilter);
-  /** The month the calendar's arrows are on, as YYYY-MM. */
   const month = () => props.date.slice(0, 7);
 
-  /**
-   * The month's posts, as the calendar's arrows pick it, or one day's when a
-   * day is picked. A search looks through every month, so a post can be found
-   * without knowing when it went out.
-   */
   const sections = createMemo(() => {
     const searching = !!query().trim();
     const day = props.picked;
@@ -401,10 +364,7 @@ export function CalendarPostList(props: {
     );
     return toSections(groupPosts(posts, statusFilter() === "posted" ? "posted" : "all", now()));
   });
-  // The list is drawn from keys, which stay the same when the posts are read
-  // again, as when the account's copy comes in. Only a row whose post changed
-  // is updated then, rather than every row being drawn again, which made the
-  // whole list blink.
+  // Keyed rows: when posts are read again only a changed row redraws; redrawing every row made the list blink.
   const sectionKeys = createMemo(() => sections().map((section) => section.key), undefined, { equals: sameKeys });
   const sectionsByKey = createMemo(() => new Map(sections().map((section) => [section.key, section])));
   const rowsByKey = createMemo(() => new Map(sections().flatMap((section) => section.rows.map((row) => [row.key, row]))));
@@ -421,7 +381,6 @@ export function CalendarPostList(props: {
   };
 
   const changeStatus = (post: StoredEvent, status: PostStatus) => {
-    // Its time gone by, a post scheduled as it is would only sit past due.
     if (status === "scheduled" && timeHasPassed(post)) {
       toast.error(t("Its time has passed"), { description: t("Pick a new time to schedule it."), action: { label: t("Pick a time"), onClick: () => edit(post, true) } });
       return;
@@ -470,7 +429,7 @@ export function CalendarPostList(props: {
 
   return (
     <div class="flex min-h-0 min-w-0 flex-1 flex-col">
-      {/* The column names stay put over the scrolling rows. Both keep room for a scrollbar, so the columns line up. */}
+      {/* Header and rows both keep room for a scrollbar, so the columns line up. */}
       <Show when={sections().length}>
         <div class="hidden shrink-0 overflow-hidden px-3 [scrollbar-gutter:stable] lg:block">
           <ColumnNames />
@@ -554,7 +513,6 @@ export function CalendarPostList(props: {
 export function DashboardPostsView(props: { tab: PostsTab }) {
   const [, setParams] = useSearchParams();
   const [query, setQuery] = createSignal("");
-  /** One day to show, `""` for every day. */
   const [day, setDay] = createSignal("");
   const [selected, setSelected] = createSignal<SelectedEvent | null>(null);
   const [now, setNow] = createSignal(Date.now());
@@ -587,7 +545,6 @@ export function DashboardPostsView(props: { tab: PostsTab }) {
     const posts = allPosts();
     return Object.fromEntries(TABS.map((tab) => [tab.id, posts.filter((post) => inTab(post, tab.id)).length])) as Record<PostsTab, number>;
   });
-  /** Failed only has a tab while something failed, or while it is open. */
   const tabs = () => TABS.filter((tab) => tab.id !== "failed" || counts().failed > 0 || props.tab === "failed");
   const ofTab = () => allPosts().filter((post) => inTab(post, props.tab));
   const shown = createMemo(() => ofTab().filter((post) => matches(post, query()) && (!day() || post.day === day())));
@@ -606,7 +563,6 @@ export function DashboardPostsView(props: { tab: PostsTab }) {
   };
 
   const changeStatus = (post: StoredEvent, status: PostStatus) => {
-    // Its time gone by, a post scheduled as it is would only sit past due.
     if (status === "scheduled" && timeHasPassed(post)) {
       toast.error(t("Its time has passed"), { description: t("Pick a new time to schedule it."), action: { label: t("Pick a time"), onClick: () => edit(post, true) } });
       return;
@@ -787,12 +743,10 @@ export function DashboardPostsView(props: { tab: PostsTab }) {
   );
 }
 
-/** A day, or one of the groups kept on top. Stays in view while its posts scroll under it. */
 function SectionHeader(props: { id: string; label: string; note?: string; earlier?: boolean }) {
   return (
     <>
       <Show when={props.earlier}>
-        {/* A rule between what's coming and what's gone; the days under it say the rest. */}
         <div class="mt-4 border-t border-border-strong" />
       </Show>
       {/* The page's own colour: no band of its own, yet rows still pass under it when it sticks. */}
@@ -835,11 +789,6 @@ const STATUS_DOT: Record<StatusTone, string> = {
   draft: "bg-muted-foreground/60",
 };
 
-/**
- * Where a post goes out from, in a column of its own on wide screens: the
- * accounts' pictures, and the first one's handle with how many
- * more. A network with no account picked shows its name instead.
- */
 function PostAccounts(props: { post: StoredEvent; platforms: PlatformId[] }) {
   const accounts = () =>
     props.platforms.flatMap((platform) => {
@@ -856,7 +805,7 @@ function PostAccounts(props: { post: StoredEvent; platforms: PlatformId[] }) {
           {/* By place, so a refresh of the posts keeps the pictures rather than loading them again. */}
           <Index each={accounts().slice(0, 3)}>{(item) => <AccountAvatar account={item().account} class="size-5" compact />}</Index>
         </span>
-        {/* The network's badge hangs below the picture, so the words sit a pixel lower to look centred beside it. */}
+        {/* The badge hangs below the picture, so the words sit a pixel lower to look centred. */}
         <span class="min-w-0 translate-y-px truncate text-xs text-foreground">{accounts()[0]!.label}</span>
         <Show when={more() > 0}>
           <span class="shrink-0 translate-y-px text-xs text-muted-foreground">+{more()}</span>
@@ -866,14 +815,8 @@ function PostAccounts(props: { post: StoredEvent; platforms: PlatformId[] }) {
   );
 }
 
-/**
- * On wide screens a row is a table's row: the time, the post, where it goes
- * out from and its status, each with a share of the width, so the space is
- * spread between them instead of left as one gap before the status.
- */
 const ROW_COLUMNS = "lg:grid lg:grid-cols-[4.5rem_minmax(0,5fr)_minmax(0,3fr)_minmax(6rem,2fr)_2rem] lg:gap-x-4";
 
-/** The columns' names over the list, on wide screens. */
 function ColumnNames() {
   return (
     <div class={`hidden h-9 items-end px-3 pb-1.5 text-xs text-muted-foreground ${ROW_COLUMNS}`}>
@@ -885,7 +828,6 @@ function ColumnNames() {
   );
 }
 
-/** A sent post's thread, in a line: the follow-up that failed and why, when the next goes, or how many went out. */
 function threadLine(status: ThreadStatus): string {
   if (status.state === "failed") return `${t("Follow-up {number} didn't go out on {network}.", { number: status.step, network: status.network })} ${t(status.error)}`.trim();
   if (status.state === "waiting") return t("Thread · next follow-up {when}", { when: formatWhen(status.at) });
@@ -898,9 +840,7 @@ function PostRow(props: {
   pastDue: boolean;
   onOpen(event: MouseEvent): void;
   onSend(): void;
-  /** Billing's plans, for a run the Free plan held back. */
   onUpgrade(): void;
-  /** Opens it in New post: over this post, or as a copy. */
   onEdit(replace: boolean): void;
   onStatus(status: PostStatus): void;
   onCalendar(): void;
@@ -909,13 +849,10 @@ function PostRow(props: {
 }) {
   const platforms = () => props.post.platforms.filter((id): id is PlatformId => PLATFORM_SET.has(id));
   const firstLine = () => props.post.description?.split("\n").map((line) => line.trim()).find(Boolean);
-  /** Left out when it only repeats the title, as it does when the title came from it. */
   const caption = () => (firstLine() === props.post.title.trim() ? undefined : firstLine());
   const time = () => (props.post.allDay ? t("All day") : props.post.start);
   const sending = () => isGoingOut(props.post);
-  /** Why it's held for now, when nothing it's going to is on its way yet, such as today's YouTube uploads being used. */
   const waiting = () => (sending() ? waitingOf(props.post) : undefined);
-  /** The networks it is going out to right now, by name. */
   const sendingTo = () =>
     deliveriesOf(props.post)
       .filter(({ platform, delivery }) => delivery.state === "sending" && PLATFORM_SET.has(platform))
@@ -925,12 +862,9 @@ function PostRow(props: {
   const sent = () => deliveriesOf(props.post).some(({ delivery }) => delivery.state === "sent");
   const inInbox = () => !!props.post.tiktok?.inbox && sent() && props.post.status !== "posted" && !sending() && !failure();
   const sendable = () => canPublish(props.post) && !props.post.recurrence && props.post.status !== "posted" && !sent() && !sending();
-  /** A posted post stays as the record of what went out, so it opens as a copy. */
   const copies = () => props.post.status === "posted";
-  /** Not on the account yet, or its file not uploaded: it shows why rather than "Scheduled". */
   const held = () => (sending() || failure() ? null : heldBack(props.post));
   watchThread(() => props.post);
-  /** How its thread is going, once the post is out. */
   const thread = () => (sending() || failure() ? null : threadStatus(props.post));
   const status = () =>
     waiting() ? t("Waiting") : sending() ? t("Sending") : failure() ? t("Failed") : held() ? t(held()!.label) : inInbox() ? t("In inbox") : props.pastDue ? t("Past due") : statusLabel(props.post.status);
@@ -1011,7 +945,6 @@ function PostRow(props: {
           )}
         </Show>
       </div>
-      {/* The networks' logos where there's little room; the accounts themselves where there's plenty. */}
       <div class="pointer-events-none hidden w-24 shrink-0 justify-end sm:flex lg:hidden">
         <Show when={platforms().length}>
           <PlatformLogos ids={platforms()} max={4} class="gap-1" logoClass="size-5" compact />

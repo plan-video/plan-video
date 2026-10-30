@@ -2,13 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The Assistant from any dashboard page: a button in the bottom-right corner
-// (or ⌘J) that opens the chat in a panel above it, so a post can be asked for
-// while the calendar stays in view. It is the same chat as the Assistant page
-// (one store, lib/agent-chat), so the expand button carries on there. The
-// panel stays open until closed, and opens by itself when the Assistant waits
-// for a yes.
-
 import Maximize2Lucide from "lucide-solid/icons/maximize-2";
 import { For, Show, createEffect, createSignal, on, onCleanup, onMount, type JSX } from "solid-js";
 
@@ -23,7 +16,6 @@ import { t } from "@/lib/i18n";
 
 const HEADER_BUTTON =
   "grid size-7 place-items-center rounded-md text-(--plane-text-tertiary) outline-none press hover:bg-(--plane-layer-transparent-hover) hover:text-(--plane-text-primary) focus-ring disabled:pointer-events-none disabled:opacity-40 data-expanded:bg-(--plane-layer-transparent-active) data-expanded:text-(--plane-text-primary)";
-/** Chats the panel's list offers; the page has the rest. */
 const RECENT_CHATS = 8;
 
 const [open, setOpen] = createSignal(false);
@@ -71,9 +63,8 @@ function RecentChats(props: { onAll(): void }) {
 }
 
 export function AssistantLauncher(props: {
-  /** The dashboard page in view, by its English name, so "this" and "here" can be read against it. */
+  /** By its English name, so "this" and "here" can be read against it. */
   page: string;
-  /** On the Assistant page itself the corner stays empty. */
   hidden: boolean;
   onExpand(): void;
 }) {
@@ -81,7 +72,6 @@ export function AssistantLauncher(props: {
   /** Drawn once first opened, then kept, so a half-written message survives closing. */
   const [drawn, setDrawn] = createSignal(false);
   const shown = () => open() && !props.hidden;
-  /** The button's name shows on hover only while the panel is closed. */
   const [tip, setTip] = createSignal(false);
   /** From a press until the pointer leaves the button, the name stays away: a click inside the open
    * delay leaves Kobalte's timer running, and the press shrink can slip the button's edge from under the
@@ -108,14 +98,12 @@ export function AssistantLauncher(props: {
     ),
   );
 
-  // Opening puts the cursor in the box.
   createEffect(
     on(shown, (now) => {
       if (now) queueMicrotask(() => panel?.querySelector<HTMLTextAreaElement>("textarea")?.focus());
     }),
   );
 
-  // ⌘J opens and closes it from any page, even from a field, as ⌘K does search.
   onMount(() => {
     const onShortcut = (event: KeyboardEvent) => {
       if (!(event.metaKey || event.ctrlKey) || event.shiftKey || event.altKey || event.key.toLowerCase() !== "j") return;
@@ -137,7 +125,6 @@ export function AssistantLauncher(props: {
     setOpen(false);
   };
 
-  /** Shown on the closed button: working, or waiting for the person. */
   const status = () => (agentChat.confirm ? "waiting" : agentChat.busy ? "working" : null);
 
   return (

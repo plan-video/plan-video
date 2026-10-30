@@ -11,9 +11,8 @@ import type { CalendarView } from "./types";
 export type CalendarNavigation = {
   date(): string;
   go(date: string, view?: CalendarView): void;
-  /** The day the list is narrowed to, picked in the small calendar. Null shows the whole month. */
+  /** Null shows the whole month. */
   picked(): string | null;
-  /** Narrows the list to one day; picking it again shows the month. */
   pick(day: string): void;
   nowMinutes(): number;
   today(): string;
@@ -26,7 +25,7 @@ function first(value: string | string[] | undefined) {
 
 const POST_LISTS = new Set(["posts", "scheduled", "posted", "drafts", "failed"]);
 
-/** The shown date and view live in the URL, next to `?dashboard=calendar`. The URL leaves out the view picked in Preferences. */
+/** The URL leaves out the view picked in Preferences. */
 export function useCalendarNavigation(): CalendarNavigation {
   const [params, setParams] = useSearchParams();
   const [now, setNow] = createSignal(new Date());
@@ -56,7 +55,6 @@ export function useCalendarNavigation(): CalendarNavigation {
         dashboard: "calendar",
         date: next === today() ? undefined : next,
         view: nextView === defaultCalendarView() ? undefined : nextView,
-        // Moving anywhere else shows the whole month again.
         on,
       },
       { replace: true },

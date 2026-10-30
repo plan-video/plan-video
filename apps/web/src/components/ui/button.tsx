@@ -4,9 +4,8 @@
 
 // Copied from https://shadcn-solid.netlify.app/docs/components/button
 //
-// The --button-* shadows and ghost colours are set only by the dashboard theme,
-// where they give this button the same border, lift and type as PlaneButton.
-// Unset, as in the editor, they fall away and the button looks as it always has.
+// The --button-* shadows and ghost colours come only from the dashboard theme;
+// unset (the editor) they fall away.
 
 import type { ComponentProps, ValidComponent } from "solid-js"
 import { splitProps } from "solid-js"

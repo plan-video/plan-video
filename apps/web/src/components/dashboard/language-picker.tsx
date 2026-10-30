@@ -8,7 +8,6 @@ import { Icon } from "@/components/dashboard/dashboard-icon";
 import { Popover, PopoverContent, PopoverPortal, PopoverTrigger } from "@/components/ui/popover";
 import { LANGUAGES, language, setLanguage, t, type Language } from "@/lib/i18n";
 
-/** The app's language as a button, named in itself; the list of languages opens from it. The site's footer picks the same. */
 export function LanguagePicker() {
   const [open, setOpen] = createSignal(false);
   let list: HTMLDivElement | undefined;

@@ -2,10 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The tool row under a post's caption: emoji, bold and italic, hashtag sets,
-// the vault and the signature. Words go in where the cursor is, the way typing
-// does, so ⌘Z takes them back out.
-
 import { useSearchParams } from "@solidjs/router";
 import { Show } from "solid-js";
 
@@ -20,7 +16,6 @@ import { vaultSignature, type VaultItem } from "@/lib/vault";
 const TOOL =
   "grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground press hover:bg-accent hover:text-foreground focus-ring data-[expanded]:bg-accent data-[expanded]:text-foreground";
 
-/** Puts text in place of the field's selection, as typing it would. */
 function typeInto(field: HTMLTextAreaElement, text: string, select = false) {
   const start = field.selectionStart;
   field.focus();
@@ -32,7 +27,6 @@ function typeInto(field: HTMLTextAreaElement, text: string, select = false) {
   if (select) field.setSelectionRange(start, start + text.length);
 }
 
-/** Styles the selection, or the word the cursor is in. */
 function styleSelection(field: HTMLTextAreaElement, style: TextStyle) {
   let { selectionStart: start, selectionEnd: end } = field;
   const text = field.value;
@@ -49,7 +43,6 @@ function styleSelection(field: HTMLTextAreaElement, style: TextStyle) {
 /** On a Mac, Ctrl+B and Ctrl+I move the cursor, so only ⌘ styles. */
 const MAC = /Mac|iPhone|iPad/.test(navigator.platform);
 
-/** ⌘B and ⌘I in a caption, Ctrl+B and Ctrl+I elsewhere. Returns whether the key was one of them. */
 export function captionShortcut(event: KeyboardEvent & { currentTarget: HTMLTextAreaElement }): boolean {
   if (!(MAC ? event.metaKey : event.ctrlKey) || event.shiftKey || event.altKey) return false;
   const style = ({ b: "bold", i: "italic" } as const)[event.key.toLowerCase()];

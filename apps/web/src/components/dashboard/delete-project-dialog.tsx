@@ -25,27 +25,16 @@ type DeleteProjectDialogProps = {
   project?: ProjectInfo | null;
   /** Several projects being deleted together. Wins over `project` when set. */
   projects?: ProjectInfo[] | null;
-  /** Asked for whenever the dialog should close, confirmed or not. */
   onClose(): void;
-  /** The project is in the Trash — for the list that showed it to catch up. */
   onDeleted(project: ProjectInfo): void;
-  /** Delete from the trash for good, instead of moving a project into it. */
   permanent?: boolean;
-  /** Empty-trash wording; only with `permanent` for the Empty trash control. */
+  /** Only with `permanent`, for the Empty trash control. */
   emptyTrash?: boolean;
 };
 
-/**
- * The confirmation a project's deletion goes through. The view holds which
- * projects are pending and renders this on them; the delete itself, and being
- * unclosable while it runs, are the dialog's own.
- */
 export function DeleteProjectDialog(props: DeleteProjectDialogProps) {
   const [deleting, setDeleting] = createSignal(false);
-  // Kept after the view clears its pending list, so the close animation
-  // still names what was just confirmed. While a delete is pending, the
-  // current list is what the dialog says, so the wording does not catch up
-  // a moment later.
+  // Kept after the view clears its pending list, so the close animation still names what was confirmed.
   const [shown, setShown] = createSignal<ProjectInfo[]>([]);
   const [shownEmptyTrash, setShownEmptyTrash] = createSignal(false);
 
@@ -67,8 +56,7 @@ export function DeleteProjectDialog(props: DeleteProjectDialogProps) {
     }
   });
 
-  // While open, the live prop wins. After close, sticky naming covers the
-  // exit animation the same way `shown` covers the project list.
+  // After close, the kept value covers the exit animation, as `shown` does for the list.
   const emptyTrash = () => (pending().length > 0 ? !!props.emptyTrash : shownEmptyTrash());
 
   const confirm = async () => {

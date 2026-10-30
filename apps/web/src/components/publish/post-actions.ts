@@ -15,20 +15,18 @@ import { useAuth } from "@/context/auth";
 import { askForAccount } from "@/lib/guest";
 import { t } from "@/lib/i18n";
 
-/** What Posts and the calendar do with a saved post. */
 export function usePostActions() {
   const auth = useAuth();
   const [, setParams] = useSearchParams();
 
-  /** Opens the post in New post. `replace` saves it over this one; without it, it's a copy. */
   const edit = (post: StoredEvent, replace: boolean) => {
     handOffPost(post, replace);
     setParams({ dashboard: "new-post", date: undefined, view: undefined });
   };
 
-  /** Sends it now. A post meant for later moves to now first, so it sits where it went out. */
+  /** A post meant for later moves to now first, so it sits where it went out. */
   const send = async (post: StoredEvent) => {
-    // Nothing goes out from guest mode's demo: the guest is asked to make an account.
+    // Nothing goes out from guest mode's demo.
     if (auth.isGuest()) return askForAccount({ reason: "post" });
     const at = atLocal(post.day, post.allDay ? "00:00" : post.start);
     if (!post.recurrence && !hasFailed(post) && at && at.getTime() > Date.now()) {
@@ -47,7 +45,6 @@ export function usePostActions() {
 
   const openCalendar = (post: StoredEvent) => setParams({ dashboard: "calendar", date: post.day, view: undefined });
 
-  /** Billing's plans, for a run the Free plan held back. */
   const upgrade = () => setParams({ dashboard: "billing", date: undefined, view: undefined });
 
   return { edit, send, openCalendar, upgrade };

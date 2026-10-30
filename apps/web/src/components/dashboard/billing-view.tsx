@@ -47,13 +47,11 @@ export function DashboardBillingView() {
   const activeTab = (): BillingTab => (auth.hasStripeCustomer() ? tab() : "plans");
 
   // Back from Stripe: read the new plan now rather than waiting for its webhook.
-  // user_data then changes, and the app follows it.
   const [params] = useSearchParams();
   onMount(() => {
     if (params.checkout === "success") void syncPlan().catch(() => undefined);
   });
 
-  // Each tab is a page of its own, so it comes in like one.
   let body: HTMLDivElement | undefined;
   createEffect(on(activeTab, () => playEnter(body), { defer: true }));
 

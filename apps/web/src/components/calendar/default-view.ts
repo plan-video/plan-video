@@ -22,7 +22,6 @@ function storedView(): CalendarView {
 
 const [view, setView] = createSignal<CalendarView>(storedView());
 
-/** The view the calendar opens in on this device when a link doesn't name one. Month until the user picks another. */
 export const defaultCalendarView = view;
 
 export function setDefaultCalendarView(next: CalendarView) {

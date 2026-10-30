@@ -2,10 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Posts set up once and started from again: where they go, the caption, the
-// settings each platform keeps, and when they go out. Made here or with Save
-// as template in New post, and picked from the Templates menu there.
-
 import { useSearchParams } from "@solidjs/router";
 import { For, Show, createEffect, createSignal, onCleanup, onMount } from "solid-js";
 import { createStore, reconcile, unwrap } from "solid-js/store";
@@ -59,12 +55,10 @@ const WHEN_OPTIONS: { id: TemplateWhen; label: string }[] = [
   { id: "queue", label: msg("Queue slot") },
 ];
 
-/** "every week on Monday": a repeat as it reads mid-sentence. */
 function repeatLabel(repeat: string): string | null {
   return repeat ? cadencePhrase(repeat, localDateKey(new Date())) : null;
 }
 
-/** When a post from the template goes out, in a few words. */
 function whenLabel(template: Pick<PostTemplate, "when" | "time" | "repeat">): string {
   if (template.when === "queue") return t("Next queue slot");
   if (template.when === "none") return t("No set time");
@@ -131,7 +125,6 @@ export function DashboardTemplatesView() {
   return (
     <div class="relative flex min-h-0 flex-1 flex-col">
       <DashboardPageHeader>
-        {/* With none yet, the picture below says what they're for and offers the same New. */}
         <Show when={postTemplates().length}>
           <DashboardFilterCount shown={results().length} total={postTemplates().length} />
           <DashboardHeaderSearch value={query()} placeholder={t("Search")} label={t("Search templates")} onInput={setQuery} class="w-48" />

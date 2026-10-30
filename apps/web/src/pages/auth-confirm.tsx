@@ -14,24 +14,20 @@ import { detachedClient, supabase } from '@/lib/supabase';
 
 const OTP_TYPES = new Set<EmailOtpType>(['signup', 'invite', 'magiclink', 'recovery', 'email_change', 'email']);
 
-/** The link opens another account than this browser expects: whose, and who is signed in here now, if anyone. */
 type Asking = { email: string; current: string | null; session: Session; client: NonNullable<ReturnType<typeof detachedClient>> };
 
 export function AuthConfirmPage() {
   const navigate = useNavigate();
-  // English, or Supabase's own words, shown through t().
   const [message, setMessage] = createSignal<string>(msg('Signing you in...'));
   const [asking, setAsking] = createSignal<Asking | null>(null);
   const [busy, setBusy] = createSignal(false);
   const params = new URLSearchParams(window.location.search);
 
   const goOn = () => {
-    // An invite email's link opens the invite once its account is made.
     const invite = params.get('invite');
     navigate(invite && /^[0-9a-f-]{36}$/i.test(invite) ? `${DASHBOARD_PATH}?invite=${invite}` : (takeReturn() ?? DASHBOARD_PATH), { replace: true });
   };
 
-  /** Signs this tab in with the link's session. */
   const signIn = async (session: Session) => {
     const { error } = await supabase!.auth.setSession({ access_token: session.access_token, refresh_token: session.refresh_token });
     if (error) {

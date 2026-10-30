@@ -2,11 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Asking the signed-in person before an agent's call goes ahead (see
-// lib/agent-confirm): the words both the Agent tab's card and this dialog
-// use, and the dialog for agents connected at plan.video/mcp, which can open
-// over any page of the tab. It waits for Allow or Don't allow, or until the
-// call has to answer, and a call nobody answered doesn't run.
+// A call nobody answered doesn't run.
 
 import { For, Show, createSignal } from "solid-js";
 import { TIKTOK_BRANDED_POLICY, TIKTOK_MUSIC_USAGE } from "@plan.video/dapi";
@@ -35,10 +31,8 @@ const TITLES = {
   delete_post: msg("Delete this post?"),
 } as const;
 
-/** What the person is asked, as a question naming the call. */
 export const confirmTitle = (request: ConfirmRequest) => t(TITLES[request.tool]);
 
-/** Why it asks: what happens once they say yes. */
 export function confirmDetail(request: ConfirmRequest): string {
   if (request.tool === "publish_post") return t("It goes out right away, and can't be taken back from here.");
   if (request.tool === "delete_post") return t("It comes off your calendar for good.");
@@ -47,7 +41,6 @@ export function confirmDetail(request: ConfirmRequest): string {
   return t("It goes out on its own at the time shown.");
 }
 
-/** The yes and no in the Agent tab, where the agent is the person's own. */
 export function confirmButtons(request: ConfirmRequest): { yes: string; no: string } {
   if (request.tool === "publish_post") return { yes: t("Publish"), no: t("Don't publish") };
   if (request.tool === "delete_post") return { yes: t("Delete"), no: t("Keep it") };
@@ -59,7 +52,6 @@ const platformName = (id: string) => ((PLATFORM_IDS as readonly string[]).includ
 
 const dayFormat = localized((locale) => new Intl.DateTimeFormat(locale, { timeZone: "UTC", weekday: "short", day: "numeric", month: "short" }), "en-GB");
 
-/** Where and when it goes out, on one line: "TikTok @name, Bluesky @name, Fri 17 Oct, 14:05". */
 export function confirmWhere(request: ConfirmRequest): string {
   const channels = request.channels.map((account) => {
     const name = platformName(account.platform);
@@ -73,7 +65,6 @@ export function confirmWhere(request: ConfirmRequest): string {
 const TIKTOK_PRIVACY: Record<string, string> = { public: msg("Everyone"), friends: msg("Friends"), followers: msg("Followers"), private: msg("Only me") };
 const YOUTUBE_PRIVACY: Record<string, string> = { public: msg("Public"), unlisted: msg("Unlisted"), private: msg("Private") };
 
-/** The rest of what goes out, one labelled line each: link, files, repeat, YouTube and TikTok choices, and words a network gets of its own. */
 export function confirmFacts(request: ConfirmRequest): { label: string; value: string }[] {
   const details = request.details;
   if (!details) return [];
@@ -104,7 +95,6 @@ export function confirmFacts(request: ConfirmRequest): { label: string; value: s
   return facts;
 }
 
-/** The post as it would go out, all of it: where and when, the caption, and every fact besides. Nothing is cut short. */
 export function ConfirmPost(props: { request: ConfirmRequest; class?: string; muted: string; text: string }) {
   return (
     <div class={props.class}>
@@ -128,7 +118,7 @@ export function ConfirmPost(props: { request: ConfirmRequest; class?: string; mu
   );
 }
 
-/** TikTok's terms, as New post shows them above Post. Saying yes to a profile post accepts them. */
+/** Saying yes to a profile post accepts TikTok's terms. */
 export function TikTokConsent(props: { branded: boolean; class?: string }) {
   const link = (href: string) => (text: string) => (
     <a class="rounded-sm underline underline-offset-2 outline-none hover:text-foreground focus-ring" href={href} target="_blank" rel="noreferrer">
@@ -147,15 +137,12 @@ export function TikTokConsent(props: { branded: boolean; class?: string }) {
   );
 }
 
-// --- the connector's dialog -----------------------------------------------
-
 type Pending = { request: ConfirmRequest; answer: (yes: boolean) => void };
 
 const [pending, setPending] = createSignal<Pending | null>(null);
-/** The last request, so the dialog keeps its words while it closes. */
+/** Kept so the dialog keeps its words while it closes. */
 const [shown, setShown] = createSignal<ConfirmRequest | null>(null);
 
-/** While the tab is in the background: a notification when they're already allowed, else the tab's title says it waits. Returns what takes it away. */
 function callAttention(request: ConfirmRequest): () => void {
   if (document.visibilityState !== "hidden") return () => {};
   if (typeof Notification !== "undefined" && Notification.permission === "granted") {
@@ -186,11 +173,7 @@ function callAttention(request: ConfirmRequest): () => void {
   };
 }
 
-/**
- * Shows `request` and resolves to the person's answer: Allow is true; Don't
- * allow, closing the dialog, or no answer within `waitMs` is false. A newer
- * request answers the one before it with a no.
- */
+/** No answer within `waitMs` is false. A newer request answers the one before it with a no. */
 export function askInTab(request: ConfirmRequest, waitMs: number): Promise<boolean> {
   if (waitMs <= 0) return Promise.resolve(false);
   pending()?.answer(false);
@@ -211,7 +194,6 @@ export function askInTab(request: ConfirmRequest, waitMs: number): Promise<boole
   });
 }
 
-/** Mounted once for signed-in tabs that answer the connector. Draws nothing until a call asks. */
 export function AgentConfirmDialog() {
   const deleting = () => shown()?.tool === "delete_post";
   return (

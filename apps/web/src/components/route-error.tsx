@@ -13,7 +13,7 @@ const RELOADED_KEY = "route-error.reloaded";
 
 let reloading = false;
 
-/** Whether the page is being reloaded after a module failed to load: errors from here on are the old page going away. */
+/** Errors after this are the old page going away. */
 export function isReloadingAfterModuleError() {
   return reloading;
 }
@@ -25,10 +25,8 @@ export function isModuleLoadError(error: unknown) {
 }
 
 /**
- * A browser remembers a failed module fetch for as long as the page lives, so
- * one hiccup (the dev server restarting, a deploy replacing the files) would
- * break that page until a reload. Reload once on our own; a second failure in
- * a row is real, and is shown.
+ * Browsers remember a failed module fetch for the page's life, so one hiccup (a
+ * deploy replacing files) breaks it until a reload. Reload once; a second failure is shown.
  */
 export function reloadOnceAfterModuleError(target?: string): boolean {
   try {
@@ -50,16 +48,14 @@ export function reloadOnceAfterModuleError(target?: string): boolean {
   return true;
 }
 
-/** Called once the app has rendered a page, so a later hiccup may reload again. */
 export function clearModuleReloadMark() {
   try {
     sessionStorage.removeItem(RELOADED_KEY);
   } catch {
-    // Nothing to clear without storage.
+    // Storage can be off; there is nothing to clear then.
   }
 }
 
-/** What a page shows when it throws, instead of an empty window. */
 export function RouteError(props: { error: unknown; reset(): void }) {
   const message = () => (props.error instanceof Error ? props.error.message : String(props.error));
   // Where the user was going. A failed page load can happen before the address

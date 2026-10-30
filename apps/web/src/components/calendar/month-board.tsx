@@ -12,7 +12,6 @@ import { MIN_CHIP_HEIGHT, chipStyle, cn, formatDay, formatDayParts, getWeekDays 
 import type { PostHover } from "./post-hover-card";
 import type { CalendarEvent, SelectedEvent } from "./types";
 
-/** Monday-first. The long name is used when the column can hold “Wednesday”. */
 const WEEKDAYS = localized(() =>
   getWeekDays("2024-01-01").map((day) => {
     const parts = formatDayParts(day);
@@ -20,15 +19,12 @@ const WEEKDAYS = localized(() =>
   }),
 );
 
-/** A cell's own chrome, in pixels: the day's number, the padding, and the border under it. */
 const CELL_CHROME = 30 + 8 + 1;
 const CHIP_GAP = 2;
 const MORE_HEIGHT = 24;
-/** The rows' least height, from the grid's `auto-rows`, until the grid has been measured. */
 const MIN_CELL_HEIGHT = 136;
 const ROWS = 6;
 
-/** How many of a day's `count` posts a cell this tall shows, keeping room for “+N more” when not all fit. */
 function chipsShown(cellHeight: number, count: number) {
   const room = cellHeight - CELL_CHROME;
   const step = MIN_CHIP_HEIGHT + CHIP_GAP;
@@ -47,7 +43,6 @@ type MonthBoardProps = {
   nav: CalendarNavigation;
   onCreate(day: string, time?: string): void;
   onSelect(selected: SelectedEvent): void;
-  /** Shows a post's preview while the mouse rests on it. */
   hover?: PostHover;
 };
 
@@ -197,7 +192,6 @@ export function MonthBoard(props: MonthBoardProps) {
                       </button>
                     </Show>
                   </div>
-                  {/* The whole day, on a card over the cell, so the rest of its posts don't spill into the next row. */}
                   <Show when={expanded()}>
                     <div
                       data-month-open

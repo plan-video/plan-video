@@ -13,12 +13,6 @@ type RemoveButtonProps = {
   onClick: JSX.EventHandlerUnion<HTMLButtonElement, MouseEvent>;
 };
 
-/**
- * The UI library's "Remove Button": a 20px disc with the small close mark,
- * on the canvas colour with a hairline border, that fills and firms up its
- * border on hover. Where it sits, and whether it waits for a hover on its
- * parent to show, is the caller's — pass that through `class`.
- */
 export function RemoveButton(props: RemoveButtonProps) {
   return (
     <button

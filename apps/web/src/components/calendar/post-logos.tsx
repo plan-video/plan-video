@@ -11,7 +11,6 @@ import { cn } from "./utils";
 
 const KNOWN = new Set<string>(SOCIAL_PLATFORMS.map((platform) => platform.id));
 
-/** The logos of the networks a post goes to, then how many more there are. */
 export function PostLogos(props: { platforms: readonly string[]; max?: number; class?: string; size?: "sm" | "md" }) {
   const ids = () => props.platforms.filter((id): id is PlatformId => KNOWN.has(id));
   const shown = () => ids().slice(0, props.max ?? ids().length);

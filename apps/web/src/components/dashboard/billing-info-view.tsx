@@ -98,11 +98,8 @@ function DashboardBillingCurrentPlan(props: DashboardBillingCurrentPlanProps) {
 type DashboardBillingInfoRowProps = {
   title: string;
   actionLabel: string;
-  /** Where in Stripe's portal the button opens. */
   flow?: "payment";
-  /** Still reading the details: grey lines stand in for them. */
   loading: boolean;
-  /** How many lines the details usually take. */
   lines?: number;
   children: JSX.Element;
 };
@@ -207,12 +204,10 @@ type DashboardBillingInfoViewProps = {
 export function DashboardBillingInfoView(props: DashboardBillingInfoViewProps) {
   const auth = useAuth();
 
-  // One read for the plan, the social accounts and the details, so a change in one shows in all.
   const [account, { refetch }] = createResource(
     () => (auth.isPro() ? auth.accessLevel() : undefined),
     () => billingAccount().catch(() => null),
   );
-  // Read only once it's in, so the rows draw at once rather than the whole page waiting.
   const loaded = () => account.state === "ready" || account.state === "refreshing";
   const summary = () => (loaded() ? account.latest?.summary ?? undefined : undefined);
   const info = (): BillingInfo | undefined => (loaded() ? account.latest?.info ?? undefined : undefined);

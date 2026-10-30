@@ -6,7 +6,6 @@ import { Navigate } from "@solidjs/router";
 
 import { handOffConnection } from "@/lib/connect-return";
 
-/** Where Bluesky sends its login back. Connections, or the connect link it was started from, finishes it, so this page goes straight there. */
 export function BlueskyCallbackPage() {
   const href = handOffConnection("bluesky", window.location.search);
   return <Navigate href={href} />;

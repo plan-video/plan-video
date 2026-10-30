@@ -84,15 +84,12 @@ export function DashboardTrashView() {
   };
 
   const clearSelection = () => {
-    // The menu (and the dialog) close under the pointer, and that click lands
-    // on the grid. The confirmation is already open, so it is not a deselect.
+    // The closing menu's click lands on the grid; the confirmation is already open, so it isn't a deselect.
     if (pendingErase()) return;
     if (selected().size === 0 && anchor() === null) return;
     replaceSelection([], null);
   };
 
-  // Shift extends from the card that was clicked last, cmd/ctrl toggles one
-  // card, and a plain click keeps only the card under the pointer.
   const selectFromPointer = (dir: string, event?: MouseEvent) => {
     if (pendingErase()) return;
     if (event?.shiftKey) {
@@ -119,9 +116,6 @@ export function DashboardTrashView() {
     replaceSelection([dir], dir);
   };
 
-  // Right-click keeps a selection that already includes the card, so the
-  // menu's delete covers all of it. A card outside the selection becomes
-  // the selection.
   const selectFromMenu = (dir: string) => {
     if (selected().has(dir)) return;
     replaceSelection([dir], dir);
@@ -146,8 +140,6 @@ export function DashboardTrashView() {
     onRevert: (previous) => replaceSelection(previous, anchorBeforeDrag),
   });
 
-  // A search hides cards the selection was made of; start over rather than
-  // keep a selection the grid can no longer show.
   createEffect(on(normalizedSearch, () => clearSelection(), { defer: true }));
 
   const requestErase = (dir?: string) => {
@@ -173,8 +165,7 @@ export function DashboardTrashView() {
   };
 
   const restoreSelection = async () => {
-    // Snapshot first. Each restore refreshes the trash list, which would
-    // otherwise shrink the selection while this loop is still walking it.
+    // Snapshot first: each restore refreshes the trash list, which would shrink the selection mid-loop.
     const projects = [...selectedProjects()];
     for (const project of projects) {
       await restore(project, false);
@@ -191,9 +182,8 @@ export function DashboardTrashView() {
     if (anchor() === project.dir) setAnchor(null);
   };
 
-  // Delete and ⌘A belong to the grid even when focus is on the page rather
-  // than a card — a marquee leaves it there. A focused card handles its own
-  // key, and this runs after it, so a selection wins over that one card.
+  // Delete and ⌘A belong to the grid even with focus on the page (a marquee leaves it there).
+  // Runs after a focused card's own handler, so a selection wins over that card.
   onMount(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (isInputTarget(event) || event.altKey || pendingErase()) return;

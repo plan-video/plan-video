@@ -2,9 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The settings only some platforms have, for one post in New post or for a
-// whole batch in Bulk tools.
-
 import { For, Match, Show, Switch, createEffect, createMemo, createSignal, on, onCleanup } from "solid-js";
 import type { SetStoreFunction } from "solid-js/store";
 
@@ -46,7 +43,6 @@ import {
 
 export const HAS_SETTINGS: readonly PlatformId[] = ["youtube", "tiktok", "instagram", "x", "pinterest"];
 
-/** The platforms among `platforms` that have settings for a post of `kind`. */
 export const platformsWithSettings = (kind: PostKind, platforms: readonly PlatformId[]) =>
   kind === "story" ? [] : platforms.filter((id) => HAS_SETTINGS.includes(id));
 
@@ -60,10 +56,8 @@ const TIKTOK_PRIVACY: { id: TikTokPrivacy; label: string }[] = [
 const MUSIC_USAGE = "https://www.tiktok.com/legal/page/global/music-usage-confirmation/en";
 const BRANDED_POLICY = "https://www.tiktok.com/legal/page/global/bc-policy/en";
 
-/** Why posting is blocked, from the TikTok account the post screen just asked. */
 const [gate, setGate] = createSignal<{ maxVideoSeconds: number | null; error: string | null }>({ maxVideoSeconds: null, error: null });
 
-/** A video past this account's limit, or TikTok refusing more posts. */
 export function tiktokLimitIssues(kind: PostKind, platforms: readonly PlatformId[], duration: number | null): { platform: PlatformId; level: "error"; message: string }[] {
   if (kind === "story" || !platforms.includes("tiktok")) return [];
   const current = gate();
@@ -79,7 +73,6 @@ export function tiktokLimitIssues(kind: PostKind, platforms: readonly PlatformId
   return issues;
 }
 
-/** The sentence above Post. It names the Branded Content Policy once that option is on. */
 export function TikTokPostNotice(props: { settings: PlatformSettings["tiktok"]; class?: string }) {
   const branded = () => props.settings.disclose && props.settings.brandedContent;
   const link = (href: string) => (text: string) => (
@@ -108,7 +101,6 @@ export function TikTokPostNotice(props: { settings: PlatformSettings["tiktok"]; 
   );
 }
 
-/** Loads creator info when the post screen is showing TikTok, and forgets it when that account changes. */
 function useTikTokCreator(account: () => SocialConnection | undefined) {
   const auth = useAuth();
   const [info, setInfo] = createSignal<TikTokCreator | null>(null);
@@ -167,12 +159,10 @@ const X_REPLIES: { id: XReplies; label: string }[] = [
   { id: "mentioned", label: msg("Mentioned") },
 ];
 
-/** "Comments, Duet and Stitch". */
 const NAME_LIST = localized((locale) => new Intl.ListFormat(locale, { type: "conjunction" }), "en-GB");
 
 type CreatorState = { info(): TikTokCreator | null; error(): string | null; loading(): boolean };
 
-/** Who the post goes out as, in the TikTok card's header. */
 function TikTokAccount(props: { creator: CreatorState }) {
   const [broken, setBroken] = createSignal(false);
   createEffect(on(() => props.creator.info()?.avatarUrl, () => setBroken(false)));
@@ -213,7 +203,7 @@ function TikTokAccount(props: { creator: CreatorState }) {
   );
 }
 
-/** The TikTok card: a privacy dropdown with nothing picked, and the disclosure TikTok requires. */
+/** TikTok requires the privacy dropdown to start with nothing picked, and its disclosure. */
 function TikTokSettings(props: {
   settings: PlatformSettings["tiktok"];
   onChange: SetStoreFunction<PlatformSettings>;
@@ -374,27 +364,22 @@ function TikTokSettings(props: {
       </Show>
       </>
       </Show>
-      {/* TikTok's required declaration, at the end of its own settings, where Postiz keeps it too. */}
+      {/* TikTok's required declaration, at the end of its own settings. */}
       <TikTokPostNotice settings={tiktok()} class="border-t border-border-strong pt-3 [&_a]:text-foreground/80" />
     </>
   );
 }
 
-/** A card of settings for each of `platforms` that has some. */
 export function PlatformSettingsFields(props: {
   kind: PostKind;
   platforms: readonly PlatformId[];
   settings: PlatformSettings;
   onChange: SetStoreFunction<PlatformSettings>;
-  /** When the post is many videos and pictures at once. */
   mixed?: boolean;
-  /** The TikTok account this post goes out from, so its privacy options can be loaded. */
   tiktokAccount?: () => SocialConnection | undefined;
-  /** Shows this platform alone, out of `platforms`. */
   only?: PlatformId;
-  /** The YouTube channels this post goes out to, named beside YouTube's icon. */
   youtubeChannels?: () => SocialConnection[];
-  /** YouTube's description, which is the caption YouTube gets: shown with its title and privacy status, as YouTube's rules ask. */
+  /** Shown with its title and privacy status, as YouTube's rules ask. */
   youtubeDescription?: { value: () => string; onInput: (text: string) => void; own: () => boolean; reset: () => void };
 }) {
   const auth = useAuth();

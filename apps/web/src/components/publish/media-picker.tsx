@@ -15,15 +15,13 @@ import { t } from "@/lib/i18n";
 import { loadMediaLibrary, markMediaUsed, mediaFile, mediaItems, type MediaItem } from "@/lib/media-library";
 import { formatDuration } from "@/lib/social";
 
-/** A button that opens the media library and hands back the files picked. With `max` over one, several are picked, then added. */
 export function MediaPicker(props: {
   kinds: readonly MediaItem["kind"][];
   max: number;
   onPick(files: File[]): void;
   class?: string;
-  /** Names the button when its children are only an icon. */
   label?: string;
-  /** Whether the library offers Manage media, which opens it on the dashboard. Off where that would leave the page, as in the editor. */
+  /** Off where opening the dashboard would leave the page, as in the editor. */
   manage?: boolean;
   children: JSX.Element;
 }) {

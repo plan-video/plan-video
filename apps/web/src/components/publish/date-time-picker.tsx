@@ -2,9 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// A day from a month grid and a time from a list. Days and times outside the
-// allowed window can't be picked.
-
 import { For, Show, createMemo, createSignal } from "solid-js";
 
 import { cn, formatMonth, getMonthDays, localDateKey, shiftDay, shiftMonth } from "@/components/calendar/utils";
@@ -34,7 +31,7 @@ const fromKey = (key: string) => {
   return new Date(year!, month! - 1, day!);
 };
 
-/** `day`'s date of the month in the month starting `first`, or its last day when shorter. */
+/** Falls back to the month's last day when it's shorter. */
 function sameDayIn(first: string, day: string) {
   const start = fromKey(first);
   const length = new Date(start.getFullYear(), start.getMonth() + 1, 0).getDate();
@@ -70,9 +67,6 @@ export function parseTime(text: string): string | null {
   return toTime(hours * 60 + minutes);
 }
 
-// ---------------------------------------------------------------------------
-// The month grid
-
 type CalendarProps = {
   value: string;
   min?: string;
@@ -80,7 +74,6 @@ type CalendarProps = {
   onPick(day: string): void;
 };
 
-/** A month of days with paging and arrow keys. `ref` gets a function that focuses the chosen day. */
 function MonthCalendar(props: CalendarProps & { ref?: (focus: () => void) => void }) {
   const [month, setMonth] = createSignal(`${props.value.slice(0, 7)}-01`);
   const [focused, setFocused] = createSignal(props.value);
@@ -220,9 +213,6 @@ function MonthCalendar(props: CalendarProps & { ref?: (focus: () => void) => voi
   );
 }
 
-// ---------------------------------------------------------------------------
-// The time list
-
 type TimeListProps = {
   value: string;
   min?: string;
@@ -230,7 +220,6 @@ type TimeListProps = {
   class?: string;
 };
 
-/** A typed time on top, and every quarter hour below. `ref` gets a function that focuses the field and scrolls to the chosen time. */
 function TimeList(props: TimeListProps & { ref?: (show: () => void) => void }) {
   const [draft, setDraft] = createSignal("");
   let list: HTMLDivElement | undefined;
@@ -258,10 +247,8 @@ function TimeList(props: TimeListProps & { ref?: (show: () => void) => void }) {
 
   props.ref?.(() => {
     setDraft("");
-    // Deferred, as the day grid's focus is: called while the popover opens, a
-    // focus now lands before Kobalte has registered the popover as nested in the
-    // one that holds the trigger (New post's When popup), which then takes it
-    // for a focus outside itself and closes.
+    // Deferred: focusing while the popover opens lands before Kobalte registers it as nested in New post's
+    // When popup, which then takes it for a focus outside itself and closes.
     queueMicrotask(() => input?.focus());
     requestAnimationFrame(() => {
       const target = toMinutes(props.value);
@@ -326,10 +313,7 @@ function TimeList(props: TimeListProps & { ref?: (show: () => void) => void }) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Pickers
-
-/** A day, `YYYY-MM-DD`, between `min` and `max` when given. With a `placeholder`, `""` is no day yet. */
+/** `YYYY-MM-DD`. With a `placeholder`, `""` is no day yet. */
 export function DatePicker(props: {
   value: string;
   min?: string;
@@ -379,7 +363,6 @@ export function DatePicker(props: {
   );
 }
 
-/** A time of day, `HH:MM`. Times before `min`, when given, can't be picked. */
 export function TimePicker(props: {
   value: string;
   min?: string;
@@ -425,16 +408,11 @@ export function TimePicker(props: {
   );
 }
 
-/**
- * A day and a time in one field, for tight spaces. The calendar and the time
- * list sit side by side; picking a day keeps it open for the time.
- */
 export function DateTimePicker(props: {
   day: string;
   time: string;
   minDay?: string;
   maxDay?: string;
-  /** The earliest time on `day`, if any. */
   minTime?: (day: string) => string | undefined;
   label?: string;
   class?: string;

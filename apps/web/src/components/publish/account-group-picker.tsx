@@ -31,17 +31,16 @@ const MORE_CLASS = "gap-1 pr-1.5 pl-2.5";
 const NEW_GROUP_CLASS =
   "flex h-7 shrink-0 items-center gap-1 rounded-full border border-dashed border-(--border-input) pr-2.5 pl-1.5 text-xs text-muted-foreground press hover:bg-accent hover:text-foreground focus-ring";
 
-/** "Groups", which opens the list of every group once there is one. */
 const LABEL_CLASS =
   "-ml-1 flex h-7 shrink-0 items-center gap-0.5 rounded-md pr-0.5 pl-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-ring data-[expanded]:bg-accent data-[expanded]:text-foreground";
 
 const ROW_ACTION_CLASS = "grid size-6 place-items-center rounded-md text-muted-foreground press hover:bg-background hover:text-foreground focus-ring";
 
-/** A group's platforms, overlapping, except beside YouTube's icon, which nothing may cover. */
+/** Nothing may overlap YouTube's icon. */
 function GroupLogos(props: { platforms: readonly PlatformId[] }) {
   return (
     <span class={cx("flex shrink-0 items-center", props.platforms.slice(0, 4).includes("youtube") ? "gap-1" : "-space-x-1")}>
-      {/* YouTube's small, on its white tile, the size of the others (the user's choice; see brand/youtube-icon). */}
+      {/* YouTube's small on its white tile, the size of the others (see brand/youtube-icon). */}
       <For each={props.platforms.slice(0, 4)}>
         {(id) => (id === "youtube" ? <YouTubeWhiteTile class="size-4 rounded-full" /> : <PlatformLogo id={id} class="size-4 rounded-full ring-2 ring-background" />)}
       </For>
@@ -49,16 +48,9 @@ function GroupLogos(props: { platforms: readonly PlatformId[] }) {
   );
 }
 
-/**
- * The workspace's account groups as chips. Picking one selects its platforms
- * and every account of it on each; New group saves the accounts picked now.
- * The chips that fit on one line show; the rest open from More. "Groups" opens
- * every group as a list that can be searched, edited and deleted from.
- */
 export function AccountGroupPicker(props: {
   platforms: readonly PlatformId[];
   accounts: AccountChoices;
-  /** The platforms this post can go to; a group's others are left out. */
   available?: readonly PlatformId[];
   onPick(platforms: PlatformId[], accounts: AccountChoices): void;
   class?: string;
@@ -66,12 +58,10 @@ export function AccountGroupPicker(props: {
   const auth = useAuth();
   const [, setParams] = useSearchParams();
   const [editing, setEditing] = createSignal<AccountGroup | "new" | null>(null);
-  /** Which button the list is open from. */
   const [listFrom, setListFrom] = createSignal<"label" | "more" | null>(null);
   const [query, setQuery] = createSignal("");
   createEffect(() => loadAccountGroups(auth.user()?.id));
 
-  /** The accounts the post goes out from now, to start a new group with. */
   const pickedAccounts = () => props.platforms.flatMap((id) => accountsFor(id, props.accounts).map((account) => account.id));
 
   const selectionOf = (group: AccountGroup) => {
@@ -92,7 +82,7 @@ export function AccountGroupPicker(props: {
     );
   };
 
-  // A hidden copy of the row on one line, every chip in it, says how many fit.
+  // A hidden one-line copy of the row, every chip in it, measures how many fit.
   const [row, setRow] = createSignal<HTMLDivElement>();
   const [ruler, setRuler] = createSignal<HTMLDivElement>();
   const [fitting, setFitting] = createSignal(Infinity);
@@ -109,7 +99,7 @@ export function AccountGroupPicker(props: {
     if ((ends.at(-1) ?? 0) + gap + create!.offsetWidth <= room) return setFitting(Infinity);
     const tail = 2 * gap + more!.offsetWidth + create!.offsetWidth;
     const count = ends.filter((end) => end + tail <= room).length;
-    // A lone group left over wraps to a second line rather than hide behind "1 more".
+    // A lone leftover group wraps to a second line rather than hide behind "1 more".
     setFitting(count === chips.length - 1 ? Infinity : count);
   };
   createEffect(() => {
@@ -124,7 +114,6 @@ export function AccountGroupPicker(props: {
 
   const shown = () => accountGroups().slice(0, fitting());
   const hidden = () => accountGroups().slice(fitting());
-  /** A group from the list that the post is set to now: More shows as picked. */
   const hiddenActive = () => hidden().find(isActive);
 
   const matches = () => {
@@ -157,7 +146,6 @@ export function AccountGroupPicker(props: {
     if (userId) deleteGroupWithUndo(userId, group);
   };
 
-  /** Every group, for both buttons that open it. Edit and Delete show on the row under the pointer or focus. */
   const groupList = () => (
     <PopoverPortal>
       <PopoverContent data-calendar-keep-popup class="z-[10000] flex w-72 flex-col overflow-hidden rounded-xl p-0">

@@ -2,10 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// An invite into someone's workspace: who asked, into what, and as what, with
-// Join and Decline. Opened from the workspace menu, the inbox, or the link in
-// the invite email (/dashboard?invite=<id>).
-
 import { Show, createSignal } from "solid-js";
 import { toast } from "somoto";
 

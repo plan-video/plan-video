@@ -2,9 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Small drawings for empty pages, in the homepage hero's language: cards and
-// clips in the timeline's colours, the brand blue for what matters. Colours
-// come from the `--art-*` tokens, so they follow the dashboard's theme.
+// Colours come from the `--art-*` tokens, so they follow the dashboard's theme.
 
 import { For, type JSX } from "solid-js";
 
@@ -15,7 +13,6 @@ const LINE = "fill-(--art-line)";
 const LINE_SOFT = "fill-(--art-line-soft)";
 const ACCENT = "fill-(--plane-accent-primary)";
 
-/** Decoration beside text that already says it all, so screen readers skip it. */
 function Art(props: { class?: string; children: JSX.Element }) {
   return (
     <svg viewBox="0 0 240 132" fill="none" aria-hidden="true" class={cx("h-auto w-[240px] max-w-full shrink-0", props.class)}>
@@ -24,13 +21,11 @@ function Art(props: { class?: string; children: JSX.Element }) {
   );
 }
 
-/** A play triangle centred on (x, y). */
 function Play(props: { x: number; y: number; size?: number; class: string }) {
   const size = () => props.size ?? 7;
   return <path class={props.class} d={`M${props.x - size() * 0.45} ${props.y - size() * 0.6}L${props.x + size() * 0.65} ${props.y}L${props.x - size() * 0.45} ${props.y + size() * 0.6}Z`} />;
 }
 
-/** Templates: a post set up once, with a copy behind it. */
 export function TemplatesArt(props: { class?: string }) {
   return (
     <Art class={props.class}>
@@ -56,7 +51,6 @@ export function TemplatesArt(props: { class?: string }) {
   );
 }
 
-/** A `#` of strokes, its box starting at (x, y). */
 function Hash(props: { x: number; y: number }) {
   return (
     <path
@@ -68,7 +62,6 @@ function Hash(props: { x: number; y: number }) {
   );
 }
 
-/** Vault: a caption with its hashtags, and a snippet kept beside it. */
 export function VaultArt(props: { class?: string }) {
   return (
     <Art class={props.class}>
@@ -95,7 +88,6 @@ export function VaultArt(props: { class?: string }) {
 
 const PEAKS = [0.35, 0.6, 0.9, 0.55, 0.8, 1, 0.65, 0.4, 0.75, 0.5, 0.3];
 
-/** Media: a picture, a sound and a video, fanned out evenly either side. */
 export function MediaArt(props: { class?: string }) {
   return (
     <Art class={props.class}>
@@ -120,7 +112,6 @@ export function MediaArt(props: { class?: string }) {
   );
 }
 
-/** Projects: a video being edited, with its clips, sound and words on a timeline and the playhead over them. */
 export function ProjectsArt(props: { class?: string }) {
   return (
     <Art class={props.class}>
@@ -143,7 +134,6 @@ export function ProjectsArt(props: { class?: string }) {
   );
 }
 
-/** A folder: two projects tucked inside, a selected one dragged in on the pointer. */
 export function FolderArt(props: { class?: string }) {
   return (
     <Art class={props.class}>
@@ -167,7 +157,6 @@ export function FolderArt(props: { class?: string }) {
   );
 }
 
-/** Plugs: a post that took off, and the plug posted under it. */
 export function PlugsArt(props: { class?: string }) {
   return (
     <Art class={props.class}>
@@ -191,7 +180,6 @@ export function PlugsArt(props: { class?: string }) {
 
 const WEEK = 7;
 
-/** The calendar: a week with a few posts on it. */
 export function PostsArt(props: { class?: string }) {
   const column = 200 / WEEK;
   const chips: { day: number; top: number; height: number; tone: "video" | "audio" | "text" | "accent" }[] = [
@@ -240,7 +228,6 @@ export function PostsArt(props: { class?: string }) {
   );
 }
 
-/** Inbox: every notice read, with a check on top. */
 export function InboxArt(props: { class?: string }) {
   return (
     <Art class={props.class}>
@@ -263,7 +250,6 @@ export function InboxArt(props: { class?: string }) {
   );
 }
 
-/** Trash: an empty bin, a project lifting back out of it. */
 export function TrashArt(props: { class?: string }) {
   return (
     <Art class={props.class}>
@@ -280,7 +266,6 @@ export function TrashArt(props: { class?: string }) {
   );
 }
 
-/** A smooth path through the points, flat at each one so it never overshoots. */
 function wave(points: readonly (readonly [number, number])[]) {
   return points
     .map(([x, y], index) => {
@@ -293,11 +278,9 @@ function wave(points: readonly (readonly [number, number])[]) {
 }
 
 const CHART = { left: 44, right: 196, base: 106 };
-// Two platforms stacked, each rising with a dip or two, as heights above the baseline.
 const LOWER = [10, 15, 12, 19, 17, 25, 23, 31];
 const UPPER = [8, 10, 9, 13, 12, 16, 15, 20];
 
-/** Analytics: a stat with its change, and the views of two platforms stacked on the way up. */
 export function AnalyticsArt(props: { class?: string }) {
   const { left, right, base } = CHART;
   const xAt = (index: number) => left + (index / (LOWER.length - 1)) * (right - left);

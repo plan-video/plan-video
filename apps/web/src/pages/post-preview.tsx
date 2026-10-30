@@ -2,12 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// A post shared for feedback, at /p/<id>: the post as each of its networks
-// will show it, where and when it goes out, and the comments on it. Open to
-// anyone with the link, signed in or not. Drawn like the dashboard, in its
-// light or dark theme: the post's details, the phone and the comments as the
-// panels of one frame, stacked on a phone.
-
 import { A, useParams } from "@solidjs/router";
 import MessageSquareLucide from "lucide-solid/icons/message-square";
 import Volume2Lucide from "lucide-solid/icons/volume-2";
@@ -35,39 +29,33 @@ import type { PostMedia } from "@/lib/social-media";
 
 type Loaded = { kind: "ok"; preview: SharedPreview } | { kind: "gone" } | { kind: "error" };
 type Network = PreviewSnapshot["platforms"][number];
-/** One of the post's files, read for the phone: its link and its shape. */
 type Shown = { file: string; url: string; width: number; height: number; duration: number };
 
-/** Comments from others show up without a reload. */
 const REFRESH_MS = 30_000;
 
-/** The file a post of one file is kept under: its own id, which the link asks for by leaving it out. No file id has a colon. */
+// The link asks for a one-file post's file by leaving the id out. No file id has a colon.
 const ONLY = ":post";
 
-/** The phone at its own size, as New post measures it before scaling it to the room. */
+// Same size New post measures the phone at before scaling it.
 const PHONE = { width: 286, height: 588 };
 
-/** Where the post's details and the comments sit beside the phone, rather than above and below it. */
 const WIDE = "(min-width: 1024px)";
 
 const DETAILS_PANEL = "w-[280px] shrink-0 border-r border-(--plane-border-subtle) 2xl:w-[320px]";
 const COMMENTS_PANEL = "w-[340px] shrink-0 border-l border-(--plane-border-subtle) 2xl:w-[380px]";
 
-/** `when` is the day, with the time when there is one. */
 const STATUS_WORDS: Record<PreviewSnapshot["status"], string> = {
   draft: msg("Draft for {when}"),
   scheduled: msg("Scheduled for {when}"),
   posted: msg("Posted on {when}"),
 };
 
-/** The same dots as the dashboard's post lists. */
 const STATUS_DOT: Record<PreviewSnapshot["status"], string> = {
   draft: "bg-(--plane-text-placeholder)",
   scheduled: "bg-(--plane-accent-primary)",
   posted: "bg-meter-green",
 };
 
-/** "Scheduled for Mon, 6 Oct at 18:00 (Amsterdam time)", read in the zone the post was planned in. */
 function whenLine(snapshot: PreviewSnapshot): string {
   const date = new Date(`${snapshot.day}T12:00:00`);
   const day = Number.isNaN(date.getTime())
@@ -83,7 +71,6 @@ function whenLine(snapshot: PreviewSnapshot): string {
 
 const isPlatform = (id: string): id is PlatformId => (PLATFORM_IDS as readonly string[]).includes(id);
 
-/** Where a post's link goes, when it's a web address: a link written as anything else stays words. */
 function hrefOf(link: string): string | null {
   const trimmed = link.trim();
   if (/^https?:\/\/[^\s]+$/i.test(trimmed)) return trimmed;
@@ -91,7 +78,7 @@ function hrefOf(link: string): string | null {
   return null;
 }
 
-/** A file's shape and length, read from the file: the preview doesn't keep them. Zero when it can't be read. */
+// The preview doesn't keep a file's shape and length. Zeros when it can't be read.
 function measure(url: string, kind: "video" | "image"): Promise<Omit<Shown, "file" | "url">> {
   return new Promise((resolve) => {
     const done = (width = 0, height = 0, duration = 0) => resolve({ width, height, duration: Number.isFinite(duration) ? duration : 0 });
@@ -108,7 +95,6 @@ function measure(url: string, kind: "video" | "image"): Promise<Omit<Shown, "fil
     video.muted = true;
     video.onloadedmetadata = () => {
       done(video.videoWidth, video.videoHeight, video.duration);
-      // Done with it: the phone plays its own.
       video.removeAttribute("src");
       video.load();
     };
@@ -131,8 +117,7 @@ export function PostPreviewPage() {
   const auth = useAuth();
   const wide = createMatches(WIDE);
 
-  // The dashboard's palette, on <html> so toasts take it too. index.html puts
-  // it there before the first paint.
+  // On <html> so toasts take it too; index.html sets it before the first paint.
   const root = document.documentElement;
   root.classList.add("dashboard-theme");
   createRenderEffect(() => {
@@ -143,8 +128,6 @@ export function PostPreviewPage() {
     delete root.dataset.dashboardTheme;
   });
 
-  // Failures come back as a state, not thrown, so the page says what happened
-  // itself. A refresh that fails keeps showing what was there.
   const [result, { refetch }] = createResource(
     () => params.id,
     async (id, info): Promise<Loaded> => {
@@ -168,7 +151,6 @@ export function PostPreviewPage() {
 
   onMount(() => {
     const previous = document.title;
-    // Again when the language changes, or the post's title.
     createRenderEffect(() => {
       document.title = t("{title} | plan.video", { title: preview()?.snapshot.title.trim() || t("Post preview") });
     });
@@ -217,7 +199,6 @@ export function PostPreviewPage() {
   );
 }
 
-/** The bar on the page's ground: the logo home, and the link to pass on. */
 function TopBar(props: { previewId: string; shared: boolean }) {
   const copy = async () => {
     try {
@@ -231,7 +212,6 @@ function TopBar(props: { previewId: string; shared: boolean }) {
   return (
     <header class="flex h-12 shrink-0 items-center gap-3 px-4 lg:px-3.5">
       <A href="/" class="flex items-center gap-2 rounded-md pr-1 outline-none focus-ring" aria-label={t("plan.video home")}>
-        {/* The workspace badge's tile, as the dashboard's bar shows it. */}
         <svg viewBox="0 0 32 32" aria-hidden="true" class="size-7 shrink-0 rounded-md bg-(--logo-tile) ring-1 ring-inset ring-(--plane-border-subtle)">
           <g transform="translate(16 16) scale(0.72) translate(-16 -16)">
             <path class="fill-(--logo-ink)" d={MARK_PATH} />
@@ -249,7 +229,6 @@ function TopBar(props: { previewId: string; shared: boolean }) {
   );
 }
 
-/** The dashboard's bordered frame on a wide screen; on a phone, the page itself. */
 function Frame(props: { wide: boolean; children: JSX.Element }) {
   return (
     <div class={cx("flex min-h-0 flex-1 flex-col", props.wide && "px-2 pb-2")}>
@@ -275,7 +254,6 @@ function SharedPost(props: {
 }) {
   const snapshot = () => props.preview.snapshot;
 
-  // The account whose view of the post shows: a network, and which of its accounts.
   const [picked, setPicked] = createSignal({ platform: "", account: 0 });
   const network = (): Network | undefined => snapshot().platforms.find((item) => item.id === picked().platform) ?? snapshot().platforms[0];
   const accountIndex = () => (network()?.id === picked().platform ? picked().account : 0);
@@ -307,11 +285,6 @@ function SharedPost(props: {
   );
 }
 
-/**
- * The post's sidebar: its title, when it goes out, and the accounts it goes
- * out from, each of which turns the phone to its own view. On a wide screen
- * the words follow; on a phone they come after the phone.
- */
 function PostDetails(props: {
   snapshot: PreviewSnapshot;
   wide: boolean;
@@ -319,7 +292,6 @@ function PostDetails(props: {
   accountIndex: number;
   onPick(platform: string, account: number): void;
 }) {
-  // Every account, or the network itself where none was picked.
   const rows = () =>
     props.snapshot.platforms.flatMap((network) =>
       network.handles.length
@@ -373,7 +345,6 @@ function PostDetails(props: {
   );
 }
 
-/** Caption text with its hashtags and mentions picked out. */
 function Caption(props: { text: string }) {
   const parts = () => props.text.split(/([#@][\p{L}\p{N}_.]+)/u);
   return (
@@ -383,13 +354,11 @@ function Caption(props: { text: string }) {
   );
 }
 
-/** What the post says on the network that shows: its title there, its caption, and its link. */
 function PostWords(props: { snapshot: PreviewSnapshot; network: Network | undefined }) {
   const id = () => props.network?.id ?? "";
   const own = () => props.snapshot.captions?.[id()];
   const caption = () => own() ?? props.snapshot.caption;
   const title = () => (id() === "youtube" ? props.snapshot.youtubeTitle : id() === "pinterest" ? props.snapshot.pinterestTitle : null) ?? "";
-  // Only the networks that post a thread show it.
   const thread = () => ((THREAD_PLATFORMS as readonly string[]).includes(id()) ? (props.snapshot.thread ?? []) : []);
 
   return (
@@ -443,11 +412,6 @@ function PostWords(props: { snapshot: PreviewSnapshot; network: Network | undefi
   );
 }
 
-/**
- * The post in a phone, as the picked network shows it, scaled to the room.
- * Under it: the pictures one by one when there are several, and the sound
- * for a video, which plays muted until it's turned on.
- */
 function PhoneStage(props: { previewId: string; snapshot: PreviewSnapshot; wide: boolean; network: Network | undefined; accountIndex: number }) {
   const platform = (): PlatformId | undefined => {
     const id = props.network?.id;
@@ -455,7 +419,6 @@ function PhoneStage(props: { previewId: string; snapshot: PreviewSnapshot; wide:
   };
   const kind = () => props.snapshot.media;
   const files = () => props.snapshot.files ?? (kind() ? [ONLY] : []);
-  // Pictures past what the network puts out are left out, as they would be.
   const count = () => {
     const id = platform();
     if (kind() !== "image") return Math.min(1, files().length);
@@ -464,7 +427,6 @@ function PhoneStage(props: { previewId: string; snapshot: PreviewSnapshot; wide:
   const [shownAt, setShownAt] = createSignal(0);
   const at = () => Math.min(shownAt(), Math.max(0, count() - 1));
 
-  // A post with several pictures reads each one as it comes up.
   let readAt = 0;
   const [media, { refetch: readAgain }] = createResource(
     () => (kind() ? files()[at()] : undefined),
@@ -475,7 +437,6 @@ function PhoneStage(props: { previewId: string; snapshot: PreviewSnapshot; wide:
       return { file, url, ...(await measure(url, kind() ?? "image")) };
     },
   );
-  // Until the next picture has come, the last one stays.
   const items = createMemo((): PostMedia[] => {
     const shown = media.latest;
     const type = kind();
@@ -487,7 +448,7 @@ function PhoneStage(props: { previewId: string; snapshot: PreviewSnapshot; wide:
   const account = createMemo(() => {
     const network = props.network;
     if (!network) return { name: "", handle: "" };
-    // A network with no account picked borrows the post's other handle, as a brand mostly keeps one.
+    // No account picked: borrow the post's other handle, as a brand mostly keeps one.
     const handle = network.handles[props.accountIndex] ?? props.snapshot.platforms.find((item) => item.handles.length)?.handles[0] ?? "";
     const avatar = network.handles[props.accountIndex] ? network.avatars?.[props.accountIndex] : undefined;
     return {
@@ -506,7 +467,6 @@ function PhoneStage(props: { previewId: string; snapshot: PreviewSnapshot; wide:
   onMount(() => {
     const observer = new ResizeObserver(() => {
       if (stage.clientWidth <= 0) return;
-      // Room for the bar under the phone, and a margin all round.
       const fit = props.wide
         ? Math.min((stage.clientWidth - 64) / PHONE.width, (stage.clientHeight - 120) / PHONE.height)
         : (stage.clientWidth - 40) / PHONE.width;
@@ -536,7 +496,7 @@ function PhoneStage(props: { previewId: string; snapshot: PreviewSnapshot; wide:
     setSound(!sound());
     applySound(sound());
   };
-  // The phone draws a new video for each network: it takes the sound as it's set.
+  // Each network gets a new video element, so the sound setting is applied again.
   createEffect(() => {
     const on = sound();
     items();
@@ -611,10 +571,6 @@ function StageButton(props: { label: string; disabled?: boolean; pressed?: boole
   );
 }
 
-/**
- * The comments: a panel beside the post on a wide screen, with the box kept
- * at its foot; on a phone, the end of the page.
- */
 function CommentsPanel(props: {
   previewId: string;
   preview: SharedPreview;
@@ -628,7 +584,6 @@ function CommentsPanel(props: {
 
   const posted = async () => {
     await props.onChanged();
-    // The new thread is the last open one, at the foot of the list.
     if (props.wide) requestAnimationFrame(() => list?.scrollTo({ top: list.scrollHeight, behavior: "smooth" }));
   };
 
@@ -687,7 +642,6 @@ function Message(props: { icon: PlaneIconName; title: string; body: string; chil
   );
 }
 
-/** The panels' shapes while the post loads. */
 function Skeleton(props: { wide: boolean }) {
   const bar = "animate-pulse rounded-md bg-(--plane-layer-2)";
   return (

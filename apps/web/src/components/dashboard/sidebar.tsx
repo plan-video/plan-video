@@ -35,37 +35,30 @@ type DashboardSidebarItemProps = {
   label: string;
   active?: boolean;
   badge?: string;
-  /** Shows the badge as something that needs the user. */
   badgeAlert?: boolean;
   onClick?(): void;
   class?: string;
 };
 
-/** Plane's `SidebarNavItem`: the row every sidebar link is drawn in. */
 const NAV_ITEM =
   "group relative flex w-full cursor-pointer items-center justify-between gap-1.5 rounded-md px-2 py-1 text-left outline-none focus-ring";
 const NAV_ITEM_ACTIVE = "bg-(--plane-layer-transparent-active) text-(--plane-text-primary)";
 const NAV_ITEM_IDLE =
   "text-(--plane-text-secondary) hover:bg-(--plane-layer-transparent-hover) hover:text-(--plane-text-primary) active:bg-(--plane-layer-transparent-active)";
 
-/** Icons sit a step below their label, and come up with it. */
 export function navIconClass(active: boolean) {
   return active ? "text-(--plane-text-primary)" : "text-(--plane-text-tertiary) group-hover:text-(--plane-text-secondary)";
 }
 
-/** The sidebar row's classes, for rows drawn outside this file. */
 export function dashboardNavItemClass(active: boolean) {
   return cx(NAV_ITEM, active ? NAV_ITEM_ACTIVE : NAV_ITEM_IDLE);
 }
 
-/** Plane's app rail item: a 32px icon tile with its name underneath. */
 export function DashboardIconRailItem(props: {
   icon: PlaneIconName;
   label: string;
   active?: boolean;
-  /** The top bar shows the tile alone, and so does the rail when the user picks icons only. */
   showLabel?: boolean;
-  /** Where the name shows on hover when the tile is drawn alone. */
   tooltip?: "bottom" | "right";
   onClick(): void;
   children?: JSX.Element;
@@ -93,7 +86,7 @@ export function DashboardIconRailItem(props: {
         {props.children}
       </span>
       <Show when={showLabel()}>
-        {/* Japanese, Chinese and Korean would break a name between any two characters; it wraps between words, centred. */}
+        {/* CJK would break a name between any two characters; it wraps between words instead. */}
         <span
           class={cx(
             "text-center text-xxs leading-[1.1] font-medium [word-break:keep-all] transition-colors",
@@ -111,7 +104,7 @@ export function DashboardIconRailItem(props: {
 
 const COMMUNITY_URL = "https://discord.gg/4C3g9FZsyr";
 
-/** The site's pages a signed-in user still wants, as the dashboard has no page of its own for them. None without the site (lib/site.ts). */
+/** Empty without the site (lib/site.ts). */
 const SITE_PAGES: { url: string; label: string; icon: PlaneIconName }[] = site
   ? [
       { url: DOCS_URL, label: msg("Docs"), icon: "docs" },
@@ -120,10 +113,8 @@ const SITE_PAGES: { url: string; label: string; icon: PlaneIconName }[] = site
     ]
   : [];
 
-/** The dot for something new, as the Inbox button has for unread notices. */
 const NEW_DOT = "size-2 rounded-full bg-(--plane-accent-primary)";
 
-/** A menu row for each of SITE_PAGES, opening it in a new tab; What's new carries the dot while it has something unseen. */
 function SitePageItems() {
   return (
     <For each={SITE_PAGES}>
@@ -151,17 +142,12 @@ function SitePageItems() {
   );
 }
 
-/** Opens a page outside the app: a new tab, or the browser from the desktop app, which needs the site's full address. */
+/** The desktop app opens these in the browser, which needs the site's full address. */
 function openExternal(url: string) {
   if (window.desktop) void mainBridge.call(MAIN_CHANNELS.APP_OPEN_EXTERNAL, { url: new URL(url, APP_ORIGIN).href });
   else window.open(url, "_blank", "noopener,noreferrer");
 }
 
-/**
- * The top bar's help menu, drawn like the Inbox button beside it: the docs,
- * what's new, the roadmap, the community, and Help. A dot shows while What's
- * new has an entry this browser hasn't opened.
- */
 export function DashboardHelpMenu(props: { onHelp(): void }) {
   watchChangelog();
   return (
@@ -204,7 +190,6 @@ export function DashboardHelpMenu(props: { onHelp(): void }) {
   );
 }
 
-/** A project on the sidebar list: its logo and its name. */
 export function DashboardSidebarProjectItem(props: { label: string; mark: JSX.Element; onClick(): void }) {
   return (
     <button type="button" onClick={props.onClick} class={cx(NAV_ITEM, NAV_ITEM_IDLE)}>
@@ -249,7 +234,6 @@ type DashboardSidebarNavProps = {
   footer?: JSX.Element;
 };
 
-/** The scrolling middle of the sidebar, laid out like Plane's sidebar scroll area. */
 export function DashboardSidebarNav(props: DashboardSidebarNavProps) {
   return (
     <div class="relative z-[1] flex min-h-0 flex-1 flex-col gap-3 overflow-x-hidden overflow-y-auto px-3 pt-3 pb-0.5">
@@ -264,7 +248,6 @@ type DashboardSidebarConnectCardProps = {
   onInstall: () => void;
 };
 
-/** The nudge towards the agent setup, shown until an agent is connected. */
 export function DashboardSidebarConnectCard(props: DashboardSidebarConnectCardProps) {
   return (
     <div class="mb-3 flex w-full shrink-0 flex-col gap-3 rounded-md border border-(--plane-border-subtle) bg-(--plane-layer-1) p-3">
@@ -283,7 +266,6 @@ export function DashboardSidebarConnectCard(props: DashboardSidebarConnectCardPr
 
 type DashboardSidebarSectionProps = {
   title?: string;
-  /** A small button on the title's right, like Plane's add-project button. */
   action?: JSX.Element;
   children: JSX.Element;
 };
@@ -327,7 +309,6 @@ export function DashboardSidebarUser(props: DashboardSidebarUserProps) {
   const avatarUrl = useAvatar();
 
   return (
-    // Plane's user menu: the avatar in a 32px tile at the end of the top bar.
     <DropdownMenu placement="bottom-end">
       <DropdownMenuTrigger
         as="button"
@@ -371,7 +352,7 @@ export function DashboardSidebarUser(props: DashboardSidebarUserProps) {
             <PlaneIcon name="plug" class="size-3.5" />
             <span class="flex-1">{t("Connections")}</span>
           </DropdownMenuItem>
-          {/* One row with the footer's moon/sun switch; its halves are radio items, so arrow keys reach them. */}
+          {/* Its halves are radio items, so arrow keys reach them. */}
           <div class="flex h-8 items-center gap-2 pr-0.5 pl-2 text-[13px] text-(--plane-text-secondary)">
             {/* Keyed, since PlaneIcon picks its glyph once. */}
             <Show when={dashboardTheme()} keyed>
@@ -390,7 +371,7 @@ export function DashboardSidebarUser(props: DashboardSidebarUserProps) {
                     value={option.value}
                     aria-label={t(option.label)}
                     title={t(option.label)}
-                    // The dashboard's menu rule (index.css) sets every row's fill and ink, so the chosen half needs `!`.
+                    // index.css sets every menu row's fill and ink, so the chosen half needs `!`.
                     class="h-6 w-7 justify-center p-0 text-(--plane-text-tertiary)! data-checked:bg-(--plane-layer-3)! data-checked:text-(--plane-text-primary)! data-highlighted:text-(--plane-text-primary)! [&>span:first-child]:hidden"
                   >
                     <PlaneIcon name={option.icon} class="size-3.5" />
@@ -400,7 +381,6 @@ export function DashboardSidebarUser(props: DashboardSidebarUserProps) {
             </DropdownMenuRadioGroup>
           </div>
           <DropdownMenuSeparator class="my-1" />
-          {/* The website, in this tab: its nav's Open dashboard comes back. */}
           <DropdownMenuItem tone="neutral" class="gap-2" onSelect={() => navigate("/")}>
             <PlaneIcon name="home" class="size-3.5" />
             <span class="flex-1">{t("Homepage")}</span>

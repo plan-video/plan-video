@@ -2,11 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Failed posts, plan and card reminders, and storage warnings, newest first.
-// Errors and warnings sit under Needs attention until they're fixed or cleared,
-// with their buttons in view. An update opens what it's about when clicked, and
-// a post that went out to several networks is one row.
-
 import { For, Show, createEffect, createMemo, createSignal, onCleanup } from "solid-js";
 import { toast } from "somoto";
 
@@ -29,10 +24,8 @@ import { localized, msg, t } from "@/lib/i18n";
 
 import { needsAttention, type NoticeAction, type NoticeTone, type Notifications, type ShownNotice } from "./notifications";
 
-/** How long a notice is on screen before it counts as read. */
 const SEEN_AFTER_MS = 1500;
 
-/** Colour is kept for what needs the user; a post that went out is told quietly. */
 const TONES: Record<NoticeTone, string> = {
   error: "bg-destructive/12 text-destructive",
   warning: "bg-meter-yellow/12 text-meter-yellow",
@@ -40,10 +33,8 @@ const TONES: Record<NoticeTone, string> = {
   info: "bg-primary/12 text-primary",
 };
 
-/** One row: a notice, or a group's notices (newest first), like a post's from every network it went out to. */
 type Row = { key: string; notices: ShownNotice[] };
 
-/** The rows for these notices, newest first. A group shows where its newest notice is. */
 function rowsOf(notices: readonly ShownNotice[]): Row[] {
   const rows: Row[] = [];
   const groups = new Map<string, Row>();
@@ -60,7 +51,6 @@ function rowsOf(notices: readonly ShownNotice[]): Row[] {
   return rows;
 }
 
-/** "LinkedIn and X", "TikTok, Instagram and YouTube". */
 function listNames(names: readonly string[]) {
   return names.length > 1 ? t("{names} and {last}", { names: names.slice(0, -1).join(", "), last: names.at(-1) }) : (names[0] ?? "");
 }
@@ -171,7 +161,6 @@ export function DashboardNotificationsView(props: { notifications: Notifications
   return (
     <div class="flex min-h-0 min-w-0 flex-1 flex-col">
       <DashboardPageHeader>
-        {/* Empty, the picture says so, and its own button brings cleared ones back. */}
         <Show when={shown().length}>
           <DropdownMenu placement="bottom-end">
             <DropdownMenuTrigger as={PlaneButton} variant="ghost" size="lg" class="gap-1 pr-1.5" aria-label={t("Show")}>
@@ -275,7 +264,6 @@ function NoticeRow(props: {
 }) {
   const head = () => props.row.notices[0]!;
   const grouped = () => props.row.notices.length > 1;
-  /** The networks, in the order they were posted to. */
   const networks = () => [...new Set(props.row.notices.map((notice) => notice.network).filter((name): name is string => !!name))].reverse();
   const title = () => {
     const name = head().groupTitle;
@@ -286,7 +274,6 @@ function NoticeRow(props: {
     const notes = [...new Set(props.row.notices.map((notice) => notice.note).filter((note): note is string => !!note))];
     return notes.length ? notes.join(" ") : head().body;
   };
-  /** Errors and warnings keep their buttons in view. An update opens what it's about when the row is clicked. */
   const attention = () => needsAttention(head());
   const open = () => (attention() ? undefined : head().actions[0]);
 
@@ -305,7 +292,6 @@ function NoticeRow(props: {
         <h3 class="truncate text-xs leading-5 font-medium text-foreground">
           <Show when={open()} fallback={title()}>
             {(action) => (
-              // The whole row is its target, under the clear button.
               <button
                 type="button"
                 title={action().label}

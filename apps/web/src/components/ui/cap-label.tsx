@@ -4,11 +4,6 @@
 
 import { children, type JSX } from "solid-js";
 
-/**
- * A button's children with each run of bare text wrapped in a `.cap-centered`
- * span, so the label centers on its capitals beside the icons. Elements pass
- * through untouched.
- */
 export function capCentered(content: () => JSX.Element): () => JSX.Element {
   const resolved = children(content);
   return () => {
@@ -31,7 +26,6 @@ export function capCentered(content: () => JSX.Element): () => JSX.Element {
   };
 }
 
-/** {@link capCentered} as a component, for button-styled triggers. */
 export function CapLabel(props: { children: JSX.Element }) {
   const label = capCentered(() => props.children);
   return <>{label()}</>;

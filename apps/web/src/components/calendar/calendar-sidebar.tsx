@@ -4,10 +4,6 @@
 
 import { CalendarAccounts } from "./accounts-list";
 
-/**
- * The calendar's accounts, under the dashboard's own links while the calendar
- * is open. Its small month lives in the page header, under the month's name.
- */
 export function CalendarSidebar() {
   return <CalendarAccounts />;
 }

@@ -2,13 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The Plans tab: the same plans as the pricing page, from lib/plans, drawn as
-// its cards are but in the dashboard's own surfaces. A higher plan opens
-// Stripe Checkout, or Stripe's page confirming the upgrade for someone already
-// paying. A lower plan, or monthly instead of yearly, is confirmed here first
-// and starts at the renewal, with nothing charged now; Free ends the plan
-// through the billing portal.
-
 import { For, Show, createResource, createSignal, type JSX } from "solid-js";
 import { toast } from "somoto";
 
@@ -28,37 +21,34 @@ const BILLING_OPTIONS: readonly { id: Billing; label: string; badge?: string }[]
   { id: "yearly", label: msg("Yearly"), badge: YEARLY_SAVING },
 ];
 
-/** Each plan's colour, in the order of PLANS, as the pricing page has them. */
+/** Same order as PLANS. */
 const PLAN_COLORS: CardColor[] = ["sky", "lavender", "peach", "green"];
 
-/** The most lines any plan lists, so every card holds as many rows. */
 const LIST_ROWS = Math.max(...PLANS.map((plan) => plan.features.length));
 
 const FULL_DATE = zonedFormat({ month: "long", day: "numeric", year: "numeric" });
 const DAY = zonedFormat({ month: "long", day: "numeric" });
 
-/** A plan billed one way: what a card's button picks. */
 type Choice = { plan: Plan; billing: Billing };
 
 export function DashboardPlansView() {
   const auth = useAuth();
   const [billing, setBilling] = createSignal<Billing>("monthly");
-  // Which button is at work (on its way to Stripe, or waiting for billing), so a second click doesn't start another.
+  // Which button is busy, so a second click doesn't start another checkout.
   const [leaving, setLeaving] = createSignal<string>();
-  // The downgrade being confirmed. Kept while the dialog fades out, so its words don't empty.
+  // Kept while the dialog fades out, so its words don't empty.
   const [confirming, setConfirming] = createSignal<Choice>();
   const [confirmOpen, setConfirmOpen] = createSignal(false);
-  // Whether that switch is charged now rather than at the renewal, as it was when asked, so the words hold while the dialog closes.
+  // Frozen as asked, so the words hold while the dialog closes.
   const [chargeNow, setChargeNow] = createSignal(false);
 
   const [account, { refetch }] = createResource(
     () => (auth.accessLevel() > 1 ? auth.accessLevel() : undefined),
     () => billingAccount().catch(() => null),
   );
-  // Read only once it's in, and through `latest`, so the cards draw at once and stay on screen while it's read again.
+  // Read through `latest`, so the cards stay on screen while it's read again.
   const loaded = () => account.state === "ready" || account.state === "refreshing";
   const summary = () => (auth.accessLevel() > 1 && loaded() ? account.latest?.summary ?? undefined : undefined);
-  // Until then a paid plan's own card and the ones below it can't say what their buttons do.
   const waiting = () => auth.accessLevel() > 1 && !loaded();
   const currentBilling = (): Billing | undefined => {
     const period = summary()?.billingPeriod;
@@ -73,15 +63,11 @@ export function DashboardPlansView() {
     try {
       await run();
     } finally {
-      // Still here: the page didn't leave for Stripe, so the buttons work again.
       setLeaving(undefined);
     }
   };
 
-  /**
-   * Agency with extra social accounts, to yearly: Stripe's confirm page can't move both lines, so
-   * it's charged from here, and asked here first.
-   */
+  /** Stripe's confirm page can't move both lines (Agency extras to yearly), so it's charged and confirmed here. */
   const chargedHere = (choice: Choice) =>
     choice.plan.id === "agency" && summary()?.plan === "agency" && (summary()?.extraAccounts ?? 0) > 0 && choice.billing === "yearly" && currentBilling() === "monthly";
 
@@ -118,13 +104,11 @@ export function DashboardPlansView() {
       }
     });
 
-  /** What the plan waiting for the renewal is, as the line over the cards says it, and how to stay. */
   const pending = (): { text: string; keep: string } | undefined => {
     const now = summary();
     if (!now) return undefined;
     if (now.scheduled) {
       const date = FULL_DATE.format(now.scheduled.at);
-      // Only monthly instead of yearly waits for the renewal on the same plan.
       if (now.scheduled.plan === now.plan) return { text: t("Switches to monthly billing on {date}.", { date }), keep: t("Keep yearly billing") };
       const next = PLANS.find((plan) => plan.id === now.scheduled!.plan);
       return { text: t("Switches to {plan} on {date}.", { plan: t(next?.name ?? now.scheduled.plan), date }), keep: t("Keep {plan}", { plan: currentName() }) };
@@ -152,18 +136,14 @@ export function DashboardPlansView() {
         </Show>
       </div>
 
-      {/* Four in a row when there's room, two over two below that. */}
       <div class="grid gap-3 @2xl:grid-cols-2 @5xl:grid-cols-4">
         <For each={PLANS}>
           {(plan, index) => {
             const level = index() + 1;
             const color = PLAN_COLORS[index()]!;
             const current = () => auth.accessLevel();
-            // The plan someone is on, billed the way the switch shows. Free has one way.
             const isCurrent = () => level === current() && (level === 1 || !currentBilling() || billing() === currentBilling());
-            // A lower plan, or the same plan billed monthly instead of yearly: it waits for the renewal.
             const downgrade = () => level < current() || (level === current() && level > 1 && billing() === "monthly" && currentBilling() === "yearly");
-            // Already set for the renewal: the scheduled plan billed this way, or Free once the plan is ending.
             const starts = () => {
               const now = summary();
               if (!now) return undefined;
@@ -179,7 +159,6 @@ export function DashboardPlansView() {
               const name = t(plan.name);
               return level > current() ? t("Upgrade to {plan}", { plan: name }) : t("Downgrade to {plan}", { plan: name });
             };
-            // A downgrade needs the renewal date to say when it starts.
             const disabled = () => isCurrent() || starts() !== undefined || !!leaving() || (downgrade() && level > 1 && !renewal());
 
             return (
@@ -241,7 +220,6 @@ export function DashboardPlansView() {
   );
 }
 
-/** A tick, in the colour of the text it's set in. */
 function Check(props: { class?: string }) {
   return (
     <svg viewBox="0 0 16 16" class={`size-3.5 shrink-0 ${props.class ?? ""}`} aria-hidden="true">
@@ -250,33 +228,23 @@ function Check(props: { class?: string }) {
   );
 }
 
-/** A line under a plan's colour, in line with the words on it. */
 const LIST_LINE = "px-4";
 
-/**
- * A plan, as the pricing page frames it: its name, price and button on its
- * colour, in black as the site sets words on colour, then what it comes with,
- * ticked in the colour. The frame and list take the dashboard's surfaces.
- */
 function PlanCard(props: {
   plan: Plan;
   color: CardColor;
   billing: Billing;
   label: string;
-  /** The next step up: a black button rather than a grey one. */
   filled: boolean;
   disabled: boolean;
-  /** What the button does isn't known yet: a grey bar pulses in its place. */
   loading: boolean;
   pending: boolean;
   onChoose: () => void;
 }) {
-  // The ticks take the colour itself on the dark dashboard, and its deep shade on the light one.
   const ink = (): JSX.CSSProperties => ({ "--plan-ink": dashboardTheme() === "light" ? CARD_DEEP[props.color] : CARD_COLORS[props.color] });
 
   return (
-    // Rows of the plans' grid: one for the colour, one for the list's heading, one for each line
-    // of the longest list, and one for the end, so the same lines sit level from card to card.
+    // One grid row each for the colour, the list heading, every line of the longest list and the end, so lines sit level across cards.
     <article
       class="grid grid-rows-subgrid gap-y-0 rounded-xl border border-(--plane-border-subtle-1) bg-(--plane-layer-1) p-1.5"
       style={{ ...ink(), "grid-row": `span ${LIST_ROWS + 3}` }}
@@ -330,7 +298,6 @@ function PlanCard(props: {
         </For>
       </ul>
 
-      {/* The end takes the rows a shorter list leaves free. */}
       <div class="pb-3" style={{ "grid-row": `${props.plan.features.length + 3} / -1` }} />
     </article>
   );

@@ -6,7 +6,6 @@ import { Navigate } from "@solidjs/router";
 
 import { handOffConnection } from "@/lib/connect-return";
 
-/** Where YouTube sends its login back. Connections, or the connect link it was started from, finishes it, so this page goes straight there. */
 export function YouTubeCallbackPage() {
   const href = handOffConnection("youtube", window.location.search);
   return <Navigate href={href} />;

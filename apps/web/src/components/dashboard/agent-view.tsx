@@ -2,14 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Assistant: a chat that writes and schedules posts. The sidebar starts a new
-// chat or opens an earlier one, and the middle is the chat. A new chat opens
-// with one line, the message box and a few things to start with in the middle
-// of the page; once something is sent, the box moves to the bottom. The
-// channels it writes for are picked in the box. The same chat, drawn compact,
-// is the panel that opens from the corner of every dashboard page
-// (./assistant-panel), where the box stays at the bottom.
-
 import { useSearchParams } from "@solidjs/router";
 import { For, Index, Match, Show, Switch, createEffect, createSignal } from "solid-js";
 import ArrowUpLucide from "lucide-solid/icons/arrow-up";
@@ -66,10 +58,8 @@ import { loadMediaLibrary, mediaItems, type MediaItem } from "@/lib/media-librar
 import { PLATFORM_IDS, type PlatformId } from "@/lib/social";
 import { accountLabel, loadSocialConnections, socialConnections } from "@/lib/social-connections";
 
-/** Posts go out with one file each; a few cover a short series. */
 const MAX_MEDIA = 4;
 const MAX_INPUT_HEIGHT = 200;
-/** The chat, the message box and the new chat's title share one column. */
 const COLUMN = "mx-auto w-full max-w-[42rem]";
 
 const ICON_BUTTON =
@@ -83,7 +73,6 @@ function useAgent() {
   });
 }
 
-/** Connected accounts, in the order the networks are listed elsewhere. */
 function channels() {
   const order = (platform: string) => {
     const index = (PLATFORM_IDS as readonly string[]).indexOf(platform as PlatformId);
@@ -92,10 +81,7 @@ function channels() {
   return [...socialConnections()].sort((a, b) => order(a.platform) - order(b.platform) || a.handle.localeCompare(b.handle));
 }
 
-/**
- * What a new chat offers to start with: a short name, and the message it puts
- * in the box. It fills the box rather than sending, so media can go with it.
- */
+/** It fills the box rather than sending, so media can go with it. */
 const STARTERS: readonly { label: string; prompt: string }[] = [
   { label: msg("Plan a week of posts"), prompt: msg("Write a week of posts about our launch, one a day at 18:00") },
   { label: msg("Schedule a video"), prompt: msg("Post this to TikTok on my best days over the next two weeks") },
@@ -134,7 +120,7 @@ function Starters(props: { onPick(text: string): void }) {
   );
 }
 
-/** Assistant text, at the dashboard's base size (index.css .assistant-prose). Nothing in it loads from elsewhere. */
+/** Nothing in it loads from elsewhere. */
 function Prose(props: { text: string }) {
   return (
     <div class="assistant-prose text-(--plane-text-primary)">
@@ -143,10 +129,9 @@ function Prose(props: { text: string }) {
   );
 }
 
-/** A step as shown: a tool call, or the model working out what to do next. */
 type StepView = { name: string; status: StepStatus | "thinking" };
 
-/** The mark at the start of a step. Each state has its own shape, so it reads without colour. */
+/** Each state has its own shape, so it reads without colour. */
 function StepMark(props: { status: StepView["status"] }) {
   return (
     <Switch>
@@ -177,7 +162,6 @@ function StepMark(props: { status: StepView["status"] }) {
   );
 }
 
-/** A run of steps, each mark joined to the next by a short rule, so they read as one sequence. */
 function Steps(props: { steps: readonly StepView[] }) {
   return (
     <ol class="flex flex-col" aria-label={t("What the Assistant did")}>
@@ -217,7 +201,7 @@ function Steps(props: { steps: readonly StepView[] }) {
   );
 }
 
-/** Asks before a post is published, deleted, sent within minutes or put on a TikTok profile. None of them runs until the person says yes here. */
+/** Nothing is published, deleted, sent within minutes or put on a TikTok profile until the person says yes here. */
 function ConfirmCard(props: { confirm: Confirmation }) {
   const removing = () => props.confirm.tool === "delete_post";
   const buttons = () => confirmButtons(props.confirm);
@@ -294,7 +278,6 @@ function UserMessage(props: { item: Extract<ChatItem, { kind: "user" }> }) {
 type AnswerGroup = { kind: "text"; text: string } | { kind: "steps"; steps: StepView[] };
 type ShownPart = { kind: "text"; text: string } | { kind: "tool"; name: string; status: StepView["status"] };
 
-/** An answer's parts, with tool calls that follow one another gathered into one run of steps. */
 function grouped(parts: readonly ShownPart[]): AnswerGroup[] {
   const groups: AnswerGroup[] = [];
   for (const part of parts) {
@@ -309,10 +292,7 @@ function grouped(parts: readonly ShownPart[]): AnswerGroup[] {
 function Answer(props: { item: Extract<ChatItem, { kind: "answer" }>; last: boolean }) {
   const [copied, setCopied] = createSignal(false);
   const working = () => props.last && agentChat.busy;
-  /**
-   * What shows: the saved parts, and while it works, the step on its way after them, so it joins the
-   * steps before it. A call still running once the turn has ended never finished.
-   */
+  /** A call still running once the turn has ended never finished. */
   const parts = (): ShownPart[] => {
     const shown: ShownPart[] = props.item.parts.map((part) => {
       if (part.kind === "text" || part.status !== "running") return part;
@@ -324,7 +304,6 @@ function Answer(props: { item: Extract<ChatItem, { kind: "answer" }>; last: bool
     const last = shown.at(-1);
     const busyStep = last?.kind === "tool" && (last.status === "running" || last.status === "waiting");
     if (agentChat.live.tool) shown.push({ kind: "tool", name: agentChat.live.tool, status: "running" });
-    // Between steps, the model is working out what to do next.
     else if (!agentChat.live.text && !busyStep) shown.push({ kind: "tool", name: "thinking", status: "thinking" });
     return shown;
   };
@@ -359,7 +338,6 @@ function Answer(props: { item: Extract<ChatItem, { kind: "answer" }>; last: bool
       </Index>
       <Show when={working() && agentChat.confirm}>{(confirm) => <ConfirmCard confirm={confirm()} />}</Show>
       <Show when={!working() && text()}>
-        {/* Earlier answers keep their buttons out of the way until pointed at. */}
         <div
           class={cx(
             "-mt-1 -ml-1.5 flex items-center gap-0.5",
@@ -402,7 +380,6 @@ function Answer(props: { item: Extract<ChatItem, { kind: "answer" }>; last: bool
   );
 }
 
-/** Who the Assistant writes for, picked where the message is typed, on the page and in the panel alike. */
 function ChannelPicker() {
   const [, setParams] = useSearchParams();
   const picked = () => new Set(pickedChannels());
@@ -461,7 +438,7 @@ function ChannelPicker() {
   );
 }
 
-/** The message box. What's in it is the one draft the panel and the page share (lib/agent-chat). */
+/** Its text is the one draft the panel and the page share (lib/agent-chat). */
 function Composer(props: { placeholder: string; compact?: boolean; class?: string; ref(input: HTMLTextAreaElement): void }) {
   const auth = useAuth();
   let input: HTMLTextAreaElement | undefined;
@@ -473,13 +450,11 @@ function Composer(props: { placeholder: string; compact?: boolean; class?: strin
     input.style.height = `${Math.min(input.scrollHeight, MAX_INPUT_HEIGHT)}px`;
   });
 
-  // A new or reopened chat starts with the cursor in the box.
   createEffect(() => {
     void agentChat.id;
     queueMicrotask(() => input?.focus());
   });
 
-  /** The picker hands back files; the library item each came from is what the agent names. */
   const pick = (files: File[]) => {
     const items = files
       .map((file) => mediaItems().find((item) => item.name === file.name && item.size === file.size && item.lastModified === file.lastModified))
@@ -563,7 +538,6 @@ function Composer(props: { placeholder: string; compact?: boolean; class?: strin
   );
 }
 
-/** The sidebar's top button, where Schedule has New post. */
 export function DashboardAssistantNewChat() {
   return (
     <PlaneButton variant="secondary" size="xl" class="w-full justify-start gap-1.5" disabled={agentChat.busy} onClick={newAgentChat}>
@@ -573,7 +547,6 @@ export function DashboardAssistantNewChat() {
   );
 }
 
-/** The sidebar's earlier chats, newest first. */
 export function DashboardAssistantChats() {
   useAgent();
   return (
@@ -609,20 +582,14 @@ export function DashboardAssistantChats() {
   );
 }
 
-/**
- * The chat itself: the conversation and the message box. On the page it keeps
- * to a reading column; `compact` is the corner panel's narrower drawing.
- */
 export function AssistantChat(props: { compact?: boolean }) {
   useAgent();
-  // Inserted media shows in the messages that carry it.
   void loadMediaLibrary();
 
   const items = () => chatItems();
   const sent = () => items().filter((item) => item.kind === "user").length;
   const lastIsAnswer = () => items()[items().length - 1]?.kind === "answer";
   const canRetry = () => !agentChat.busy && !!agentChat.error && !lastIsAnswer();
-  /** A new chat, before anything is sent: the box sits in the middle with things to ask. */
   const fresh = () => !agentChat.opening && !agentChat.busy && !agentChat.error && !items().length;
   const column = () => (props.compact ? "w-full" : COLUMN);
 
@@ -646,7 +613,6 @@ export function AssistantChat(props: { compact?: boolean }) {
               </div>
             }
           >
-            {/* The panel keeps its box at the bottom; the start sits in the room above it. */}
             <div class="flex flex-1 flex-col items-center justify-center gap-4 px-6 pb-4">
               <Title compact />
               <Starters onPick={suggest} />
@@ -666,7 +632,6 @@ export function AssistantChat(props: { compact?: boolean }) {
                 )}
               </For>
             </Show>
-            {/* Before a turn's first words, the answer has no place yet. */}
             <Show when={agentChat.busy && !lastIsAnswer()}>
               <Answer item={{ kind: "answer", key: "live", parts: [], changed: false }} last />
             </Show>
@@ -692,7 +657,6 @@ export function AssistantChat(props: { compact?: boolean }) {
         class={props.compact ? "pb-3" : fresh() ? undefined : "pb-5"}
         ref={(element) => (input = element)}
       />
-      {/* On the page, a little more room below than above, so the group sits just over the middle. */}
       <Show when={fresh() && !props.compact}>
         <div class="flex flex-[1.3] flex-col px-6 pt-5">
           <div class={COLUMN}>

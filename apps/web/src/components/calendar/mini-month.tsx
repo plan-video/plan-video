@@ -18,10 +18,8 @@ const WEEKDAY_LABELS = [
   msg({ message: "S", context: "Sunday" }),
 ];
 
-/** A small month for jumping around; it pages on its own, apart from the board. */
 export function MiniMonth(props: {
   nav: CalendarNavigation;
-  /** After a day is picked, even the one already in view. */
   onPick?(): void;
 }) {
   const [shown, setShown] = createSignal(props.nav.date().slice(0, 7) + "-01");
@@ -84,7 +82,6 @@ export function MiniMonth(props: {
                   inWeek() && day === weekBounds().first && "rounded-l-md",
                   inWeek() && day === weekBounds().last && "rounded-r-md",
                 )}
-                // In the list, a day narrows it to that day's posts; the grids already show the day.
                 onClick={() => {
                   if (props.nav.view() === "list") props.nav.pick(day);
                   else props.nav.go(day);

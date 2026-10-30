@@ -2,9 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Captions, hashtag sets and snippets kept for reuse. Each can be copied,
-// sent to a new post, or picked from the Vault button under any caption.
-
 import { useSearchParams } from "@solidjs/router";
 import { For, Show, createEffect, createSignal, onCleanup, onMount } from "solid-js";
 import { createStore } from "solid-js/store";
@@ -71,7 +68,6 @@ const BODY_PLACEHOLDER: Record<VaultKind, string> = {
   snippet: msg("Follow for more. Link in bio."),
 };
 
-/** Each kind's name where it sits inside a sentence. */
 const KIND_WORDS: Record<VaultKind, { none: string; add: string; edit: string }> = {
   caption: { none: msg("No captions yet."), add: msg("New caption"), edit: msg("Edit caption") },
   hashtags: { none: msg("No hashtags yet."), add: msg("New hashtag set"), edit: msg("Edit hashtag set") },
@@ -95,7 +91,7 @@ export function DashboardVaultView() {
   const selectedItems = () => results().filter((item) => selected().includes(item.id));
   let anchor: string | null = null;
 
-  // A search or filter hides cards; drop them from the selection rather than act on what isn't shown.
+  // Hidden cards leave the selection, so nothing acts on what isn't shown.
   createEffect(() => {
     const shown = new Set(results().map((item) => item.id));
     if (selected().some((id) => !shown.has(id))) setSelected((current) => current.filter((id) => shown.has(id)));
@@ -103,7 +99,6 @@ export function DashboardVaultView() {
 
   const toggle = (id: string) => setSelected((current) => (current.includes(id) ? current.filter((entry) => entry !== id) : [...current, id]));
 
-  /** ⌘/Ctrl-click toggles a card, Shift-click takes the run from the last one. True when the click was a selection. */
   const selectFromClick = (item: VaultItem, event: MouseEvent) => {
     if (event.shiftKey && anchor) {
       const ids = results().map((entry) => entry.id);
@@ -220,7 +215,6 @@ export function DashboardVaultView() {
   return (
     <div class="relative flex min-h-0 flex-1 flex-col">
       <DashboardPageHeader>
-        {/* With nothing saved, the picture below says what it's for and offers a New for each kind. */}
         <Show when={vaultItems().length}>
           <DashboardFilterCount shown={results().length} total={vaultItems().length} />
           <DashboardHeaderSearch value={query()} placeholder={t("Search")} label={t("Search the vault")} onInput={setQuery} class="w-48" />
@@ -385,7 +379,6 @@ function EmptyVault(props: { onNew(kind: VaultKind): void }) {
   );
 }
 
-/** Body text with its hashtags and mentions picked out. */
 function Highlighted(props: { text: string }) {
   const parts = () => props.text.split(/([#@][\p{L}\p{N}_.]+)/u);
   return (
@@ -395,7 +388,6 @@ function Highlighted(props: { text: string }) {
   );
 }
 
-/** Platforms this text would not fit, by length or hashtag count. */
 function tooLongFor(body: string): string[] {
   const length = captionLength(body);
   const tags = hashtagCount(body);
@@ -421,7 +413,6 @@ function VaultCard(props: {
   item: VaultItem;
   marqueeIndex: number;
   selected: boolean;
-  /** A ⌘/Shift click, or any click while cards are selected. True when it was taken as a selection. */
   onSelect(event: MouseEvent): boolean;
   onEdit(): void;
   onCopy(): void;

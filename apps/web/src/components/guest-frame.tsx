@@ -2,10 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Guest mode's frame, as on Buffer: the demo sits in a container inset from
-// the window, under a band with the way back to the site, what guest mode is,
-// and the way to an account.
-
 import { A, useNavigate } from "@solidjs/router";
 import ChevronLeft from "lucide-solid/icons/chevron-left";
 import type { JSX } from "solid-js";
@@ -14,8 +10,8 @@ import { PlaneIcon } from "@/components/dashboard/plane-icons";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { t } from "@/lib/i18n";
 
-// Sizes are set outright: the dashboard and the editor each scale `text-sm`
-// and `font-medium` their own way, and the band looks the same over both.
+// Sizes are set outright: the dashboard and the editor each scale `text-sm` and
+// `font-medium` their own way.
 const BAND_BUTTON = "press inline-flex h-7 items-center gap-1 rounded-[6px] px-2.5 text-[14px] font-[500] outline-none focus-ring";
 
 export function GuestFrame(props: { children: JSX.Element }) {

@@ -2,11 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The dashboard draws its glyphs from one set: Plane's icons and lucide, the
-// way PlaneIcon does. This keeps the editor icon's API and its footprint, so a
-// screen can switch to it without anything moving: the box stays the size its
-// class gives it, and the glyph inside is drawn at the weight of the
-// dashboard's own icons. Brand marks have no stand-in and stay as they are.
+// Keeps the editor icon's API and box size, so a screen can switch to it
+// without anything moving. Brand marks have no stand-in.
 
 import { Dynamic } from "solid-js/web";
 import { Show, type Component, type JSX } from "solid-js";
@@ -56,7 +53,6 @@ import { PlaneIcon, type PlaneIconName } from "./plane-icons";
 
 type Glyph = Component<JSX.SvgSVGAttributes<SVGSVGElement>>;
 
-/** Editor icon names that Plane's set already draws. */
 const PLANE: Record<string, PlaneIconName> = {
   "ai-mcp-cli": "ai",
   analytics: "analytics",
@@ -82,11 +78,9 @@ const PLANE: Record<string, PlaneIconName> = {
   trash: "trash",
   upgrade: "upgrade",
   user: "user-circle",
-  // The Vault page's own icon in the sidebar.
   vault: "lock",
 };
 
-/** The rest, drawn with lucide like the dashboard's other lucide icons. */
 const LUCIDE: Record<string, Glyph> = {
   "alert-warning": TriangleAlertLucide,
   "all-media-types": ImagesLucide,
@@ -129,16 +123,12 @@ const LUCIDE: Record<string, Glyph> = {
   "view.grid": LayoutGridLucide,
 };
 
-/** Filled versions of an outline, like a starred item. */
 const FILLED = new Set(["favorited"]);
 
-// The editor's glyphs sit small in a padded box; the dashboard's fill about
-// this much of it, so a box of the same size reads at the dashboard's weight.
-// `text-current` keeps the color from the box, and keeps parents' `[&_svg]`
-// color rules off the glyph, as they were off the editor's icon.
+// The dashboard's glyphs fill about this much of the box. `text-current` keeps
+// parents' `[&_svg]` color rules off the glyph, as they were off the editor's icon.
 const GLYPH = "size-[70%] text-current";
 
-/** The editor icon's API, drawn from the dashboard's set. */
 export function Icon(props: { name: string; class?: string }) {
   const plane = () => PLANE[props.name];
   const lucide = () => LUCIDE[props.name];

@@ -2,10 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Billing's social accounts: how many of the plan's are in use, across all
-// workspaces, and on Agency how many it has, 100 included and $1 a month for
-// each one more. Connections refuses a new account once they're all in use.
-
 import { Show, createSignal } from "solid-js";
 import { toast } from "somoto";
 
@@ -22,11 +18,10 @@ import { DashboardInfoActionRow, DashboardSurfaceSection } from "./shared";
 
 const AGENCY = PLANS.find((plan) => plan.extraAccounts)!;
 const INCLUDED = AGENCY.extraAccounts!.included;
-/** The most Agency goes to, as the pricing page's stepper and the billing service have it. */
+/** Must match the pricing page's stepper and the billing service. */
 const MOST = 1000;
 
 export function DashboardSocialAccounts(props: {
-  /** The plan being paid for; undefined until it's read, or on Free. */
   summary: BillingSummary | undefined;
   onChanged(): void;
   onUpgrade?(): void;
@@ -37,7 +32,6 @@ export function DashboardSocialAccounts(props: {
     return id ? connectedAccountCount(id) : 0;
   };
   const sellsMore = () => auth.accessLevel() >= 4;
-  // Stripe's count once it's read; until then the one on the account.
   const extra = () => props.summary?.extraAccounts ?? auth.extraAccounts();
   const most = () => accountLimit(auth.accessLevel(), extra());
 

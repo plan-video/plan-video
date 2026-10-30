@@ -18,26 +18,15 @@ const SCROLL_MAX_STEP_PX = 18;
 type ProjectMarqueeOptions = {
   /** The selection as it stands, snapshotted when a drag actually starts. */
   selection: () => ReadonlySet<string>;
-  /**
-   * `indexes` are the `data-marquee-index` values the rectangle covers.
-   * `base` is the selection to keep underneath them: empty for a plain drag,
-   * the selection from when the drag started when shift or cmd/ctrl is held.
-   */
+  /** `base` is the selection kept under the rectangle: empty for a plain drag, the selection at drag start with shift or cmd/ctrl. */
   onChange: (indexes: string[], base: ReadonlySet<string>) => void;
-  /** The drag passed the threshold. The selection has not moved yet. */
+  /** The selection has not moved yet. */
   onBegin?: () => void;
-  /** Escape cancelled the drag; put the selection back. */
   onRevert: (previous: ReadonlySet<string>) => void;
-  /** A press on a card this says yes to is left to the card, which is dragged itself, as onto a folder. */
   grabs?: (index: string) => boolean;
 };
 
-/**
- * Drag-to-select for a grid of `[data-marquee-index]` cards. The pointer can
- * start on the empty grid or on a project card; a still press stays a click,
- * and "New project" (a card with no project dir) is left to its own click.
- * Call during a component's setup — it owns a signal and a cleanup.
- */
+/** Call during a component's setup: it owns a signal and a cleanup. */
 export function createProjectMarquee(options: ProjectMarqueeOptions) {
   const [rect, setRect] = createSignal<MarqueeRect | null>(null);
 

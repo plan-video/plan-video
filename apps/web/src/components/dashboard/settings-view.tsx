@@ -34,7 +34,6 @@ import { LanguagePicker } from "./language-picker";
 import { TimeZonePicker } from "./time-zone-picker";
 import type { DashboardView } from "./types";
 
-/** The two themes, drawn in their own colors whichever one is on. */
 const THEME_PREVIEWS: { value: DashboardTheme; label: string; canvas: string; surface: string; line: string; text: string; accent: string }[] = [
   { value: "dark", label: msg("Dark"), canvas: "#060606", surface: "#0b0b0b", line: "#1c1c1c", text: "#3a3a3a", accent: "#2f6ff0" },
   { value: "light", label: msg("Light"), canvas: "#f3f3f3", surface: "#ffffff", line: "#ebebeb", text: "#d4d4d4", accent: "#2563eb" },

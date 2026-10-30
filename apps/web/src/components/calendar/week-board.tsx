@@ -53,22 +53,18 @@ type MoveOrigin = {
 };
 type ResizeState = { endMin: number; initialDuration: number; pointerId: number; sourceId: string; startMin: number };
 
-/** A chip at least this tall shows its whole span, and gives its title more lines. */
 const TALL_CHIP = 56;
 
-/** How many lines of title a chip this tall holds, over the line with the time. */
 function titleLines(height: number) {
   return Math.max(1, Math.min(4, Math.floor((height - 26) / 16)));
 }
 
-/** A quarter hour on the grid: the day's column, and minutes on the grid. */
 type Quarter = { day: string; at: number };
 
 type WeekBoardProps = {
   nav: CalendarNavigation;
   onCreate(day: string, time?: string): void;
   onSelect(selected: SelectedEvent): void;
-  /** Shows a post's preview while the mouse rests on it. */
   hover?: PostHover;
 };
 
@@ -87,7 +83,6 @@ export function WeekBoard(props: WeekBoardProps) {
   const [dragMove, setDragMove] = createSignal<DragMove | null>(null);
   const [resize, setResize] = createSignal<ResizeState | null>(null);
   const [allDayOpen, setAllDayOpen] = createSignal(false);
-  /** The quarter hour the pointer rests on, which a new post can be put in when it's free. */
   const [pointed, setPointed] = createSignal<Quarter | null>(null, { equals: (a, b) => a?.day === b?.day && a?.at === b?.at });
 
   let moveOrigin: MoveOrigin | null = null;
@@ -121,9 +116,6 @@ export function WeekBoard(props: WeekBoardProps) {
 
   const gridTemplate = "var(--calendar-time-width) repeat(7, minmax(var(--calendar-day-width), 1fr))";
 
-  // -------------------------------------------------------------------------
-  // Pointer math against the body grid.
-
   const dayIndexAt = (clientX: number) => {
     const rect = body.getBoundingClientRect();
     const gutter = (body.firstElementChild as HTMLElement | null)?.getBoundingClientRect().width ?? 56;
@@ -131,9 +123,6 @@ export function WeekBoard(props: WeekBoardProps) {
     return Math.max(0, Math.min(6, Math.floor((clientX - rect.left - gutter) / width)));
   };
   const minutesAt = (clientY: number) => START_MINUTES + ((clientY - body.getBoundingClientRect().top) / HOUR_HEIGHT) * 60;
-
-  // -------------------------------------------------------------------------
-  // Move: press a chip, drag it to another time or day.
 
   const moveTarget = (origin: MoveOrigin, event: PointerEvent): DragMove => {
     const gridDay = days()[dayIndexAt(event.clientX)];
@@ -203,9 +192,6 @@ export function WeekBoard(props: WeekBoardProps) {
     };
   };
 
-  // -------------------------------------------------------------------------
-  // Resize: drag the bottom edge of a chip.
-
   const resizeTarget = (active: ResizeState, event: PointerEvent) => ({
     ...active,
     endMin: Math.max(active.startMin + SNAP_MINUTES, snapMinutes(event.clientY, resizeColumnTop)),
@@ -257,8 +243,6 @@ export function WeekBoard(props: WeekBoardProps) {
     props.onSelect({ anchor: element.getBoundingClientRect(), event });
   };
 
-  // -------------------------------------------------------------------------
-
   return (
     <section
       ref={scroller}
@@ -266,7 +250,6 @@ export function WeekBoard(props: WeekBoardProps) {
       class="min-h-0 flex-1 overflow-auto overscroll-contain [overflow-anchor:none]"
     >
       <div class="relative grid min-w-(--calendar-grid-width) select-none [--calendar-day-width:6.5rem] [--calendar-grid-width:calc(var(--calendar-time-width)+7*var(--calendar-day-width))] [--calendar-time-width:3.5rem] [grid-template-rows:auto_auto_auto]">
-        {/* Day headers */}
         <div class="sticky top-0 z-30 col-start-1 row-start-1 grid border-y border-(--plane-border-subtle) bg-(--plane-layer-1)" style={{ "grid-template-columns": gridTemplate }}>
           <div class="border-r border-border-strong" />
           <For each={days()}>
@@ -300,7 +283,6 @@ export function WeekBoard(props: WeekBoardProps) {
           </For>
         </div>
 
-        {/* Posts with a day but no time */}
         <div class="sticky top-12 z-30 col-start-1 row-start-2 grid min-h-8 border-b border-border-strong bg-background" style={{ "grid-template-columns": gridTemplate }}>
           <div class="border-r border-border-strong pr-2 pt-[11px] text-right text-xs leading-none text-muted-foreground">{t("No time")}</div>
           <For each={days()}>
@@ -343,7 +325,6 @@ export function WeekBoard(props: WeekBoardProps) {
           </For>
         </div>
 
-        {/* Time grid */}
         <div ref={body} class="relative col-start-1 row-start-3 grid" style={{ "grid-template-columns": gridTemplate }}>
           <div class="border-r border-border-strong">
             <Index each={HOURS}>
@@ -372,22 +353,20 @@ export function WeekBoard(props: WeekBoardProps) {
                 ),
               );
               const nextDay = () => formatDayParts(shiftDay(day, 1));
-              /** Where now falls on this day's column, in minutes on the grid: past its end on an earlier day, before its start on a later one. */
               const now = () => (day < nowGridDay() ? Infinity : day > nowGridDay() ? -Infinity : displayMinutes(nowMinutes()));
-              /** The minutes this day's posts cover on the grid, as drawn: a chip is never shorter than its least height. */
+              /** As drawn: a chip is never shorter than its least height. */
               const taken = createMemo(() =>
                 dayEvents().map((event) => {
                   const start = eventStartMinutes(event.start);
                   return { start, end: start + (eventHeight(event.duration) / HOUR_HEIGHT) * 60 };
                 }),
               );
-              /** Whether a new post can go in the quarter hour from `at`: it's ahead, and clear of the posts drawn here. */
               const free = (at: number) => at > now() && at < END_MINUTES && !taken().some((span) => span.start < at + SNAP_MINUTES && span.end > at);
               const slot = () => {
                 const quarter = pointed();
                 return quarter?.day === day && free(quarter.at) ? quarter.at : null;
               };
-              /** The quarter hour under the pointer, in minutes on the grid. None over a post, or for a press that began on one and let go here, which clicks the column itself. */
+              /** None over a post, or for a press that began on one: that release clicks the column itself. */
               const quarterAt = (event: MouseEvent & { currentTarget: HTMLDivElement }) => {
                 const target = event.target as HTMLElement;
                 if (target === event.currentTarget || target.closest("[data-event-chip]")) return null;
@@ -418,7 +397,6 @@ export function WeekBoard(props: WeekBoardProps) {
                       />
                     )}
                   </Index>
-                  {/* Each free quarter hour is a slot for a new post, shown under the pointer. */}
                   <Show when={slot()}>
                     {(at) => (
                       <span

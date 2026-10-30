@@ -11,11 +11,7 @@ import { t } from "@/lib/i18n";
 import { revealPath } from "@/lib/shell";
 import { isDesktop, pickProjectsRoot, projectsRoot } from "@/projects";
 
-/**
- * Footer bar of the projects view: shows the projects root and the actions on
- * it. Desktop only — projects live on disk, so there is no root to show in the
- * browser build (see @/projects).
- */
+/** Desktop only: projects live on disk, so the browser build has no root to show (see @/projects). */
 export function DashboardProjectsFolderBar() {
   const rootLabel = () => projectsRoot() ?? t("No folder selected");
   const hasRoot = () => !!projectsRoot();

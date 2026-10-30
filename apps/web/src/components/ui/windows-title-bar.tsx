@@ -8,26 +8,15 @@ import { cx } from "@/lib/cva";
 import { isWindowsDesktop } from "@/projects";
 
 type WindowsTitleBarProps = {
-  /** Width of the left cell, so its border continues the sidebar divider below. */
   leftWidth: number;
-  /** Width of the cell the native window controls sit in. */
   controlsWidth: number;
   left: JSX.Element;
-  /** Classes for the middle cell, which sits over the page's main column. */
   class?: string;
   children?: JSX.Element;
 };
 
-/**
- * The title bar of the Windows desktop build: a fixed row under the native
- * minimize/maximize/close overlay. The whole row drags the window, so anything
- * interactive inside it has to opt out with `-webkit-app-region: no-drag`.
- * Its bottom border runs the full width, so the first row of the left sidebar
- * drops its own top border on Windows.
- * Renders nothing on other platforms; the editor clears it with
- * `--titlebar-height`. The dashboard has no such row: its sidebar header and
- * view headers line up with the controls instead.
- */
+// The whole row drags the window: anything interactive inside it needs
+// `-webkit-app-region: no-drag`.
 export function WindowsTitleBar(props: WindowsTitleBarProps) {
   return (
     <Show when={isWindowsDesktop()}>

@@ -2,11 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Many files at once, each its own post: caption them from one template,
-// space them out over days, or take captions and times from a spreadsheet.
-// Any one of them opens on the side with everything New post has. Every post
-// is kept on the posts calendar. Every network New post publishes to does from here too.
-
 import { useSearchParams } from "@solidjs/router";
 import { For, Match, Show, Switch, batch, createEffect, createMemo, createSignal, onCleanup, onMount, type JSX } from "solid-js";
 import { createStore, produce, reconcile } from "solid-js/store";
@@ -129,17 +124,15 @@ type BulkPost = {
   id: string;
   media: PostMedia;
   caption: string;
-  /** Captions a platform has of its own, instead of the shared one. */
   overrides: Partial<Record<PlatformId, string>>;
-  /** Goes out as a story: no caption, and only where stories are taken. */
   story: boolean;
   platforms: PlatformId[];
   accounts: AccountChoices;
   day: string;
   time: string;
-  /** How it repeats from its day, as the calendar keeps it. `""` for once. */
+  /** The calendar's repeat rule; `""` for once. */
   repeat: string;
-  /** When the repeats stop: `""` never, `on:YYYY-MM-DD`, or `after:N` posts. */
+  /** `""` never, `on:YYYY-MM-DD`, or `after:N` posts. */
   repeatEnd: string;
 };
 
@@ -173,30 +166,21 @@ function freshBulk(): Bulk {
   };
 }
 
-/** Kept across views, like a half-written single post. */
 const [bulk, setBulk] = createStore<Bulk>(freshBulk());
-/** The platform settings every post in the batch goes out with. */
 const [settings, setSettings] = createStore<PlatformSettings>(defaultPlatformSettings());
 const [scheduleMode, setScheduleMode] = createSignal<ScheduleMode>("spread");
-/** Whether each post ends with the vault signature. */
 const [signed, setSigned] = createSignal(true);
-/** The post open on the side, in place of the changes for many. */
 const [editing, setEditing] = createSignal<string | null>(null);
 
 const signedCaption = (caption: string) => appendSignature(caption, signed() ? vaultSignature()?.body : undefined);
 const kindOf = (post: BulkPost): PostKind => (post.story ? "story" : post.media.kind);
 const captionFor = (post: BulkPost, id: PlatformId) => post.overrides[id] ?? post.caption;
-/** The caption as it goes out on `id`, signature included. */
 const finalCaption = (post: BulkPost, id: PlatformId) => (post.story ? "" : signedCaption(captionFor(post, id)));
-/** A YouTube or Pinterest title from the batch settings, filled in for this post, or its file name. */
 const titleFor = (post: BulkPost, index: number, id: PlatformId) =>
   fillTemplate(platformTitle(settings, id), post, index, bulk.posts.length).trim() || baseName(post.media.file).slice(0, 100);
 const isLive = (id: PlatformId) => PUBLISHING_PLATFORMS.includes(id);
-/** A post a network publishing from plan.video takes, so "Post now" sends it there now instead of waiting. */
 const sendable = (post: BulkPost) => !post.story && post.platforms.some(isLive);
-/** The networks "Post now" sends to, across the posts it sends. */
 const livePlatforms = (posts: readonly BulkPost[]) => sortPlatforms(new Set(posts.filter(sendable).flatMap((post) => post.platforms.filter(isLive))));
-/** The words each network goes out with, kept on the post like New post keeps them. YouTube's are its description. */
 const ownCaptions = (post: BulkPost) =>
   Object.fromEntries(post.platforms.filter((id) => id !== "youtube").map((id) => [id, finalCaption(post, id)]));
 
@@ -226,13 +210,11 @@ function postIssues(post: BulkPost, index: number): Issue[] {
   return issues;
 }
 
-/** The TikTok account the batch posts from, so the privacy list is that account's. */
 function bulkTikTokAccount() {
   const post = bulk.posts.find((item) => item.platforms.includes("tiktok") && !item.story);
   return post ? accountsFor("tiktok", post.accounts).find((account) => account.tiktok) : undefined;
 }
 
-/** The first minute still ahead on `day`, when `day` is today. */
 const earliestTimeOn = (day: string) => (day === localDateKey(new Date()) ? timeOf(new Date(Date.now() + 60_000)) : undefined);
 
 const isWeekend = (date: Date) => {
@@ -240,10 +222,8 @@ const isWeekend = (date: Date) => {
   return weekday === 0 || weekday === 6;
 };
 
-/** `days` days on from `date`, at the same clock time. */
 const daysLater = (date: Date, days: number, time = timeOf(date)) => atLocal(shiftDay(localDateKey(date), days), time) ?? date;
 
-/** Times from `start`, `every` hours or days apart, moved off weekends when asked. */
 function spread(count: number, start: Date, every: number, unit: Spacing, skipWeekends: boolean): Date[] {
   const times: Date[] = [];
   let at = new Date(start);
@@ -264,7 +244,6 @@ function fillTemplate(template: string, post: BulkPost, index: number, count: nu
     .replaceAll("{date}", at ? formatDay(at) : "");
 }
 
-/** Makes the posts with `ids` stories, or posts again. Platforms that take no stories are dropped. */
 function setStory(ids: ReadonlySet<string>, story: boolean) {
   setBulk(
     "posts",
@@ -279,7 +258,6 @@ function setStory(ids: ReadonlySet<string>, story: boolean) {
   );
 }
 
-/** Each token with the name of its insert button. */
 const TOKENS = [
   { token: "{name}", label: msg("Insert file name") },
   { token: "{n}", label: msg("Insert number") },
@@ -404,7 +382,6 @@ export function DashboardBulkToolsView() {
     });
   };
 
-  /** Saves every post. `now` puts the ones a live network takes at this minute, and the rest as drafts. */
   const saveAll = async (status: "draft" | "scheduled", now?: Date) => {
     const planned = bulk.posts.map((post, index) => {
       const at = atLocal(post.day, post.time);
@@ -412,7 +389,7 @@ export function DashboardBulkToolsView() {
       const goesNow = !!now && sendable(post);
       return {
         post,
-        // The row's own id, the same on every try: saving again after a failure partway saves over the posts that got saved, rather than adding copies.
+        // Same id on every try, so a retry after a partial failure overwrites saved posts instead of adding copies.
         id: post.id,
         title: postTitle(post.story ? "" : post.caption, post.story ? t("Story · {name}", { name: baseName(post.media.file) }) : titleFor(post, index, "youtube")),
         caption: post.story ? "" : signedCaption(post.caption),
@@ -437,7 +414,6 @@ export function DashboardBulkToolsView() {
         untimed: !goesNow && !!day,
         repeat: goesNow ? "" : post.repeat,
         repeatEnd: goesNow || !post.repeat ? "" : post.repeatEnd,
-        // Every post keeps its file, so it can be sent, and opens again with it.
         files: { shared: [post.media.file] },
         status: now
           ? goesNow && post.platforms.every(isLive)
@@ -451,7 +427,6 @@ export function DashboardBulkToolsView() {
       toast.error(t("Could not save the posts"), { description: t(error) });
       return null;
     }
-    // Kept on each post, so the post list shows it in any browser. Made one at a time, after saving.
     void (async () => {
       for (const item of planned) {
         const made = await thumbnailFromFile(item.post.media.file);
@@ -465,7 +440,7 @@ export function DashboardBulkToolsView() {
   const save = async (status: "draft" | "scheduled", guestReason: "schedule" | "post" = "schedule") => {
     if (saving() || !bulk.posts.length) return;
     if (status === "scheduled" && blocked().length) return;
-    // Nothing goes out from guest mode's demo: the posts stay as they are, and the guest is asked to make an account.
+    // Guest mode's demo never sends anything.
     if (status === "scheduled" && auth.isGuest()) {
       askForAccount({ reason: guestReason });
       return;
@@ -492,11 +467,6 @@ export function DashboardBulkToolsView() {
     }
   };
 
-  /**
-   * Sends every post a network publishing from plan.video takes, one after
-   * another, to each of those networks, like New post's "Post now". Other
-   * platforms stay drafts.
-   */
   const postNow = async () => {
     if (saving() || blocked().length) return;
     const sending = bulk.posts.filter(sendable);
@@ -585,7 +555,6 @@ export function DashboardBulkToolsView() {
   return (
     <div class="flex min-h-0 flex-1 overflow-hidden">
       <main class="flex min-w-0 flex-1 flex-col">
-        {/* The breadcrumb names the page, so its actions sit up here, with no title under it. */}
         <DashboardPageHeader>
           <Show when={reading()}>
             {(progress) => (
@@ -767,9 +736,6 @@ function EmptyState(props: {
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// The table
 
 const ROW_GRID = "grid grid-cols-[1rem_minmax(10rem,1fr)_minmax(12rem,1.6fr)_6.5rem_10.5rem_1.25rem_1.75rem] items-center gap-3 px-6";
 
@@ -984,16 +950,12 @@ function RowPlatforms(props: {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Changes for many posts at once
-
 function BatchPanel(props: { target: BulkPost[] }) {
   const [, setParams] = useSearchParams();
   let templateField: HTMLTextAreaElement | undefined;
   const count = () => props.target.length;
   const targetIds = () => new Set(props.target.map((post) => post.id));
 
-  /** Platforms that every targeted post goes to. */
   const shared = () => {
     const [first, ...rest] = props.target;
     if (!first) return [];
@@ -1015,7 +977,6 @@ function BatchPanel(props: { target: BulkPost[] }) {
   const allStories = () => props.target.length > 0 && props.target.every((post) => post.story);
   const postAs = () => (allStories() ? "story" : "post");
 
-  /** What the platform settings cover: every post in the batch, since they share one set. */
   const feedPosts = () => bulk.posts.filter((post) => !post.story);
   const feedPlatforms = () => sortPlatforms(new Set(feedPosts().flatMap((post) => post.platforms)));
   const feedKind = (): PostKind => (feedPosts().some((post) => post.media.kind === "video") ? "video" : "image");
@@ -1092,7 +1053,6 @@ function BatchPanel(props: { target: BulkPost[] }) {
     return dailyBestTimes(platforms, count()).map((suggestion) => suggestion.at);
   });
 
-  /** Gives the targeted posts `times`, in order. Posts past the last time keep theirs. */
   const assign = (times: readonly Date[]) => {
     const ids = targetIds();
     let next = 0;
@@ -1410,9 +1370,6 @@ function BatchPanel(props: { target: BulkPost[] }) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// One post, with everything New post has
-
 function PostPanel(props: { index: number; issues: Issue[] }) {
   const post = () => bulk.posts[props.index]!;
   const update = <K extends keyof BulkPost>(key: K, value: BulkPost[K]) => setBulk("posts", props.index, key, value);
@@ -1614,7 +1571,6 @@ function PostPanel(props: { index: number; issues: Issue[] }) {
   );
 }
 
-/** One post's caption, shared or for one platform, as New post writes it. */
 function CaptionFields(props: { index: number }) {
   const [, setParams] = useSearchParams();
   const post = () => bulk.posts[props.index]!;
@@ -1642,7 +1598,6 @@ function CaptionFields(props: { index: number }) {
       }),
     );
 
-  /** The tightest limit among the platforms that use the caption shown. */
   const limit = () => {
     const id = active();
     if (id !== "all") return { limit: socialPlatform(id).captionLimit, name: socialPlatform(id).name };

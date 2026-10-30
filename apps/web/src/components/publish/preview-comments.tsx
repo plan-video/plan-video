@@ -2,12 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The comments on a shared post preview, as the public page and the owner's
-// share panel both show them: open threads first, each with its replies, and
-// resolved ones folded away at the end. Anyone with the link comments and
-// replies without an account, under a name asked once and then kept in this
-// browser. The owner and their team comment under their own, and resolve.
-
 import ArrowUpLucide from "lucide-solid/icons/arrow-up";
 import { For, Show, createMemo, createSignal, createUniqueId, onCleanup, onMount, type JSX } from "solid-js";
 import { toast } from "somoto";
@@ -22,15 +16,12 @@ import { addComment, reviewerName, setCommentResolved, setReviewerName, type Pre
 const BODY_MAX = 2000;
 const NAME_MAX = 80;
 
-/** The composer's box, as the Assistant draws its own. */
 const BOX =
   "flex flex-col rounded-lg border border-(--plane-border-strong) bg-(--plane-layer-1) shadow-(--plane-shadow-raised-100) transition-colors focus-within:border-(--plane-text-placeholder)";
-/** Reply, Resolve and the like: quiet words under a thread. */
 const ACTION = "rounded-sm text-xs leading-5 font-medium text-(--plane-text-tertiary) outline-none hover:text-(--plane-text-primary) focus-ring";
 
 const RELATIVE = localized((locale) => new Intl.RelativeTimeFormat(locale, { numeric: "auto", style: "short" }));
 
-/** How long ago a comment was left, as of `now`; past a week, its day. */
 function ago(at: string, now: number): string {
   const time = new Date(at).getTime();
   const seconds = Math.round((time - now) / 1000);
@@ -47,19 +38,13 @@ type ThreadsProps = {
   previewId: string;
   comments: readonly PreviewComment[];
   isOwner: boolean;
-  /** The owner comments under the name on their account. */
   ownerName?: string;
   onChanged(): void | Promise<void>;
-  /** Shown while there are none. */
   fallback?: JSX.Element;
   class?: string;
 };
 
-/**
- * The threads, oldest first, then the resolved ones under a fold. Drawn by
- * id, so a refresh that brings the same threads back leaves an open reply
- * and what's written in it alone.
- */
+/** Drawn by id, so a refresh that brings the same threads back leaves an open reply and its draft alone. */
 export function CommentThreads(props: ThreadsProps) {
   const threads = createMemo(() => {
     const replies = new Map<string, PreviewComment[]>();
@@ -77,7 +62,6 @@ export function CommentThreads(props: ThreadsProps) {
   const resolved = createMemo(() => ids(true));
   const [showResolved, setShowResolved] = createSignal(false);
 
-  // "5 min ago" moves on while the page stays open.
   const [now, setNow] = createSignal(Date.now());
   const timer = setInterval(() => setNow(Date.now()), 30_000);
   onCleanup(() => clearInterval(timer));
@@ -130,7 +114,6 @@ export function CommentThreads(props: ThreadsProps) {
   );
 }
 
-/** A name's first letter on a round tile; the post's own side in the brand's blue. */
 function Initial(props: { name: string; author: boolean; class?: string }) {
   return (
     <span
@@ -229,17 +212,10 @@ function ThreadView(props: {
   );
 }
 
-/**
- * Writing a comment, or a reply under `parentId`. Someone without an account
- * gives their name first, once: it's kept in this browser and shown under the
- * box, where they can change it.
- */
 export function CommentComposer(props: {
   previewId: string;
   parentId?: string;
-  /** The owner comments under the name on their account. */
   ownerName?: string;
-  /** Filled into the name field, for someone signed in to another account. */
   suggestedName?: string;
   autofocus?: boolean;
   onPosted(): void | Promise<void>;
@@ -283,7 +259,6 @@ export function CommentComposer(props: {
           onDone={(name) => {
             setReviewerName(name);
             setRenaming(false);
-            // The box takes the place of the question: carry on writing there.
             queueMicrotask(() => field?.focus());
           }}
         />
@@ -316,7 +291,6 @@ export function CommentComposer(props: {
           }}
         />
         <div class="flex min-w-0 items-center gap-2 p-2 pt-0">
-          {/* Said once, under the main box: a reply is under the same name. */}
           <Show when={!props.ownerName && !props.parentId}>
             <p class="flex min-w-0 items-center gap-1 pl-1 text-xs text-(--plane-text-tertiary)">
               <span class="truncate">
@@ -334,7 +308,6 @@ export function CommentComposer(props: {
                 {t("Cancel")}
               </PlaneButton>
             </Show>
-            {/* The Assistant's send button. */}
             <button
               type="button"
               aria-label={props.parentId ? t("Reply") : t("Comment")}
@@ -352,7 +325,6 @@ export function CommentComposer(props: {
   );
 }
 
-/** Asked before someone without an account first comments: their name, nothing else. */
 function NameStep(props: { initial: string; autofocus?: boolean; class?: string; onDone(name: string): void; onCancel?(): void }) {
   const [value, setValue] = createSignal(props.initial);
   const id = createUniqueId();
@@ -408,7 +380,6 @@ function NameStep(props: { initial: string; autofocus?: boolean; class?: string;
   );
 }
 
-/** The share panel's: the box, then the threads under it. */
 export function PreviewComments(props: Omit<ThreadsProps, "fallback">) {
   return (
     <div class={cx("flex flex-col gap-3", props.class)}>

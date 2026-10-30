@@ -2,9 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The accounts posts can go out from, in the sidebar while the calendar is open.
-// Picking one shows only the posts that go out from it.
-
 import { useSearchParams } from "@solidjs/router";
 import { For, Show, createEffect, createMemo, type JSX } from "solid-js";
 
@@ -21,7 +18,6 @@ import { PLATFORMS } from "./utils";
 
 const PLATFORM_ORDER: readonly string[] = PLATFORMS.map((platform) => platform.id);
 
-/** Connected accounts, a platform's together, in the order platforms are listed everywhere else. */
 function connectedAccounts(): SocialConnection[] {
   return [...socialConnections()].sort(
     (a, b) => PLATFORM_ORDER.indexOf(a.platform) - PLATFORM_ORDER.indexOf(b.platform) || a.connectedAt.localeCompare(b.connectedAt),

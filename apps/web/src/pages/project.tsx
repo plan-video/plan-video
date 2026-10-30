@@ -16,29 +16,23 @@ import { resolveProject } from '@/projects';
 import { TimelineProvider } from '@/context/timeline';
 import { EngineProvider } from '@/engine';
 
-/** `/projects/*ref` — the editor, with the project `ref` names loaded. */
 export function ProjectPage() {
   const ref = useProjectRef();
   const navigate = useNavigate();
   const location = useLocation();
 
-  // The ref the project was found for. Rewriting the URL to the id below
-  // changes the ref without changing the project, so the lookup is held on
-  // what it already answered rather than run again — refetching would tear
-  // the editor down and build it back for the project already in it.
+  // Rewriting the URL to the id changes the ref but not the project, so the lookup holds what it answered:
+  // refetching would tear the editor down and rebuild it for the same project.
   let resolvedId = '';
   const target = createMemo<string>((previous) => {
     const next = ref();
     return previous && next === resolvedId ? previous : next;
   }, '');
 
-  // Which folder that is, is main's to answer: the URL carries the project's
-  // id, and the folder it names can be renamed out from under the link.
+  // main resolves the folder: the URL carries the id, and the folder it names can be renamed under the link.
   const [project] = createResource(target, resolveProject);
 
-  // The id is the project's address. A URL that named the folder (a link from
-  // before ids, a bookmark from before a rename) is swapped for the canonical
-  // one, so the next rename leaves it alone.
+  // A URL naming the folder (an old link or bookmark) is swapped for the id one, so the next rename leaves it alone.
   createEffect(() => {
     const id = project()?.id;
     if (!id) return;
@@ -47,11 +41,7 @@ export function ProjectPage() {
   });
 
   return (
-    /**
-     * keyed so the engine provider is remounted when the project changes —
-     * on the project, not on its folder: renaming one must not tear down the
-     * world the user is working in.
-     */
+    // Keyed on the project, not its folder: a rename must not tear down the world being worked in.
     <Show when={!project.loading}>
       <Show when={project()} keyed fallback={<Navigate href={appRoute("projects")} />}>
         {(found) => (

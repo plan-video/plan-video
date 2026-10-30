@@ -2,10 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// A connected account as lists show it: its profile picture with the
-// platform's logo in the corner, or the logo alone while it has no picture.
-// A YouTube channel always shows YouTube's icon alone, bare and 20 high: its
-// brand rules allow neither a smaller icon nor one in a corner over a picture.
+// YouTube's brand rules forbid its icon in a corner over a picture, so a channel shows the icon alone.
 
 import { Match, Show, Switch } from "solid-js";
 
@@ -16,10 +13,9 @@ import { cx } from "@/lib/cva";
 import { socialPlatform, type PlatformId } from "@/lib/social";
 import type { SocialConnection } from "@/lib/social-connections";
 
-/** The networks' marks at 62% of their tile, in a box the tile's size (see brand/tile-box). */
 const MARK_BOX = tileViewBox("0 0 24 24", 0.62);
 
-/** The platform's logo tile, drawn here rather than taken from the controls, which list accounts with this. */
+/** Drawn here rather than taken from the controls, which list accounts with this. */
 function Logo(props: { platform: string; class: string }) {
   const platform = () => socialPlatform(props.platform as PlatformId);
   return (
@@ -31,11 +27,6 @@ function Logo(props: { platform: string; class: string }) {
   );
 }
 
-/**
- * Whether some of these names are the same, as a brand's accounts on several
- * networks often are. A list like that leads with each account's network
- * (`logoOnly`), since the pictures and names alone can't tell them apart.
- */
 export function namesRepeat(names: readonly string[]) {
   const seen = new Set<string>();
   return names.some((name) => {
@@ -48,11 +39,8 @@ export function namesRepeat(names: readonly string[]) {
 
 export function AccountAvatar(props: {
   account: Pick<SocialConnection, "platform" | "avatarUrl">;
-  /** The network's logo alone, even when the account has a picture. */
   logoOnly?: boolean;
-  /** YouTube's icon small on its white tile, the size of the other logos, rather than 20 high (analytics' account list and the posts list, the user's choice). */
   compact?: boolean;
-  /** YouTube's icon alone, red with no tile, as wide as the other logos (the Schedule sidebar's account list, the user's choice). */
   bare?: boolean;
   class?: string;
 }) {

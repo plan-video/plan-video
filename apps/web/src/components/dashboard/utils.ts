@@ -14,7 +14,6 @@ export function formatEditedAt(modifiedAt: string): string {
   return formatRelative(modifiedAt);
 }
 
-/** How the trash card says when a project will be permanently deleted. */
 export function formatTrashRemaining(trashedAt: string, now = Date.now()): string {
   const trashed = parseTimestamp(trashedAt);
   if (!trashed) return t("Deletes in {days, plural, one {# day} other {# days}}", { days: TRASH_RETENTION_DAYS });
@@ -55,7 +54,6 @@ export async function cropAndResizeAvatar(file: File): Promise<Blob> {
   const canvas = new OffscreenCanvas(size, size);
   const ctx = canvas.getContext("2d")!;
 
-  // Center-crop to square
   const sx = (bitmap.width - Math.min(bitmap.width, bitmap.height)) / 2;
   const sy = (bitmap.height - Math.min(bitmap.width, bitmap.height)) / 2;
   const sSize = Math.min(bitmap.width, bitmap.height);

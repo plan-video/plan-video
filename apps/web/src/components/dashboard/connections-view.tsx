@@ -50,12 +50,10 @@ import {
   DashboardSurfaceCard,
 } from "./shared";
 
-/** Past this many accounts the list gets a filter box. */
 const FILTER_FROM = 8;
 
 type ConnectedAccount = ReturnType<typeof connectionsFor>[number];
 
-/** A platform's accounts as wrapping chips, in a box that scrolls once it fills. Without `onRemove`, they can't be removed here. */
 function AccountList(props: { accounts: ConnectedAccount[]; onRemove?(accountId: string): void }) {
   const [query, setQuery] = createSignal("");
 
@@ -114,7 +112,7 @@ function AccountList(props: { accounts: ConnectedAccount[]; onRemove?(accountId:
 export function DashboardConnectionsView() {
   const auth = useAuth();
   const [, setParams] = useSearchParams();
-  /** A network the Free plan can't connect, for someone on Free. A shared workspace is on its owner's plan, which has a team, so it's paid. */
+  /** A shared workspace is on its owner's plan, which has a team, so it's paid. */
   const locked = (id: string) => PAID_NETWORKS.has(id) && !auth.isPro() && !activeScope();
   /** In a workspace someone shared, only its admins connect and remove accounts. */
   const canManage = () => activeShared()?.role !== "member";
@@ -123,7 +121,6 @@ export function DashboardConnectionsView() {
   /** Bluesky's app password, held only until the sign-in finishes. */
   const [appPassword, setAppPassword] = createSignal("");
   const [signingIn, setSigningIn] = createSignal(false);
-  /** Bluesky with an app password instead of its sign-in, or always where the sign-in can't run. */
   const [withAppPassword, setWithAppPassword] = createSignal(!blueskySignInAvailable());
 
   const beginTikTok = async () => {
@@ -160,7 +157,6 @@ export function DashboardConnectionsView() {
     if (id) fillMissingAvatars(id, socialConnections());
   });
 
-  // A network's login that just came back to this tab is finished here.
   createEffect(() => {
     const id = auth.user()?.id;
     if (id) void finishPendingConnection(id);
@@ -168,10 +164,6 @@ export function DashboardConnectionsView() {
 
   const userId = () => auth.user()?.id;
 
-  /**
-   * Every social account the plan connects is in use: says so, with the way to
-   * more, before a network's sign-in is started for an account that can't be kept.
-   */
   const refuseWhenFull = () => {
     const id = userId();
     // A shared workspace's accounts count against its owner's plan, which the server checks.
@@ -236,7 +228,6 @@ export function DashboardConnectionsView() {
         <section class="flex flex-col gap-2">
           <div class="flex flex-col gap-1 px-1">
             <DashboardGroupLabel>{t("Networks")}</DashboardGroupLabel>
-            {/* In someone else's workspace, say who can change its accounts. */}
             <Show when={!canManage()}>
               <p class="text-xs text-muted-foreground">
                 {t("The accounts {workspace}'s posts go out from. Only its owner and admins can connect or remove them.", { workspace: activeShared()!.name })}
@@ -251,9 +242,8 @@ export function DashboardConnectionsView() {
                 /** LinkedIn logins run out after 60 days and can't be renewed in the background. */
                 const renew = () => accounts().some((account) => account.linkedin && linkedinNeedsRenewal(account.linkedin));
                 /**
-                 * An older "Sign in with Bluesky" stays in the browser that made it, and an Instagram, Facebook
-                 * or Threads account added by name before it could sign in has no login, so posts can't go out from the server.
-                 * The demo's sample accounts have no logins anywhere.
+                 * An older "Sign in with Bluesky" stays in the browser that made it, and an Instagram, Facebook or
+                 * Threads account added by name before it could sign in has no login, so posts can't go out from the server.
                  */
                 const moved = () =>
                   accounts().some(
@@ -300,7 +290,7 @@ export function DashboardConnectionsView() {
                         <Button
                           variant="secondary"
                           onClick={() => {
-                            // Connecting needs an account to keep the login: a guest is asked to make one first.
+                            // A guest has no account to keep the login.
                             if (auth.isGuest()) return askForAccount({ reason: "connect", platform: item.id });
                             // Signing in again to an account already here doesn't take another.
                             if (!renew() && !moved() && refuseWhenFull()) return;
@@ -352,12 +342,10 @@ export function DashboardConnectionsView() {
                             const id = auth.ownerId();
                             if (!id) return;
                             const removed = accounts().find((account) => account.id === accountId);
-                            // The workspace it's removed from, should another open before the server hears of it.
+                            // Read now, in case another workspace opens before the server hears of the removal.
                             const team = activeScope();
                             disconnectSocial(id, accountId);
-                            // The demo's sample accounts have no logins anywhere.
                             if (auth.isGuest()) return;
-                            // The server ends plan.video's access at the network and drops the login it kept.
                             const network = removed ? platformName(removed.platform) : t("the network");
                             // After any login still on its way there, so the server doesn't keep it afterwards.
                             void loginReady(accountId)
@@ -388,7 +376,6 @@ export function DashboardConnectionsView() {
           </DashboardDividedStack>
           </DashboardSurfaceCard>
         </section>
-        {/* Only those who connect accounts here can send a client the way to. */}
         <Show when={canManage() && !auth.isGuest()}>
           <ClientLinkSection />
         </Show>

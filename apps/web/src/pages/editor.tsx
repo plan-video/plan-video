@@ -47,21 +47,13 @@ import type { EditWriter } from '@/projects/edits';
 import type { CompileResult } from '@/projects/host';
 
 const MIN_CANVAS_HEIGHT = 200;
-/** The space around the panels, and between them and the rail. */
 const PANEL_GAP = 6;
-/**
- * The panels are one frame: they meet edge to edge, each drawing the edges
- * no neighbour draws for it, so every line inside is a single hairline and
- * only the frame's outer corners are round.
- */
+// Panels form one frame: each draws only the edges no neighbour draws, so inner lines stay single hairlines.
 const PANEL_SURFACE = 'min-h-0 min-w-0 overflow-hidden border-border-strong bg-background';
-// As wide as the rail and the left panel together, so the canvas between
-// them, and the stage on it, sits in the middle of the window.
+// Rail + left panel wide, so the canvas between them sits centred in the window.
 const INSPECTOR_WIDTH = EDITOR_RAIL_WIDTH + ASSETS_SIDEBAR_WIDTH;
-/** Wider while a stream layout is set up, so its phone preview has room. */
 const LAYOUT_INSPECTOR_WIDTH = 360;
-// One width for every view of the left panel, extensions included, so
-// switching views never moves the canvas.
+// One width for every left-panel view, so switching views never moves the canvas.
 const sidebarWidth = () => leftSidebarWidth();
 
 export function EditorPage() {
@@ -72,9 +64,7 @@ export function EditorPage() {
   const world = useWorld();
   const engine = useEngineContext();
 
-  // Keyed on the folder, not the project: a rename moves it, and everything
-  // below holds a path — the watcher, the library, the writer — so all of it
-  // is torn down and re-attached where the project now is.
+  // Keyed on the folder, not the project: a rename moves it, and the watcher, library and writer all hold a path.
   createEffect(() => {
     const dir = project.dir();
     if (!dir) return;
@@ -85,9 +75,7 @@ export function EditorPage() {
     let unlisten: (() => void) | undefined;
     let disposed = false;
     let generation = 0;
-    // The web app saves the stage itself; the desktop app writes the source.
-    // A save never goes over a newer one from another tab or device (see
-    // `holdBrowserComposition`).
+    // A save never overwrites a newer one from another tab or device (see `holdBrowserComposition`).
     const composition = isDesktop ? undefined : holdBrowserComposition(dir);
     let compositionDirty = false;
     let compositionTimer: ReturnType<typeof setTimeout> | undefined;
@@ -104,7 +92,6 @@ export function EditorPage() {
           id: `composition-refused:${dir}`,
           description: t('This project was changed in another tab or on another device. The newer version is open now.'),
         });
-        // Still on the stage that was turned away: the newer file replaces it.
         if (stage === mounted) load();
       }, (error: unknown) => {
         console.error('[projects] could not save the composition:', error);
@@ -125,14 +112,11 @@ export function EditorPage() {
 
     // The library first: a mounted project's `src` values name its assets.
     const library = attachLibrary(world, dir);
-    // The generation service over it: what `generate.*` sources resolve through.
     attachAi(world, library, dir);
-    // The project's own settings (package.json `planvideo`), next to the scene.
     const config = attachProjectConfig(world, dir);
 
     const unmount = (): void => {
-      // Before the entities go: what the editor changed is still owed to the
-      // file, whatever happens to the scene that showed it.
+      // Before the entities go: unsaved editor changes are still owed to the file.
       unlisten?.();
       unlisten = undefined;
       writer?.dispose();
@@ -144,42 +128,28 @@ export function EditorPage() {
       setInspectEntries(world, []);
     };
 
-    /**
-     * Puts `code` on the stage, unless it is what is there already. In the
-     * web app `text` is the composition file it was built from, and that is
-     * what tells: the stage's own saves have moved the file on from the code
-     * it mounted.
-     */
     const applyBundle = (code: string, text?: string | null): void => {
       if (composition && text !== undefined ? composition.holds(text) : code === mountedCode) return;
-      // An edit that has not been written yet belongs to the stage that is
-      // about to go. The read happens before the entities do.
+      // Unwritten edits belong to the outgoing stage; save them before its entities go.
       if (compositionDirty) saveComposition();
       // The old render goes first: there is only one stage per world.
       unmount();
       mounted = mount(code, world);
       mountedCode = code;
       if (composition && text !== undefined) composition.adopt(text);
-      // The `@inspect` variables this mount declared, for the inspector.
       setInspectEntries(world, mounted.inspect);
-      // The rendered scene knows which element every entity came from, so
-      // from here on an edit in the editor can find its way back.
       writer = createEditWriter(dir, world);
       const editor = getDocumentEditor(world);
       unlisten = editor.onEdit((edit) => {
         writer?.push(edit);
         if (changesComposition(edit)) scheduleCompositionSave();
       });
-      // A mount comes from the file: edits recorded against the document it
-      // replaced cannot be replayed against this one.
+      // Edits recorded against the replaced document cannot be replayed against this one.
       getEditHistory(world).reset();
       settleView();
     };
 
-    // The project opens with every scene in view. A camera saved with the
-    // project belongs to the window it was saved in, so it is not reused.
-    // The same pass points the timeline at a scene when the save didn't say
-    // which one.
+    // A camera saved with the project belongs to the window it was saved in, so it is not reused.
     const settleView = (): void => {
       if (disposed) return;
       const root = world.get(Root);
@@ -192,24 +162,16 @@ export function EditorPage() {
 
     const loadProject = async (): Promise<void> => {
       const current = ++generation;
-      // The web app also reads the composition file the compile mounts, which
-      // its saves are then held to.
       const compiling: Promise<{ result: CompileResult; text?: string | null }> = composition
         ? composition.read(() => compileProject(dir))
         : compileProject(dir).then((result) => ({ result }));
       const loading = library.load();
 
-      // First open only: the bundle the last session mounted, straight from
-      // the app's database, goes on the stage while the compile chews
-      // through the sources — unless the compile wins the race outright. A
-      // bundle the sources have outgrown can fail against today's assets;
-      // the compile that is already running replaces it either way.
-      // The browser compile is a file read, so the cached bundle is not a head
-      // start there. Mounting it first would let an edit land on a stage the
-      // compile then replaces.
+      // Desktop first open only: mount the cached bundle while the compile runs, unless the compile wins the race.
+      // Not in the browser: its compile is a quick file read, and mounting first would let an edit land on a
+      // stage the compile then replaces.
       if (current === 1 && isDesktop) {
-        // Neither arm may reject: the loser would be an unhandled rejection,
-        // and the compile's real failure is dealt with below.
+        // Neither arm may reject: the loser would be an unhandled rejection.
         const cached = await Promise.race([
           Promise.all([loadProjectBundle(untrack(project.id)), loading])
             .then(([code]) => code, () => null),
@@ -228,7 +190,6 @@ export function EditorPage() {
       const [{ result, text }] = await Promise.all([compiling, loading]);
       if (disposed || current !== generation) return;
 
-      // A broken edit keeps the last good render on the canvas.
       if (!result.ok) {
         console.error('[projects] compile failed:', result.error);
         toast.error(t('Project failed to compile'), { description: result.error });
@@ -237,9 +198,7 @@ export function EditorPage() {
 
       try {
         applyBundle(result.code, text);
-        // What an export renders a second time, and the next open's head
-        // start (see `rememberProjectBundle`) — recorded only once it has
-        // actually mounted, so the record never runs ahead of the canvas.
+        // Recorded only once mounted, so the record never runs ahead of the canvas.
         rememberProjectBundle(untrack(project.id), result.code).catch((error) =>
           console.error('[projects] could not save the bundle', error));
       } catch (error) {
@@ -257,19 +216,15 @@ export function EditorPage() {
 
     load();
   
-    // A burst arrives as the whole set of files it touched, so a checkout that
-    // rewrites the library and the sources at once reloads both — reading only
-    // the last path of a burst would answer for one of them and drop the rest.
+    // A burst carries every path it touched; reading only the last one would drop the rest.
     const unwatch = watchProject(dir, (paths) => {
-      // What the cloud sync set aside after a clash is kept, not shown.
+      // Files the cloud sync set aside after a clash are kept, not shown.
       const changed = paths.filter((path) => !isCacheFile(path) && !path.startsWith('.conflicts/'));
       if (changed.some(isLibraryFile)) library.load();
 
       const source = changed.filter((path) => !isLibraryFile(path));
       if (!source.length) return;
-      // package.json is the config and the record (`main`, `displayName`)
-      // in one, so a hand edit to it reloads both; the app's own config
-      // writes never reach here (main keeps them from the watcher).
+      // package.json is both config and record, so a hand edit reloads both; the app's own writes never reach here.
       if (source.some(isProjectConfigFile)) {
         config.load();
         project.refresh();
@@ -290,12 +245,9 @@ export function EditorPage() {
     });
   });
 
-  // The left column is the sidebar width. Toggling `uiVisible` changes the
-  // track count, which Chromium does not interpolate, so that still snaps.
+  // Toggling `uiVisible` changes the track count, which Chromium does not interpolate, so that still snaps.
   const [animateColumns, setAnimateColumns] = createSignal(false);
-  // The editor's palette and type (see `html.editor-theme` in index.css). On
-  // <html>, so the menus and dialogs mounted on <body> get it too, and before
-  // the first paint, so it never flashes the base theme.
+  // On <html> so menus and dialogs mounted on <body> get it, and set before first paint so the base theme never flashes.
   const root = document.documentElement;
   root.classList.add('editor-theme');
   onCleanup(() => root.classList.remove('editor-theme'));
@@ -315,17 +267,10 @@ export function EditorPage() {
   });
 
   const inspectorWidth = () => (layoutTarget() ? LAYOUT_INSPECTOR_WIDTH : INSPECTOR_WIDTH);
-  // The layers column lines up with the left panel above it.
   const layersWidth = () => sidebarWidth();
   const bottomHeight = () => (timelineMinimized() ? RULER_HEIGHT : timelineHeight());
-  // The mixer has the bottom-right corner, under the inspector, whenever the
-  // timeline is open.
   const mixerShown = () => !timelineMinimized();
 
-  // The rail on the chrome, then one frame on the canvas color: the left
-  // panel, the canvas between the two panels, and the timeline across the
-  // bottom under all three, joined edge to edge. The rail's column takes the
-  // gap between it and the frame.
   const rootStyles = createMemo(() => {
     if (!uiVisible()) return;
     return {
@@ -336,16 +281,11 @@ export function EditorPage() {
     };
   });
 
-  // The bottom row: the layers and their clips, which share rows, and the
-  // mixer under the inspector, its edge in line with the inspector's.
   const bottomStyles = createMemo(() => ({
     'grid-template-columns': `minmax(0, 1fr)${mixerShown() ? ` ${inspectorWidth()}px` : ''}`,
     ...(animateColumns() ? { transition: 'grid-template-columns 200ms ease-out' } : {}),
   }));
 
-  // Inside it, the layers column ends where the left panel above does (less
-  // the frame's left edge), so the hairline between them continues the
-  // panel's right edge.
   const timelineStyles = createMemo(() => ({
     'grid-template-columns': `${layersWidth() - 2}px 1px minmax(0, 1fr)`,
     ...(animateColumns() ? { transition: 'grid-template-columns 200ms ease-out' } : {}),
@@ -380,7 +320,6 @@ export function EditorPage() {
 
   return (
     <div
-      // Guest mode sets the editor in a frame (see guest-frame.tsx), which it fills.
       class={cx("bg-canvas w-full overflow-hidden grid", inGuestMode() ? "h-full" : "h-screen")}
       classList={{ 'grid-cols-[1fr] grid-rows-[1fr] pt-(--titlebar-height)': !uiVisible() }}
       style={rootStyles()}
@@ -391,7 +330,6 @@ export function EditorPage() {
       </Show>
       <Show when={uiVisible()}>
         <EditorRail style={{ 'grid-column': '1', 'grid-row': '1 / span 2', 'padding-right': `${PANEL_GAP}px` }} />
-        {/* On Windows the title bar carries the project's name. */}
         <div class={`${PANEL_SURFACE} flex flex-col rounded-tl-lg border-l border-t border-r`} style={{ 'grid-column': '2', 'grid-row': '1' }}>
           <Show when={!isWindowsDesktop()}>
             <ProjectBar />
@@ -401,10 +339,7 @@ export function EditorPage() {
           </div>
         </div>
       </Show>
-      {/* The canvas keeps its place in this grid whether the panels show or
-          not, so hiding them never remounts it. It has no card: the stage sits
-          straight on the window's canvas color, with the frame's top edge
-          running over it from one panel to the other. */}
+      {/* Keeps its grid place whether the panels show or not, so hiding them never remounts the canvas. */}
       <div
         class="relative min-h-0 min-w-0"
         classList={{ 'border-t border-border-strong': uiVisible() }}
@@ -417,7 +352,6 @@ export function EditorPage() {
           <Inspector />
         </div>
         <div class="relative min-h-0" style={{ 'grid-column': '2 / span 3', 'grid-row': '2' }}>
-          {/* The edge above the timeline is its handle, a few pixels either side of it. */}
           <Show when={!timelineMinimized()}>
             <div
               class="absolute inset-x-0 z-10 cursor-ns-resize group"
@@ -448,7 +382,6 @@ export function EditorPage() {
           </div>
         </div>
       </Show>
-      {/* The Windows title bar stays up with the UI hidden and offers the same. */}
       <Show when={!uiVisible() && !isWindowsDesktop()}>
         <FloatingProjectHeader />
       </Show>

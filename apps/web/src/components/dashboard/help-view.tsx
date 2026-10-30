@@ -77,7 +77,6 @@ export function DashboardHelpView() {
     <DashboardScrollView>
       <DashboardSurfaceSection title={t("Resources")}>
         <DashboardDividedStack>
-          {/* The site's pages, where the site is there (lib/site.ts). */}
           <Show when={site}>
             <DashboardHelpExternalRow label={t("Docs")} href={DOCS_URL} />
             <DashboardHelpExternalRow label={t("What's new")} href={CHANGELOG_URL} />
@@ -102,21 +101,6 @@ export function DashboardHelpView() {
           </Show>
         </DashboardDividedStack>
       </DashboardSurfaceSection>
-
-      {/* 
-      <DashboardSurfaceSection title="Keyboard shortcuts">
-        <DashboardInfoActionRow
-          leading={<Icon name="keyboard-shortcut" class="size-6 text-foreground" />}
-          title="View, search, and customize shortcuts."
-          action={
-            <Button variant="secondary">
-              Open keyboard shortcuts...
-            </Button>
-          }
-          layout="inline"
-        />
-      </DashboardSurfaceSection> 
-      */}
     </DashboardScrollView>
   );
 }

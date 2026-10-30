@@ -15,10 +15,6 @@ export type ItemRowProps = JSX.HTMLAttributes<HTMLDivElement> & {
     children?: JSX.Element;
 };
 
-/**
- * Reusable row component for settings panels.
- * Pattern: [Label 64px] + [Icon Wrapper 24x28] + [Text (flex-1)] + [Action 24x28]
- */
 export function ItemRow(props: ItemRowProps) {
     const [local, others] = splitProps(props, [
         "value",

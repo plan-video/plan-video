@@ -6,7 +6,6 @@ type DashboardSectionViewProps = {
   description: string;
 };
 
-/** A sidebar destination with nothing in it yet. The page header above names it. */
 export function DashboardSectionView(props: DashboardSectionViewProps) {
   return (
     <div class="flex min-h-0 flex-1 flex-col">

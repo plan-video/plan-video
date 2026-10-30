@@ -53,20 +53,14 @@ import type {
   StoredEvent,
 } from "./types";
 
-// Posts are saved on the account and cached in this browser. The calendar
-// keeps its own database so the projects one stays untouched.
+// The calendar keeps its own database so the projects one stays untouched.
 
 interface CalendarDB extends DBSchema {
   calendars: { key: string; value: Calendar };
   events: { key: string; value: StoredEvent };
-  /** The files posts go out with, each by its id (see `StoredEvent.files`), so they can be sent again. */
   media: { key: string; value: { id: string; file: File; cloud?: CloudCopy } };
-  /**
-   * What this browser last agreed with the server on each post (lib/post-sync.ts), by post id.
-   * Kept beside the posts, so a database cleared or made again loses both, and reads the server's again.
-   */
+  /** Kept beside the posts, so a database cleared or remade loses both and rereads the server's. */
   syncBases: { key: string; value: Base };
-  /** How far the server's changes were read, as "cursor". */
   syncState: { key: string; value: string };
 }
 
@@ -99,7 +93,6 @@ function db() {
   return dbPromise;
 }
 
-/** Opens one person's posts in one workspace. Uses the database already open for the active one. */
 async function withWorkspaceDb<T>(
   userId: string,
   workspaceId: string,
@@ -120,7 +113,6 @@ async function withWorkspaceDb<T>(
   }
 }
 
-/** One of a post's files, without the file itself. The file stays in this browser, or is fetched from its cloud copy. */
 export type AccountMedia = {
   id: string;
   name: string;
@@ -130,7 +122,7 @@ export type AccountMedia = {
 };
 
 const [calendars, setCalendars] = createSignal<Calendar[]>([]);
-/** Posts as saved, each in the zone it was written in. They're read through `shown`. */
+/** Each post in the zone it was written in; read them through `shown`. */
 const [storedEvents, setStoredEvents] = createSignal<StoredEvent[]>([]);
 const [loaded, setLoaded] = createSignal(false);
 const [loadError, setLoadError] = createSignal<string | null>(null);
@@ -139,22 +131,17 @@ const [pendingSaves, setPendingSaves] = createSignal(0);
 export { calendars, loaded, loadError };
 export const saving = () => pendingSaves() > 0;
 
-// ---------------------------------------------------------------------------
-// Which posts show: the status filter, and the account picked beside the calendar.
-
 const [hiddenCalendars, setHiddenCalendars] = createSignal<ReadonlySet<string>>(new Set());
 const [statusFilter, setStatusFilter] = createSignal<PostStatusFilter>("all");
 const [pickedAccount, setAccountFilter] = createSignal<string | null>(null);
 
 export { hiddenCalendars, setAccountFilter, setStatusFilter, statusFilter };
 
-/** The account picked, while it is still connected. */
 export function accountFilter() {
   const id = pickedAccount();
   return id && socialConnections().some((item) => item.id === id) ? id : null;
 }
 
-/** Whether a post goes out from the picked account, or no account is picked. */
 export function goesOutFromPicked(post: { platforms: readonly string[]; accounts?: AccountChoices }) {
   const id = accountFilter();
   if (!id) return true;
@@ -172,16 +159,12 @@ export function toggleCalendar(id: string) {
   });
 }
 
-// ---------------------------------------------------------------------------
-// Loading and saving
-
 let hydrating: Promise<void> | null = null;
 /** Bumped on a workspace switch, so a read from the last workspace's database lands nowhere. */
 let generation = 0;
 /** Bumped when the account copy rewrites the active workspace's posts, so a read that overlapped it is done again. */
 let accountWrites = 0;
 
-/** The calendar waits this long for the account's posts, then opens on this browser's copy. The account's arrive when they're ready. */
 const SYNC_WAIT_MS = 3000;
 
 export function hydrateCalendar() {
@@ -223,9 +206,6 @@ export function hydrateCalendar() {
   return hydrating;
 }
 
-// Each of a person's workspaces has its own database. Switching workspace, or
-// person, drops what was read from the last one, and reads the new one if the
-// calendar had been opened.
 onWorkspaceChange(() => {
   const reopen = hydrating !== null;
   const previous = dbPromise;
@@ -261,7 +241,7 @@ function interrupted(event: StoredEvent): StoredEvent {
   return next;
 }
 
-/** The account copy of a post. A local "page closed" failure is still sending there. */
+/** A local "page closed" failure is still sending in the account copy. */
 function forAccount(event: StoredEvent): StoredEvent {
   const deliveries = event.deliveries ?? {};
   let changed = false;
@@ -291,21 +271,14 @@ async function pruneMedia(kept: ReadonlySet<string>, run: number) {
   queueAccountSync();
 }
 
-/**
- * Cloud storage deletes a waiting post's copy 70 days after it was uploaded,
- * so it is renewed before then. Once the post has gone out its copy moves to
- * the post history, which keeps it for good. A post moved back to drafts
- * uploads again, since a post that hasn't gone out counts against the plan.
- */
+// Cloud storage deletes a waiting post's copy 70 days after upload, so renew it before then.
 const RENEW_AFTER_MS = 50 * 24 * 60 * 60 * 1000;
 
-/** For a post that hasn't gone out. */
 const needsCopy = (cloud: CloudCopy | undefined) =>
   !cloud || isSentCopy(cloud) || Date.now() - Date.parse(cloud.at) > RENEW_AFTER_MS;
 
 type MediaRecord = CalendarDB["media"]["value"];
 
-/** Uploads the files of posts still to go out that have no copy yet, or an old one, and moves those of posts that went out. */
 async function backUpPostMedia(events: readonly StoredEvent[], run: number) {
   if (!cloudEnabled || run !== generation) return;
   const posted = new Set(events.filter((event) => event.status === "posted").flatMap(everyFileOf));
@@ -318,10 +291,8 @@ async function backUpPostMedia(events: readonly StoredEvent[], run: number) {
   keepSent(sent, run);
 }
 
-/** Whether the post the file belongs to has gone out. */
 const wentOut = (id: string) => storedEvents().some((event) => event.status === "posted" && everyFileOf(event).includes(id));
 
-/** Saves where the file's copy is, unless the post took another file meanwhile. */
 async function saveCopy(record: MediaRecord, cloud: CloudCopy, run: number) {
   const database = await db();
   const latest = await database.get("media", record.id);
@@ -336,7 +307,6 @@ function backUpFile(id: string, run = generation) {
   queueCloud(`posts:${id}`, async () => {
     if (run !== generation) return;
     const team = activeScope();
-    // A post saved as already posted, or one given a new file after it went out.
     if (wentOut(id)) return keepSent([id], run);
     const record = await (await db()).get("media", id);
     if (!record || !needsCopy(record.cloud)) return;
@@ -344,11 +314,7 @@ function backUpFile(id: string, run = generation) {
   });
 }
 
-/**
- * Moves the files of posts that went out into the post history, where they no
- * longer count against the plan. One whose copy expired, or never finished,
- * is uploaded there from this browser, so every browser can still show it.
- */
+/** Files in the post history no longer count against the plan. */
 function keepSent(ids: readonly string[], run = generation) {
   if (!cloudEnabled || !ids.length) return;
   queueCloud(`posts-sent:${ids.join(",")}`, async () => {
@@ -384,11 +350,7 @@ function keepSent(ids: readonly string[], run = generation) {
   });
 }
 
-/**
- * Posts and calendars changed on screen whose save hasn't reached this
- * browser's database yet, as `event:<id>` or `calendar:<id>`, each with how
- * many saves of it are on their way. A sync's write leaves them as shown.
- */
+/** Unsaved on-screen rows (`event:<id>` / `calendar:<id>`) with saves in flight; a sync's write leaves them as shown. */
 const unsaved = new Map<string, number>();
 
 async function persist(
@@ -413,24 +375,18 @@ async function persist(
   }
 }
 
-/** `rows` as a sync wrote them, with those still being saved from the screen as the screen has them. */
 function withUnsaved<T extends { id: string }>(kind: "event" | "calendar", onScreen: readonly T[], rows: readonly T[]): T[] {
   const pending = (id: string) => unsaved.has(`${kind}:${id}`);
   return [...rows.filter((row) => !pending(row.id)), ...onScreen.filter((row) => pending(row.id))];
 }
 
-/**
- * Each row of one workspace's posts, calendars and files as a sync read them
- * from this browser, so that writing the merged copy back can tell which
- * changed here meanwhile. Rows are compared as stored.
- */
+/** Rows as a sync read them, so writing the merged copy back can tell what changed here meanwhile. */
 export type CalendarRead = { calendars: Map<string, string>; events: Map<string, string>; media: Map<string, string> };
 
 const rowMark = (row: unknown) => JSON.stringify(row) ?? "";
 const mediaMark = (record: MediaRecord) =>
   JSON.stringify([record.file?.name, record.file?.size, record.file?.lastModified, record.file?.type, record.cloud ?? null]);
 
-/** Posts and calendars saved for one of a person's workspaces, for their account copy. */
 export async function readCalendarSnapshot(userId: string, workspaceId: string) {
   try {
     return await withWorkspaceDb(userId, workspaceId, async (database) => {
@@ -458,12 +414,7 @@ export async function readCalendarSnapshot(userId: string, workspaceId: string) 
   }
 }
 
-/**
- * How to write `incoming` over the rows a store has now. Given `read`, the
- * rows as a sync read them before it merged, a row changed or made here since
- * stays as it is, and one deleted here since stays deleted: the sync runs
- * again and takes those to the account. `kept` says whether any did.
- */
+/** Rows changed, made or deleted here since `read` stay that way; the sync runs again to send them. */
 function overwrite<T extends { id: string }>(stored: readonly T[], incoming: readonly T[], read: ReadonlyMap<string, string> | undefined) {
   const now = new Map(stored.map((row) => [row.id, row]));
   const wanted = new Map(incoming.map((row) => [row.id, row]));
@@ -500,11 +451,6 @@ async function fileFromCloud(item: AccountMedia, team: TeamScope | null): Promis
   }
 }
 
-/**
- * Replaces one of a person's workspaces' calendars with the account's copy.
- * Given `read`, the rows as the sync read them before merging, what changed
- * here since is left as it is (see `overwrite`). True when something was.
- */
 export async function writeWorkspaceCalendars(userId: string, workspaceId: string, incoming: Calendar[], read?: CalendarRead): Promise<boolean> {
   return withWorkspaceDb(userId, workspaceId, async (database) => {
     const tx = database.transaction("calendars", "readwrite");
@@ -518,13 +464,7 @@ export async function writeWorkspaceCalendars(userId: string, workspaceId: strin
   });
 }
 
-/**
- * Replaces one of a person's workspaces' posts with the server's, and
- * downloads files this browser doesn't have. Given `read`, the rows as the
- * sync read them before merging, a post changed here since is left as it is
- * (see `overwrite`), and no file a post here still lists is deleted. Returns
- * the posts left that way, so the sync runs again to send them.
- */
+/** No file a post here still lists is deleted (see `overwrite` for changed rows). */
 export async function writeWorkspacePosts(
   userId: string,
   workspaceId: string,
@@ -537,7 +477,7 @@ export async function writeWorkspacePosts(
     await Promise.all([...eventRows.remove.map((id) => tx.store.delete(id)), ...eventRows.put.map((event) => tx.store.put(event)), tx.done]);
     const kept = eventRows.keptIds;
 
-    // The posts show now. Their videos can take a while to download, and the calendar doesn't need them.
+    // Show the posts now; their videos can take a while to download.
     if (isActiveWorkspace(userId, workspaceId)) {
       accountWrites++;
       if (loaded()) setStoredEvents(withUnsaved("event", storedEvents(), eventRows.rows));
@@ -582,7 +522,6 @@ export async function writeWorkspacePosts(
   });
 }
 
-/** A workspace's calendars, posts and files all at once, as the demo writes them. */
 export async function writeWorkspaceCalendar(
   userId: string,
   workspaceId: string,
@@ -594,7 +533,6 @@ export async function writeWorkspaceCalendar(
   return calendarsKept || postsKept.size > 0;
 }
 
-/** What this browser last agreed with the server on one workspace's posts (lib/post-sync.ts). */
 export async function readPostSync(userId: string, workspaceId: string): Promise<{ cursor: string | null; bases: Map<string, Base> }> {
   return withWorkspaceDb(userId, workspaceId, async (database) => {
     const tx = database.transaction(["syncBases", "syncState"], "readonly");
@@ -604,7 +542,6 @@ export async function readPostSync(userId: string, workspaceId: string): Promise
   });
 }
 
-/** Keeps how far the server's changes were read, and each post's new agreement (null: forgotten). */
 export async function writePostSync(userId: string, workspaceId: string, cursor: string | null, bases: ReadonlyMap<string, Base | null>): Promise<void> {
   await withWorkspaceDb(userId, workspaceId, async (database) => {
     const tx = database.transaction(["syncBases", "syncState"], "readwrite");
@@ -615,11 +552,6 @@ export async function writePostSync(userId: string, workspaceId: string, cursor:
   });
 }
 
-/**
- * A post with its day and time read in `zone`: the same moment, on another
- * clock. Posts with no set time keep their day. A weekly post follows its day
- * to a new weekday, and skipped days move with it.
- */
 function inZone(event: StoredEvent, zone: string): StoredEvent {
   const from = event.timeZone ?? deviceTimeZone();
   if (from === zone) return event.timeZone ? event : { ...event, timeZone: zone };
@@ -628,7 +560,6 @@ function inZone(event: StoredEvent, zone: string): StoredEvent {
   return { ...shiftSeries(event, daysBetween(event.day, moved.day)), day: moved.day, start: moved.time, timeZone: zone };
 }
 
-/** A repeating post's weekday, skipped days and last day, `shift` days on. */
 function shiftSeries(event: StoredEvent, shift: number): StoredEvent {
   if (!shift) return event;
   const weekday = (WEEKDAY_NAMES as readonly string[]).indexOf(event.recurrence ?? "");
@@ -640,16 +571,13 @@ function shiftSeries(event: StoredEvent, shift: number): StoredEvent {
   };
 }
 
-/** Each saved post as shown, so one that didn't change keeps its copy. */
 const shownCopies = new WeakMap<StoredEvent, StoredEvent>();
-/** The saved post each shown copy was read from. */
 const savedCopies = new WeakMap<StoredEvent, StoredEvent>();
 
 /**
- * A saved post as the dashboard shows it, read in the shown zone. The saved
- * post keeps the zone it was written in: the publisher keys a repeating
- * post's runs by their day there, so saving it in another zone would give a
- * run that already went out a new day, and it would go out again.
+ * The saved post must keep the zone it was written in: the publisher keys a
+ * repeating post's runs by their day there, so another zone would give a run
+ * that already went out a new day, and it would go out again.
  */
 function shown(event: StoredEvent): StoredEvent {
   const zone = timeZone();
@@ -662,20 +590,14 @@ function shown(event: StoredEvent): StoredEvent {
   return copy;
 }
 
-/**
- * An edit, made in the zone it names, as it's saved over `saved`: in the zone
- * the post was saved in. What the edit didn't change stays exactly as saved.
- */
 function savedOver(input: StoredEvent & { timeZone: string }, saved: StoredEvent): StoredEvent {
   const zone = saved.timeZone ?? deviceTimeZone();
   const seen = inZone(saved, input.timeZone);
-  // A new first run: the moment picked, on the post's own clock.
   if (input.day !== seen.day || input.start !== seen.start || input.allDay !== seen.allDay) return inZone(input, zone);
   // The same one keeps its saved day and time, and the rest moves back as far as it was shown moved.
   return { ...shiftSeries(input, daysBetween(seen.day, saved.day)), day: saved.day, start: saved.start, timeZone: zone };
 }
 
-/** Saves a post. A new one is read in the zone it names, or else the shown one; one already saved keeps its zone. */
 function putEvent(input: StoredEvent) {
   const written = { ...input, timeZone: input.timeZone ?? timeZone() };
   const saved = storedEvents().find((event) => event.id === input.id);
@@ -688,15 +610,12 @@ function putEvent(input: StoredEvent) {
   void persist((database) => database.put("events", next), { rows: [`event:${next.id}`] });
 }
 
-/** A post as shown, which is what edits start from. */
 function findEvent(id: string) {
   const saved = storedEvents().find((event) => event.id === id);
   return saved && shown(saved);
 }
 
-// ---------------------------------------------------------------------------
-// Reading. These read signals, so calling them inside a memo or JSX tracks
-// every post and calendar change.
+// These read signals: calling them in a memo or JSX tracks every post and calendar change.
 
 function calendarColor(id: string) {
   return calendars().find((calendar) => calendar.id === id)?.color ?? "sky";
@@ -736,7 +655,6 @@ function deliveryOf(event: StoredEvent): CalendarEvent["delivery"] {
   return states.includes("failed") && event.status !== "posted" ? "failed" : null;
 }
 
-/** Why a post that's going out is held for now, when no network it's going to is on its way: the publisher's reason, such as today's YouTube uploads being used. */
 export function waitingOf(event: StoredEvent): string | undefined {
   const sending = Object.values(event.deliveries ?? {}).filter((delivery) => delivery?.state === "sending");
   return sending.length && sending.every((delivery) => delivery?.waiting) ? sending[0]!.waiting : undefined;
@@ -756,26 +674,18 @@ function expandEvent(event: StoredEvent, days: string[]): CalendarEvent[] {
   );
 }
 
-/** Every post on record, one row per post however often it repeats. */
 export function allPosts(): readonly StoredEvent[] {
   return storedEvents().map(shown);
 }
 
-/** A post as the calendar's popups take it, on its first day. */
 export function postAsEvent(post: StoredEvent): CalendarEvent {
   return { ...toCalendarEvent(post, post.day), recurring: !!post.recurrence, firstDay: post.day };
 }
 
-/** Whether a one-off post's time has passed, so scheduling it as it is would send it at once. */
 export function timeHasPassed(post: StoredEvent) {
   return !post.recurrence && hasPassed(post.day, post.start, post.allDay);
 }
 
-/**
- * Why the post's file hasn't reached cloud storage, when its upload is held
- * up: storage is full, the file was refused, or storage can't be reached. The
- * publisher sends the file from there, so the post can't go out with it yet.
- */
 export function uploadProblem(id: string): string | undefined {
   for (const [name, problem] of cloudHoldUps()) {
     if (name === `posts:${id}` || name.startsWith(`posts:${id}_`)) return problem;
@@ -788,7 +698,6 @@ export function eventsInDays(days: string[], includeFollowingDay = false): Calen
   return storedEvents().flatMap((event) => expandEvent(shown(event), eventDays));
 }
 
-/** The posts that pass the status and account filters. */
 export function isEventVisible(event: CalendarEvent) {
   if (!goesOutFromPicked(event)) return false;
   const status = statusFilter();
@@ -806,12 +715,10 @@ export function monthRange(date: string) {
   return { days, events: eventsInDays(days) };
 }
 
-// ---------------------------------------------------------------------------
-// Writing. Each returns an error message for the user, or nothing.
+// Each writer returns an error message for the user, or nothing.
 
 const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
 
-/** A posted post is a record of what went out. Changing it here wouldn't change it on the platform. */
 const POSTED_LOCKED = msg("Posted posts stay as they went out. Post again to make a copy you can change.");
 
 function validDuration(duration: number) {
@@ -823,21 +730,19 @@ const PASSED = msg("That time has passed. Pick a later one.");
 /** A post moved to the minute it is now goes now, rather than counting as passed. */
 const NOW_GRACE_MS = 60_000;
 
-/** Whether a scheduled run at `day` and `start` would go out at once, its time having passed. Posts with no set time go at the start of their day. */
 function hasPassed(day: string, start: string, allDay: boolean) {
   return (momentOf(day, allDay ? "00:00" : start)?.getTime() ?? 0) < Date.now() - NOW_GRACE_MS;
 }
 
-/** A post due sooner than this is going out, not waiting, so the Free plan's limit leaves it be: "Post now" always works. */
+/** Posts due sooner than this skip the Free plan's limit, so "Post now" always works. */
 const GOING_OUT_MS = 5 * 60_000;
 
 const SCHEDULED_LIMIT = msg("On the Free plan, each account can have 10 scheduled posts waiting at a time. Upgrade for unlimited posts.");
 
-/** A real day, read the way the publisher reads a repeating post's end (isDayKey in services/publisher/schedule.mjs). */
+/** Must match isDayKey in services/publisher/schedule.mjs. */
 const isDayKey = (value: unknown): value is string =>
   typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(new Date(`${value}T00:00:00Z`).getTime());
 
-/** The accounts a post waits to go out from: none unless it's scheduled, not paused, and has a run still to come. A repeating post counts once. */
 function waitingFrom(post: StoredEvent): string[] {
   if (post.status !== "scheduled" || post.paused) return [];
   const over = post.recurrence
@@ -847,11 +752,7 @@ function waitingFrom(post: StoredEvent): string[] {
   return [...new Set(post.platforms.flatMap((platform) => accountsFor(platform, post.accounts).map((account) => account.id)))];
 }
 
-/**
- * Why `next` can't be saved over `before`: it would wait on an account that
- * already has as many scheduled posts waiting as the plan allows. Only accounts
- * it newly waits on count, so a post already waiting can still be changed.
- */
+/** Only accounts it newly waits on count, so a post already waiting can still be changed. */
 function overScheduledLimit(next: StoredEvent, before?: StoredEvent, events: readonly StoredEvent[] = storedEvents()): string | undefined {
   // A shared workspace is on its owner's plan, and a team comes with plans that schedule without a limit.
   const limit = activeScope() ? undefined : scheduledLimit();
@@ -863,7 +764,6 @@ function overScheduledLimit(next: StoredEvent, before?: StoredEvent, events: rea
   if (added.some((id) => others.filter((ids) => ids.includes(id)).length >= limit)) return SCHEDULED_LIMIT;
 }
 
-/** Whether saving `next` over `before` changes when, or whether, it goes out. */
 function retimed(before: StoredEvent, next: StoredEvent) {
   return (
     next.day !== before.day ||
@@ -876,20 +776,12 @@ function retimed(before: StoredEvent, next: StoredEvent) {
   );
 }
 
-/**
- * Saves `next` over `before`. When that changes when, or whether, it goes out,
- * the post is given its time now: the publisher doesn't send a run that came
- * due before that on its own, so nothing that has already gone by goes out at
- * once.
- */
+/** A retimed post gets its time now: the publisher won't send a run due before that, so nothing past goes out at once. */
 function putRetimed(before: StoredEvent, next: StoredEvent) {
   putEvent(retimed(before, next) ? { ...next, sendFrom: new Date().toISOString() } : next);
 }
 
-/**
- * What a network goes out with when it has no words of its own: the caption,
- * the way the publisher reads it (services/publisher/networks/text.mjs).
- */
+/** Must read the caption as services/publisher/networks/text.mjs does. */
 function sharedWords(post: Pick<StoredEvent, "description">): string {
   return (post.description ?? "").trim();
 }
@@ -897,7 +789,6 @@ function sharedWords(post: Pick<StoredEvent, "description">): string {
 /** Words written for a network. A copy of the shared ones isn't: it would keep the old words once the caption changes. */
 const isOwn = (words: string | undefined, shared: string): words is string => !!words?.trim() && words.trim() !== shared;
 
-/** The words networks on the post have of their own, by platform. YouTube's are its description. */
 export function ownCaptions(post: StoredEvent): Partial<Record<string, string>> {
   const shared = sharedWords(post);
   const own: Partial<Record<string, string>> = {};
@@ -908,11 +799,7 @@ export function ownCaptions(post: StoredEvent): Partial<Record<string, string>> 
   return own;
 }
 
-/**
- * The post with `own` as its networks' own words. Only networks it goes to
- * keep any, and only words that differ from the shared ones, so every other
- * network goes out with the caption as it is now.
- */
+/** Only words that differ from the shared ones are kept, so other networks follow caption changes. */
 function withOwnCaptions(post: StoredEvent, own: Partial<Record<string, string>>): StoredEvent {
   const shared = sharedWords(post);
   const captions: Partial<Record<string, string>> = {};
@@ -929,7 +816,6 @@ function withOwnCaptions(post: StoredEvent, own: Partial<Record<string, string>>
   return next;
 }
 
-/** The post `draft` saves, and the one it saves over, or why it can't be saved. The plan's limit isn't checked here. */
 function eventFromDraft(draft: EventDraft): { next: StoredEvent; before?: StoredEvent } | string {
   const title = draft.title.trim();
   if (!title) return msg("Add a title before saving the post.");
@@ -942,7 +828,6 @@ function eventFromDraft(draft: EventDraft): { next: StoredEvent; before?: Stored
   const recurrence = parseRecurrence(draft.repeat) ? draft.repeat : null;
   const recurrenceEnd = recurrence ? resolveRepeatEnd(draft.repeatEnd, recurrence, draft.day) : null;
   if (recurrenceEnd && recurrenceEnd < draft.day) return msg("Pick an end on or after the first post.");
-  // Saved over a post, what the form doesn't hold stays as it was, and so do skipped days while its runs fall on the same days.
   const before = draft.id ? findEvent(draft.id) : undefined;
   // YouTube keeps a description only when it was given words of its own.
   const next = withOwnCaptions({
@@ -958,7 +843,6 @@ function eventFromDraft(draft: EventDraft): { next: StoredEvent; before?: Stored
     accounts: accountsForPlatforms(normalizePlatforms(draft.platforms), draft.accounts, { keepRemoved: true }),
     projectId: draft.projectId || null,
     coverTime: typeof draft.coverTime === "number" && Number.isFinite(draft.coverTime) ? draft.coverTime : null,
-    // Saved over a post without saying, it keeps the files it had.
     ...((draft.files ?? before?.files) ? { files: draft.files ?? before?.files } : {}),
     ...((draft.files ? draft.ownFiles : before?.ownFiles) ? { ownFiles: draft.files ? draft.ownFiles : before?.ownFiles } : {}),
     ...(draft.tiktok ? { tiktok: draft.tiktok } : {}),
@@ -967,7 +851,6 @@ function eventFromDraft(draft: EventDraft): { next: StoredEvent; before?: Stored
     ...(draft.x ? { x: draft.x } : {}),
     ...(draft.pinterest ? { pinterest: draft.pinterest } : {}),
     ...(draft.story ? { story: true } : {}),
-    // Like the files: saved over a post without saying, it keeps its thread.
     ...((draft.thread ?? before?.thread)?.length ? { thread: draft.thread ?? before?.thread } : {}),
     recurrence,
     recurrenceExceptions: before && before.recurrence === recurrence && before.day === draft.day ? before.recurrenceExceptions : [],
@@ -991,11 +874,7 @@ export function createEvent(draft: EventDraft): string | undefined {
   putEvent(made.next);
 }
 
-/**
- * Why `createEvent` would refuse any of `drafts`, saved one after another, or
- * nothing. The plan's limit counts the whole batch, so a batch that passes
- * saves whole rather than stopping partway.
- */
+/** The plan's limit counts the whole batch, so a batch that passes saves whole rather than stopping partway. */
 export function checkEvents(drafts: readonly EventDraft[]): string | undefined {
   let events = storedEvents();
   for (const draft of drafts) {
@@ -1007,7 +886,6 @@ export function checkEvents(drafts: readonly EventDraft[]): string | undefined {
   }
 }
 
-/** Fields an agent may change on a draft or a scheduled post. Omitted fields stay. */
 export type PostPatch = {
   title?: string;
   description?: string;
@@ -1020,18 +898,14 @@ export type PostPatch = {
   link?: string;
   tiktok?: TikTokPostSettings | null;
   youtube?: YouTubePostSettings | null;
-  /** Words networks have of their own, by platform; YouTube's is its description. Omitted: the post's stay. */
   captions?: Partial<Record<string, string>>;
-  /** Follow-ups posted under it once it's out. `null` or empty takes them off. */
+  /** `null` or empty removes them. */
   thread?: StoredEvent["thread"] | null;
   repeat?: string | null;
   repeatEnd?: string | null;
 };
 
-/**
- * Changes a draft or a scheduled post in place. A posted post is left alone:
- * the platform already has it. `null` clears a setting; omitting it keeps it.
- */
+/** `null` clears a setting; omitting it keeps it. Posted posts are left alone. */
 export function revisePost(id: string, patch: PostPatch): string | undefined {
   const existing = findEvent(id);
   if (!existing) return msg("This post no longer exists.");
@@ -1089,10 +963,6 @@ export function revisePost(id: string, patch: PostPatch): string | undefined {
   putRetimed(existing, revised);
 }
 
-/**
- * Saves the calendar's Edit form. Networks with words of their own keep the
- * ones the form shows, and every other network takes the caption.
- */
 export function updateEvent(sourceId: string, draft: EventDraft): string | undefined {
   const existing = findEvent(sourceId);
   if (!existing) return msg("This post no longer exists.");
@@ -1132,7 +1002,6 @@ export function setEventStatus(sourceId: string, status: PostStatus): string | u
   if (status === "posted") keepSent(everyFileOf(existing));
 }
 
-/** Records how sending to `platform` went, and moves the post to `status` when given. */
 export function setDelivery(sourceId: string, platform: string, delivery: Delivery, status?: PostStatus) {
   const existing = findEvent(sourceId);
   if (!existing) return;
@@ -1140,11 +1009,6 @@ export function setDelivery(sourceId: string, platform: string, delivery: Delive
   if (status === "posted" && existing.status !== "posted") keepSent(everyFileOf(existing));
 }
 
-/**
- * Keeps the words chosen for each network on the post. One that's empty, or
- * the same as the shared caption, isn't kept: the network goes out with the
- * caption, so a later change to it reaches that network too.
- */
 export function setPostCaptions(sourceId: string, captions: Partial<Record<string, string | undefined>>) {
   const existing = findEvent(sourceId);
   if (!existing) return;
@@ -1159,41 +1023,27 @@ export function setPostCaptions(sourceId: string, captions: Partial<Record<strin
   putEvent({ ...existing, captions: Object.keys(next).length ? next : undefined });
 }
 
-// ---------------------------------------------------------------------------
-// A post's files. Each is kept under an id of its own, here and in cloud
-// storage: `<post id>_<random>`, or the post's own id for the one file of a
-// post saved before posts could carry several. The post lists the ones it goes
-// out with, so the publisher waits for every one and never sends without them.
+// File ids are `<post id>_<random>`, or the post's own id for posts saved before
+// they could carry several. The post lists its files so the publisher waits for every one.
 
-/** What a post goes out with: the files every network shares, those of networks with their own, by platform id, and those of its thread's follow-ups, by follow-up id. */
 export type PostFiles = {
   shared: readonly File[];
   own?: Partial<Record<string, readonly File[]>>;
   thread?: Partial<Record<string, readonly File[]>>;
 };
 
-/** Where a post's files go when it's saved: their ids as the post lists them, and what saving them takes. */
 export type FilesPlan = {
   files: string[];
   ownFiles?: Partial<Record<string, string[]>>;
-  /** Each follow-up's files, by follow-up id. */
   threadFiles?: Partial<Record<string, string[]>>;
-  /** Files new to the post, under the ids they take. */
   write: { id: string; file: File }[];
-  /** Ids of files the post no longer has. */
   drop: string[];
 };
 
-/**
- * The ids of the files a post goes out with on `platform`: that network's
- * own, else the post's. One saved before posts listed their files has its one
- * file, if any, under its own id.
- */
 export function postFileIds(post: Pick<StoredEvent, "id" | "files" | "ownFiles">, platform?: string): string[] {
   return (platform ? post.ownFiles?.[platform] : undefined) ?? post.files ?? [post.id];
 }
 
-/** Every file a post keeps, shared, per network and its follow-ups', each once. */
 export function everyFileOf(post: Pick<StoredEvent, "id" | "files" | "ownFiles" | "thread">): string[] {
   return [
     ...new Set([
@@ -1204,23 +1054,16 @@ export function everyFileOf(post: Pick<StoredEvent, "id" | "files" | "ownFiles" 
   ];
 }
 
-/** Each follow-up's file ids, by follow-up id, as a post lists them. */
 const threadFilesOf = (post: Pick<StoredEvent, "thread">) =>
   Object.fromEntries((post.thread ?? []).flatMap((reply) => (reply.files?.length ? [[reply.id, reply.files]] : [])));
 
-/** Whether `id` names one of the post's files. */
 const isFileOf = (postId: string, id: string) => id === postId || (id.startsWith(`${postId}_`) && /^[A-Za-z0-9]{1,32}$/.test(id.slice(postId.length + 1)));
 
 const sameFile = (a: File, b: File) => a === b || (a.name === b.name && a.size === b.size && a.lastModified === b.lastModified);
 
-/** What kind of file a post goes out with. */
 export const fileKindOf = (file: File): "video" | "image" => (file.type.startsWith("image/") ? "image" : "video");
 
-/**
- * Where the files go when the post is saved with them. One the post already
- * has keeps its id and its copy. A new one gets an id never used before, so a
- * delete of an old file still waiting its turn can't take it.
- */
+/** A new file gets an id never used before, so a pending delete of an old file can't take it. */
 export async function planPostFiles(postId: string, files: PostFiles): Promise<FilesPlan> {
   const database = await db();
   const had = new Map<string, File>();
@@ -1258,7 +1101,6 @@ export async function planPostFiles(postId: string, files: PostFiles): Promise<F
   };
 }
 
-/** The post's thread with each follow-up's files as planned. */
 export const withThreadFiles = <T extends { id: string; files?: string[] }>(thread: readonly T[] | undefined, plan: Pick<FilesPlan, "threadFiles">): T[] | undefined =>
   thread?.map((reply) => {
     const { files: _old, ...rest } = reply;
@@ -1271,11 +1113,6 @@ const sameLists = (post: StoredEvent, plan: FilesPlan) =>
   JSON.stringify(post.ownFiles ?? null) === JSON.stringify(plan.ownFiles ?? null) &&
   JSON.stringify(threadFilesOf(post)) === JSON.stringify(plan.threadFiles ?? {});
 
-/**
- * Keeps a post's files as planned: in this browser, then in cloud storage,
- * which the publisher sends them from, and lists them on the post when it
- * doesn't yet. Files it no longer has go from both, so they can't go out.
- */
 export async function keepPostFiles(postId: string, plan: FilesPlan) {
   const team = activeScope();
   await persist(async (database) => {
@@ -1297,16 +1134,10 @@ export async function keepPostFiles(postId: string, plan: FilesPlan) {
   queueCloud(`posts-delete:${plan.drop.join(",")}`, () => deleteFromCloud("posts", plan.drop, team));
 }
 
-/** Gives a saved post these files in place of the ones it had. */
 export async function setPostFiles(postId: string, files: PostFiles) {
   await keepPostFiles(postId, await planPostFiles(postId, files));
 }
 
-/**
- * Makes sure cloud storage has the post's files, uploading any it hasn't yet,
- * since the publisher sends them from there. True when it has them, or this
- * browser has none of them to send.
- */
 export async function ensurePostInCloud(id: string): Promise<boolean> {
   const post = findEvent(id);
   if (!cloudEnabled || !post) return true;
@@ -1325,18 +1156,16 @@ export async function ensurePostInCloud(id: string): Promise<boolean> {
   return true;
 }
 
-/** One of a post's files, by its id, when this browser has it. */
 export async function postFile(id: string): Promise<File | undefined> {
   return (await (await db()).get("media", id))?.file;
 }
 
-/** The files a post goes out with on `platform`, or its shared ones, that this browser has, in order. */
 export async function postFiles(post: Pick<StoredEvent, "id" | "files" | "ownFiles">, platform?: string): Promise<File[]> {
   const found = await Promise.all(postFileIds(post, platform).map(postFile));
   return found.filter((file): file is File => !!file);
 }
 
-/** One of a post's files from cloud storage, for a browser that doesn't have it. Null when storage has none; undefined when it couldn't be asked. */
+/** Null when storage has none; undefined when it couldn't be asked. */
 async function fetchPostFile(id: string): Promise<File | null | undefined> {
   // Guest mode's demo posts go out with the site's own footage.
   if (inGuestMode() && id.startsWith("demo-")) return (await import("@/lib/guest-demo")).demoFile(id);
@@ -1354,11 +1183,7 @@ async function fetchPostFile(id: string): Promise<File | null | undefined> {
   }
 }
 
-/**
- * A post's files, shared and per network, to open it in New post. One this
- * browser doesn't have comes from cloud storage. One that can't is an error,
- * so the post is never opened, and saved again, without it.
- */
+/** A file that can't be fetched is an error, so the post is never opened and saved again without it. */
 export async function loadPostFiles(post: StoredEvent): Promise<{ shared: File[]; own: Partial<Record<string, File[]>>; thread: Partial<Record<string, File[]>> }> {
   const read = new Map<string, Promise<File | null | undefined>>();
   const fileOf = async (id: string) => {
@@ -1380,10 +1205,8 @@ export async function loadPostFiles(post: StoredEvent): Promise<{ shared: File[]
   return { shared: await load(postFileIds(post)), own, thread };
 }
 
-/** A file a post goes out with, as this browser has it: what kind it is, and whether cloud storage has a copy. */
 export type PostFileState = { id: string; kind: "video" | "image"; inCloud: boolean };
 
-/** The files a post goes out with on `platform`, or its shared ones, that this browser has, in order. */
 export async function postFileStates(post: Pick<StoredEvent, "id" | "files" | "ownFiles">, platform?: string): Promise<PostFileState[]> {
   const database = await db();
   const states: PostFileState[] = [];
@@ -1394,14 +1217,14 @@ export async function postFileStates(post: Pick<StoredEvent, "id" | "files" | "o
   return states;
 }
 
-/** Keeps the post's thumbnail on it. Posted posts take one too: it isn't part of what went out. */
+/** Posted posts take one too: it isn't part of what went out. */
 export function setPostThumbnail(id: string, thumbnail: string) {
   const existing = findEvent(id);
   if (!existing || existing.thumbnail === thumbnail) return;
   putEvent({ ...existing, thumbnail });
 }
 
-/** `from` is the day of the occurrence that was moved, when it was one of a repeating post's. */
+/** `from`: the moved occurrence's day, for a repeating post. */
 export function moveEvent({ day, from, sourceId, start }: { day: string; from?: string; sourceId: string; start: string }): string | undefined {
   const existing = findEvent(sourceId);
   if (!existing) return msg("This post no longer exists.");
@@ -1465,7 +1288,6 @@ export function deleteEvent({ day, scope = "series", sourceId }: { day?: string;
   void persist((database) => database.delete("events", sourceId), { rows: [`event:${sourceId}`] });
 }
 
-/** Holds every run of a repeating post, or lets them go out again. */
 export function setSeriesPaused(sourceId: string, paused: boolean): string | undefined {
   const existing = findEvent(sourceId);
   if (!existing) return msg("This post no longer exists.");
@@ -1477,7 +1299,6 @@ export function setSeriesPaused(sourceId: string, paused: boolean): string | und
   putRetimed(existing, { ...existing, paused });
 }
 
-/** Stops a repeating post after `end`, or, with null, lets it keep going. */
 export function setSeriesEnd(sourceId: string, end: string | null): string | undefined {
   const existing = findEvent(sourceId);
   if (!existing) return msg("This post no longer exists.");
@@ -1488,7 +1309,6 @@ export function setSeriesEnd(sourceId: string, end: string | null): string | und
   putRetimed(existing, { ...existing, recurrenceEnd: end });
 }
 
-/** Puts a deleted post back as it was saved. */
 export function restoreEvent(post: StoredEvent) {
   if (findEvent(post.id)) return;
   putEvent(savedCopies.get(post) ?? post);

@@ -2,8 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Captions written in a spreadsheet, matched to the files by name.
-
 import { SOCIAL_PLATFORMS, type PlatformId } from "@/lib/social";
 
 export type CaptionRow = {
@@ -14,7 +12,6 @@ export type CaptionRow = {
   platforms?: PlatformId[];
 };
 
-/** Rows of cells; quoted cells may hold commas, quotes ("") and line breaks. */
 export function parseCsv(text: string): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];
@@ -93,7 +90,7 @@ export function readCaptionRows(text: string): CaptionRow[] {
     .filter((row) => row.file);
 }
 
-/** Accepts 2026-10-01, 2026/10/01 and 01-10-2026 (day first). A day that doesn't exist, like 2026-02-30, is left out rather than rolled over. */
+/** Accepts 2026-10-01, 2026/10/01 and 01-10-2026 (day first). A day that doesn't exist is left out, not rolled over. */
 function normalizeDay(value: string | undefined): string | undefined {
   const text = value?.trim();
   if (!text) return undefined;
@@ -104,7 +101,6 @@ function normalizeDay(value: string | undefined): string | undefined {
   return undefined;
 }
 
-/** `YYYY-MM-DD` of the day, when the calendar has it. */
 function realDay(year: string, month: string, day: string): string | undefined {
   const date = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
   const key = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
@@ -134,7 +130,6 @@ function readPlatforms(value: string | undefined): PlatformId[] | undefined {
   return found.length ? found.map((platform) => platform.id) : undefined;
 }
 
-/** File names without folders or extensions, compared without case. */
 export function fileMatchKey(name: string): string {
   return name.split(/[\\/]/).pop()!.replace(/\.[^.]+$/, "").trim().toLowerCase();
 }

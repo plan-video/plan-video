@@ -8,8 +8,7 @@ import { Button } from '@/components/ui/button';
 import { t } from '@/lib/i18n';
 
 export function NotFoundPage() {
-  // Its own title, and kept out of search wherever the app draws it (an
-  // unknown slug under a real page's address too, which the server can't tell).
+  // Kept out of search wherever the app draws it: the server can't tell an unknown slug under a real page's address.
   onMount(() => {
     const previous = document.title;
     document.title = t('{title} | plan.video', { title: t('Page not found') });

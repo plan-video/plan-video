@@ -2,9 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Grey shapes in the layout a page is about to show, while its code or data
-// loads, so the page doesn't sit blank and then jump.
-
 import { For, Match, Switch, type JSX } from "solid-js";
 
 import { defaultCalendarView, isCalendarView } from "@/components/calendar/default-view";
@@ -14,7 +11,7 @@ import type { DashboardView } from "./types";
 
 export type SkeletonKind = "cards" | "list" | "week" | "month" | "settings" | "analytics" | "billing";
 
-/** Which skeleton a dashboard page loads behind. `calendarView` is the calendar's `?view=`. */
+/** `calendarView` is the calendar's `?view=`. */
 export function skeletonFor(view: DashboardView, calendarView?: string): SkeletonKind {
   if (view === "calendar") return isCalendarView(calendarView) ? calendarView : defaultCalendarView();
   if (view === "projects" || view === "trash" || view === "media" || view === "templates" || view === "vault" || view === "plugs") return "cards";
@@ -30,12 +27,11 @@ function Bar(props: { class: string; style?: JSX.CSSProperties }) {
   return <span class={cx("block", BLOCK, props.class)} style={props.style} />;
 }
 
-/** One grey shape, for a page that draws its own while a part of it loads. */
 export { Bar as SkeletonBar };
 
 const times = (count: number) => Array.from({ length: count }, (_, index) => index);
 
-/** Blocks scattered over the week, as [day, top in rows, height in rows]. */
+/** As [day, top in rows, height in rows]. */
 const WEEK_BLOCKS: [number, number, number][] = [
   [0, 1, 2],
   [1, 4, 3],
@@ -149,7 +145,6 @@ export function PageSkeleton(props: { kind: SkeletonKind }) {
           </div>
         </Match>
         <Match when={props.kind === "billing"}>
-          {/* The Plans tab: its title, the billing switch, then the four plan cards with their lists. */}
           <div class="@container flex flex-col gap-6 px-6 pt-6">
             <div class="flex flex-col gap-1">
               <div class="flex h-7 items-center">

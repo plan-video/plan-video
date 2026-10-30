@@ -49,14 +49,11 @@ export function DashboardProjectsView() {
   const navigate = useNavigate();
   const returnHere = useReturnHere();
   const [params, setParams] = useSearchParams();
-  /** The sidebar folder open, if any: the grid shows its projects only. */
   const folder = () => projectFolder(typeof params.folder === "string" ? params.folder : undefined);
   const [search, setSearch] = createSignal("");
   const [sort, setSort] = createSignal<ProjectSortOption>("last-viewed");
   const [projects, { refetch: refetchProjects }] = createResource(projectsRevision, async () => {
     const list = await listProjects();
-    // The first screen of covers, in the order the grid shows them, prepared
-    // before the cards paint. The rest follow without holding the list back.
     const recent = [...list].sort((a, b) => parseTimestamp(b.modifiedAt) - parseTimestamp(a.modifiedAt));
     await warmProjectCovers(recent.slice(0, 16));
     void warmProjectCovers(recent.slice(16));
@@ -118,15 +115,12 @@ export function DashboardProjectsView() {
   };
 
   const clearSelection = () => {
-    // The menu (and the dialog) close under the pointer, and that click lands
-    // on the grid. The confirmation is already open, so it is not a deselect.
+    // The closing menu's click lands on the grid; the confirmation is already open, so it isn't a deselect.
     if (pendingDelete()) return;
     if (selected().size === 0 && anchor() === null) return;
     replaceSelection([], null);
   };
 
-  // Shift extends from the card that was clicked last, cmd/ctrl toggles one
-  // card, and a plain click keeps only the card under the pointer.
   const selectFromPointer = (dir: string, event?: MouseEvent) => {
     if (pendingDelete()) return;
     if (event?.shiftKey) {
@@ -153,9 +147,6 @@ export function DashboardProjectsView() {
     replaceSelection([dir], dir);
   };
 
-  // Right-click keeps a selection that already includes the card, so the
-  // menu's delete covers all of it. A card outside the selection becomes
-  // the selection.
   const selectFromMenu = (dir: string) => {
     if (selected().has(dir)) return;
     replaceSelection([dir], dir);
@@ -178,14 +169,12 @@ export function DashboardProjectsView() {
       replaceSelection(next, dirs[dirs.length - 1] ?? anchorBeforeDrag);
     },
     onRevert: (previous) => replaceSelection(previous, anchorBeforeDrag),
-    // A selected card drags the selection, as onto a folder; elsewhere a drag selects.
     grabs: (index) => {
       const project = visibleProjects()[Number(index)];
       return !!project && selected().has(project.dir);
     },
   });
 
-  /** The card and, when it is part of it, the rest of the selection. */
   const movingWith = (project: ProjectInfo) => {
     const chosen = selectedProjects();
     return chosen.some((entry) => entry.dir === project.dir) ? chosen : [project];
@@ -204,7 +193,6 @@ export function DashboardProjectsView() {
     const moving = movingWith(project);
     event.dataTransfer.setData(PROJECTS_DRAG_TYPE, JSON.stringify(moving.map(projectKey)));
 
-    // The pile shows the grabbed card first, then the rest in grid order.
     const card = event.currentTarget as HTMLElement;
     const grid = card.closest('[data-slot="card-grid"]');
     const visible = visibleProjects();
@@ -215,8 +203,6 @@ export function DashboardProjectsView() {
     setCardPileDragImage(event, [card, ...others], moving.length);
   };
 
-  // A search hides cards the selection was made of; start over rather than
-  // keep a selection the grid can no longer show.
   createEffect(on([normalizedSearch, () => folder()?.id], () => clearSelection(), { defer: true }));
 
   const requestDelete = (dir?: string) => {
@@ -249,9 +235,8 @@ export function DashboardProjectsView() {
     refetchProjects();
   };
 
-  // Delete and ⌘A belong to the grid even when focus is on the page rather
-  // than a card — a marquee leaves it there. A focused card handles its own
-  // key, and this runs after it, so a selection wins over that one card.
+  // Delete and ⌘A belong to the grid even with focus on the page (a marquee leaves it there).
+  // Runs after a focused card's own handler, so a selection wins over that card.
   onMount(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (isInputTarget(event) || event.altKey || pendingDelete()) return;
@@ -285,9 +270,7 @@ export function DashboardProjectsView() {
     onCleanup(() => window.removeEventListener("keydown", handleKeyDown));
   });
 
-  // One click creates one project. The card stays locked after it succeeds:
-  // the editor can take a while to open, and another click in that gap would
-  // start a second project. A failure unlocks it so it can be tried again.
+  // Stays locked after success: the editor can take a while to open and a second click would create a second project.
   const handleCreateProject = async () => {
     if (creating()) return;
     setCreating(true);
@@ -298,7 +281,6 @@ export function DashboardProjectsView() {
         setCreating(false);
         return;
       }
-      // Made inside a folder, it goes in that folder.
       const open = folder();
       if (open) moveProjectsToFolder([projectKey(project)], open.id);
       refetchProjects();
@@ -355,7 +337,6 @@ export function DashboardProjectsView() {
                 when={!normalizedSearch()}
                 fallback={<p class="col-span-full px-2 py-16 text-center text-sm text-muted-foreground">{t("No projects match that search.")}</p>}
               >
-                {/* New project in the sidebar starts one too; with none yet, the page offers it as well. */}
                 <Show
                   when={folder() && (projects() ?? []).length > 0}
                   fallback={

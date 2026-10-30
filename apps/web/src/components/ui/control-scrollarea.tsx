@@ -7,10 +7,6 @@ import { splitProps, onCleanup, onMount } from 'solid-js';
 import { cx } from '@/lib/cva';
 
 type ControlScrollAreaProps = JSX.IntrinsicElements['div'] & {
-  /**
-   * Remembers the scroll offset under this key and restores it the next time an
-   * area with the same key mounts.
-   */
   scrollKey?: string;
 };
 
@@ -19,7 +15,6 @@ type ControlScrollAreaProps = JSX.IntrinsicElements['div'] & {
 const MAX_REMEMBERED_OFFSETS = 100;
 const offsets = new Map<string, number>();
 
-// Anything that means the user took over scrolling themselves.
 const INTERRUPT_EVENTS = ['wheel', 'touchstart', 'pointerdown', 'keydown'] as const;
 
 // scrollTop is fractional at non-integer zoom, so the bottom edge needs slack.
@@ -43,15 +38,12 @@ export function ControlScrollArea(props: ControlScrollAreaProps) {
   let borderEl: HTMLDivElement | undefined;
   let observer: ResizeObserver | undefined;
 
-  // Set while the remembered offset is being re-applied. Panels that render
-  // asynchronously are shorter than their final height, so scrollTop clamps;
-  // without this the clamped value would overwrite the offset we're restoring.
+  // Async panels start short so scrollTop clamps; without this flag the clamped
+  // value would overwrite the offset being restored.
   let restoring = false;
   let restoreTarget = 0;
   let stopRestore = () => { };
 
-  // Set while the area sits at its bottom edge, so growing content is followed
-  // instead of pushing the end out of view.
   let pinnedToBottom = false;
 
   const maxScrollTop = () => (scrollEl ? scrollEl.scrollHeight - scrollEl.clientHeight : 0);
@@ -99,8 +91,6 @@ export function ControlScrollArea(props: ControlScrollAreaProps) {
 
     restoring = true;
 
-    // Give up once the content stops growing into reach of the offset, the user
-    // scrolls themselves, or it stays out of reach for good.
     const timeout = setTimeout(() => stopRestore(), 2000);
 
     stopRestore = () => {
@@ -110,7 +100,6 @@ export function ControlScrollArea(props: ControlScrollAreaProps) {
       for (const event of INTERRUPT_EVENTS) {
         scrollEl?.removeEventListener(event, stopRestore);
       }
-      // Keep following the bottom when that is where the offset landed.
       pinnedToBottom = isAtBottom();
     };
 

@@ -34,11 +34,8 @@ import {
 
 const MCP_DOCS_URL = "https://modelcontextprotocol.io/docs/2026-07-28/develop/connect-local-servers";
 
-// --- Agents ------------------------------------------------------------------
-
 type AgentRowProps = {
   agent: McpAgentStatus;
-  /** The state the switch is moving to while a write is in flight. */
   pending: boolean | undefined;
   onChange: (connected: boolean) => void;
 };
@@ -75,13 +72,8 @@ function DashboardAgentsSection() {
 
   const labelOf = (id: AgentId) => status()?.agents.find((agent) => agent.id === id)?.label ?? id;
 
-  /** Every agent not yet connected. */
   const connectable = () => (status()?.agents ?? []).filter((agent) => !agent.connected);
 
-  /**
-   * Writes the change straight into the agents' configs — a switch is not a
-   * draft. Whatever fails snaps back, with the reason in a toast.
-   */
   const apply = async (add: AgentId[], remove: AgentId[]) => {
     if (add.length + remove.length === 0) return;
     setPending((current) => ({
@@ -148,8 +140,6 @@ function DashboardAgentsSection() {
   );
 }
 
-// --- MCP server --------------------------------------------------------------
-
 const COPIED_LABEL_MS = 2000;
 
 function DashboardMcpServerSection() {
@@ -163,7 +153,6 @@ function DashboardMcpServerSection() {
     if (!url) return;
     try {
       await navigator.clipboard.writeText(url);
-      // The button itself says so for a moment, then goes back to its label.
       setCopied(true);
       clearTimeout(copiedTimer);
       copiedTimer = setTimeout(() => setCopied(false), COPIED_LABEL_MS);
@@ -203,9 +192,6 @@ function DashboardMcpServerSection() {
   );
 }
 
-// --- Claude connector (website) ---------------------------------------------
-
-/** Where Claude reaches the connector (services/mcp), on the site's own domain. */
 const CONNECTOR_URL = `${import.meta.env.VITE_APP_URL || window.location.origin}/mcp`;
 
 type Grant = { clientId: string; name: string; grantedAt: string };
@@ -301,8 +287,6 @@ function DashboardClaudeSection() {
     </>
   );
 }
-
-// --- CLI ---------------------------------------------------------------------
 
 function DashboardCliSection() {
   const [status, { refetch }] = createResource(fetchCliStatus);

@@ -126,7 +126,6 @@ const SECTION_PAGES: Partial<Record<DashboardView, { description: string }>> = {
   },
 };
 
-/** The tabs of Posts, by the view each one is reached at. */
 const POST_LISTS: Partial<Record<DashboardView, PostsTab>> = {
   posts: "all",
   scheduled: "scheduled",
@@ -135,7 +134,6 @@ const POST_LISTS: Partial<Record<DashboardView, PostsTab>> = {
   failed: "failed",
 };
 
-/** The views reached through the settings navigation, not the dashboard one. */
 const SETTINGS_VIEWS: readonly DashboardView[] = [
   "account",
   "workspace",
@@ -168,7 +166,6 @@ const RAIL_LABELS: Record<DashboardRail, string> = {
   settings: msg("Settings"),
 };
 
-/** Where each rail opens. */
 const RAIL_HOME: Record<DashboardRail, DashboardView> = {
   work: "calendar",
   agent: "agent",
@@ -179,7 +176,6 @@ const RAIL_HOME: Record<DashboardRail, DashboardView> = {
   settings: "account",
 };
 
-/** What a page is called and drawn with, in the sidebar and in its header. */
 const PAGES: Partial<Record<DashboardView, { label: string; icon: PlaneIconName }>> = {
   calendar: { label: msg("Calendar"), icon: "calendar" },
   notifications: { label: msg("Inbox"), icon: "inbox" },
@@ -207,13 +203,11 @@ const PAGES: Partial<Record<DashboardView, { label: string; icon: PlaneIconName 
   search: { label: msg("Search"), icon: "search" },
 };
 
-/** Post lists are the calendar. */
 function pageOf(view: DashboardView) {
   if (POST_LISTS[view]) return PAGES.calendar!;
   return PAGES[view] ?? { label: "plan.video", icon: "home" as const };
 }
 
-/** Pages that draw their own header, with their controls in it. The rest get a plain one. */
 const OWN_HEADER = new Set<DashboardView>([
   "calendar",
   "posts",
@@ -242,7 +236,6 @@ function projectColor(name: string) {
   return CALENDAR_COLOR_PRESETS[hash % CALENDAR_COLOR_PRESETS.length]!;
 }
 
-/** A recent project's cover, or its initial on a tint of its color while it has none. */
 function ProjectMark(props: { name: string; dir: string; cover: Blob | null }) {
   const color = () => colorHex(projectColor(props.name));
   return (
@@ -274,15 +267,12 @@ export function DashboardPage() {
   createEffect(() => {
     const user = auth.user();
     const userId = user?.id;
-    // A first workspace still named after the person from before ("Cihan's workspace") moves to "Personal".
+    // A first workspace still named after its owner is renamed "Personal".
     if (user) setWorkspaceOwnerName(user.id, firstNameFrom(user.user_metadata));
-    // In guest mode the work is kept under the guest's own id, and nothing syncs.
     loadWorkspaces(auth.ownerId());
-    // The account's lists, the workspaces other people shared, and every workspace's posts.
     beginSyncing(userId);
   });
 
-  // The link in an invite email, /dashboard?invite=<id>, opens that invite, once the list has it.
   createEffect(() => {
     const raw = Array.isArray(params.invite) ? params.invite[0] : params.invite;
     if (!raw || !auth.user()?.id) return;
@@ -297,7 +287,6 @@ export function DashboardPage() {
     });
   });
 
-  // Account pictures show across the dashboard, so they're looked up here, not only on Connections.
   createEffect(() => {
     const userId = auth.user()?.id;
     if (!userId) return;
@@ -305,7 +294,6 @@ export function DashboardPage() {
     fillMissingAvatars(userId, socialConnections());
   });
 
-  // ⌘I: the native folder picker, and the chosen folder on the recents list.
   let picking = false;
   const handleShortcut = async (event: KeyboardEvent) => {
     if (!(event.metaKey || event.ctrlKey) || event.shiftKey || event.altKey) return;
@@ -342,20 +330,16 @@ export function DashboardPage() {
   const view = (): DashboardView => parseView(params.dashboard);
   const setView = (next: DashboardView) =>
     setParams({ dashboard: next, date: undefined, time: undefined, view: undefined, back: undefined, folder: undefined }, { replace: true });
-  /** The project folder open in Projects, if any. */
   const openFolder = () => (view() === "projects" && typeof params.folder === "string" ? projectFolder(params.folder) : undefined);
   const showFolder = (id: string | undefined) => setParams({ dashboard: "projects", folder: id }, { replace: true });
 
-  // Projects are a person's, not a workspace's, and so are their folders.
+  // Projects and their folders belong to a person, not a workspace.
   createEffect(() => loadProjectFolders(auth.user()?.id));
 
-  // Home is gone for now. An old link or a restored route still says so.
   createEffect(() => {
     const raw = Array.isArray(params.dashboard) ? params.dashboard[0] : params.dashboard;
     if (raw === "home") setView("calendar");
   });
-  // The post lists are the calendar's List view. An old link opens it there,
-  // with the status it named already chosen.
   createEffect(() => {
     const tab = POST_LISTS[view()];
     if (!tab) return;
@@ -368,27 +352,21 @@ export function DashboardPage() {
 
   onMount(() => fetchMcpStatus().catch(() => { }));
 
-  // The sidebar shows what is going out and what failed, from any page.
   onMount(() => void hydrateCalendar());
 
-  // A guest has no profile or plan yet; their settings open on Preferences.
   createEffect(() => {
     if (auth.isGuest() && (view() === "account" || view() === "billing")) setView("settings");
   });
 
-  // Plugs repost or reply under posts once they have the likes asked for.
   useDeliveries(() => auth.user()?.id);
 
-  // Shared post previews show each post as it is now: a change to the post
-  // updates its link a moment later, and deleting the post stops sharing it.
   createEffect(on([() => auth.user()?.id, activeWorkspaceId], () => void loadOwnPreviews()));
   let previewSync: ReturnType<typeof setTimeout> | undefined;
   createEffect(
     on([allPosts, calendarLoaded, ownPreviews], () => {
       if (!calendarLoaded() || !ownPreviews().length) return;
       clearTimeout(previewSync);
-      // Read again when it fires: a workspace switch or a failed load in
-      // between leaves no posts, which would read as all of them deleted.
+      // Read again when it fires: a workspace switch or failed load in between leaves no posts, which reads as all deleted.
       previewSync = setTimeout(() => {
         if (calendarLoaded() && !calendarLoadError()) void syncOwnPreviews(allPosts());
       }, 1500);
@@ -398,11 +376,9 @@ export function DashboardPage() {
   const failedCount = () => allPosts().filter((post) => hasFailed(post) && !isGoingOut(post)).length;
   const postsBadge = () => {
     if (failedCount()) return t("{count, plural, other {# failed}}", { count: failedCount() });
-    // A post the publisher is holding, such as for a free YouTube upload, isn't going out yet.
     return allPosts().some((post) => isGoingOut(post) && !waitingOf(post)) ? t("Sending") : undefined;
   };
 
-  // The Library links say how much each holds.
   createEffect(() => {
     if (rail() !== "library") return;
     const userId = auth.ownerId();
@@ -412,7 +388,6 @@ export function DashboardPage() {
   });
   const countBadge = (count: number) => (count ? count.toLocaleString(intlLocale()) : undefined);
 
-  // A new page comes in with a short fade, so switching pages doesn't snap.
   let pageBox: HTMLDivElement | undefined;
   createEffect(on(view, () => playEnter(pageBox), { defer: true }));
 
@@ -425,13 +400,11 @@ export function DashboardPage() {
 
   const rail = () => railFor(view());
   const openRail = (next: DashboardRail) => {
-    // Settings keeps whichever settings page is open.
     if (next === "settings" && isSettingsView(view())) return;
     setView(next === "settings" && auth.isGuest() ? "settings" : RAIL_HOME[next]);
   };
   const onCalendar = () => view() === "calendar" || !!POST_LISTS[view()];
 
-  // The page header names the page alone: the sidebar beside it already names the section.
   const crumbs = (): DashboardCrumb[] => {
     const page = pageOf(view());
     const folder = openFolder();
@@ -439,9 +412,7 @@ export function DashboardPage() {
     return [{ label: t(page.label), icon: page.icon }];
   };
 
-  // Menus and dialogs mount on <body>, so the theme goes on <html> while the
-  // dashboard is open. Set before the first paint, so a light theme does not
-  // flash dark.
+  // Menus and dialogs mount on <body>, so the theme goes on <html>, before first paint so light never flashes dark.
   const root = document.documentElement;
   root.classList.add("dashboard-theme");
   createRenderEffect(() => {
@@ -452,8 +423,7 @@ export function DashboardPage() {
     delete root.dataset.dashboardTheme;
   });
 
-  // On Windows the native window buttons sit on the top bar, so they follow
-  // the dashboard's theme, and go back to the app's when it closes.
+  // On Windows the native window buttons follow the dashboard's theme, and go back to the app's when it closes.
   const { colorMode } = useColorMode();
   const isWindowsDesktop = () => window.desktop?.platform === "win32";
   createEffect(() => {
@@ -465,9 +435,8 @@ export function DashboardPage() {
 
   const navigate = useNavigate();
   const returnHere = useReturnHere();
-  // A plain signal, not a resource: opening a project bumps the revision, and a
-  // resource refetching here would hold the router's transition to the editor,
-  // which then mounts while it is still off the page.
+  // A signal, not a resource: a refetching resource here would hold the router's transition to the editor,
+  // which then mounts while still off the page.
   const [projectList, setProjectList] = createSignal<Awaited<ReturnType<typeof listProjects>>>([]);
   createEffect(
     on(projectsRevision, () => {
@@ -499,7 +468,6 @@ export function DashboardPage() {
     try {
       const project = await createNewProject();
       if (!project) return;
-      // Made while a folder is open, it goes in that folder.
       const folder = openFolder();
       if (folder) moveProjectsToFolder([projectKey(project)], folder.id);
       await openListedProject(project);
@@ -520,19 +488,15 @@ export function DashboardPage() {
   );
 
   return (
-    // Plane's workspace frame: top navigation and app rail on the canvas, the
-    // sidebar and page inset in one bordered panel.
     <div
-      // Guest mode sets the dashboard in a frame (see guest-frame.tsx), which it fills.
       class={cx("dashboard-shell flex w-full min-h-0 flex-col overflow-hidden", auth.isGuest() ? "h-full" : "h-screen")}
       // Wide enough that the longest name ("Analytics") keeps room on both sides.
       style={{ "--rail-width": dashboardRailLabels() ? "4.75rem" : "3rem" }}
     >
       <header class="relative z-[27] flex min-h-10 w-full shrink-0 items-center bg-(--plane-canvas) px-3.5 [-webkit-app-region:drag] [[data-platform=darwin]:not([data-fullscreen=true])_&]:pl-20 [[data-platform=win32]_&]:pr-[calc(0.875rem+var(--titlebar-controls-width))]">
         <div class="flex min-w-0 flex-1 shrink-0">
-          {/* The workspace badge sits on the rail's center line, over its icons: half
-              the rail, less the header's 14px, the switcher's 4px and half the 28px
-              badge. Not on a Mac window, where the traffic lights hold that corner. */}
+          {/* On the rail's centre line: half the rail, less the header's 14px, the switcher's 4px and half the 28px badge.
+              Not on a Mac window, where the traffic lights hold that corner. */}
           <div class="ml-[calc(var(--rail-width)/2-2rem)] flex min-w-0 [[data-platform=darwin]:not([data-fullscreen=true])_&]:ml-0">
             {workspaceSwitcher()}
           </div>
@@ -588,7 +552,6 @@ export function DashboardPage() {
         <div class="relative min-w-0 flex-grow overflow-hidden pr-2 pb-2">
           <div class="depth-frame relative flex size-full overflow-hidden rounded-xl border border-(--plane-border-subtle)">
             <aside class="flex h-full w-[250px] shrink-0 flex-col overflow-hidden border-r border-(--plane-border-subtle) bg-(--plane-surface-1)">
-              {/* Level with the page header, so the two titles share a line. */}
               <div class="flex h-11 shrink-0 items-center gap-2 px-5">
                 <h2 class="truncate text-[15px] leading-5 font-medium tracking-[-0.01em] text-(--plane-text-primary)">{t(RAIL_LABELS[rail()])}</h2>
                 <Show when={rail() === "analytics"}>
@@ -602,7 +565,6 @@ export function DashboardPage() {
                   <Show
                     when={rail() === "work"}
                     fallback={
-                      // Grey like New post: blue is kept for the main action inside each page.
                       <PlaneButton
                         variant="secondary"
                         size="xl"
@@ -730,7 +692,6 @@ export function DashboardPage() {
                   </DashboardSidebarSection>
                 </Show>
               </DashboardSidebarNav>
-              {/* Free plan or guest only: one row that opens Billing (or sign-up); a small tag offers the upgrade, like the Beta tag up top. */}
               <Show when={auth.isGuest() || !auth.isPro()}>
                 <div class="flex h-12 shrink-0 items-center border-t border-(--plane-border-subtle) px-3">
                   <button

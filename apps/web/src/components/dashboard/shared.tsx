@@ -76,7 +76,6 @@ export function DashboardSurfaceCard(props: DashboardSurfaceCardProps) {
 type DashboardTitledSectionProps = {
   title: string;
   description?: string;
-  /** Shown on hovering the title, in place of a line under it. */
   hint?: string;
   action?: JSX.Element;
   class?: string;
@@ -84,7 +83,6 @@ type DashboardTitledSectionProps = {
 };
 
 
-/** A group on a settings page: its title, a line about it, then its card. */
 export function DashboardTitledSection(props: DashboardTitledSectionProps) {
   return (
     <section class={cx("flex flex-col gap-2", props.class)}>
@@ -138,7 +136,6 @@ type DashboardScrollViewProps = {
   children: JSX.Element;
 };
 
-/** A settings-style page: one centered column of groups. The page header above it names the page. */
 export function DashboardScrollView(props: DashboardScrollViewProps) {
   return (
     <div class={cx("min-h-0 flex-1 overflow-y-auto px-6 pt-8 pb-12", props.class)}>
@@ -268,16 +265,15 @@ function formatCurrency(amountCents: number, currency: string) {
   }).format(amountCents / 100);
 }
 
-/** The plan being paid for, read by whoever shows it, so a change there shows here too. */
+/** Shared with whoever shows the plan, so a change there shows here too. */
 export type BillingSummarySource = { loaded: () => boolean; summary: () => BillingSummary | undefined };
 
 export function DashboardProPlanDetails(props: { source?: BillingSummarySource }) {
-  // Its own read only when nobody hands it one.
   const [account] = createResource(
     () => (props.source ? undefined : true),
     () => billingAccount().catch(() => null),
   );
-  // Read only once it's in, so the card draws at once with grey lines for what's still coming.
+  // Drawn at once, with grey lines until the plan is in.
   const loaded = () => (props.source ? props.source.loaded() : account.state === "ready");
   const summary = () => (props.source ? props.source.summary() : loaded() ? account.latest?.summary ?? undefined : undefined);
 
@@ -396,7 +392,7 @@ type DashboardInfoActionRowProps = {
   description?: JSX.Element;
   action: JSX.Element;
   leading?: JSX.Element;
-  /** The box the leading icon is centred in; "sm" lets a 24px icon overhang a 16px slot. */
+  /** "sm" lets a 24px icon overhang a 16px slot. */
   leadingSize?: "sm" | "md";
   layout?: "responsive" | "responsive-md" | "inline";
 };
@@ -484,7 +480,6 @@ type DashboardCardButtonProps = {
   onDoubleClick?(): void;
   onEscape?(): void;
   onDelete?(): void;
-  /** The card can be dragged, as a selected project onto a sidebar folder. */
   draggable?: boolean;
   onDragStart?(event: DragEvent): void;
   children: JSX.Element;
@@ -550,7 +545,6 @@ export function DashboardCardButton(props: DashboardCardButtonProps) {
   );
 }
 
-/** The colour a card sits on: the first ancestor that paints one. */
 function surfaceBehind(element: HTMLElement) {
   for (let node = element.parentElement; node; node = node.parentElement) {
     const colour = getComputedStyle(node).backgroundColor;
@@ -559,13 +553,6 @@ function surfaceBehind(element: HTMLElement) {
   return getComputedStyle(document.body).backgroundColor;
 }
 
-/**
- * Drags a pile rather than the one card under the pointer: that card on top,
- * up to two more of `cards` tipped behind it, and how many go in a badge on
- * its corner. The pile is half size, see-through and hangs below the pointer,
- * so what it is dropped on stays in view. With fewer than two moving, the
- * browser's own picture of the card stays.
- */
 export function setCardPileDragImage(event: DragEvent, cards: HTMLElement[], count: number) {
   const top = cards[0];
   if (!event.dataTransfer || !top || count < 2) return;
@@ -626,7 +613,6 @@ export function setCardPileDragImage(event: DragEvent, cards: HTMLElement[], cou
   pile.append(badge);
 
   document.body.append(pile);
-  // The pointer sits just above and left of the top card.
   event.dataTransfer.setDragImage(pile, pad - 10, pad - 10);
   // The browser has its picture once dragstart returns; gone before anything paints.
   requestAnimationFrame(() => pile.remove());
@@ -674,11 +660,6 @@ export function DashboardCardMeta(props: DashboardCardMetaProps) {
   );
 }
 
-/**
- * A click handler for whatever surrounds a grid of {@link DashboardCardButton}s:
- * anything that did not land on a card is the background, and clears the
- * selection. Cards keep their own clicks.
- */
 export function createBackgroundClickHandler(onCLick: () => void): JSX.EventHandlerUnion<HTMLDivElement, MouseEvent> {
   return (event) => {
     const target = event.target as HTMLElement | null;
@@ -688,15 +669,8 @@ export function createBackgroundClickHandler(onCLick: () => void): JSX.EventHand
   };
 }
 
-/**
- * Creates a fresh, randomly named project under the projects root and puts
- * it on the list. In the browser the folder is stored in this site. Null
- * when the user is asked where to put it and declines to say. The one flow
- * behind every "new project": the card on each view.
- */
+/** Null when the user is asked where to put the project and declines. */
 export async function createNewProject(): Promise<ProjectInfo | null> {
-  // Waits for the roots to come back from the database, and asks for one
-  // when there is none to wait for.
   if (!(await ensureProjectsRoot())) return null;
 
   const project = await createProject(generateProjectName());
@@ -705,11 +679,8 @@ export async function createNewProject(): Promise<ProjectInfo | null> {
 }
 
 /**
- * The project as its folder holds it now, for opening it from the list: what
- * the list shows is its record, and the folder is only looked at here. Null —
- * with the reason shown, and a way to take the project off the list — when
- * the folder is gone or no longer a project. The list is not touched on its
- * own: a folder on a volume that is not mounted comes back with the volume.
+ * Null when the folder is gone or no longer a project. The list isn't touched:
+ * a folder on an unmounted volume comes back with the volume.
  */
 export async function openProjectFromList(project: ProjectInfo): Promise<ProjectInfo | null> {
   if (!isDesktop()) return project;
@@ -731,18 +702,13 @@ export async function openProjectFromList(project: ProjectInfo): Promise<Project
   return null;
 }
 
-/**
- * Moves `project` to the Trash. On the desktop the folder is gone, so the
- * cached bundle goes with it. In the browser the files stay for 30 days, and
- * the bundle stays so a restore opens as before.
- */
+/** In the browser the files stay for 30 days, and the cached bundle stays so a restore opens as before. */
 export async function trashProject(project: ProjectInfo): Promise<void> {
   await deleteProject(project.dir);
   if (isDesktop()) forgetProjectBundle(project.id);
   track("project_deleted");
 }
 
-/** Deletes a trashed project permanently, files included. */
 export async function eraseTrashedProject(project: ProjectInfo): Promise<void> {
   await eraseProject(project);
   track("project_deleted");
@@ -753,13 +719,11 @@ type DashboardViewSectionProps = {
   children: JSX.Element;
   class?: string;
   onBackgroundClick?(): void;
-  /** Pointer went down on the scroll area, including its cards. */
   onPointerDown?(event: PointerEvent): void;
-  /** A selection drag is in progress; keep the grid from highlighting text. */
+  /** Keeps the grid from highlighting text during a selection drag. */
   selecting?: boolean;
 };
 
-/** A page of cards, like Projects and Trash, under a header that holds its search and buttons. */
 export function DashboardViewSection(props: DashboardViewSectionProps) {
   const handleClick = createBackgroundClickHandler(() =>
     props.onBackgroundClick?.(),
@@ -785,11 +749,7 @@ export function DashboardViewSection(props: DashboardViewSectionProps) {
   );
 }
 
-/**
- * The project's cover. A full canvas shot is scaled down before it is shown,
- * so the grid does not hitch while the browser decodes it. `cacheKey` is the
- * project folder, which is how the prepared picture is remembered.
- */
+/** A full canvas shot is scaled down before it shows, so the grid doesn't hitch while the browser decodes it. */
 export function DashboardProjectThumbnail(props: { cover: Blob | null; cacheKey: string }) {
   const [url, setUrl] = createSignal<string | null>(
     props.cover ? cachedProjectCover(props.cacheKey, props.cover) : null,

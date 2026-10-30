@@ -14,19 +14,14 @@ export type DashboardCrumb = { label: string; icon?: PlaneIconName; onClick?(): 
 
 const CrumbsContext = createContext<Accessor<DashboardCrumb[]>>(() => []);
 
-/** The dashboard says where a page sits; the page's header reads it from here. */
 export const DashboardCrumbsProvider = CrumbsContext.Provider;
 
 type DashboardPageHeaderProps = {
-  /** Replaces the dashboard's trail, for a page that goes a level deeper. */
   crumbs?: DashboardCrumb[];
-  /** Sits right after the trail, like Plane's tabs after the project name. */
   nav?: JSX.Element;
-  /** The page's own controls, on the right. */
   children?: JSX.Element;
 };
 
-/** Plane's page header (AppHeader with Breadcrumbs): where you are on the left, the page's controls on the right. */
 export function DashboardPageHeader(props: DashboardPageHeaderProps) {
   const fromShell = useContext(CrumbsContext);
   const crumbs = () => props.crumbs ?? fromShell();
@@ -84,7 +79,6 @@ function DashboardCrumbItem(props: { crumb: DashboardCrumb; last: boolean }) {
   );
 }
 
-/** The title over one group of things on a page, in white like the page's other headings. */
 export function DashboardGroupLabel(props: { children: JSX.Element; action?: JSX.Element; class?: string }) {
   return (
     <div class={cx("flex min-h-5 items-center gap-2", props.class)}>
@@ -94,10 +88,6 @@ export function DashboardGroupLabel(props: { children: JSX.Element; action?: JSX
   );
 }
 
-/**
- * "3 of 12": how many a search or filter leaves of a page's things, in its
- * header. Nothing while everything shows; the sidebar already counts them.
- */
 export function DashboardFilterCount(props: { shown: number; total: number }) {
   return (
     <Show when={props.total > 0 && props.shown !== props.total}>
@@ -106,11 +96,7 @@ export function DashboardFilterCount(props: { shown: number; total: number }) {
   );
 }
 
-/**
- * A page's own search, in its header. It waits as an icon, so the dashboard's
- * ⌘K box stays the only search field on screen: a click or "/" opens it, and
- * an empty one folds away again when it loses focus.
- */
+/** Folds to an icon so the ⌘K box stays the only search field on screen. */
 export function DashboardHeaderSearch(props: {
   value: string;
   placeholder: string;
@@ -129,7 +115,6 @@ export function DashboardHeaderSearch(props: {
   onMount(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "/" || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || isInputTarget(event)) return;
-      // Not while a menu or a dialog has the keys.
       if ((event.target as HTMLElement | null)?.closest?.("[role=dialog], [role=menu], [role=listbox]")) return;
       event.preventDefault();
       reveal();

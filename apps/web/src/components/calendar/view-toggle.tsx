@@ -8,7 +8,6 @@ import { msg, t } from "@/lib/i18n";
 import { defaultCalendarView, setDefaultCalendarView } from "./default-view";
 import type { CalendarView } from "./types";
 
-/** Week, month, and the same posts as a list. The list stays on the calendar. */
 export type CalendarPage = CalendarView;
 
 const PAGES = [
@@ -21,7 +20,7 @@ export function CalendarViewToggle(props: { value: CalendarPage; onChange(page: 
   return <PageToggle label={t("Calendar view")} options={PAGES} value={props.value} onChange={props.onChange} />;
 }
 
-/** Picks the view the calendar opens in. It sits in Preferences, where the calendar's keys do nothing, so it names none. */
+/** Names no shortcut keys: in Preferences the calendar's keys do nothing. */
 export function DefaultCalendarViewToggle() {
   return (
     <PageToggle
@@ -33,7 +32,6 @@ export function DefaultCalendarViewToggle() {
   );
 }
 
-/** Opens the calendar on today in that view. List stays on the calendar. */
 export function useOpenCalendarPage() {
   const [, setParams] = useSearchParams();
   return (page: CalendarPage) =>

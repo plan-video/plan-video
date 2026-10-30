@@ -2,14 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The agents' own marks, in their colours, for places that show an agent's
-// logo beside its name rather than on a tile (the site footer). Single-colour
-// marks are drawn in currentColor, so they take the text's colour.
-//
 // From Lobe Icons (https://github.com/lobehub/lobe-icons), MIT License,
 // Copyright (c) 2023 LobeHub. The marks are their owners' trademarks.
 
-/** Each agent's mark as SVG markup, keyed by the agent's name in AGENTS (components/integrations.tsx). */
 export const AGENT_MARKS: Record<string, string> = {
   "Claude Code":
     "<svg aria-hidden=\"true\" viewBox=\"0 0 24 24\"><path clip-rule=\"evenodd\" d=\"M20.998 10.949H24v3.102h-3v3.028h-1.487V20H18v-2.921h-1.487V20H15v-2.921H9V20H7.488v-2.921H6V20H4.487v-2.921H3V14.05H0V10.95h3V5h17.998v5.949zM6 10.949h1.488V8.102H6v2.847zm10.51 0H18V8.102h-1.49v2.847z\" fill=\"#D97757\" fill-rule=\"evenodd\"></path></svg>",

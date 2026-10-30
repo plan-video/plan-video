@@ -2,10 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// What needs the user, worked out from their posts, plan, card and saved
-// notices. A notice shows while what it's about holds. Which ones were read
-// or cleared is saved on the account.
-
 import { createEffect, createMemo, createSignal, on, onCleanup, onMount } from "solid-js";
 
 import { allPosts, loaded, setEventStatus, uploadProblem } from "@/components/calendar/store";
@@ -36,14 +32,10 @@ import { formatTrashRemaining } from "./utils";
 import type { DashboardView } from "./types";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-/** How long a post that went out stays listed. */
 const SENT_KEPT_MS = 14 * DAY_MS;
-/** How far ahead a post with no account to go out from is flagged. */
 const ACCOUNT_AHEAD_MS = 3 * DAY_MS;
-/** How long past its time a post that publishes from plan.video counts as missed. */
 const MISSED_AFTER_MS = 10 * 60 * 1000;
 
-/** "TikTok and Instagram": the networks of a post that plan.video doesn't post to. */
 function listNetworks(platforms: readonly string[]) {
   const names = platforms.filter((id) => !PUBLISHING_PLATFORMS.includes(id)).map(platformName);
   return names.length > 1 ? t("{names} and {last}", { names: names.slice(0, -1).join(", "), last: names.at(-1) }) : (names[0] ?? t("these networks"));
@@ -51,12 +43,9 @@ function listNetworks(platforms: readonly string[]) {
 const RENEWAL_AHEAD_MS = 7 * DAY_MS;
 const CARD_AHEAD_MS = 30 * DAY_MS;
 const TRASH_AHEAD_MS = 3 * DAY_MS;
-/** The share of credits left that counts as running low. */
 const CREDITS_LOW = 0.1;
-/** The share of storage in use that warns, and that counts as full. */
 const STORAGE_LOW = 0.8;
 const STORAGE_FULL = 0.95;
-/** Read and cleared notices remembered, newest last. */
 const KEEP = 400;
 
 export type NoticeTone = "error" | "warning" | "success" | "info";
@@ -68,28 +57,18 @@ export type Notice = {
   tone: NoticeTone;
   icon: string;
   title: string;
-  /** What it's about, like a post's title. */
   subject?: string;
   body: string;
-  /** When it happened. Without one, when it was first noticed here. */
   at?: number;
   actions: NoticeAction[];
-  /**
-   * Notices that tell one thing once per network, like a post going out to
-   * several, share a group and show as one row: its title names them all.
-   */
   group?: string;
-  /** The group's title, given every network's name in one ("LinkedIn and X"). */
   groupTitle?(networks: string): string;
-  /** The network a grouped notice is about, for the row's title. */
   network?: string;
-  /** What the row says about this network when grouped, if more than that it's up. */
   note?: string;
 };
 
 export type ShownNotice = Notice & { at: number; read: boolean };
 
-/** Errors and warnings stay under Needs attention until they're fixed or cleared. */
 export const needsAttention = (notice: Notice) => notice.tone === "error" || notice.tone === "warning";
 
 type Saved = { read: string[]; cleared: string[]; seen: Record<string, number> };
@@ -117,7 +96,6 @@ function readSaved(userId: string): Saved {
 const newest = (seen: Record<string, number>) =>
   Object.fromEntries(Object.entries(seen).sort((a, b) => b[1] - a[1]).slice(0, KEEP));
 
-/** When the post goes out. All-day posts count from the start of their day. */
 const momentOf = (post: StoredEvent) => atLocal(post.day, post.allDay ? "00:00" : post.start)?.getTime() ?? 0;
 
 // Day keys name a calendar day, so they format in UTC whatever the zone.
@@ -146,7 +124,7 @@ type Billing = {
   info: BillingInfo | null;
 };
 
-/** The notices for the signed-in user, kept up to date. Make one per dashboard. */
+/** Make one per dashboard. */
 export function createNotifications(open: (view: DashboardView) => void) {
   const auth = useAuth();
   const { edit, send, openCalendar, upgrade } = usePostActions();
@@ -426,7 +404,7 @@ export function createNotifications(open: (view: DashboardView) => void) {
       : t("{used} of the {quota} this browser gives plan.video is in use.", sizes);
     return [
       {
-        // A notice for each further 5%, so clearing one still warns as it fills.
+        // One notice per further 5%, so clearing one still warns as it fills.
         id: full ? "storage-full" : `storage-low:${Math.floor(share * 20)}`,
         tone: full ? "error" : "warning",
         icon: "alert-warning",
@@ -483,13 +461,11 @@ export function createNotifications(open: (view: DashboardView) => void) {
       ];
     });
 
-  /** Changes made here aren't reaching the account, which is what the publisher sends from. */
   const syncNotices = (): Notice[] => [...ownSyncNotices(), ...teamSyncNotices()];
 
-  /** The open workspace's scheduled posts changed here that the server doesn't have: the publisher sends from the server's. */
+  /** Scheduled posts changed here that the server lacks: the publisher sends from the server's copy. */
   const waitingPosts = () => allPosts().filter((post) => post.status === "scheduled" && unsyncedPosts().has(post.id)).length;
 
-  /** Changes made in a shared workspace aren't reaching its owner's account, which its posts go out from. */
   const teamSyncNotices = (): Notice[] => {
     const problem = teamSyncProblem() ?? (activeScope() ? postSyncProblem() : null);
     if (!problem) return [];
@@ -546,7 +522,6 @@ export function createNotifications(open: (view: DashboardView) => void) {
     ];
   };
 
-  /** Someone asked the person into a workspace of theirs. */
   const inviteNotices = (): Notice[] =>
     teamInvites().map((invite) => ({
       id: `team-invite:${invite.id}`,
@@ -615,7 +590,6 @@ export function createNotifications(open: (view: DashboardView) => void) {
       .sort((a, b) => b.at - a.at);
   });
   const unread = createMemo(() => list().filter((notice) => !notice.read));
-  /** Cleared notices whose cause still holds, so they'd show again if restored. */
   const cleared = createMemo(() => {
     const isCleared = new Set(saved().cleared);
     return notices().filter((notice) => isCleared.has(notice.id)).map((notice) => notice.id);

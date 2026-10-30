@@ -9,39 +9,22 @@ import { cx } from "@/lib/cva";
 import "./preset-tile.css";
 
 export type PresetTileProps = {
-  /**
-   * The preset's name, already translated, under the preview. Left out when
-   * the preview says it already (a text style is its own words); `title` then
-   * names the tile.
-   */
   label?: string;
-  /** A short word beside the name, such as what a preset needs. */
   tag?: string;
   selected?: boolean;
   disabled?: boolean;
   title?: string;
-  /** The preview's shape, as a CSS `aspect-ratio`. */
   aspect?: string;
   class?: string;
   onClick?: (event: MouseEvent) => void;
-  /** What dragging the tile carries, keyed by its transfer type. */
   drag?: { type: string; data: string };
-  /**
-   * The preview. It is drawn again each time `playing` flips, so a CSS
-   * preview starts from its first frame on hover and goes back to its still
-   * when the pointer leaves.
-   */
+  /** Redrawn whenever `playing` flips, so CSS previews restart from their first frame (see preset-tile.css). */
   children: (playing: boolean) => JSX.Element;
 };
 
 const reducedMotion = () =>
   typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-/**
- * A preset shown as what it does: a still of it that plays while the pointer
- * is on it, its name under it. The one tile the caption, transition, text and
- * animation pickers share, cut like the Extensions market's cards.
- */
 export function PresetTile(props: PresetTileProps) {
   const [hovered, setHovered] = createSignal(false);
   const [focused, setFocused] = createSignal(false);
@@ -114,7 +97,6 @@ export function PresetTile(props: PresetTileProps) {
   );
 }
 
-/** Tiles two to a row, the way the left panel and the inspector both fit them. */
 export function PresetGrid(props: { children: JSX.Element; class?: string; columns?: number }) {
   return (
     <div
@@ -126,11 +108,6 @@ export function PresetGrid(props: { children: JSX.Element; class?: string; colum
   );
 }
 
-/**
- * Seconds that run while `playing` is true, from 0, for previews drawn from a
- * time rather than by CSS. `loop` wraps it; `still` is the time shown when
- * the tile is at rest.
- */
 export function usePreviewClock(playing: () => boolean, options: { loop: number; still: number }) {
   const [time, setTime] = createSignal(options.still);
   let frame = 0;

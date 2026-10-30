@@ -2,11 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Connections' client link: a link the workspace's owner or an admin sends a
-// client, who connects their own accounts to this workspace with it, without
-// a plan.video account (lib/connect-link.ts, pages/connect.tsx). The accounts
-// they connect show up in Networks above as the account syncs.
-
 import { Show, createResource, createSignal, onCleanup } from "solid-js";
 import { toast } from "somoto";
 
@@ -22,7 +17,6 @@ import { DashboardSurfaceCard } from "./shared";
 
 export function ClientLinkSection() {
   const auth = useAuth();
-  /** The workspace the link is for: the open one, yours or one shared with you. */
   const where = () => ({ workspace: activeWorkspaceId(), team: activeScope() });
   const workspaceName = () => activeShared()?.name ?? shownWorkspaceName(activeWorkspace().name);
   const fromName = () => {
@@ -36,7 +30,6 @@ export function ClientLinkSection() {
   });
   const [busy, setBusy] = createSignal(false);
 
-  // A client may have just connected through it: the count is read again when you come back to the tab.
   const onFocus = () => void refetch();
   window.addEventListener("focus", onFocus);
   onCleanup(() => window.removeEventListener("focus", onFocus));

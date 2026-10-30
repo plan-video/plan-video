@@ -28,59 +28,34 @@ import { formatEditedAt } from "./utils";
 
 type DashboardProjectCardProps = {
   project: ProjectRecord;
-  /** Whether the card is part of its grid's selection. */
   active: boolean;
-  /**
-   * A click landed on the card. The event carries shift and cmd/ctrl, which
-   * a grid uses for range and toggle. Right-click goes through `onMenuOpen`.
-   */
   onSelect: (event?: MouseEvent) => void;
-  /**
-   * The context menu is opening. When omitted, the click handler runs, which
-   * is a plain selection of this card.
-   */
+  /** When omitted, the click handler runs, as a plain selection of this card. */
   onMenuOpen?: () => void;
-  /** Escape was pressed on the card. */
   onDeselect: () => void;
-  /** The card was double-clicked, or Open chosen from the menu. */
   onOpen: () => void;
-  /** Delete was pressed on the card, or chosen from the menu. */
   onDelete: () => void;
-  /** Other cards are selected too, so rename and duplicate don't apply. */
   bulk?: boolean;
-  /** Menu label for delete; "Delete" when this card is the only one. */
+  /** "Delete" when this card is the only one. */
   deleteLabel?: string;
   /** Position in the grid, so a drag can find the card without its folder path. */
   marqueeIndex?: number;
-  /**
-   * A rename or duplicate changed the projects on disk; the owner refetches
-   * its list. Called after a rename regardless of outcome, since the folder
-   * moves with the name and the list is stale either way.
-   */
+  /** Called after a rename whatever the outcome: the folder moves with the name, so the list is stale either way. */
   onChanged: () => void;
-  /** Move to folder chose a folder, or a new one, for the card and the rest of the selection; `null` takes them out. */
+  /** `null` takes the cards out of their folder. */
   onMove?: (folder: ProjectFolder | "new" | null) => void;
-  /** The card can be dragged onto a sidebar folder. */
   draggable?: boolean;
   onDragStart?: (event: DragEvent) => void;
 };
 
-/**
- * A project in a dashboard grid: thumbnail, name, and last-edited time, with
- * the context menu that opens, renames, duplicates, and deletes it. Rename
- * happens inline, in place of the name, and lives here so every grid that
- * shows projects gets the same menu.
- */
 export function DashboardProjectCard(props: DashboardProjectCardProps) {
   const [, setParams] = useSearchParams();
   const [renaming, setRenaming] = createSignal(false);
   const [renameDraft, setRenameDraft] = createSignal("");
 
   const current = () => folderOfProject(projectKey(props.project));
-  // New folder puts the folder's name up for typing in the sidebar, so it is
-  // made once the menu has closed, and focus doesn't go back to the card.
+  // Made once the menu has closed, so focus doesn't go back to the card.
   let newFolderOnClose = false;
-  /** The folder the card is in already; a selection of several can still move there. */
   const isCurrent = (folder: ProjectFolder) => !props.bulk && current()?.id === folder.id;
 
   const startRenaming = () => {
@@ -116,8 +91,8 @@ export function DashboardProjectCard(props: DashboardProjectCardProps) {
     setRenameDraft(event.currentTarget.value);
   };
 
-  // The input mounts from a context-menu selection, which restores focus to
-  // the trigger on close — so the input must claim focus itself, after that.
+  // A context-menu selection restores focus to the trigger on close, so the
+  // input must claim focus itself, after that.
   const handleRenameInputRef = (el: HTMLInputElement) => {
     queueMicrotask(() => {
       el.focus();
@@ -147,8 +122,7 @@ export function DashboardProjectCard(props: DashboardProjectCardProps) {
       event.preventDefault();
       event.stopPropagation();
 
-      // The folder moves with the name, so the list is refetched rather than
-      // patched: every path in it has just changed.
+      // Refetched rather than patched: every path in the list has just changed.
       if (trimmedName.length > 0 && renaming()) {
         try {
           await renameProject(props.project.dir, trimmedName);

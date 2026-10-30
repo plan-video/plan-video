@@ -2,11 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// A post opened from the calendar or the Posts list: the post itself first,
-// its picture or video and its caption, then where it goes out from and how
-// each account's send went, with the live post a click away. The footer holds
-// what to do with it; the menu, the rest.
-
 import { useNavigate, useSearchParams } from "@solidjs/router";
 import { For, Match, Show, Switch, children, createEffect, createSignal, on, onCleanup, type JSX, type ParentProps } from "solid-js";
 import { createStore } from "solid-js/store";
@@ -54,10 +49,8 @@ import type { CalendarEvent, EventDraft, PostStatus, SelectedEvent, StoredEvent 
 
 type Mode = "details" | "edit" | "delete" | "end" | "share";
 
-/** The status word's colour in the header. Quiet unless it needs a look. */
 const STATUS_TEXT: Record<string, string> = { failed: "text-destructive", held: "text-meter-yellow", paused: "text-meter-yellow" };
 
-/** A post's details, with what to do with it, next to the chip or row that was clicked. */
 export function EventPopover(props: { onClose(): void; selected: SelectedEvent }) {
   const event = () => props.selected.event;
   const [mode, setMode] = createSignal<Mode>("details");
@@ -66,7 +59,7 @@ export function EventPopover(props: { onClose(): void; selected: SelectedEvent }
   const stored = () => allPosts().find((post) => post.id === event().sourceId);
   const posted = () => event().status === "posted";
   const status = () => statusOf(event());
-  /** It went out through plan.video somewhere. A post only marked as posted didn't. */
+  /** A post only marked as posted didn't go out through plan.video. */
   const sentAnywhere = () => {
     const post = stored();
     return !!post && deliveriesOf(post).some(({ delivery }) => delivery.state === "sent");
@@ -76,7 +69,6 @@ export function EventPopover(props: { onClose(): void; selected: SelectedEvent }
     return event().delivery === "failed" && post ? deliveriesOf(post).find(({ delivery }) => delivery.state === "failed")?.delivery : undefined;
   };
   const platformNames = () => event().platforms.map(platformName).join(", ");
-  /** Opened from Week or Month, the post is on the grid already; from a list, it can be shown there. */
   const onGrid = () => params.dashboard === "calendar" && params.view !== "list";
 
   const remove = (scope: "occurrence" | "series") => {
@@ -89,7 +81,6 @@ export function EventPopover(props: { onClose(): void; selected: SelectedEvent }
     if (scope === "occurrence") {
       toast.success(t("Skipped {date}. The rest still go out.", { date: formatDay(event().day) }));
     } else {
-      // Back as it was saved, with everything it carried.
       const undo = post ? { action: { label: t("Undo"), onClick: () => restoreEvent(post) } } : {};
       if (posted()) {
         toast.success(t("Removed from your calendar"), {
@@ -101,7 +92,6 @@ export function EventPopover(props: { onClose(): void; selected: SelectedEvent }
     props.onClose();
   };
 
-  /** Opens it in New post, to change anything about it. */
   const edit = () => {
     const post = stored();
     if (!post) return;
@@ -109,7 +99,6 @@ export function EventPopover(props: { onClose(): void; selected: SelectedEvent }
     props.onClose();
   };
 
-  /** Opens a copy in New post. A posted post stays as the record of what went out. */
   const postAgain = () => {
     const post = stored();
     if (!post) return;
@@ -155,7 +144,6 @@ export function EventPopover(props: { onClose(): void; selected: SelectedEvent }
     }
   };
 
-  /** A one-off post that hasn't gone out can go now instead of at its time. A failed one has Retry instead. */
   const sendable = () => {
     const post = stored();
     if (!post || post.recurrence || post.status === "posted" || failure() || isGoingOut(post)) return false;
@@ -371,7 +359,6 @@ export function EventPopover(props: { onClose(): void; selected: SelectedEvent }
   );
 }
 
-/** One row of the details grid: an icon or an account's picture, then its words. */
 function DetailRow(props: ParentProps<{ icon?: string; leading?: JSX.Element }>) {
   const leading = children(() => props.leading);
   return (
@@ -396,9 +383,7 @@ function EventDetails(props: { event: CalendarEvent; post?: StoredEvent; onToggl
   const auth = useAuth();
   createEffect(() => loadSocialConnections(auth.user()?.id));
   const held = () => (props.event.delivery ? null : heldBack({ id: props.event.sourceId, status: props.event.status }));
-  /** The words networks go out with instead of the caption. */
   const own = () => (props.post ? Object.entries(ownCaptions(props.post)) : []);
-  /** The titles YouTube and Pinterest get, when they aren't the post's. */
   const titles = () => {
     const post = props.post;
     if (!post) return [];
@@ -474,15 +459,8 @@ function EventDetails(props: { event: CalendarEvent; post?: StoredEvent; onToggl
   );
 }
 
-// ---------------------------------------------------------------------------
-// The post itself
-
 type Loaded = { kind: "video" | "image"; url: string };
 
-/**
- * The post's picture or video, big: its files when this browser has them,
- * else the small picture kept on the post. Several pictures line up in a strip.
- */
 function PostMedia(props: { post: StoredEvent }) {
   let urls: string[] = [];
   let gone = false;
@@ -551,16 +529,11 @@ function PostMedia(props: { post: StoredEvent }) {
   );
 }
 
-/** A quiet box the picture or video sits in, centred, so a tall one doesn't float on its own. */
 function Well(props: ParentProps) {
   return <div class="flex justify-center overflow-hidden rounded-lg bg-input">{props.children}</div>;
 }
 
-/**
- * The video at rest on its cover, with a play button; once playing, with the
- * browser's controls. The small picture kept on the post stands in until the
- * video's own frame at the cover is decoded, which is sharper.
- */
+/** The post's small picture stands in until the video's frame at the cover is decoded. */
 function VideoView(props: { src: string; poster?: string; coverTime?: number | null }) {
   let video!: HTMLVideoElement;
   const [started, setStarted] = createSignal(false);
@@ -602,18 +575,15 @@ function VideoView(props: { src: string; poster?: string; coverTime?: number | n
   );
 }
 
-/** Hashtags and mentions picked out in the caption. */
 function RichCaption(props: { text: string }) {
   const parts = () => props.text.split(/([#@][\p{L}\p{N}_.]+)/u);
   return <For each={parts()}>{(part) => (/^[#@][\p{L}\p{N}_]/u.test(part) ? <span class="text-primary">{part}</span> : part)}</For>;
 }
 
-/** The caption in full, folded to six lines until opened. */
 function CaptionBlock(props: { text: string | null | undefined; label?: string }) {
   const [expanded, setExpanded] = createSignal(false);
   const [clipped, setClipped] = createSignal(false);
   let box: HTMLParagraphElement | undefined;
-  // Whether six lines hold it, measured once drawn and again when the words change.
   createEffect(
     on(
       () => [props.text, expanded()],
@@ -647,12 +617,8 @@ function CaptionBlock(props: { text: string | null | undefined; label?: string }
   );
 }
 
-// ---------------------------------------------------------------------------
-// Where it goes out from, and how each send went
-
 type AccountRowInfo = { key: string; platform: string; account?: SocialConnection; publishes: boolean };
 
-/** One row per account the post goes out from; a network with none picked gets a row of its own. */
 function accountRowsOf(post: StoredEvent): AccountRowInfo[] {
   return post.platforms.flatMap((platform) => {
     const picked = accountsFor(platform, post.accounts);
@@ -664,9 +630,7 @@ function accountRowsOf(post: StoredEvent): AccountRowInfo[] {
 type Outcome = {
   tone: "sent" | "inbox" | "sending" | "waiting" | "failed";
   label: string;
-  /** Why, or what to do: shown under the row. */
   detail?: string;
-  /** The live post. */
   url?: string;
 };
 
@@ -678,7 +642,6 @@ const OUTCOME_TEXT: Record<Outcome["tone"], string> = {
   failed: "text-destructive",
 };
 
-/** Where the network shows a post, made from its id when the publisher didn't keep the link. */
 function liveLink(platform: string, id: string | null | undefined) {
   if (!id) return undefined;
   if (platform === "youtube") return `https://www.youtube.com/watch?v=${encodeURIComponent(id)}`;
@@ -686,14 +649,12 @@ function liveLink(platform: string, id: string | null | undefined) {
   return undefined;
 }
 
-/** How the send to one account went, from the publisher's rows, else from what's kept on the post for the network. */
 function outcomeOf(post: StoredEvent, row: AccountRowInfo, run: DeliveryRow[]): Outcome | undefined {
   const sent = (platform: string, url: string | undefined, note: string | null | undefined): Outcome => {
     if (platform === "tiktok" && note === "inbox") return { tone: "inbox", label: t("In inbox"), detail: t("Open the notification in TikTok to finish it"), url };
     if (platform === "youtube" && note === "private") return { tone: "sent", label: t("Private on YouTube"), detail: t(YOUTUBE_PRIVATE), url };
     return { tone: "sent", label: t("Posted"), url };
   };
-  // The account's newest row in the run. A network with no account picked takes the "connect an account first" row.
   const mine = run
     .filter((item) => item.platform === row.platform && (row.account ? item.connection_id === row.account.id : item.connection_id === "none"))
     .sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0];
@@ -764,17 +725,12 @@ function AccountRows(props: { post: StoredEvent }) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// The thread under it
-
-/** A sent post's thread, in a line: the follow-up that failed and why, when the next goes, or how many went out. */
 function threadLine(status: ThreadStatus): string {
   if (status.state === "failed") return `${t("Follow-up {number} didn't go out on {network}.", { number: status.step, network: status.network })} ${t(status.error)}`.trim();
   if (status.state === "waiting") return t("Thread · next follow-up {when}", { when: formatWhen(status.at) });
   return t("{count, plural, one {Thread · # follow-up sent} other {Thread · # follow-ups sent}}", { count: status.count });
 }
 
-/** "5 minutes later", or "Right away". */
 function delayLabel(minutes: number) {
   const option = REPLY_DELAYS.find((item) => item.minutes === minutes) ?? REPLY_DELAYS[0]!;
   return option.minutes === 0 ? t(option.label) : t("{delay} later", { delay: t(option.label) });
@@ -821,12 +777,8 @@ function ThreadRow(props: { post: StoredEvent }) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Ending a series, the project, and the quick edit
-
 type EndChoice = "after" | "before" | "date";
 
-/** Where a series stops: after the run that was clicked, just before it, or on a day picked. */
 function EndSeriesForm(props: { event: CalendarEvent; onCancel(): void; onEnd(day: string | null): void }) {
   const first = () => props.event.firstDay ?? props.event.day;
   const isFirst = () => props.event.day <= first();
@@ -901,7 +853,6 @@ function EndSeriesForm(props: { event: CalendarEvent; onCancel(): void; onEnd(da
   );
 }
 
-/** The project the post's video comes from, opened in the editor from here. */
 function ProjectDetail(props: { projectKey: string }) {
   const navigate = useNavigate();
   const returnHere = useReturnHere();
@@ -926,7 +877,6 @@ function ProjectDetail(props: { projectKey: string }) {
   );
 }
 
-/** The quick edit: the post's time, networks, status, link and words, without leaving the calendar. New post has the rest. */
 function EventEditForm(props: { event: CalendarEvent; onCancel(): void; onSaved(): void }) {
   const stored = allPosts().find((post) => post.id === props.event.sourceId);
   const [draft, setDraft] = createStore<EventDraft>({
@@ -942,12 +892,10 @@ function EventEditForm(props: { event: CalendarEvent; onCancel(): void; onSaved(
     repeat: "",
     start: props.event.start,
     status: props.event.status,
-    // On a post that goes to YouTube, the title YouTube gets.
     title: (stored?.platforms.includes("youtube") && stored.youtube?.title) || props.event.title,
   });
   const [error, setError] = createSignal<string | null>(null);
   createEffect(on(() => ({ ...draft }), () => setError(null), { defer: true }));
-  /** Networks that go out with words of their own, which the caption doesn't change. */
   const ownWords = () => draft.platforms.filter((id) => draft.captions?.[id] !== undefined);
 
   const save = (event?: SubmitEvent) => {

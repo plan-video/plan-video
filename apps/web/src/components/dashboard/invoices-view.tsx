@@ -97,7 +97,6 @@ function DashboardInvoicesHeader() {
   );
 }
 
-/** The list's own columns, in grey, while the invoices load. */
 function DashboardInvoicesSkeleton() {
   return (
     <div aria-hidden="true" class="flex flex-col">

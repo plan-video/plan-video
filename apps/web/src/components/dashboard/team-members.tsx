@@ -2,10 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Who is in a workspace: its owner, the people who joined, and the invites
-// still waiting. Its owner and admins invite people, change their roles and
-// take them out; everyone else in it sees the list.
-
 import { For, Show, createEffect, createResource, createSignal, onCleanup } from "solid-js";
 import { toast } from "somoto";
 
@@ -37,10 +33,8 @@ export const ROLES: { id: WorkspaceRole; label: string; detail: string }[] = [
 
 export const roleLabel = (role: WorkspaceRole | "owner") => (role === "owner" ? t("Owner") : t(ROLES.find((item) => item.id === role)!.label));
 
-/** The first letter of a name or address, for a person with no picture. */
 const initial = (text: string) => [...text.trim()][0]?.toUpperCase() ?? "?";
 
-/** A role to pick, in the dashboard's own menu: a field in the invite form, quiet text in a member's row. */
 function RolePicker(props: { value: WorkspaceRole; label: string; quiet?: boolean; onChange(role: WorkspaceRole): void }) {
   return (
     <DropdownMenu placement="bottom-end">
@@ -76,11 +70,8 @@ function RolePicker(props: { value: WorkspaceRole; label: string; quiet?: boolea
 export function TeamMembers(props: {
   scope: TeamScope;
   workspaceName: string;
-  /** The signed-in person's role here. */
   role: WorkspaceRole | "owner";
-  /** Their own id, so their row is marked and they can't remove themselves from here. */
   userId: string;
-  /** False while the owner's plan doesn't include a team: nobody new can be asked in. */
   teamPlan: boolean;
   onUpgrade?(): void;
 }) {
@@ -89,7 +80,6 @@ export function TeamMembers(props: {
     () => ({ owner: props.scope.owner, workspace: props.scope.workspace, version: teamChanges() }),
     ({ owner, workspace }) => loadTeamList({ owner, workspace }),
   );
-  // Hears when someone on the list leaves or is taken out elsewhere.
   createEffect(() => {
     const ids = list.latest?.members.map((member) => member.id) ?? [];
     onCleanup(watchTeamRows(ids));
@@ -111,7 +101,6 @@ export function TeamMembers(props: {
       setSending(false);
     }
     if ("error" in result) return void toast.error(result.error);
-    // Unless the next address is already being typed.
     if (email().trim() === address) setEmail("");
     void refetch();
     const emailed = await emailInvite(result.id);

@@ -2,9 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The posts calendar. Its layout and interactions are adapted from
-// next16-calendar (github.com/aurorascharff/next16-calendar, MIT licensed),
-// by way of the tricks.gg workspace calendar.
+// Adapted from next16-calendar (github.com/aurorascharff/next16-calendar, MIT).
 
 import "./calendar.css";
 import { useSearchParams } from "@solidjs/router";
@@ -42,7 +40,6 @@ import { CalendarViewToggle } from "./view-toggle";
 import { WeekBoard } from "./week-board";
 import type { PostStatusFilter, SelectedEvent, CalendarView } from "./types";
 
-/** 09:00, or the next quarter hour when that has already passed today. */
 function slotTime(day: string) {
   const morning = atLocal(day, "09:00");
   if (morning && morning.getTime() > Date.now()) return "09:00";
@@ -67,7 +64,6 @@ export function DashboardCalendarView() {
   };
   const hover = createPostHover();
 
-  // Week, Month and List fade in when switched to.
   let board: HTMLElement | undefined;
   createEffect(on(() => nav.view(), () => playEnter(board), { defer: true }));
 
@@ -107,7 +103,6 @@ export function DashboardCalendarView() {
   );
 }
 
-/** Whether the week or month on screen has no post that passes the filters. */
 function periodIsEmpty(nav: CalendarNavigation) {
   const range = nav.view() === "week" ? weekRange(nav.date()) : monthRange(nav.date());
   return !range.events.some(isEventVisible);
@@ -122,11 +117,8 @@ const EMPTY_PERIOD: Record<PostStatusFilter, string> = {
 };
 
 /**
- * The squirrel asleep over a week or month with nothing on it. It lets clicks
- * through to the slots underneath. The month is always six rows, so its
- * middle is a row's edge; there the squirrel moves up half a row (a twelfth
- * of the board) to sit inside a day rather than across two, which showed
- * most on today's tinted cell in the dark theme.
+ * Lets clicks through to the slots underneath. The month is always six rows,
+ * so its middle is a row's edge: the squirrel moves up half a row to sit in one day.
  */
 function EmptyPeriod(props: { view: CalendarView }) {
   return (
@@ -140,7 +132,6 @@ function EmptyPeriod(props: { view: CalendarView }) {
   );
 }
 
-/** Which posts show, by status. Failed is offered while something failed, or while it is picked. */
 function StatusFilter() {
   const failedCount = () => allPosts().filter((post) => hasFailed(post) && !isGoingOut(post)).length;
   const options = () =>
@@ -173,7 +164,7 @@ function StatusFilter() {
   );
 }
 
-/** The account picked in the calendar's sidebar, shown here too, since the sidebar is hidden on narrow windows. */
+/** Repeats the sidebar's pick, since the sidebar is hidden on narrow windows. */
 function AccountChip() {
   const account = () => socialConnections().find((item) => item.id === accountFilter());
   return (
@@ -196,11 +187,6 @@ function AccountChip() {
   );
 }
 
-/**
- * One row: the page's name, then Today, the arrows and the month (which opens
- * a small calendar for jumping to a day), and on the right the filters and
- * the view, as Google Calendar lays them out.
- */
 function CalendarHeader(props: { nav: CalendarNavigation }) {
   const period = () => (props.nav.view() === "week" ? "week" : "month");
   const arrow = "grid size-7 place-items-center rounded-md text-(--plane-text-secondary) outline-none press hover:bg-accent hover:text-(--plane-text-primary) focus-ring";
@@ -250,10 +236,8 @@ function CalendarHeader(props: { nav: CalendarNavigation }) {
   );
 }
 
-/** The month on show, which opens a small calendar for jumping to another day. In the list, a day there narrows it to that day. */
 function MonthJump(props: { nav: CalendarNavigation }) {
   const [open, setOpen] = createSignal(false);
-  // Going anywhere closes it.
   createEffect(on(() => `${props.nav.date()}:${props.nav.view()}:${props.nav.picked()}`, () => setOpen(false), { defer: true }));
 
   return (
@@ -278,7 +262,6 @@ function ViewToggle(props: { nav: CalendarNavigation }) {
   return <CalendarViewToggle value={props.nav.view()} onChange={(page) => props.nav.go(props.nav.date(), page)} />;
 }
 
-/** W, M and L switch view, arrows page, T jumps to today. */
 function useCalendarShortcuts(nav: CalendarNavigation, popupOpen: () => boolean) {
   onMount(() => {
     const onKeyDown = (event: KeyboardEvent) => {

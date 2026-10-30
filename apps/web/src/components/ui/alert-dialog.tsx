@@ -64,9 +64,8 @@ export const AlertDialogContent = <T extends ValidComponent = "div">(
   // where focus came from, so it's handed back here when the dialog closes.
   let opener: HTMLElement | null = null
 
-  // In a portal, as shadcn-solid has it: rendered where it's opened, the
-  // dialog sits inside the page that Kobalte hides from screen readers while
-  // it's open, so they couldn't reach it, and focus stayed behind it.
+  // Keep the portal: rendered inline, the dialog sits inside the page Kobalte
+  // hides from screen readers while open, so neither they nor focus reach it.
   return (
     <AlertDialogPortal>
       <AlertDialogOverlay />

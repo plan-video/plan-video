@@ -19,19 +19,11 @@ export const fieldControlBase =
   "w-full min-w-0 rounded-md border border-(--border-input) bg-input px-2 text-xs text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary disabled:cursor-not-allowed disabled:opacity-50 [color-scheme:dark]";
 export const fieldControl = `h-7 ${fieldControlBase}`;
 
-/** The networks' marks at 62% of their tile, in a box the tile's size (see brand/tile-box). */
 const MARK_BOX = tileViewBox("0 0 24 24", 0.62);
 
-/**
- * The platform's logo on its brand tile, always in its own colours; YouTube's
- * icon bare and 20 high in its place, or with `compact` small on its white
- * tile, the size of the others (see brand/youtube-icon).
- */
-/** `bare` draws YouTube's icon alone, red with no tile, as wide as the other logos (the calendar's account chip, the user's choice). */
 export function PlatformLogo(props: { id: PlatformId; class?: string; compact?: boolean; bare?: boolean }) {
   const platform = () => socialPlatform(props.id);
-  // Branches in the markup, not early returns: a component runs once, so a return would keep the first network's
-  // look when `id` changes under it (the calendar's account chip showed YouTube for every account picked after one).
+  // Branches in the markup, not early returns: a component runs once, so a return would keep the first `id`'s look.
   return (
     <Show
       when={props.id === "youtube"}
@@ -59,11 +51,6 @@ export function PlatformLogo(props: { id: PlatformId; class?: string; compact?: 
   );
 }
 
-/**
- * The logos of several platforms, overlapping a little when space is short.
- * `compact` draws YouTube's icon small on its white tile, the size of the
- * others, rather than 20 high (the posts list, the user's choice).
- */
 export function PlatformLogos(props: { ids: readonly PlatformId[]; max?: number; class?: string; logoClass?: string; compact?: boolean }) {
   const shown = () => props.ids.slice(0, props.max ?? props.ids.length);
   const extra = () => props.ids.length - shown().length;
@@ -85,7 +72,7 @@ export function PlatformLogos(props: { ids: readonly PlatformId[]; max?: number;
   );
 }
 
-/** One outline set for the four post types, drawn on the same grid and stroke (Lucide, ISC). */
+/** Outlines from Lucide (ISC). */
 function KindGlyph(props: { kind: PostKind; class?: string }) {
   return (
     <svg
@@ -139,7 +126,6 @@ const KIND_GLYPHS: Record<PostKind, () => JSX.Element> = {
   ),
 };
 
-/** What kind of post it is. */
 export function PostKindPicker(props: { value: PostKind; onChange(kind: PostKind): void; class?: string }) {
   return (
     <div class={cx("grid grid-cols-4 gap-1 rounded-xl bg-accent/60 p-1", props.class)} role="radiogroup" aria-label={t("Post type")}>
@@ -180,7 +166,6 @@ const KIND_DESCRIPTIONS: Record<PostKind, string> = {
   story: msg("One picture or video, gone after a day"),
 };
 
-/** The first step of a new post: the larger choice of what kind it is. */
 export function PostKindChooser(props: { onChoose(kind: PostKind): void }) {
   return (
     <div class="grid grid-cols-2 gap-2.5" role="radiogroup" aria-label={t("Post type")}>
@@ -208,23 +193,16 @@ export function PostKindChooser(props: { onChoose(kind: PostKind): void }) {
   );
 }
 
-/** "@a", "@a and @b", "3 accounts"; a Facebook Page goes by its own name. */
 export function accountsLabel(accounts: readonly { platform: string; handle?: string }[]) {
   if (accounts.length === 1) return accountLabel(accounts[0]!);
   if (accounts.length === 2) return t("{first} and {second}", { first: accountLabel(accounts[0]!), second: accountLabel(accounts[1]!) });
   return t("{count, plural, one {# account} other {# accounts}}", { count: accounts.length });
 }
 
-/**
- * The accounts a post goes out from on one platform, when there is more than
- * one to choose from, or the ones it named were removed. Any number can be
- * ticked; one always stays.
- */
 export function AccountSelect(props: {
   platform: PlatformId | string;
   value?: readonly string[];
   onChange(accountIds: readonly string[]): void;
-  /** Says only how many are picked, "1 of 2", where a handle has no room. */
   short?: boolean;
 }) {
   const list = () => connectionsFor(props.platform);
@@ -313,20 +291,16 @@ export function AccountSelect(props: {
   );
 }
 
-/** Where a post goes: every platform as a tile, or a logo with its name under it, that can be switched on. */
 export function PlatformPicker(props: {
   variant?: "tiles" | "logos";
   value: readonly PlatformId[];
-  /** The accounts chosen on each platform. */
   accounts?: AccountChoices;
   onChange(ids: PlatformId[], accounts: AccountChoices): void;
   columns?: number;
-  /** The platforms offered; all of them when left out. */
   available?: readonly PlatformId[];
   class?: string;
 }) {
   const apply = (ids: PlatformId[], accounts: AccountChoices = props.accounts ?? {}) => {
-    // A platform whose picked accounts were removed stays unpicked until someone picks one, rather than moving to another account.
     props.onChange(sortPlatforms(ids), accountsForPlatforms(ids, accounts, { keepRemoved: true }));
   };
 
@@ -396,7 +370,6 @@ export function PlatformPicker(props: {
           const accounts = () => connectionsFor(platform.id);
           const unpicked = () => on() && accounts().length > 0 && !accountsFor(platform.id, props.accounts).length;
           return (
-            // The button fills the tile, so a press anywhere on it counts.
             <div
               class="group flex min-w-0 flex-col justify-center rounded-md border press"
               classList={{
@@ -448,7 +421,6 @@ export function PlatformPicker(props: {
   );
 }
 
-/** The tick in a small checkbox, drawn to fit inside its box. */
 export function CheckMark(props: { class?: string }) {
   return (
     <svg viewBox="0 0 12 12" fill="none" aria-hidden="true" class={cx("size-2.5 shrink-0", props.class)}>
@@ -457,9 +429,7 @@ export function CheckMark(props: { class?: string }) {
   );
 }
 
-/** A small run of exclusive choices, the selected one raised. */
 export function Segmented<T extends string>(props: {
-  /** `badge` is a note in grey after the label, such as yearly billing's "(-20% off)". */
   options: readonly { id: T; label: string; badge?: string }[];
   value: T | null;
   onChange(value: T): void;
@@ -497,7 +467,6 @@ export function Segmented<T extends string>(props: {
   );
 }
 
-/** A setting that is on or off, with its name on the left. */
 export function SwitchRow(props: { label: string; description?: string; checked: boolean; disabled?: boolean; onChange(checked: boolean): void }) {
   return (
     <Switch
@@ -522,7 +491,6 @@ export function SwitchRow(props: { label: string; description?: string; checked:
   );
 }
 
-/** A label over its control. */
 export function Field(props: { label: string; trailing?: JSX.Element; children: JSX.Element; class?: string }) {
   return (
     <label class={cx("flex min-w-0 flex-col gap-1", props.class)}>
@@ -535,7 +503,7 @@ export function Field(props: { label: string; trailing?: JSX.Element; children: 
   );
 }
 
-/** A name over a group of controls. Unlike `Field`, a click on the name presses none of them. */
+/** Unlike `Field`, a click on the name presses none of the controls. */
 export function FieldGroup(props: { label: string; trailing?: JSX.Element; hint?: string; children: JSX.Element; class?: string }) {
   return (
     <div class={cx("flex min-w-0 flex-col gap-1", props.class)}>
@@ -551,11 +519,6 @@ export function FieldGroup(props: { label: string; trailing?: JSX.Element; hint?
   );
 }
 
-/**
- * Several short values in one field, each as a chip. Enter, a comma, or
- * leaving the field adds what was typed; a pasted list adds each of it.
- * `clean` turns typed text into a value, or rejects it with null.
- */
 export function TagInput(props: {
   label: string;
   value: readonly string[];
@@ -654,7 +617,6 @@ export function TagInput(props: {
   );
 }
 
-/** `12 / 280`, turning red past the limit. */
 export function CharCount(props: { count: number; limit: number; class?: string }) {
   return (
     <span
@@ -669,12 +631,10 @@ export function CharCount(props: { count: number; limit: number; class?: string 
   );
 }
 
-/** A titled block of the form. */
 export function FormSection(props: { title: string; hint?: string; action?: JSX.Element; children: JSX.Element }) {
   return (
     <section class="flex flex-col gap-3">
       <div class="flex min-h-6 items-center gap-2">
-        {/* Headed like the settings pages' sections. */}
         <h2 class="shrink-0 text-sm font-medium text-foreground">{props.title}</h2>
         <Show when={props.hint}>
           <span class="min-w-0 flex-1 truncate text-xs text-muted-foreground">{props.hint}</span>
@@ -689,8 +649,6 @@ export function FormSection(props: { title: string; hint?: string; action?: JSX.
   );
 }
 
-/** Where files are dropped or picked. */
-/** The look of a drop zone's buttons, for actions passed in beside "Choose files". */
 export const dropZoneAction =
   "flex h-7 items-center gap-1 rounded-md bg-secondary px-3 text-xs font-medium text-foreground press hover:bg-secondary-hover focus-ring";
 
@@ -701,7 +659,6 @@ export function DropZone(props: {
   dragging: boolean;
   onPick(): void;
   pickLabel: string;
-  /** More ways to add media, next to the file button. */
   actions?: JSX.Element;
   class?: string;
   handlers: {
@@ -737,7 +694,6 @@ export function DropZone(props: {
   );
 }
 
-/** Drag-and-drop state for a drop zone that has children of its own. */
 export function createDropHandlers(onFiles: (files: File[]) => void, setDragging: (on: boolean) => void, read: (event: DragEvent) => File[]) {
   let depth = 0;
   const hasFiles = (event: DragEvent) => event.dataTransfer?.types.includes("Files") ?? false;

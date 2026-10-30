@@ -2,11 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// A post as Month and Week draw it: the calendar's colour as a bar down the
-// left, the post's picture, its title, then when it goes out, where, and how
-// it stands. The boards size and place each chip; this draws what is in it,
-// so a post looks the same wherever it is met.
-
 import { Show } from "solid-js";
 import { Icon } from "@/components/dashboard/dashboard-icon";
 import { heldBack } from "@/components/publish/publisher";
@@ -15,28 +10,21 @@ import { PostLogos } from "./post-logos";
 import { MIN_CHIP_HEIGHT, cn } from "./utils";
 import type { CalendarEvent } from "./types";
 
-/** What every chip starts from. The boards add its size and place, and `relative` when it is not placed absolutely. */
 export const chipClass =
   "cal-chip @container flex min-w-0 items-stretch overflow-hidden rounded-md border text-left text-foreground outline-none focus-ring";
 
-/** The row under a day's posts that opens the rest of them, and closes them again. */
 export const moreClass =
   "flex h-6 w-full items-center rounded-md pr-2 pl-3 text-xs text-(--plane-text-tertiary) outline-none transition-colors hover:bg-accent hover:text-(--plane-text-primary) focus-ring";
 
-/** The picture's height in a chip this tall: 4px clear above and below, and no taller than a tall chip needs. */
 export function thumbHeight(chipHeight: number) {
   return Math.min(Math.round(chipHeight) - 8, 72);
 }
 
 type PostChipBodyProps = {
   event: CalendarEvent;
-  /** Opens the second line: the start, or the whole span. Left out for a post with no set time. */
   time?: string;
-  /** How many lines the title may run to. One, unless the chip is tall. */
   lines?: number;
-  /** The picture's height, in pixels. */
   thumb?: number;
-  /** Keeps the words at the top of a chip taller than they are, rather than in the middle. */
   top?: boolean;
 };
 
@@ -46,8 +34,7 @@ export function PostChipBody(props: PostChipBodyProps) {
   const thumb = () => props.thumb ?? thumbHeight(MIN_CHIP_HEIGHT);
   const hasMeta = () => !!props.time || event().platforms.length > 0 || !!event().link || event().recurring;
   const held = () => (event().delivery ? null : heldBack({ id: event().sourceId, status: event().status }));
-  // Only a post that needs a look carries a mark: one going out, one that didn't, one held back.
-  // A posted one says so by stepping back (see calendar.css).
+  // Only a post that needs a look carries a mark; a posted one steps back instead (calendar.css).
   const hasMark = () => !!event().delivery || !!held();
 
   return (

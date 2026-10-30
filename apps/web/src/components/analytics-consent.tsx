@@ -9,11 +9,10 @@ import { analyticsConsent, chooseAnalyticsConsent } from "@/lib/google-analytics
 import { rich, t } from "@/lib/i18n";
 import { site } from "@/lib/site";
 
-/** Accept and Decline, one button style for both, so neither is easier to pick. */
+/** One style for both buttons, so neither is easier to pick. */
 const choice =
   "h-9 cursor-pointer rounded-lg border border-white/10 bg-white/[0.03] text-[13px] font-450 text-white transition-colors hover:bg-white/[0.08]";
 
-/** The notice visitors see until they accept or decline analytics cookies. */
 export function AnalyticsConsent() {
   return (
     <Show when={site && !window.desktop && analyticsConsent() === null}>

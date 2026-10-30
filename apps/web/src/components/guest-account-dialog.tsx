@@ -2,9 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// What a guest sees when they try something the demo can't do for real, like
-// scheduling a post or connecting an account: the way to an account of their own.
-
 import { useNavigate } from "@solidjs/router";
 import { Show } from "solid-js";
 

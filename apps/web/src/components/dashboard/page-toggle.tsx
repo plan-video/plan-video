@@ -8,7 +8,6 @@ import { t } from "@/lib/i18n";
 
 export type PageToggleOption<T extends string> = { value: T; label: string; key?: string };
 
-/** Switches between the views of one page, like Week, Month and List. */
 export function PageToggle<T extends string>(props: {
   label: string;
   options: readonly PageToggleOption<T>[];
@@ -16,7 +15,6 @@ export function PageToggle<T extends string>(props: {
   onChange(value: T): void;
 }) {
   return (
-    // Plane's layout switcher: a recessed strip, the picked option lifted out of it.
     <div role="group" aria-label={props.label} class="flex h-7 shrink-0 items-center gap-0.5 rounded-md bg-(--plane-layer-3) p-[3px]">
       <For each={props.options}>
         {(option) => {

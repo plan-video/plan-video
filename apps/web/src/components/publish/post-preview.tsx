@@ -2,9 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// A post as each app would show it, drawn in a phone. Shapes only, close
-// enough to see what the caption and the picture will look like.
-
 import { For, Match, Show, Switch, createContext, createEffect, createSignal, mergeProps, useContext, type JSX } from "solid-js";
 
 import { YouTubeIcon } from "@/components/brand/youtube-icon";
@@ -17,22 +14,17 @@ import { formatDuration, picturesOut, socialPlatform, youtubeFormat, type Platfo
 import { summarizeMedia, type PostMedia } from "@/lib/social-media";
 import { MAX_REPLY_PICTURES } from "@/lib/thread";
 
-/** "12.4K", as the apps write their counts. */
 const COUNT = localized((locale) => new Intl.NumberFormat(locale, { notation: "compact", maximumFractionDigits: 1 }), "en-US");
 
 export type PreviewProps = {
   platform: PlatformId;
-  /** The connection id this preview is posting as, when one was chosen. */
   account?: string;
   media: readonly PostMedia[];
   caption: string;
   title: string;
-  /** The still a video goes out with, when one was picked. */
   cover?: string;
   story?: boolean;
-  /** Follow-ups that go out under the post: replies on X and Bluesky, comments on LinkedIn, with the media they carry. */
   thread?: readonly { text: string; media?: readonly PostMedia[] }[];
-  /** The account a mockup on the site or a shared preview shows the post from, in place of the signed-in one. */
   sample?: { name: string; handle: string; avatar?: string | null };
 };
 
@@ -67,7 +59,6 @@ function Glyph(props: { name: keyof typeof GLYPHS; class?: string; filled?: bool
   );
 }
 
-/** Hashtags and mentions in the app's link color. */
 function RichText(props: { text: string; tagClass?: string }) {
   const parts = () => props.text.split(/([#@][\p{L}\p{N}_.]+)/gu).filter(Boolean);
   return (
@@ -81,11 +72,7 @@ type Account = { name(): string; handle(): string; avatar(): string | null };
 
 const AccountContext = createContext<Account>();
 
-/**
- * Who the post is from: the handle saved in Connections, or one made from the
- * signed-in name. A Facebook post comes from the Page, so it shows the Page's
- * name and picture rather than the person's.
- */
+/** A Facebook post comes from the Page, so it shows the Page's name and picture rather than the person's. */
 function createAccount(platform: () => PlatformId, accountId: () => string | undefined, sample: () => PreviewProps["sample"]): Account {
   const auth = useAuth();
   const avatar = useAvatar();
@@ -117,11 +104,9 @@ function Avatar(props: { class?: string }) {
   );
 }
 
-/** The picture or the video, filling its box. */
 function MediaFill(props: {
   media: readonly PostMedia[];
   cover?: string;
-  /** Shows the cover instead of playing, the way a grid of thumbnails does. */
   still?: boolean;
   aspect?: number;
   class?: string;
@@ -235,7 +220,6 @@ function StatusBar(props: { light?: boolean }) {
   );
 }
 
-/** The phone. Its screen is 9:19.5. */
 function Phone(props: { children: JSX.Element; class?: string }) {
   return (
     <div class="mx-auto w-full max-w-[272px] rounded-[34px] bg-[#1a1a1a] p-[7px] shadow-[0_0_0_1px_rgba(255,255,255,0.08)]">
@@ -256,7 +240,6 @@ function RailButton(props: { glyph: keyof typeof GLYPHS; label: string; filled?:
   );
 }
 
-/** An Instagram or Facebook story: the media full screen, no caption, a reply box under it. */
 function StoryPreview(props: PreviewProps) {
   const account = useAccount();
   return (
@@ -289,7 +272,6 @@ function StoryPreview(props: PreviewProps) {
   );
 }
 
-/** TikTok, Reels and Shorts: the video full screen, the app on top of it. */
 function VerticalPreview(props: PreviewProps) {
   const account = useAccount();
   const id = () => props.platform;
@@ -370,7 +352,6 @@ function VerticalPreview(props: PreviewProps) {
   );
 }
 
-/** The app's top bar for the feed previews. */
 function AppBar(props: { platform: PlatformId }) {
   const platform = () => socialPlatform(props.platform);
   return (
@@ -382,14 +363,12 @@ function AppBar(props: { platform: PlatformId }) {
   );
 }
 
-/** How wide a follow-up's media shows for its height, as the post's own. */
 function replyAspect(media: readonly PostMedia[]) {
   const first = media[0];
   if (!first || !first.width || !first.height) return 1;
   return Math.min(1.91, Math.max(0.8, first.width / first.height));
 }
 
-/** X, Threads, Bluesky, Facebook and LinkedIn: a post in the timeline. */
 function FeedPreview(props: PreviewProps) {
   const account = useAccount();
   const id = () => props.platform;
@@ -409,7 +388,6 @@ function FeedPreview(props: PreviewProps) {
         <article class="flex gap-2 px-3 pt-3" classList={{ "flex-col": wide() }}>
           <div class="flex shrink-0 items-start gap-2" classList={{ "items-center": wide(), "flex-col": !wide() && replies().length > 0 }}>
             <Avatar class="size-8" />
-            {/* A thread's line, from the post down to its first reply. */}
             <Show when={!wide() && replies().length}>
               <span class="-mb-3 w-0.5 flex-1 self-center rounded-full bg-white/15" />
             </Show>
@@ -478,7 +456,6 @@ function FeedPreview(props: PreviewProps) {
           <Show
             when={!wide()}
             fallback={
-              // LinkedIn's comments under the post.
               <div class="flex flex-col gap-2 px-3 pt-2.5">
                 <For each={replies().filter((reply) => reply.text.trim())}>
                   {(reply) => (
@@ -534,7 +511,6 @@ function FeedPreview(props: PreviewProps) {
   );
 }
 
-/** A long YouTube video: the thumbnail, then the title under it. */
 function YouTubeVideoPreview(props: PreviewProps) {
   const account = useAccount();
   const first = () => props.media[0];
@@ -566,7 +542,6 @@ function YouTubeVideoPreview(props: PreviewProps) {
   );
 }
 
-/** A pin in the home feed, next to others. */
 function PinterestPreview(props: PreviewProps) {
   const account = useAccount();
   return (
@@ -593,7 +568,6 @@ function PinterestPreview(props: PreviewProps) {
 }
 
 export function PostPreview(props: PreviewProps) {
-  /** Pictures past what the platform puts out are left out, as they would be. */
   const shown = mergeProps(props, {
     get media() {
       return props.media[0]?.kind === "image" ? props.media.slice(0, picturesOut(props.platform)) : props.media;

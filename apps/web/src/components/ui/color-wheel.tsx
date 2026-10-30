@@ -18,11 +18,6 @@ export type ColorWheelProps = {
 
 const round = (value: number) => Math.round(value);
 
-/**
- * A grading wheel: the puck's angle is a hue and its distance from the middle
- * how much of it. Drag anywhere on the wheel; the arrow keys turn it (left,
- * right) and push it out or in (up, down).
- */
 export function ColorWheel(props: ColorWheelProps) {
   let wheel!: HTMLDivElement;
 

@@ -158,7 +158,6 @@ function DashboardAccountPersonalDetailsSection() {
   );
   const [saving, setSaving] = createSignal(false);
   const [uploading, setUploading] = createSignal(false);
-  /** Save stays off until a name differs from what the account has. */
   const changed = () =>
     firstName().trim() !== ((auth.user()?.user_metadata?.first_name as string) ?? "") ||
     lastName().trim() !== ((auth.user()?.user_metadata?.last_name as string) ?? "");
@@ -184,7 +183,6 @@ function DashboardAccountPersonalDetailsSection() {
     try {
       const blob = await cropAndResizeAvatar(file);
 
-      // Optimistic preview
       const prev = localPreview();
       if (prev) URL.revokeObjectURL(prev);
       setLocalPreview(URL.createObjectURL(blob));
@@ -218,7 +216,6 @@ function DashboardAccountPersonalDetailsSection() {
 
   const savedFirst = () => (auth.user()?.user_metadata?.first_name as string) ?? "";
   const savedLast = () => (auth.user()?.user_metadata?.last_name as string) ?? "";
-  /** An uploaded photo can be taken off; a Google one belongs to Google. */
   const hasUpload = () => !!localPreview() || typeof auth.user()?.user_metadata?.avatar_url === "string" && !!auth.user()?.user_metadata?.avatar_url;
   const displayName = () =>
     [savedFirst(), savedLast()].filter(Boolean).join(" ") || (auth.user()?.user_metadata?.full_name as string | undefined) || "";
@@ -488,8 +485,7 @@ function DashboardAccountLinkedAccountsSection() {
     }
   };
 
-  // Manual linking is off in Supabase (a link could be finished in someone else's
-  // browser), so this only lets an account already linked disconnect Google.
+  // Manual linking is off in Supabase (a link could be finished in someone else's browser), so this only disconnects.
   return (
     <Show when={identity("google")}>
       <DashboardSurfaceSection title={t("Linked accounts")}>
@@ -575,7 +571,6 @@ function DashboardAccountEmailPreferencesSection() {
   const value = (column: EmailPreferenceColumn) =>
     optimistic()[column] ?? serverValue(column);
 
-  // Clear optimistic overrides once the server state catches up via realtime.
   createEffect(() => {
     const current = optimistic();
     let next = current;

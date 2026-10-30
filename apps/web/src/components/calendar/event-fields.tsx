@@ -37,7 +37,6 @@ function durationChoices(current: number) {
   return [...new Set([...DURATION_OPTIONS, current])].filter(Number.isFinite).sort((a, b) => a - b);
 }
 
-/** Title, date, time, platforms and the rest of a post, for create and edit. */
 export function EventFields(props: EventFieldsProps) {
   const allDayId = createUniqueId();
   const captionId = createUniqueId();
@@ -142,7 +141,7 @@ export function StatusSelect(props: { onChange(status: PostStatus): void; value:
   const auth = useAuth();
   const choose = (select: HTMLSelectElement) => {
     const status = select.value as PostStatus;
-    // Scheduling needs an account: a guest's post stays as it was, and they're asked to make one.
+    // Guests can't schedule: the post stays as it was.
     if (status === "scheduled" && auth.isGuest()) {
       select.value = props.value;
       askForAccount({ reason: "schedule" });
@@ -157,7 +156,6 @@ export function StatusSelect(props: { onChange(status: PostStatus): void; value:
   );
 }
 
-/** Where a post goes. Collapsed, it shows the picked platforms. */
 export function PlatformsField(props: {
   accounts: AccountChoices;
   onChange(platforms: string[], accounts: AccountChoices): void;
@@ -280,7 +278,6 @@ export function PlatformBadges(props: { max?: number; platforms: string[] }) {
   );
 }
 
-/** A solid badge for a post being sent that needs a look: going out, waiting to, or failed. A posted one has none. */
 export function StatusMark(props: { event: Pick<CalendarEvent, "delivery" | "waiting"> }) {
   return (
     <Switch>
@@ -304,7 +301,6 @@ export function StatusMark(props: { event: Pick<CalendarEvent, "delivery" | "wai
   );
 }
 
-/** A scheduled post that won't go out as it shows for now: a failed post's mark, in the colour of one past due. */
 export function HeldMark(props: { title: string }) {
   return (
     <span title={props.title} class="grid size-3.5 shrink-0 place-items-center rounded-full bg-meter-yellow text-black">

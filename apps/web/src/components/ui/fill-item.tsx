@@ -26,12 +26,6 @@ type FillItemProps = {
   onClick?(event: MouseEvent): void;
 };
 
-/**
- * One paint, as the fills panel shows it: a swatch of what it paints, its
- * color (a solid) or its name (everything else), and an opacity that doubles
- * as a slider across the row. Both values are props of the paint element, so
- * they are written through the editor and keyframed after.
- */
 export function FillItem(props: FillItemProps) {
   const world = useWorld();
   const editor = useEditor();

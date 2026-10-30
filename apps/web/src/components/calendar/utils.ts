@@ -2,18 +2,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Date, grid, recurrence and color helpers for the posts calendar. The
-// calendar's layout and interactions are adapted from next16-calendar
-// (github.com/aurorascharff/next16-calendar, MIT), by way of tricks.gg.
+// Adapted from next16-calendar (github.com/aurorascharff/next16-calendar, MIT).
 
 import type { JSX } from "solid-js";
 import { localized, msg, t } from "@/lib/i18n";
 import { dayKeyAt, minutesAt } from "@/lib/time-zone";
 import type { CalendarColor, CalendarEvent, CalendarView, PostStatus, PostStatusFilter } from "./types";
 
-// ---------------------------------------------------------------------------
-// Dates. A date key is `YYYY-MM-DD`; all math on it happens in UTC so the
-// key never drifts across a daylight-saving change.
+// A date key is `YYYY-MM-DD`; all math on it is in UTC so it never drifts across DST.
 
 const dayFormatter = localized((locale) => new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", weekday: "short", timeZone: "UTC" }), "en-GB");
 const dayLongFormatter = localized((locale) => new Intl.DateTimeFormat(locale, { day: "numeric", month: "long", weekday: "long", timeZone: "UTC" }), "en-GB");
@@ -28,7 +24,6 @@ export function dateKey(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
-/** A moment's day key in the dashboard's time zone. */
 export function localDateKey(date: Date) {
   return dayKeyAt(date);
 }
@@ -116,11 +111,8 @@ export function timeToMinutes(value: string) {
   return hours * 60 + minutes;
 }
 
-// ---------------------------------------------------------------------------
-// Recurrence. A repeating post stores `weekday` (Monday to Friday),
-// `every:N:unit` counted from its first day, or, from before cadences, the
-// name of the weekday it repeats on. Skipped occurrences are kept as exception
-// days.
+// Recurrence is `weekday` (Mon-Fri), `every:N:unit` from the first day, or an old
+// weekday name. Skipped occurrences are kept as exception days.
 
 export const WEEKDAY_NAMES = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"] as const;
 
@@ -157,7 +149,7 @@ export function daysBetween(from: string, to: string) {
 const monthIndex = (date: Date) => date.getUTCFullYear() * 12 + date.getUTCMonth();
 const monthLength = (date: Date) => new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)).getUTCDate();
 
-/** Whether a post first on `first` falls on `day`. A monthly one on the 31st lands on the last day of shorter months. */
+/** A monthly post on the 31st lands on the last day of shorter months. */
 export function matchesRecurrence(recurrence: string | null | undefined, day: string, first: string) {
   const date = dateFromKey(day);
   const weekday = date.getUTCDay();
@@ -180,10 +172,8 @@ export function recurrenceAfterMove(recurrence: string, day: string) {
   return recurrence === "weekday" ? "weekday" : weekdayName(day);
 }
 
-/** A cadence's words: `named` for a weekday's name, `weekday` for Monday to Friday, then each unit, alone or from the first day. */
 type CadenceWords = Record<"named" | "weekday" | RepeatUnit | "weekOn" | "monthOn", string>;
 
-/** Starting a sentence. */
 const CADENCE_LABELS: CadenceWords = {
   named: msg("Every {weekday}"),
   weekday: msg("Every weekday"),
@@ -196,7 +186,6 @@ const CADENCE_LABELS: CadenceWords = {
   ),
 };
 
-/** Mid-sentence. */
 const CADENCE_PHRASES: CadenceWords = {
   named: msg("every {weekday}"),
   weekday: msg("every weekday"),
@@ -224,17 +213,14 @@ function cadenceWords(recurrence: string | null | undefined, first: string | und
   return t(words.monthOn, { count, day: dateFromKey(first).getUTCDate() });
 }
 
-/** "Every 2 weeks on Friday". `first` is the post's first day, which a week or month cadence is read from. */
 export function cadenceLabel(recurrence: string | null | undefined, first?: string) {
   return cadenceWords(recurrence, first, CADENCE_LABELS);
 }
 
-/** "every 2 weeks on Friday": `cadenceLabel` as it reads mid-sentence. */
 export function cadencePhrase(recurrence: string | null | undefined, first?: string) {
   return cadenceWords(recurrence, first, CADENCE_PHRASES);
 }
 
-/** "Repeats every Friday until Fri, 30 Oct". */
 export function recurrenceLabel(recurrence: string | null, first?: string, end?: string | null) {
   if (!recurrence) return null;
   const cadence = cadencePhrase(recurrence, first);
@@ -242,10 +228,10 @@ export function recurrenceLabel(recurrence: string | null, first?: string, end?:
   return end ? t("{repeats} until {date}", { repeats: label, date: formatDay(end) }) : label;
 }
 
-/** The furthest a series is searched for its runs: a run every 99 months spans a little over eight years. */
+/** A run every 99 months spans a little over eight years. */
 const RUN_SEARCH_DAYS = 3100;
 
-/** The day of a series' `count`th run, counting its first day as the first. Skipped days still count. */
+/** Skipped days still count. */
 export function nthRunDay(recurrence: string, first: string, count: number): string | null {
   let found = 0;
   for (let offset = 0; offset <= RUN_SEARCH_DAYS; offset++) {
@@ -255,7 +241,6 @@ export function nthRunDay(recurrence: string, first: string, count: number): str
   return null;
 }
 
-/** How many runs a series has from its first day to `end`, both included. */
 export function runsUntil(recurrence: string, first: string, end: string): number {
   let count = 0;
   for (let day = first; day <= end; day = shiftDay(day, 1)) if (matchesRecurrence(recurrence, day, first)) count++;
@@ -264,7 +249,7 @@ export function runsUntil(recurrence: string, first: string, end: string): numbe
 
 export const MAX_REPEAT_RUNS = 99;
 
-/** The last day a series runs on, from the end picked for it. Null: it keeps going, or the end makes no sense. */
+/** Null: it keeps going, or the end makes no sense. */
 export function resolveRepeatEnd(end: string | undefined, recurrence: string, first: string): string | null {
   const on = /^on:(\d{4}-\d{2}-\d{2})$/.exec(end ?? "")?.[1];
   if (on) return on;
@@ -272,12 +257,9 @@ export function resolveRepeatEnd(end: string | undefined, recurrence: string, fi
   return after >= 1 ? nthRunDay(recurrence, first, after) : null;
 }
 
-// ---------------------------------------------------------------------------
-// The week grid runs from 06:00 to 06:00 the next day, so a late-night post
-// stays on the day it belongs to.
+// The week grid runs 06:00 to 06:00 so a late-night post stays on its own day.
 
 export const HOUR_HEIGHT = 64;
-/** A post's chip is never shorter than this: room for its title, and the line under it. */
 export const MIN_CHIP_HEIGHT = 42;
 export const START_HOUR = 6;
 export const HOURS = Array.from({ length: 24 }, (_, index) => (START_HOUR + index) % 24);
@@ -308,7 +290,6 @@ export function calendarDayFromGridDay(day: string, startMinutes: number) {
   return startMinutes >= 24 * 60 ? shiftDay(day, 1) : day;
 }
 
-/** Side-by-side columns for posts that overlap in time. */
 export function packDay(events: Pick<CalendarEvent, "duration" | "id" | "start">[]): Map<string, Placement> {
   const items = events
     .map((event) => ({
@@ -387,9 +368,6 @@ export function durationLabel(minutes: number) {
   return t("{hours} hr {minutes} min", { hours: Math.floor(minutes / 60), minutes: minutes % 60 });
 }
 
-// ---------------------------------------------------------------------------
-// Colors
-
 export const CALENDAR_COLOR_PRESETS = [
   "rose",
   "orange",
@@ -430,7 +408,6 @@ export function isColorPreset(value: string): value is ColorPreset {
   return PRESETS.has(value);
 }
 
-/** A preset name or a `#RRGGBB` hex, or null when the value is neither. */
 export function normalizeColor(value: string): string | null {
   const trimmed = value.trim();
   if (isColorPreset(trimmed)) return trimmed;
@@ -449,7 +426,6 @@ export function colorHex(color: CalendarColor) {
   return isColorPreset(normalized) ? PRESET_HEX[normalized] : normalized;
 }
 
-/** Sets the color a chip's accent border and tint read from. */
 export function chipStyle(color: CalendarColor): JSX.CSSProperties {
   return { "--cal-color": colorHex(color) };
 }
@@ -457,9 +433,6 @@ export function chipStyle(color: CalendarColor): JSX.CSSProperties {
 export function swatchStyle(color: CalendarColor): JSX.CSSProperties {
   return { "background-color": colorHex(color) };
 }
-
-// ---------------------------------------------------------------------------
-// Posts
 
 export const STATUS_OPTIONS: { label: string; value: PostStatus }[] = [
   { label: msg("Draft"), value: "draft" },

@@ -2,9 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Sharing a post for feedback, from its popover: make the link, copy it, read
-// and answer the comments left on it, or stop sharing.
-
 import { Show, createResource, createSignal, onMount } from "solid-js";
 import { toast } from "somoto";
 
@@ -39,7 +36,6 @@ export function SharePanel(props: { post: StoredEvent; onBack(): void }) {
     }
   };
 
-  // An open link shows the post as it is now.
   onMount(() => {
     if (shared()) void sharePost(props.post);
   });

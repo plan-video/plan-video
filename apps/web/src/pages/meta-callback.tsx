@@ -7,7 +7,6 @@ import { Navigate } from "@solidjs/router";
 import { handOffConnection } from "@/lib/connect-return";
 import type { MetaNetwork } from "@/lib/meta";
 
-/** Where Instagram, Facebook and Threads send their login back. Connections, or the connect link it was started from, finishes it, so this page goes straight there. */
 function MetaCallback(props: { network: MetaNetwork }) {
   const href = handOffConnection(props.network, window.location.search);
   return <Navigate href={href} />;

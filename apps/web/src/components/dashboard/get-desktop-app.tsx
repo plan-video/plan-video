@@ -17,13 +17,7 @@ import { createStoredSignal } from "@/lib/store";
 import { track } from "@/lib/analytics";
 import { store } from "@/init";
 
-/**
- * Promo bar pinned below the dashboard content. Like the canvas banner, it is
- * hidden in the desktop build, which is the thing it advertises.
- *
- * The design has no dismiss affordance, so hiding it lives in a right-click
- * context menu on the bar itself.
- */
+/** Hidden in the desktop build. The design has no dismiss button, so hiding it is in the bar's context menu. */
 export function DashboardGetDesktopApp() {
   const isDesktop = !!window.desktop;
   const [hidden, setHidden] = createStoredSignal(

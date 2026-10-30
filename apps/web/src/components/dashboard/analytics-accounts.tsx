@@ -2,9 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The accounts analytics can show, under the Analytics links. Picking one
-// narrows every section to it, the way the calendar's account list does.
-
 import { For, Show, createEffect, createMemo } from "solid-js";
 
 import { YouTubeWhiteTile } from "@/components/brand/youtube-icon";
@@ -24,7 +21,6 @@ export function AnalyticsAccounts() {
   createEffect(() => loadSocialConnections(auth.user()?.id));
 
   const sources = createMemo(() => analyticsSources(socialConnections(), { sample: auth.isGuest() }));
-  /** The one source shown, when the filter is on one. */
   const only = createMemo(() => {
     const shown = sources().filter((source) => !analyticsHidden().has(source.key));
     return shown.length === 1 && sources().length > 1 ? shown[0]!.key : null;
@@ -58,7 +54,7 @@ export function AnalyticsAccounts() {
                 <Show
                   when={socialConnections().find((account) => account.id === source.account)}
                   fallback={
-                    // YouTube's small on its white tile, the size of the others, as in the calendar's account list.
+                    // YouTube small on its white tile, as in the calendar's account list.
                     <Show when={source.platform !== "youtube"} fallback={<YouTubeWhiteTile fill class="size-4 rounded-sm" />}>
                       <PlatformLogo id={source.platform} class="size-4 rounded-sm" />
                     </Show>

@@ -2,12 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Plugs: per channel, rules that act on a post once it has enough likes. The
-// sidebar lists the channels that can have them; the page shows the plugs of
-// the one picked, each set up and switched on or off on its card, beside how
-// the latest post looks once they've run, and above the posts that went out
-// lately with what their plugs did.
-
 import { useSearchParams } from "@solidjs/router";
 import Heart from "lucide-solid/icons/heart";
 import MessageCircle from "lucide-solid/icons/message-circle";
@@ -52,21 +46,17 @@ import { accountsFor, loadSocialConnections, socialConnections, type SocialConne
 import { timeZone } from "@/lib/time-zone";
 
 const HOUR_MS = 3_600_000;
-/** How many of the channel's latest posts the list shows. */
 const RECENT = 10;
 
-/** The networks plugs work on, by name: "Bluesky", or "X and Bluesky". */
 const plugNetworks = () =>
   new Intl.ListFormat(intlLocale("en"), { type: "disjunction" }).format(PLUG_PLATFORMS.map((id) => socialPlatform(id as PlatformId).name));
 
-/** Accounts on the networks plugs work on, in the order the networks are listed. */
 export function plugChannels(): SocialConnection[] {
   return socialConnections()
     .filter((account) => PLUG_PLATFORMS.includes(account.platform))
     .sort((a, b) => PLUG_PLATFORMS.indexOf(a.platform) - PLUG_PLATFORMS.indexOf(b.platform) || a.handle.localeCompare(b.handle));
 }
 
-/** The channel picked in the address, or the first one. */
 function useChannel() {
   const [params, setParams] = useSearchParams();
   const channel = () => {
@@ -77,7 +67,6 @@ function useChannel() {
   return [channel, (id: string) => setParams({ channel: id }, { replace: true })] as const;
 }
 
-/** The sidebar's channel list. */
 export function DashboardPlugChannels() {
   const auth = useAuth();
   const [channel, setChannel] = useChannel();
@@ -146,13 +135,12 @@ export function DashboardPlugsView() {
 
 const draftOf = (plug: PlugSetting | undefined): PlugDraft => ({ likes: plug ? String(plug.likes) : "", message: plug?.message ?? "" });
 
-/** One channel's page. Made again for another channel, so the fields start from its plugs. */
+/** Made again for another channel, so the fields start from its plugs. */
 function ChannelPlugs(props: { account: SocialConnection }) {
   const kinds = () => PLUGS_BY_PLATFORM[props.account.platform] ?? [];
   const [drafts, setDrafts] = createStore<Partial<Record<PlugKind, PlugDraft>>>(
     Object.fromEntries(kinds().map((kind) => [kind, draftOf(plugFor(props.account.id, kind))])),
   );
-  // Ticks each minute, so the next check times move along.
   const [now, setNow] = createSignal(Date.now());
   const timer = setInterval(() => setNow(Date.now()), 60_000);
   onCleanup(() => clearInterval(timer));
@@ -170,7 +158,6 @@ function ChannelPlugs(props: { account: SocialConnection }) {
         </div>
       </div>
 
-      {/* The preview stretches to the plugs' height, its picture taking up the difference. */}
       <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <div class="depth-card flex min-w-0 flex-col divide-y divide-border-strong rounded-xl border border-border-strong bg-accent/30">
           <For each={kinds()}>
@@ -237,7 +224,6 @@ function PlugSection(props: { account: SocialConnection; kind: PlugKind; draft: 
       <div class="flex min-w-0 flex-col gap-1">
         <div class="flex min-h-5 items-center justify-between gap-3">
           <h3 class="text-sm font-medium text-foreground">{t(plug().title)}</h3>
-          {/* Every plug turns on and off here. One not set up yet is saved on, with what's in its fields. */}
           <Switch
             checked={saved()?.activated ?? false}
             onChange={(on: boolean) => {
@@ -285,7 +271,6 @@ function PlugSection(props: { account: SocialConnection; kind: PlugKind; draft: 
             </Show>
           </label>
         </Show>
-        {/* A plug that's set up saves its changes here; a new one is turned on with its switch. */}
         <Show when={saved() && changed()}>
           <div class="flex items-center justify-end gap-2">
             <Button variant="secondary" onClick={reset}>
@@ -301,13 +286,9 @@ function PlugSection(props: { account: SocialConnection; kind: PlugKind; draft: 
   );
 }
 
-/* ---- How the latest post looks once the plugs have run ------------------ */
-
-/** The words a post went out with on the network. */
 const wordsOn = (post: StoredEvent, platform: string) => post.captions?.[platform]?.trim() || post.description?.trim() || post.title;
 
 function PlugPreview(props: { account: SocialConnection; drafts: Partial<Record<PlugKind, PlugDraft>>; latest?: StoredEvent }) {
-  /** Shown when it's on, or while it's being set up. */
   const likesFor = (kind: PlugKind) => {
     const saved = plugFor(props.account.id, kind);
     if (saved && !saved.activated) return 0;
@@ -397,11 +378,8 @@ function PlugPreview(props: { account: SocialConnection; drafts: Partial<Record<
   );
 }
 
-/* ---- The posts that went out lately, and what their plugs did ----------- */
-
 type SentPost = { post: StoredEvent; at: number; row?: DeliveryRow };
 
-/** The channel's latest posts that went out, newest first. */
 function sentFrom(account: SocialConnection): SentPost[] {
   const rows = accountRows(account.id);
   const list: SentPost[] = [];
@@ -419,7 +397,6 @@ function sentFrom(account: SocialConnection): SentPost[] {
 const when = (ms: number) =>
   new Intl.DateTimeFormat(intlLocale(), { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: timeZone() }).format(ms);
 
-/** What the plugs did on a post, or when it's checked next. */
 function outcome(sent: SentPost, accountId: string, now: number): string {
   const done = sent.row?.plugs_done ?? [];
   if (done.length) return done.map((kind) => (kind === "auto-repost" ? t("Reposted") : t("Plug posted"))).join(" · ");

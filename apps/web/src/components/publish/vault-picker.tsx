@@ -14,14 +14,11 @@ import { cx } from "@/lib/cva";
 import { t } from "@/lib/i18n";
 import { VAULT_KINDS, loadVault, markVaultUsed, searchVault, vaultItems, vaultKind, type VaultItem, type VaultKind } from "@/lib/vault";
 
-/** A button that opens the vault and hands the picked item back. */
 export function VaultPicker(props: {
   onPick(item: VaultItem): void;
   class?: string;
   placement?: "bottom-start" | "bottom-end" | "top-start" | "top-end";
-  /** The kind it opens on, instead of all of them. */
   kind?: VaultKind;
-  /** Draws the button as just this icon, named by `label` in a tooltip. The caller styles it with `class`. */
   icon?: string;
   label?: string;
 }) {

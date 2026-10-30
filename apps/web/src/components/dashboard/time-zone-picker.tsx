@@ -40,7 +40,6 @@ function zoneRows(): ZoneRow[] {
     .sort((a, b) => a.minutes - b.minutes || a.city.localeCompare(b.city));
 }
 
-/** The current time zone as a button; a searchable list of every zone opens from it. */
 export function TimeZonePicker() {
   const [open, setOpen] = createSignal(false);
   const [query, setQuery] = createSignal("");

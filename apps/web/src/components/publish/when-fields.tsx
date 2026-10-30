@@ -2,8 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Ways to pick when a post goes out, shared by New post and Bulk tools.
-
 import { For, Show, createMemo, type JSX } from "solid-js";
 
 import { Icon } from "@/components/dashboard/dashboard-icon";
@@ -14,7 +12,6 @@ import { t } from "@/lib/i18n";
 import type { PlatformId } from "@/lib/social";
 import { zonedParts, zonedTime } from "@/lib/time-zone";
 
-/** A few moments soon, those still ahead. */
 function quickPicks(): { label: string; at: Date }[] {
   const now = zonedParts(new Date());
   const at = (days: number, hours: number) => new Date(zonedTime(now.year, now.month, now.date + days, hours));
@@ -28,7 +25,6 @@ function quickPicks(): { label: string; at: Date }[] {
   ].filter((pick) => pick.at.getTime() > Date.now());
 }
 
-/** "in 3 hours 20 minutes", "in 2 days". */
 export function untilLabel(ms: number) {
   const minutes = Math.max(1, Math.round(ms / 60_000));
   if (minutes < 60) return t("{count, plural, one {in # minute} other {in # minutes}}", { count: minutes });
@@ -40,27 +36,16 @@ export function untilLabel(ms: number) {
   return t("{count, plural, one {in # day} other {in # days}}", { count: Math.round(hours / 24) });
 }
 
-/** The posting queue as a row of `WhenOptions`. */
 export type WhenQueue = {
-  /** The next open slot; null when every slot is taken. */
   at: Date | null;
-  /** Whether any slots are set up at all. */
   hasSlots: boolean;
   selected: boolean;
   onChoose(): void;
-  /** Opens the queue's settings, for a queue with no slots yet. */
   onSetUp(): void;
 };
 
-/**
- * Times to take with one press, one under the other like a menu: the queue's
- * next slot when given, a few moments soon, and the hour the audience is
- * around most this week (from the heatmap on Analytics). The row that holds
- * the post's time is checked.
- */
 export function WhenOptions(props: {
   platforms: readonly PlatformId[];
-  /** The time the post has. */
   picked: Date | null;
   now: Date;
   onChoose(at: Date): void;
@@ -105,7 +90,6 @@ export function WhenOptions(props: {
   );
 }
 
-/** One option: a check when it's the post's time, its name, and the moment it stands for in grey. */
 function WhenRow(props: { checked: boolean; label: string; onClick(): void; children: JSX.Element }) {
   return (
     <button

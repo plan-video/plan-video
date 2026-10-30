@@ -2,12 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Logging in and signing up, laid out like buffer.com's: the form on the
-// left, in one narrow column centered from the title down, with a Back
-// button in the corner, and on wide screens a panel on the right showing the
-// product. Both are the same sign-in underneath (the first one creates the
-// account); they differ only in what they say and which one they point to.
-
 import { A, useLocation, useNavigate } from '@solidjs/router';
 import ChevronLeft from 'lucide-solid/icons/chevron-left';
 import { MAIN_CHANNELS } from '@desktop/main-channels';
@@ -21,23 +15,17 @@ import { mainBridge } from '@/lib/ipc';
 import { site } from '@/lib/site';
 import { INVITE_ONLY, isEmail } from '@/lib/waitlist';
 
-// The site's right half (lib/site.ts) loads as this page does, not after it.
 void site?.LoginPanel.preload();
 
 /** Supabase refuses a second link to the same address within a minute. */
 const RESEND_AFTER = 60;
 
-// The site's own two buttons, as on the homepage: white for the next step, grey for the rest.
 const BUTTON =
   'press flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-[8px] px-4 text-[15px] font-medium tracking-[-0.15px] disabled:cursor-default disabled:opacity-50 focus-ring';
-/** The one action that matters on a screen. */
 const LIGHT = `${BUTTON} bg-neutral-50 text-black hover:bg-white/80`;
-/** A filled grey button, like Continue with Google. */
 const DARK = `${BUTTON} bg-white/[0.07] text-white hover:bg-white/[0.12]`;
-/** Outlined where the buttons are filled, so a field never reads as one. */
 const FIELD =
   'h-11 w-full rounded-[8px] bg-transparent px-4 text-[15px] text-white outline-none ring-1 ring-inset transition-shadow placeholder:text-white/35';
-/** A field's ring: red while it holds an error, even while typing; otherwise grey, lighter on hover and blue in focus. */
 const ring = (error: boolean) => ({
   'ring-red-400/70': error,
   'ring-white/[0.1] hover:ring-white/[0.18] focus:ring-(--site-accent)': !error,
@@ -47,8 +35,6 @@ const TEXT_BUTTON =
 
 type Inbox = { label: string; href: string };
 
-// Webmail the sign-in link actually lands in. A known domain opens that inbox.
-// Anything else gets the common ones, so the person can still jump to the mail.
 const INBOXES: { domains: readonly string[]; label: string; href: (email: string) => string }[] = [
   {
     domains: ['gmail.com', 'googlemail.com'],
@@ -111,7 +97,6 @@ function openInbox(href: string, event: MouseEvent) {
   void mainBridge.call(MAIN_CHANNELS.APP_OPEN_EXTERNAL, { url: href });
 }
 
-/** Google's mark in its own four colours. */
 function GoogleMark() {
   return (
     <svg viewBox="0 0 24 24" class="size-4" aria-hidden="true">
@@ -123,7 +108,6 @@ function GoogleMark() {
   );
 }
 
-/** The title, with a smaller, quieter line under it. */
 function Heading(props: { title: string; children: JSX.Element }) {
   return (
     <div class="flex flex-col text-center text-balance">
@@ -133,10 +117,8 @@ function Heading(props: { title: string; children: JSX.Element }) {
   );
 }
 
-/** A link inside one of those lines. */
 const LINE_LINK = 'text-white transition-colors hover:text-white/75';
 
-/** The thin rule with "or" in the middle, between Google and the email form. */
 function Or() {
   return (
     <div class="my-6 flex items-center gap-3 text-[13px] leading-5 text-white/35">
@@ -247,7 +229,7 @@ function Sent(props: {
   );
 }
 
-/** `signup` only changes the words and the link to the other page; signing in creates the account either way. */
+/** Signing in creates the account either way; `signup` only changes the words and the link. */
 export function LoginPage(props: { mode?: 'login' | 'signup' }) {
   const auth = useAuth();
   const signup = () => props.mode === 'signup';
@@ -312,9 +294,8 @@ export function LoginPage(props: { mode?: 'login' | 'signup' }) {
         <div class="absolute inset-x-0 top-0 z-20 h-10" style="-webkit-app-region: drag;" />
       </Show>
 
-      {/* The form's side, which scrolls by itself on a short screen. */}
       <div class="relative flex min-w-0 flex-1 flex-col overflow-y-auto px-6">
-        {/* The website's way back to where the visitor came from. The desktop app, and a copy without the site (lib/site.ts), have nowhere to go back to. */}
+        {/* The desktop app, and a build without the site (lib/site.ts), have nowhere to go back to. */}
         <Show when={!window.desktop && site}>
           <A
             href="/"
@@ -330,7 +311,6 @@ export function LoginPage(props: { mode?: 'login' | 'signup' }) {
             when={sentTo()}
             fallback={
               <div class="flex flex-col">
-                {/* Under the title, the way to the other page, as on Buffer's. */}
                 <Heading
                   title={INVITE_ONLY && !reviewer() ? t('Sign in') : reviewer() ? t('Welcome to plan.video') : signup() ? t('Create your plan.video account') : t('Welcome back to plan.video')}
                 >
@@ -370,7 +350,6 @@ export function LoginPage(props: { mode?: 'login' | 'signup' }) {
                   when={reviewer()}
                   fallback={
                     <form class={`flex flex-col ${INVITE_ONLY ? "mt-10" : ""}`} onSubmit={(event) => void submit(event)} novalidate>
-                      {/* The placeholder says what goes in, as in the waitlist form. */}
                       <label for="login-email" class="sr-only">
                         {t('Email')}
                       </label>

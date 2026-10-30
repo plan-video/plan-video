@@ -19,7 +19,6 @@ type CalendarPopupProps = ParentProps<{
 const VIEWPORT_PADDING = 16;
 const GUTTER = 10;
 
-/** The corner nearest the anchor, so the panel grows out of the button or post that opened it. */
 function popupOrigin(anchor: DOMRect | null, left: number, top: number, width: number, height: number) {
   if (!anchor || width <= 0 || height <= 0) return "top center";
   const ax = anchor.left + anchor.width / 2;
@@ -35,12 +34,6 @@ const openPopups: HTMLElement[] = [];
 export const popupSurface =
   "flex flex-col overflow-hidden rounded-xl border border-border-strong bg-popover text-popover-foreground shadow-[0px_0px_1px_2px_rgba(0,0,0,0.12),0px_4px_12px_8px_rgba(0,0,0,0.12),0px_12px_16px_0px_rgba(0,0,0,0.16)]";
 
-/**
- * A floating panel next to a rectangle on screen: a post chip, a selected
- * time range, or a button. It flips to the other side when it would leave
- * the window, closes on Escape or a click outside, and can be dragged by any
- * part that is not a control.
- */
 export function CalendarPopup(props: CalendarPopupProps) {
   let panel!: HTMLDivElement;
   const [position, setPosition] = createSignal<{ left: number; top: number; origin: string } | null>(null);

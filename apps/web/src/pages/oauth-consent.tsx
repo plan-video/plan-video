@@ -2,11 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Where Supabase's OAuth server sends someone connecting Claude (or another
-// MCP client) to plan.video: who is asking, where they go back to, and Allow
-// or Deny. Signed out, it shows the login first, and remembers the request so
-// a sign-in that leaves the page (Google, an email link) comes back to it.
-
 import { useNavigate } from '@solidjs/router';
 import { createEffect, createResource, createSignal, Show } from 'solid-js';
 
@@ -22,21 +17,14 @@ const BUTTON =
 const LIGHT = `${BUTTON} bg-white text-black hover:bg-white/85`;
 const DARK = `${BUTTON} bg-white/[0.06] text-white hover:bg-white/[0.1]`;
 
-/** Keeps the consent page's address so the sign-in can come back to it. */
 export function rememberConsent(): void {
   rememberReturn(window.location.pathname + window.location.search);
 }
 
-/** The page to go back to after signing in, once: a consent page, the roadmap or the changelog; null when there is none. */
 export const takeConsent = takeReturn;
 
-/** The pages that send someone on once they're signed in, each taking the page to return to itself. */
 const SIGN_IN_PAGES = new Set(['/', '/login', '/signup', '/auth/confirm', '/auth/callback']);
 
-/**
- * Sends a signed-in visitor back to a page they left to sign in, wherever
- * else the sign-in lands them.
- */
 export function ResumeConsent() {
   const auth = useAuth();
   const navigate = useNavigate();
@@ -51,11 +39,8 @@ export function ResumeConsent() {
   return null;
 }
 
-/**
- * Apps on the web we know, by the address they send people back to. Anyone
- * can register an app and give it any name, so a name is only shown as the
- * app's own when its address is one of these. Exact hosts, over https.
- */
+// Anyone can register an app under any name, so a name is shown as the app's own only when its
+// return address is one of these. Exact hosts, over https.
 const KNOWN_APPS: Record<string, string> = {
   'claude.ai': 'Claude',
   'claude.com': 'Claude',
@@ -63,20 +48,19 @@ const KNOWN_APPS: Record<string, string> = {
   'vscode.dev': 'VS Code',
 };
 
-/** Where the answer goes: back to an app on this computer, which only it can receive. */
+/** Only an app on this computer can receive an answer sent here. */
 function onThisComputer(url: URL): boolean {
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return true;
   return url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
 }
 
-/** `name` is what the page calls the app; `unknown` when that's only the address, as the app's own name can't be trusted. */
+/** `unknown` when the name is only the address, as the app's own name can't be trusted. */
 type Details = { id: string; name: string; returnsTo: string; unknown: string | null };
 
 async function loadDetails(id: string): Promise<Details | { redirect: string }> {
   if (!supabase) throw new Error(t("Sign-in isn't set up here."));
   const { data, error } = await supabase.auth.oauth.getAuthorizationDetails(id);
   if (error) throw new Error(error.message);
-  // Already allowed before: straight back, nothing to ask.
   if (!('authorization_id' in data)) return { redirect: data.redirect_url };
   const own = data.client.name || t('An app');
   let url: URL | null = null;

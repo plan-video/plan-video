@@ -2,10 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// A post's preview on hover, in Week and Month: its picture, when it goes out,
-// the start of its caption and the accounts it goes out from. It only shows
-// for a mouse resting on a post, and never takes the pointer, so dragging and
-// clicking the post work as before.
+// Never takes the pointer, so dragging and clicking the post still work.
 
 import { For, Show, createEffect, createSignal, onCleanup, type Accessor } from "solid-js";
 import { Portal } from "solid-js/web";
@@ -18,7 +15,6 @@ import { accountLabel, accountsFor, loadSocialConnections } from "@/lib/social-c
 import { cn, formatDay, platformName, statusLabel } from "./utils";
 import type { CalendarEvent } from "./types";
 
-/** A resting pointer opens it; moving to the next post while it is open switches at once. */
 const OPEN_DELAY = 450;
 /** Long enough to cross the gap between two posts without it closing. */
 const CLOSE_DELAY = 90;
@@ -28,11 +24,8 @@ const WIDTH = 288;
 
 export type PostHover = {
   current: Accessor<{ event: CalendarEvent; anchor: DOMRect } | null>;
-  /** For a post's `onPointerEnter`. */
   enter(event: CalendarEvent, pointer: PointerEvent): void;
-  /** For a post's `onPointerLeave`. */
   leave(): void;
-  /** Closes it now: a press, a drag, a scroll. */
   cancel(): void;
 };
 
@@ -47,7 +40,6 @@ export function createPostHover(): PostHover {
     setCurrent(null);
   };
 
-  // Anything that moves the posts under it, or a press, closes it.
   const onScroll = () => cancel();
   window.addEventListener("scroll", onScroll, true);
   window.addEventListener("pointerdown", cancel, true);
@@ -79,7 +71,6 @@ export function createPostHover(): PostHover {
   };
 }
 
-/** The dot before a post's status, here and in its popover. */
 export const STATUS_DOT: Record<string, string> = {
   failed: "bg-destructive",
   sending: "bg-primary",
@@ -90,7 +81,6 @@ export const STATUS_DOT: Record<string, string> = {
   held: "bg-meter-yellow",
 };
 
-/** How the post stands, in a word: what needs a look first, else its status. */
 export function statusOf(event: CalendarEvent): { tone: string; label: string } {
   if (event.delivery === "failed") return { tone: "failed", label: t("Didn't go out") };
   if (event.delivery === "sending") return event.waiting ? { tone: "held", label: t("Waiting") } : { tone: "sending", label: t("Sending") };
@@ -106,7 +96,6 @@ export function PostHoverCard(props: { hover: PostHover }) {
   let card: HTMLDivElement | undefined;
   const [place, setPlace] = createSignal<{ left: number; top: number } | null>(null);
 
-  // Beside the post, on whichever side has room, kept inside the window.
   createEffect(() => {
     const shown = props.hover.current();
     setPlace(null);
@@ -162,7 +151,6 @@ export function PostHoverCard(props: { hover: PostHover }) {
                 </p>
               </div>
             </div>
-            {/* Blank lines are dropped, so three lines of the card show three lines of words. */}
             <Show when={shown.event.description?.trim().replace(/\n\s*\n+/g, "\n")}>
               {(caption) => <p class="line-clamp-3 whitespace-pre-line break-words text-xs leading-[18px] text-muted-foreground">{caption()}</p>}
             </Show>

@@ -14,7 +14,6 @@ type PanelSectionProps = {
   title: string | JSX.Element;
   subtitle?: JSX.Element;
   actions?: JSX.Element;
-  /** Nothing in it yet: the header keeps its add action and drops the open/close toggle. */
   empty?: boolean;
   children?: JSX.Element;
   class?: string;
@@ -32,7 +31,6 @@ export function PanelSection(props: PanelSectionProps) {
     "class",
   ]);
   const [collapsed, setCollapsed] = createSignal(false);
-  // An empty section has nothing to fold, so what is added to it shows.
   const open = () => local.empty || !collapsed();
 
   return (

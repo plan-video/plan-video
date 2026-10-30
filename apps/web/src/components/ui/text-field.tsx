@@ -300,7 +300,6 @@ export const ControlledTextField = <T extends ValidComponent = "input">(
     );
 
     if (local.onUnitChange) {
-      // Extract unit from string (non-numeric suffix after the number)
       const unitMatch = rawValue.match(/^[+-]?[\d.]*(.*)$/);
       const extractedUnit = unitMatch?.[1]?.trim() ?? "";
 
@@ -326,7 +325,6 @@ export const ControlledTextField = <T extends ValidComponent = "input">(
 
     const rawValue = e.currentTarget.value;
 
-    // Parse value: optional sign, number, optional unit
     const match = rawValue.match(/^([+-]?)([\d.]*)(.*?)$/);
     if (!match) return;
 
@@ -337,24 +335,20 @@ export const ControlledTextField = <T extends ValidComponent = "input">(
 
     e.preventDefault();
 
-    // Calculate step: use prop step or default to 1, multiply by 10 if shift
     let step = local.step !== undefined ? Number(local.step) : 1;
     if (e.shiftKey) {
       step *= 10;
     }
 
-    // Apply increment/decrement
     if (e.key === "ArrowUp") {
       num += step;
     } else {
       num -= step;
     }
 
-    // Fix floating point precision issues
     const stepDecimals = (step.toString().split(".")[1] || "").length;
     num = Number(num.toFixed(stepDecimals));
 
-    // Clamp to min/max if supplied
     if (local.min !== undefined) {
       num = Math.max(Number(local.min), num);
     }
@@ -367,7 +361,6 @@ export const ControlledTextField = <T extends ValidComponent = "input">(
     setIsControlled(false);
   };
 
-  // Slider drag state
   let isDragging = false;
   let dragStartX = 0;
   let dragStartValue = 0;
@@ -413,20 +406,16 @@ export const ControlledTextField = <T extends ValidComponent = "input">(
 
     const delta = e.clientX - dragStartX;
 
-    // Calculate step: use prop step or default to 1, multiply by 10 if shift
     let step = local.step !== undefined ? Number(local.step) : 1;
     if (e.shiftKey) {
       step *= 10;
     }
 
-    // Apply delta (1 pixel = 1 step unit)
     let num = dragStartValue + (delta * step * SLIDER_STEP_FACTOR);
 
-    // Fix floating point precision issues
     const stepDecimals = (step.toString().split(".")[1] || "").length;
     num = Number(num.toFixed(stepDecimals));
 
-    // Clamp to min/max if supplied
     if (local.min !== undefined) {
       num = Math.max(Number(local.min), num);
     }

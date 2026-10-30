@@ -27,7 +27,7 @@ const PRESETS: readonly { id: RangePreset; label: string; compare: string }[] = 
   { id: "all", label: msg("All time"), compare: msg("Compared with the same length of time before") },
 ];
 
-/** Monday first, a letter or so each (2024-01-01 was a Monday). */
+/** Monday first: 2024-01-01 was a Monday. */
 const WEEKDAY_LABELS = localized((locale) => {
   const weekday = new Intl.DateTimeFormat(locale, { weekday: "narrow", timeZone: "UTC" });
   return Array.from({ length: 7 }, (_, index) => weekday.format(Date.UTC(2024, 0, 1 + index)));
@@ -41,7 +41,6 @@ function midnight(time: number, offsetDays = 0) {
   return zonedTime(date.year, date.month, date.date + offsetDays);
 }
 
-/** The moments a range covers, as of `now`. */
 export function resolveRange(range: AnalyticsRange, now = Date.now()): Span {
   const date = zonedParts(now);
   switch (range.preset) {
@@ -86,7 +85,6 @@ export function rangeLabel(range: AnalyticsRange) {
   return t(PRESETS.find((item) => item.id === range.preset)!.label);
 }
 
-/** What the change figures are measured against. */
 export function compareLabel(range: AnalyticsRange) {
   if (range.preset === "custom") return t("Compared with the same length of time before");
   return t(PRESETS.find((item) => item.id === range.preset)!.compare);

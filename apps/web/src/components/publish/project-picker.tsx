@@ -2,10 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// A post can come from one of the user's projects. The link is the project's
-// key, the same one its URL carries, so the post opens the project and the
-// project's menu starts a post. The dashboard cannot render a project, so the
-// video itself is still the export, attached to the post.
+// The dashboard cannot render a project, so the video itself is still the export, attached to the post.
 
 import { For, Show, createEffect, createResource, createSignal, onCleanup, type JSX } from "solid-js";
 
@@ -22,27 +19,20 @@ export type LinkedProject = {
   key: string;
   name: string;
   modifiedAt: string;
-  /** Object URL of the card-sized cover, shared with the project grid. */
   cover: string | null;
 };
 
-/** A project just made has no record, and so no cover, yet. */
 export async function linkProject(project: ProjectInfo & { cover?: Blob | null }): Promise<LinkedProject> {
   const cover = project.cover ? await loadProjectCover(project.dir, project.cover) : null;
   return { key: projectKey(project), name: project.displayName, modifiedAt: project.modifiedAt, cover };
 }
 
-/** The project a key names, from the list the dashboard keeps; null when it is gone or in the trash. */
 export async function findProject(key: string): Promise<ProjectRecord | null> {
   const projects = await listProjects();
   return projects.find((project) => projectKey(project) === key) ?? null;
 }
 
-/**
- * Every project on record, newest edit first, reloaded when the list changes;
- * undefined until the first load. A signal rather than a resource: the picker
- * sits under the page's Suspense, and a pending read there blanks the page.
- */
+/** A signal rather than a resource: the picker sits under the page's Suspense, and a pending read there blanks the page. */
 function useProjects() {
   const [projects, setProjects] = createSignal<ProjectRecord[]>();
   createEffect(() => {
@@ -61,7 +51,6 @@ function useProjects() {
   return projects;
 }
 
-/** A button that lists the projects and hands the picked one back. */
 export function ProjectPicker(props: {
   onPick(project: ProjectRecord): void;
   children: JSX.Element;
@@ -128,7 +117,7 @@ export function ProjectPicker(props: {
   );
 }
 
-/** Loaded into a signal for the same reason as the list: a resource here suspends the page each time the list opens. */
+/** A signal, not a resource: a resource here suspends the page each time the list opens. */
 function ProjectCover(props: { project: ProjectRecord; class?: string }) {
   const [url, setUrl] = createSignal<string | null>(null);
   createEffect(() => {
@@ -144,7 +133,6 @@ function ProjectCover(props: { project: ProjectRecord; class?: string }) {
   return <CoverImage src={url()} class={props.class} />;
 }
 
-/** A project's cover, or the project glyph while there is none. */
 export function CoverImage(props: { src: string | null; class?: string }) {
   return (
     <span class={cx("grid shrink-0 place-items-center overflow-hidden bg-accent", props.class)}>
@@ -155,7 +143,6 @@ export function CoverImage(props: { src: string | null; class?: string }) {
   );
 }
 
-/** The name of the project a post links to, read from the project list. */
 export function useProjectName(key: () => string | null) {
   const [name] = createResource(key, async (current) => (await findProject(current))?.displayName ?? null);
   return name;

@@ -2,9 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// How often a post goes out again: a few common cadences, or every so many
-// days, weeks or months, counted from the post's first day.
-
 import { Show, createSignal } from "solid-js";
 
 import { fieldControl } from "@/components/publish/controls";
@@ -29,7 +26,6 @@ const PRESETS = ["", everyRecurrence(1, "day"), "weekday", everyRecurrence(1, "w
 const CUSTOM = "custom";
 const NONE = "none";
 const UNITS: RepeatUnit[] = ["day", "week", "month"];
-/** A unit after "Every" and the number picked. */
 const UNIT_LABELS: Record<RepeatUnit, string> = {
   day: msg("{count, plural, one {day} other {days}}"),
   week: msg("{count, plural, one {week} other {weeks}}"),
@@ -42,10 +38,8 @@ function presetLabel(value: string, day: string) {
   return cadenceLabel(value, day) ?? value;
 }
 
-/** `value` is a recurrence as the calendar keeps it, or `""`. `day` is the post's first day. */
 export function RepeatField(props: { value: string; day: string; onChange(value: string): void; class?: string }) {
   const [picked, setCustom] = createSignal(false);
-  // A cadence none of the presets name, like a saved post's every 3 days, shows as custom too.
   const custom = () => picked() || !PRESETS.includes(props.value);
   const cadence = () => {
     const parsed = parseRecurrence(props.value);
@@ -106,7 +100,7 @@ const END_CHOICES: Choice[] = [
 ];
 const DEFAULT_RUNS = 5;
 
-/** When a repeating post stops. `value` is `""`, `on:YYYY-MM-DD` or `after:N`; `day` is the post's first day. */
+/** `value` is `""`, `on:YYYY-MM-DD` or `after:N`. */
 export function RepeatEndField(props: { value: string; repeat: string; day: string; onChange(value: string): void; class?: string }) {
   const mode = () => (props.value.startsWith("on:") ? "on" : props.value.startsWith("after:") ? "after" : "never");
   const onDay = () => props.value.slice(3);

@@ -65,14 +65,12 @@ const POST_SORTS: readonly { id: PostSort; label: string }[] = [
   { id: "engagement", label: msg("Engagement") },
 ];
 
-/** Said over the chart when a range has none of the metric. */
 const EMPTY_RANGE: Record<AnalyticsMetric, string> = {
   views: msg("No views in this range"),
   likes: msg("No likes in this range"),
   comments: msg("No comments in this range"),
 };
 
-/** A post's chart's title. */
 const SINCE_POSTED: Record<AnalyticsMetric, string> = {
   views: msg("Views since it went out"),
   likes: msg("Likes since it went out"),
@@ -100,7 +98,6 @@ function ago(time: number) {
   return (thisYear(time) ? shortDate : shortDateYear).format(time);
 }
 
-/** A bucket's name under the chart. The date or year shows where it changes from the label before. */
 function axisLabel(bucket: Span, interval: Interval, before: Span | undefined) {
   const date = new Date(bucket.start);
   const previous = before && zonedParts(before.start);
@@ -111,7 +108,6 @@ function axisLabel(bucket: Span, interval: Interval, before: Span | undefined) {
   return (thisYear(bucket.start) ? shortDate : shortDateYear).format(date);
 }
 
-/** A bucket's name in the tooltip. */
 function tooltipLabel(bucket: Span, interval: Interval) {
   const date = new Date(bucket.start);
   const day = (thisYear(bucket.start) ? longDate : longDateYear).format(date);
@@ -125,7 +121,6 @@ function platform(id: AnalyticsPlatformId) {
   return ANALYTICS_PLATFORMS.find((item) => item.id === id)!;
 }
 
-/** Eases from the last value to the next one. */
 function tween(target: () => number, duration = 650) {
   const [value, setValue] = createSignal(target());
   let frame = 0;
@@ -153,14 +148,11 @@ const SECTION_LABELS: Record<AnalyticsSection, string> = {
   times: msg("Best times"),
 };
 
-/** How far back Best times reads posts. */
 const TIMES_DAYS = 182;
 
 export function DashboardAnalyticsView(props: { section: AnalyticsSection; onSection(view: DashboardView): void }) {
   const auth = useAuth();
-  /** A post opened from the list. Null is the section. */
   const [opened, setOpened] = createSignal<AnalyticsPost | null>(null);
-  // Switching sections closes a post, so its breadcrumb does not outlive it.
   createEffect(on(() => props.section, () => setOpened(null), { defer: true }));
 
   createEffect(() => loadSocialConnections(auth.user()?.id));
@@ -180,7 +172,6 @@ export function DashboardAnalyticsView(props: { section: AnalyticsSection; onSec
     const fallback = defaultInterval(span());
     return fallback === "hour" ? "day" : fallback;
   });
-  // Guest mode's demo accounts have no logins: they show sample numbers.
   const sources = createMemo(() => analyticsSources(socialConnections(), { sample: auth.isGuest() }));
   const report = createMemo(() => analyticsReport(span(), interval(), sources()));
   const shown = createMemo(() => {
@@ -234,9 +225,7 @@ export function DashboardAnalyticsView(props: { section: AnalyticsSection; onSec
     }),
   );
   const timesSection = () => props.section === "times";
-  // Best times reads months of posts, not the range, so the range controls step aside there.
   const ranged = () => !opened() && sources().length > 0 && !timesSection();
-  /** The posts Best times reads: the last six months, whatever the range. */
   const timesPosts = createMemo(() => {
     if (!sources().length) return [];
     const now = Date.now();
@@ -436,11 +425,9 @@ type KpiCell = {
   format(value: number): string;
   delta: number | undefined;
   spark: readonly number[];
-  /** What the number is, on hover. */
   title?: string;
 };
 
-/** Where each cell draws its dividers, two to a row on a narrow page and four on a wide one. */
 const KPI_EDGES = [
   "border-r border-b @3xl:border-b-0",
   "border-b @3xl:border-r @3xl:border-b-0",
@@ -448,16 +435,13 @@ const KPI_EDGES = [
   "",
 ];
 
-/** The headline numbers in one panel. A cell that drives the chart is a button; the chosen one is marked along its top. */
 function KpiStrip(props: {
   cells: readonly KpiCell[];
   selected?: string;
   onSelect?(id: string): void;
   compared?: string;
-  /** The last point of each trace is the period still running. */
   live?: boolean;
 }) {
-  // With nothing to trace in any cell, the sparkline row goes, rather than leaving a band of blank space.
   const traced = () => props.cells.some((cell) => cell.spark.some((value) => value));
   return (
     <section class={`${card} grid grid-cols-2 overflow-hidden @3xl:grid-cols-4`}>
@@ -508,7 +492,7 @@ function KpiStrip(props: {
 function Sparkline(props: {
   values: readonly number[];
   color: string;
-  /** The last value is today's, still coming in: it's left off rather than drawn as a fall. */
+  /** The last value is today's, still coming in: left off rather than drawn as a fall. */
   live?: boolean;
 }) {
   const id = `spark-${Math.random().toString(36).slice(2)}`;
@@ -526,7 +510,6 @@ function Sparkline(props: {
     return { line, area: `${line} L100 32 L0 32 Z` };
   });
 
-  // A run of zeros draws nothing: a flat line along the bottom only looks broken.
   const blank = () => valuesShown().every((value) => !value);
   return (
     <svg
@@ -561,7 +544,7 @@ type Layer = { platform: AnalyticsPlatform; values: readonly number[]; total: nu
 const CHART_HEIGHT = 260;
 const PAD = { top: 18, right: 16, bottom: 30, left: 52 };
 
-/** Smooth through every point without overshooting it (Fritsch–Carlson). */
+/** Monotone cubic interpolation (Fritsch–Carlson): never overshoots a point. */
 function tangents(xs: readonly number[], ys: readonly number[]) {
   const n = ys.length;
   const slopes = Array.from({ length: n - 1 }, (_, i) => (ys[i + 1]! - ys[i]!) / (xs[i + 1]! - xs[i]!));
@@ -616,7 +599,6 @@ function TrendChart(props: {
   buckets: readonly Span[];
   live: boolean;
   layers: readonly Layer[];
-  /** Said over the chart when every value is zero. */
   empty?: string;
   axisLabel(bucket: Span, before: Span | undefined): string;
   tooltipLabel(bucket: Span, last: boolean): string;
@@ -624,17 +606,15 @@ function TrendChart(props: {
   let plot: SVGGElement | undefined;
   const [width, setWidth] = createSignal(0);
   const [hover, setHover] = createSignal<number | null>(null);
-  // Watches the chart from when it's drawn: an empty range draws a line of text instead.
   const observer = new ResizeObserver(([entry]) => setWidth(entry!.contentRect.width));
   onCleanup(() => observer.disconnect());
 
-  // A lone point still draws as a flat line across the chart.
   const n = () => Math.max(2, props.buckets.length);
   const bucketAt = (index: number) => Math.min(index, props.buckets.length - 1);
   const innerWidth = () => Math.max(1, width() - PAD.left - PAD.right);
   const innerHeight = CHART_HEIGHT - PAD.top - PAD.bottom;
   const x = (index: number) => PAD.left + (index / (n() - 1)) * innerWidth();
-  /** The last bucket is still filling: it's drawn as a dashed line on its own, so a day half in doesn't read as a fall. */
+  /** The last bucket is still filling: dashed on its own so a half day doesn't read as a fall. */
   const fading = () => props.live && props.buckets.length > 1;
   const clip = `analytics-${Math.random().toString(36).slice(2)}`;
 
@@ -651,7 +631,6 @@ function TrendChart(props: {
   const blank = () => props.layers.every((layer) => layer.values.every((value) => !value));
   const scale = createMemo(() => {
     const peak = Math.max(1, ...(stacks().at(-1)?.top ?? [1]));
-    // Views, likes and comments are counted whole, so the axis is too.
     const step = Math.max(1, niceStep(peak / 4));
     return { step, max: step * Math.ceil(peak / step) };
   });
@@ -878,7 +857,6 @@ function TrendChart(props: {
 
 type AccountRow = { source: AnalyticsSource; totals: Totals; previous: Totals };
 
-/** The network's picture of a post, over its placeholder. A picture that won't load leaves the placeholder. */
 function PostCover(props: { src: string | undefined }) {
   const [failed, setFailed] = createSignal(false);
   return (
@@ -896,7 +874,6 @@ function PostCover(props: { src: string | undefined }) {
   );
 }
 
-/** Posts, best first by the column chosen. With a title it's a short list on Overview that leads to the rest. */
 function PostsTable(props: {
   posts: readonly AnalyticsPost[];
   onOpen(post: AnalyticsPost): void;
@@ -997,17 +974,14 @@ function PostsTable(props: {
   );
 }
 
-/** One platform: its views and their trend, the rest beside them, each account when there are several, and its share of all views. */
 function PlatformCard(props: {
   row: { platform: AnalyticsPlatform; totals: Totals; previous: Totals; daily: readonly Totals[]; accounts: readonly AccountRow[] };
-  /** Its part of all views; left out when it's the only platform. */
   share: number | undefined;
   compared: string;
-  /** Its last day is today, still coming in. */
   live: boolean;
 }) {
   const handles = () => props.row.accounts.map((account) => accountLabel(account.source)).join(", ");
-  /** How many follow its accounts now, from the networks that say: Instagram, Facebook and Threads. */
+  /** Only Instagram, Facebook and Threads report followers. */
   const followers = () => {
     const known = props.row.accounts.map((account) => followersOf(account.source.key)).filter((count): count is number => count !== null);
     return known.length ? known.reduce((sum, count) => sum + count, 0) : null;
@@ -1070,8 +1044,6 @@ function PlatformCard(props: {
   );
 }
 
-/** One post: its numbers against the others on its network, and for YouTube, how they came in day by day. */
-/** Where the network shows a post: the link it sent, or one made from the post's id. */
 function postLink(post: AnalyticsPost) {
   if (post.url) return post.url;
   if (!post.networkId) return undefined;
@@ -1088,7 +1060,6 @@ const POST_BY_POST: Record<AnalyticsMetric, string> = {
   comments: msg("Comments, post by post"),
 };
 
-/** Bars shown at most, around the open post. */
 const MOST_BARS = 24;
 
 function PostAnalytics(props: { post: AnalyticsPost; peers: readonly AnalyticsPost[]; onOpen(post: AnalyticsPost): void }) {
@@ -1104,7 +1075,6 @@ function PostAnalytics(props: { post: AnalyticsPost; peers: readonly AnalyticsPo
       (post) => {
         setDays(new Map());
         if (!counted()) return;
-        // A sample post, as in guest mode's demo: no network to ask.
         if (!post.networkId) {
           setDays(samplePostDays(post));
           setState("ready");
@@ -1127,7 +1097,6 @@ function PostAnalytics(props: { post: AnalyticsPost; peers: readonly AnalyticsPo
   const timeline = createMemo(() => postTimeline(days(), props.post.postedAt));
   const item = () => platform(props.post.platform);
   const link = () => postLink(props.post);
-  /** The account's posts in this range, oldest first. */
   const siblings = createMemo(() => props.peers.filter((post) => post.source === props.post.source).sort((a, b) => a.postedAt - b.postedAt));
   const typical = createMemo(() => {
     const list = props.peers.filter((post) => post.id !== props.post.id && post.platform === props.post.platform);
@@ -1195,7 +1164,6 @@ function PostAnalytics(props: { post: AnalyticsPost; peers: readonly AnalyticsPo
             id: "engagement",
             label: t("Engagement"),
             value: engagement(props.post),
-            // With no views counted there's nothing to divide by: a dash, not 0%.
             format: (value: number) => (props.post.views ? percent(value, 2) : "—"),
             delta: typical() && props.post.views ? change(engagement(props.post), engagement(typical()!)) : undefined,
             spark: counted() ? timeline().series.map(engagement) : siblings().map(engagement),
@@ -1237,7 +1205,6 @@ function PostAnalytics(props: { post: AnalyticsPost; peers: readonly AnalyticsPo
   );
 }
 
-/** The post as it went out: its picture, its words, where and when. */
 function PostCard(props: { post: AnalyticsPost }) {
   const item = () => platform(props.post.platform);
   return (
@@ -1267,14 +1234,8 @@ function PostCard(props: { post: AnalyticsPost }) {
   );
 }
 
-/**
- * The account's posts side by side, this one marked, with their average:
- * networks that only report totals have no days to chart, but each post can
- * still be set against the rest. A bar opens its post.
- */
 function PostsCompared(props: {
   post: AnalyticsPost;
-  /** The account's posts, oldest first, this one among them. */
   posts: readonly AnalyticsPost[];
   metric: AnalyticsMetric;
   network: string;
@@ -1362,7 +1323,6 @@ const hourLabel = (hour: number) => `${pad(hour)}:00`;
 /** The posting queue counts weekdays from Sunday, like `Date`; Best times counts from Monday. */
 const queueWeekday = (day: number) => (day + 1) % 7;
 
-/** On Overview: the five best times, and the way to the rest. */
 function BestTimesSummary(props: { posts: readonly AnalyticsPost[]; onOpen(): void }) {
   const times = createMemo(() => postingTimes(props.posts));
   const enough = () => times().posts >= ENOUGH_POSTS;
@@ -1417,11 +1377,6 @@ function BestTimesSummary(props: { posts: readonly AnalyticsPost[]; onOpen(): vo
   );
 }
 
-/**
- * Every hour of the week, Monday first, shaded by how the posts that went out
- * then did: the middle post's views against the best slot. Hours with no
- * posts stay faint. Pointing at an hour reads it out underneath.
- */
 function WeekGrid(props: { slots: readonly (SlotStats & { day: number; hour: number })[] }) {
   const [hover, setHover] = createSignal<{ day: number; hour: number } | null>(null);
   const cells = createMemo(() => {
@@ -1507,7 +1462,6 @@ function WeekGrid(props: { slots: readonly (SlotStats & { day: number; hour: num
   );
 }
 
-/** Best times: when posts did best, by the weekday and hour they went out, over the last six months. */
 function BestTimes(props: { posts: readonly AnalyticsPost[] }) {
   const auth = useAuth();
   createEffect(() => loadQueueSlots(auth.ownerId()));

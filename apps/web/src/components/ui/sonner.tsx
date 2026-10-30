@@ -35,8 +35,6 @@ export const Toaster = (props: Parameters<typeof Sonner>[0]) => {
           content: "flex min-w-0 flex-1 flex-col gap-0.5",
           icon: "m-0! size-5! shrink-0 justify-center!",
           actionButton: "press ml-1 h-7 shrink-0 rounded-md bg-secondary px-2.5 text-xs text-foreground shadow-(--button-secondary-shadow) hover:bg-secondary-hover active:bg-secondary-pressing outline-none focus-ring",
-          // cancelButton: 'bg-orange-400',
-          // closeButton: 'bg-lime-400',
         },
       }}
       containerAriaLabel={t("Notifications")}

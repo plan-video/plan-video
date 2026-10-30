@@ -8,8 +8,7 @@ import type { VariantProps } from "cva";
 import { capCentered } from "@/components/ui/cap-label";
 import { cva } from "@/lib/cva";
 
-// Plane's button (packages/propel/src/button/helper.tsx), on the dashboard's
-// --plane-* tokens.
+// Plane's button (packages/propel/src/button/helper.tsx), on the --plane-* tokens.
 export const planeButton = cva({
   base: "inline-flex shrink-0 items-center justify-center gap-1 whitespace-nowrap outline-none press focus-ring disabled:pointer-events-none",
   variants: {

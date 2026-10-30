@@ -2,11 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// How a sent post's thread is going, as the publisher records it in
-// post_replies (services/publisher/replies.mjs): one row per follow-up,
-// network and account, made once the one before it went out. Read for the
-// posts on screen, and again every half a minute while a follow-up waits.
-
 import { createEffect, createSignal, onCleanup } from "solid-js";
 
 import type { StoredEvent } from "@/components/calendar/types";
@@ -31,7 +26,6 @@ export type ThreadStatus =
 const REFRESH_MS = 30_000;
 
 const [rows, setRows] = createSignal<ReadonlyMap<string, ReplyRow[]>>(new Map());
-/** Posts on screen, with how many rows asked for them, so each is read once for all. */
 const watched = new Map<string, number>();
 let timer: ReturnType<typeof setInterval> | undefined;
 let pending: Promise<void> | null = null;
@@ -47,7 +41,6 @@ async function read() {
   setRows(next);
 }
 
-/** Reads the watched posts' rows soon, once for every post that asked in the meantime. */
 function readSoon() {
   pending ??= Promise.resolve().then(() => {
     pending = null;
@@ -55,7 +48,6 @@ function readSoon() {
   });
 }
 
-/** Follows a post's thread while the calling component is shown. Only posts that have a thread and went out somewhere are read. */
 export function watchThread(post: () => StoredEvent) {
   createEffect(() => {
     const current = post();
@@ -65,7 +57,6 @@ export function watchThread(post: () => StoredEvent) {
     watched.set(id, (watched.get(id) ?? 0) + 1);
     readSoon();
     timer ??= setInterval(() => {
-      // Only while something is still to come.
       const busy = [...rows().values()].some((list) => list.some((row) => row.state === "queued" || row.state === "sending"));
       if (busy) void read();
     }, REFRESH_MS);
@@ -81,7 +72,6 @@ export function watchThread(post: () => StoredEvent) {
   });
 }
 
-/** How the post's thread is going: a follow-up that failed, the next one's time, or how many went out. Null until known. */
 export function threadStatus(post: StoredEvent): ThreadStatus | null {
   const list = rows().get(post.id);
   if (!list?.length) return null;

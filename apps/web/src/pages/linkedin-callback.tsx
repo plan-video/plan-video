@@ -6,7 +6,6 @@ import { Navigate } from "@solidjs/router";
 
 import { handOffConnection } from "@/lib/connect-return";
 
-/** Where LinkedIn sends its login back. Connections, or the connect link it was started from, finishes it, so this page goes straight there. */
 export function LinkedInCallbackPage() {
   const href = handOffConnection("linkedin", window.location.search);
   return <Navigate href={href} />;

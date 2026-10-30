@@ -39,7 +39,7 @@ import {
   type Workspace,
 } from "@/lib/workspaces";
 
-/** The calendar's colors, then a few quieter ones only workspaces offer. Three rows of seven with the custom swatch. */
+/** Three rows of seven with the custom swatch. */
 export const WORKSPACE_COLORS: { value: string; label: string }[] = [
   ...CALENDAR_COLOR_PRESETS.map((value) => ({ value: value as string, label: value })),
   { value: "#7AA33A", label: msg("lime") },
@@ -53,7 +53,6 @@ export const WORKSPACE_COLORS: { value: string; label: string }[] = [
 
 type BadgeWorkspace = Pick<Workspace, "name" | "color" | "icon" | "shape"> & { id?: string };
 
-/** The workspace's picture: its logo, an emoji, its initials on its color, or the plan.video mark. */
 export function WorkspaceBadge(props: { workspace: BadgeWorkspace; class?: string }) {
   const icon = () => workspaceIcon(props.workspace);
   const shape = () => (props.workspace.shape === "circle" ? "rounded-full" : undefined);
@@ -113,7 +112,6 @@ export function WorkspaceBadge(props: { workspace: BadgeWorkspace; class?: strin
           )}
           style={swatchStyle(props.workspace.color)}
         >
-          {/* Two letters share the width one had. */}
           <span class={initials().length > 1 ? "text-[0.8em] tracking-[-0.02em]" : undefined}>{initials()}</span>
         </span>
       </Match>
@@ -121,7 +119,6 @@ export function WorkspaceBadge(props: { workspace: BadgeWorkspace; class?: strin
   );
 }
 
-/** Every workspace color, then a swatch that opens the system picker for any other. */
 export function WorkspaceColorPicker(props: { value: string; onChange(color: string): void; class?: string }) {
   const custom = () => !WORKSPACE_COLORS.some((option) => option.value === props.value);
   const swatch = "size-6 justify-self-center rounded-md ring-2 ring-offset-2 ring-offset-popover press";
@@ -173,7 +170,6 @@ const menuLabel = "mt-1 mb-0.5 px-2 text-xs text-(--plane-text-tertiary)";
 const menuRow = "h-8 min-h-8 gap-2.5 pl-1.5";
 const menuBadge = "size-5 rounded-[5px] text-[10px]";
 
-/** A workspace's name in the menu, in full ink with a tick when it is the one in use. */
 function WorkspaceName(props: { name: string; active: boolean; children?: JSX.Element }) {
   return (
     <>
@@ -186,7 +182,6 @@ function WorkspaceName(props: { name: string; active: boolean; children?: JSX.El
   );
 }
 
-/** The top of the sidebar: the workspace in use, and a menu to change it. */
 export function WorkspaceSwitcher(props: { onSettings(): void }) {
   const auth = useAuth();
   const [creating, setCreating] = createSignal(false);
@@ -234,7 +229,6 @@ export function WorkspaceSwitcher(props: { onSettings(): void }) {
         <DropdownMenuPortal>
           <DropdownMenuContent class="w-64">
             <DropdownMenuGroup class="gap-px">
-              {/* With nothing shared or waiting, the trigger already says these are workspaces. */}
               <Show when={sharedWorkspaces().length || teamInvites().length}>
                 <DropdownMenuGroupLabel class={menuLabel}>{t("Workspaces")}</DropdownMenuGroupLabel>
               </Show>
@@ -285,7 +279,6 @@ export function WorkspaceSwitcher(props: { onSettings(): void }) {
               </DropdownMenuGroup>
             </Show>
             <DropdownMenuSeparator class="my-1" />
-            {/* Icons sit in a badge-sized slot so their labels line up with the names above. */}
             <DropdownMenuItem tone="neutral" class={menuRow} onSelect={props.onSettings}>
               <span aria-hidden="true" class="grid size-5 shrink-0 place-items-center">
                 <PlaneIcon name="settings" class="size-3.5" />
@@ -308,7 +301,6 @@ export function WorkspaceSwitcher(props: { onSettings(): void }) {
   );
 }
 
-/** Names a new workspace and gives it a color. The rest is on the Workspace page. */
 export function WorkspaceFormDialog(props: { onClose(): void }) {
   const [name, setName] = createSignal("");
   const [color, setColor] = createSignal(WORKSPACE_COLORS[workspaces().length % WORKSPACE_COLORS.length]!.value);

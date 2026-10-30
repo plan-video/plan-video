@@ -2,9 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Every emoji Unicode lists, behind a button: a post's caption puts the picked
-// one in at its cursor, and a workspace takes it as its picture.
-
 import AppleLucide from "lucide-solid/icons/apple";
 import ClockLucide from "lucide-solid/icons/clock";
 import SmileyLucide from "lucide-solid/icons/face-slightly-smiling";
@@ -24,8 +21,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import type { Emoji, EmojiGroup } from "@/lib/emoji-data";
 import { msg, t } from "@/lib/i18n";
 
-// Every emoji Unicode lists, loaded the first time the list opens: the data is
-// a sizeable file, and most captions never need it.
+// Loaded on first open: the data is a sizeable file most captions never need.
 const [emojiData, setEmojiData] = createSignal<readonly { group: EmojiGroup; emoji: readonly Emoji[] }[] | null>(null);
 let emojiLoading: Promise<void> | undefined;
 
@@ -51,7 +47,6 @@ const GROUPS: Record<EmojiGroup, { label: string; icon: Component<{ class?: stri
   flags: { label: msg("Flags"), icon: FlagLucide },
 };
 
-/** The default yellow, then light to dark. */
 const TONE_HANDS = ["✋", "✋🏻", "✋🏼", "✋🏽", "✋🏾", "✋🏿"];
 const TONE_KEY = "plan.video.emoji-tone";
 const RECENT_KEY = "plan.video.recent-emoji";
@@ -79,19 +74,12 @@ function remember(key: string, value: string) {
   }
 }
 
-/**
- * A button that opens every emoji, to search, browse by group or pick in a
- * skin tone, and hands the picked one back.
- */
 export function EmojiPicker(props: {
-  /** Names the button, for screen readers and in its tooltip. */
   label: string;
-  /** Shows the label in a tooltip, for a button that is only an icon. */
   tooltip?: boolean;
   class?: string;
   placement?: "top-start" | "top-end" | "bottom-start" | "bottom-end";
   onPick(emoji: string): void;
-  /** Where focus goes when the list closes; the button, when not given. */
   returnFocus?(): HTMLElement | undefined;
   children: JSX.Element;
 }) {
@@ -103,7 +91,6 @@ export function EmojiPicker(props: {
   let list: HTMLDivElement | undefined;
   let search: HTMLInputElement | undefined;
 
-  /** An emoji as it goes in: in the chosen skin tone, when it has tones. */
   const drawn = (emoji: Emoji) => (tone() && emoji[2] ? emoji[2][tone() - 1] : emoji[0]);
 
   const matches = createMemo(() => {
@@ -143,7 +130,6 @@ export function EmojiPicker(props: {
     if (list && section) list.scrollTop = section.offsetTop;
   };
 
-  /** The group whose emoji fill the top of the list, for the tabs. */
   const followScroll = () => {
     if (!list) return;
     let current: string | undefined;
@@ -153,7 +139,6 @@ export function EmojiPicker(props: {
     if (current) setShown(current as EmojiGroup | "recent");
   };
 
-  /** The tab to mark: none while a search fills the list. */
   const current = () => (query().trim() ? undefined : shown());
 
   const tabs = () => [
@@ -163,7 +148,7 @@ export function EmojiPicker(props: {
 
   return (
     <Popover placement={props.placement ?? "bottom-start"} open={open()} onOpenChange={openChange}>
-      {/* Hovering starts loading the list. Mouse, not pointer, events: the tooltip uses those. */}
+      {/* Mouse, not pointer, events: the tooltip uses those. */}
       <Show
         when={props.tooltip}
         fallback={
@@ -304,7 +289,6 @@ function EmojiSection(props: { id: string; label: string; emoji: readonly (reado
   );
 }
 
-/** The emoji as buttons; the list picks them up through one click handler. */
 function EmojiGrid(props: { emoji: readonly (readonly [string, string])[] }) {
   return (
     <div class="grid grid-cols-9 gap-0.5 pt-1">

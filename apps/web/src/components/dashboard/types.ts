@@ -35,10 +35,8 @@ export type DashboardView =
   | "plugs"
   | "media"
   | "agent";
-/** The sections of Analytics, by the view each one is reached at. */
 export type AnalyticsSection = "overview" | "posts" | "platforms" | "times";
 
-/** The tabs on Posts: a status, or the posts that didn't go out. */
 export type PostsTab = PostStatusFilter | "failed";
 
 export type ProjectSortOption = | "last-viewed" | "alphabetical" | "date-created";

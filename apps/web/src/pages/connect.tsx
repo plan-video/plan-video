@@ -2,12 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// A client connect link, at /connect/<link>: a workspace's owner or an admin
-// sends it to a client, who connects their own social accounts to that
-// workspace here, without a plan.video account (lib/connect-link.ts). Drawn
-// like a shared post (/p/<id>), in the dashboard's palette: one panel with
-// the networks, each signing in at the network and coming back here.
-
 import { A, useParams } from "@solidjs/router";
 import { For, Match, Show, Switch, createRenderEffect, createResource, createSignal, onCleanup, onMount, type JSX } from "solid-js";
 import { toast } from "somoto";
@@ -35,7 +29,7 @@ import type { PlatformId } from "@/lib/social";
 
 type Loaded = { kind: "ok"; link: OpenedLink } | { kind: "gone" } | { kind: "error" };
 
-/** The accounts connected from this tab, so they're still listed after the next network's sign-in comes back. */
+/** Kept so accounts connected from this tab are still listed after the next network's sign-in comes back. */
 const doneKey = (link: string) => `plan.video.connect-link.done.${link.slice(0, 16)}`;
 
 function readDone(link: string): LinkedAccount[] {
@@ -50,7 +44,7 @@ function readDone(link: string): LinkedAccount[] {
 export function ConnectLinkPage() {
   const params = useParams<{ link: string }>();
 
-  // The dashboard's palette, on <html> so toasts take it too. index.html puts it there before the first paint.
+  // On <html> so toasts take it too; index.html sets it before the first paint.
   const root = document.documentElement;
   root.classList.add("dashboard-theme");
   createRenderEffect(() => {
@@ -93,7 +87,6 @@ export function ConnectLinkPage() {
     });
     onCleanup(() => (document.title = previous));
 
-    // A network's sign-in that came back to this tab is finished here.
     const returned = takeHandOff();
     if (!returned) return;
     const name = PLATFORMS.find((item) => item.id === returned.network)?.name ?? returned.network;
@@ -112,7 +105,6 @@ export function ConnectLinkPage() {
       })
       .catch((error: unknown) => {
         toast.error(t("Couldn't connect {network}", { network: name }), { id, description: error instanceof Error ? error.message : t("Try again in a moment.") });
-        // A link turned off meanwhile says so.
         if (error instanceof ConnectLinkError && (error.status === 404 || error.status === 410)) void refetch();
       })
       .finally(() => setFinishing(null));
@@ -122,7 +114,6 @@ export function ConnectLinkPage() {
     <div class="flex min-h-dvh flex-col bg-(--plane-canvas) text-(--plane-text-primary)">
       <header class="flex h-12 shrink-0 items-center gap-3 px-4 lg:px-3.5">
         <A href="/" class="flex items-center gap-2 rounded-md pr-1 outline-none focus-ring" aria-label={t("plan.video home")}>
-          {/* The workspace badge's tile, as the dashboard's bar shows it. */}
           <svg viewBox="0 0 32 32" aria-hidden="true" class="size-7 shrink-0 rounded-md bg-(--logo-tile) ring-1 ring-inset ring-(--plane-border-subtle)">
             <g transform="translate(16 16) scale(0.72) translate(-16 -16)">
               <path class="fill-(--logo-ink)" d={MARK_PATH} />
@@ -162,9 +153,7 @@ export function ConnectLinkPage() {
 }
 
 function Networks(props: { link: string; opened: OpenedLink; done: LinkedAccount[]; finishing: string | null }) {
-  /** The network whose sign-in is starting: the page is about to leave for it. */
   const [leaving, setLeaving] = createSignal<string | null>(null);
-  /** Bluesky asks for a handle first, for an account that isn't on bsky.social. */
   const [askingHandle, setAskingHandle] = createSignal(false);
   const [handle, setHandle] = createSignal("");
 

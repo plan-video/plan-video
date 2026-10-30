@@ -2,11 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// One post, written once and sent to several platforms: the media, a caption
-// that each platform can change, the settings only some of them have, and
-// when it goes out. Every post is kept on the posts calendar. TikTok and
-// YouTube publish from here, through the publisher.
-
 import { useNavigate, useSearchParams } from "@solidjs/router";
 import { For, Match, Show, Switch, batch, type JSX, createEffect, createMemo, createRoot, createSignal, on, onCleanup, onMount } from "solid-js";
 import { createStore, produce, reconcile, unwrap, type SetStoreFunction } from "solid-js/store";
@@ -173,10 +168,8 @@ type When = "now" | "queue" | "schedule";
 
 type Cover = { time: number; src: string };
 
-/** Media a platform has of its own, instead of the shared files. */
 type OwnMedia = { items: PostMedia[]; cover: Cover | null };
 
-/** A follow-up as the composer holds it: its words, its wait, and the pictures or video it carries. */
 type ComposerReply = Omit<ThreadReply, "files"> & { media: PostMedia[] };
 
 type Composer = {
@@ -184,28 +177,22 @@ type Composer = {
   platforms: PlatformId[];
   accounts: AccountChoices;
   media: PostMedia[];
-  /** Platforms that go out with media of their own. */
   ownMedia: Partial<Record<PlatformId, OwnMedia>>;
   caption: string;
-  /** Captions a platform has of its own, instead of the shared one. */
   overrides: Partial<Record<PlatformId, string>>;
   settings: PlatformSettings;
   /** The still a video goes out with; null keeps the platform's pick. */
   cover: Cover | null;
-  /** The project the video comes from. Its export is the media, when attached. */
   project: LinkedProject | null;
   when: When;
   day: string;
   time: string;
-  /** How a scheduled post repeats from its day, as the calendar keeps it. `""` for once. */
+  /** As the calendar keeps it; `""` for once. */
   repeat: string;
   /** When the repeats stop: `""` never, `on:YYYY-MM-DD`, or `after:N` posts. */
   repeatEnd: string;
-  /** Follow-ups posted under it once it's out, on the networks that take them. */
   thread: ComposerReply[];
-  /** Whether the vault signature goes at the end of the caption. */
   signature: boolean;
-  /** The saved post this one goes over, when it was opened from the post lists. */
   replaces: string | null;
 };
 
@@ -235,21 +222,17 @@ function freshComposer(platforms: PlatformId[] = [], kind: PostKind = "video"): 
 
 /** Kept across views, so leaving the page does not lose a post halfway written. */
 const [post, setPost] = createStore<Composer>(freshComposer());
-/** The platform the preview shows. Picking a platform tab in the form shows it there too. */
 const [previewing, setPreviewing] = createSignal<PlatformId>("tiktok");
-/** Which platform the media and caption are being changed for, or all of them. */
 const [editing, setEditing] = createSignal<PlatformId | "all">("all");
 
-/** The saved post the composer goes over, when it was opened from the post lists. */
 const replacing = () => (post.replaces ? allPosts().find((item) => item.id === post.replaces) : undefined);
 
-/** A repeating post opened over itself. Post now would turn it into a single post. */
+/** Post now would turn a repeating post opened over itself into a single post. */
 const editingSeries = () => !!post.repeat && !!replacing()?.recurrence;
 
 /**
- * A series opened over itself keeps its first day, which may have passed. Its
- * time then counts from its next run, since the runs before it have had their
- * turn. Undefined when the post isn't such a series; null when it has no runs left.
+ * A series opened over itself keeps its first day, which may have passed, so
+ * its time counts from its next run. Undefined when not such a series; null when no runs are left.
  */
 function nextSeriesRun(): Date | null | undefined {
   const saved = replacing();
@@ -269,12 +252,6 @@ function nextSeriesRun(): Date | null | undefined {
   return null;
 }
 
-/**
- * What kind of post it is follows from what is in it, shared or a network's
- * own: a video or a project makes a video post, pictures an image post,
- * nothing a text post. A story is the one kind that is asked for, and it lasts
- * while it has its file.
- */
 function kindFromMedia(): PostKind {
   const items = allMedia();
   const hasVideo = !!post.project || items.some((item) => item.kind === "video");
@@ -283,21 +260,13 @@ function kindFromMedia(): PostKind {
   return items.length ? "image" : "text";
 }
 
-/**
- * Where the post can go. With nothing in it yet that is anywhere, since the
- * media it gets decides. Picked platforms stay listed so a misfit can be unpicked.
- */
+/** Picked platforms stay listed even when they don't fit, so they can be unpicked. */
 const availablePlatforms = () =>
   post.kind === "text" ? [...PLATFORM_IDS] : PLATFORM_IDS.filter((id) => platformsFor(post.kind).includes(id) || post.platforms.includes(id));
 
 const captionFor = (id: PlatformId) => post.overrides[id] ?? post.caption;
 const signatureText = () => (post.signature && post.kind !== "story" ? vaultSignature()?.body : undefined);
-/** The caption as it goes out, signature included. */
 const finalCaption = (id: PlatformId) => appendSignature(captionFor(id), signatureText());
-/**
- * The words each network goes out with, kept on the post: the publisher sends
- * them, and the post opens with them again. YouTube's are its description.
- */
 const ownCaptions = () =>
   Object.fromEntries(post.platforms.filter((id) => id !== "youtube").map((id) => [id, finalCaption(id)]));
 
@@ -305,10 +274,7 @@ const mediaFor = (id: PlatformId) => post.ownMedia[id]?.items ?? post.media;
 const coverFor = (id: PlatformId) => (post.ownMedia[id] ? post.ownMedia[id]!.cover : post.cover);
 const sharingMedia = () => post.platforms.filter((id) => !post.ownMedia[id]);
 
-/**
- * What the checks see. A project without its export attached counts as a
- * video of unknown length and shape, so it is not told it needs media.
- */
+/** A project without its export counts as a video of unknown length and shape, so it isn't told it needs media. */
 const mediaSummary = (id: PlatformId): MediaSummary | null => {
   const own = post.ownMedia[id];
   if (own) return summarizeMedia(own.items);
@@ -316,9 +282,8 @@ const mediaSummary = (id: PlatformId): MediaSummary | null => {
 };
 
 const allMedia = () => [...post.media, ...Object.values(post.ownMedia).flatMap((own) => own?.items ?? [])];
-/** What the thread's follow-ups carry. Apart from allMedia, since it doesn't decide what kind of post this is. */
+/** Kept apart from allMedia: follow-ups don't decide the post's kind. */
 const threadMedia = () => post.thread.flatMap((reply) => reply.media);
-/** The follow-ups that go out, in order: the ones with words or media. */
 const keptReplies = () => post.thread.filter(replyHasContent).slice(0, MAX_REPLIES);
 
 /** Platforms can share a file, so one is only let go once nothing in the post holds it. */
@@ -339,14 +304,12 @@ async function attachProject(project: ProjectInfo & { cover?: Blob | null }) {
   setPost("project", linked);
 }
 
-/** Ends a caption with the credits its music asks for, leaving out the ones it already has. */
 function withCredits(caption: string, credits: readonly string[]): string {
   const missing = credits.filter((credit) => !caption.includes(credit));
   if (!missing.length) return caption;
   return [caption.trimEnd(), missing.join("\n")].filter(Boolean).join("\n\n");
 }
 
-/** Puts the credits of the project's library tracks in the shared caption and every caption of a network's own. */
 function addCredits(credits: readonly string[]) {
   if (!credits.length) return;
   setPost("caption", withCredits(post.caption, credits));
@@ -355,27 +318,17 @@ function addCredits(credits: readonly string[]) {
   }
 }
 
-/**
- * A linked project's video, rendered in the background. It becomes the post's
- * media when it lands, unless a video was put in by hand meanwhile.
- */
 type ProjectExport = { key: string; progress: number; error?: string };
 const [projectExport, setProjectExport] = createSignal<ProjectExport | null>(null);
-/** What the linked project's captions say, from its last render, for the caption to take on. */
 const [projectWords, setProjectWords] = createSignal<{ key: string; words: string } | null>(null);
-/** The words of the project the post is linked to now, once its render has them. */
 const linkedProjectWords = () => {
   const found = projectWords();
   return found && found.key === post.project?.key ? found.words : "";
 };
-/**
- * The cover time a reopened post kept while its video is rendered again from
- * the project, so the render lands with the same cover.
- */
+/** The cover a reopened post kept, so the re-render lands with the same cover. */
 let pendingCover: { key: string; time: number } | null = null;
 let exportRun: { key: string; abort: AbortController; done: Promise<boolean> } | null = null;
 
-/** Whether the run that renders `key` is still the one the post wants. */
 const wantsExport = (key: string, abort: AbortController) => !abort.signal.aborted && post.project?.key === key && !post.media.length;
 
 function cancelProjectExport() {
@@ -432,14 +385,10 @@ function exportLinkedProject(key: string) {
   exportRun = { key, abort, done };
 }
 
-/** Whether a network the post goes to is left without the linked project's video. */
 const projectVideoMissing = () => post.project !== null && post.platforms.some((id) => !mediaFor(id).length);
 
-/** Waits out a running export; true when the post then has the project's video. */
 const projectExportDone = () => exportRun?.done ?? Promise.resolve(true);
 
-// A linked project with no video yet starts its export; a video put in by
-// hand, another project or none at all stops it. A failed one waits for Retry.
 createRoot(() =>
   createEffect(
     on(
@@ -455,10 +404,9 @@ createRoot(() =>
   ),
 );
 
-/** Fills the composer with a saved post, its video included when it was kept. The caption already ends with its signature. */
+/** The saved caption already ends with its signature. */
 async function loadPost(saved: StoredEvent, replace: boolean) {
   const files = await loadPostFiles(saved);
-  // A file that's shared and a network's own too is read once, so the composer holds it once.
   const reading = new Map<File, Promise<PostMedia>>();
   const read = (list: readonly File[]) =>
     Promise.all(list.filter((file) => mediaKind(file)).map((file) => reading.get(file) ?? reading.set(file, readMedia(file)).get(file)!));
@@ -467,11 +415,9 @@ async function loadPost(saved: StoredEvent, replace: boolean) {
   const all = [...media, ...owned.flatMap(([, items]) => items)];
   const ids = saved.platforms.filter((id): id is PlatformId => (PLATFORM_IDS as readonly string[]).includes(id));
   const fileKind = all.some((item) => item.kind === "video") ? "video" : all.length ? "image" : null;
-  // A story stays one while it has its file.
   const kind: PostKind =
     saved.story && all.length ? "story" : (fileKind ?? (saved.projectId || ids.some((id) => !platformsFor("text").includes(id)) ? "video" : "text"));
   const platforms = sortPlatforms(ids.filter((id) => platformsFor(kind).includes(id)));
-  // The cover kept is TikTok's: on its own video when it has one, else on the shared one.
   const coverOf = async (items: readonly PostMedia[]) =>
     typeof saved.coverTime === "number" && items[0]?.kind === "video"
       ? { time: saved.coverTime, src: await videoStill(items[0], saved.coverTime).catch(() => items[0].poster) }
@@ -483,18 +429,15 @@ async function loadPost(saved: StoredEvent, replace: boolean) {
   const cover = ownMedia.tiktok ? null : await coverOf(media);
   const thread: ComposerReply[] = [];
   for (const reply of saved.thread ?? []) thread.push({ id: reply.id, text: reply.text, delay: reply.delay, media: await read(files.thread[reply.id] ?? []) });
-  // Files of networks the post no longer goes to aren't kept.
   const held = new Set([...media, ...Object.values(ownMedia).flatMap((entry) => entry!.items), ...thread.flatMap((reply) => reply.media)]);
   for (const item of all) if (!held.has(item)) releaseMedia(item);
   const project = saved.projectId ? await findProject(saved.projectId) : null;
   const linked = project ? await linkProject(project) : null;
-  // Kept without its video, the post's cover waits for the project's render.
   pendingCover =
     linked && !media.length && !ownMedia.tiktok && typeof saved.coverTime === "number" ? { key: linked.key, time: saved.coverTime } : null;
 
   for (const item of [...allMedia(), ...threadMedia()]) if (!held.has(item)) releaseMedia(item);
   const fresh = freshComposer(platforms, kind);
-  // Opened to save over it, the post keeps its day, time and repeat. A copy goes out once, at a time of its own.
   const timing: Partial<Composer> = replace
     ? {
         when: "schedule",
@@ -504,7 +447,6 @@ async function loadPost(saved: StoredEvent, replace: boolean) {
         repeatEnd: saved.recurrence && saved.recurrenceEnd ? `on:${saved.recurrenceEnd}` : "",
       }
     : {};
-  // Words a network had of its own come back as its own caption. YouTube's are its description.
   const own = savedCaptions(saved);
   const overrides = Object.fromEntries(platforms.flatMap((id) => (own[id] ? [[id, own[id]]] : [])));
   setPost(
@@ -553,7 +495,6 @@ async function loadPost(saved: StoredEvent, replace: boolean) {
   );
 }
 
-/** Puts files from the media library in the post. What is written stays; the media it carried is swapped out. */
 async function putFiles(files: File[]) {
   const videos = files.filter((file) => mediaKind(file) === "video");
   const kind: PostKind = post.kind === "story" && files.length === 1 ? "story" : videos.length ? "video" : "image";
@@ -573,7 +514,6 @@ async function putFiles(files: File[]) {
   for (const item of replaced) releaseMedia(item);
 }
 
-/** What the composer has set up, as a template keeps it: everything but the media and the day. */
 function templateDraft(name: string, keepTime: boolean): TemplateDraft {
   const when = post.when === "queue" ? "queue" : post.when === "schedule" && keepTime ? "time" : "none";
   return {
@@ -584,7 +524,6 @@ function templateDraft(name: string, keepTime: boolean): TemplateDraft {
     overrides: { ...post.overrides },
     settings: structuredClone(unwrap(post.settings)),
     signature: post.signature,
-    // Like the post's own, the follow-ups' media isn't kept: only the ones with words are.
     thread: keptThread(post.thread.filter((reply) => reply.text.trim())),
     when,
     time: post.time,
@@ -592,10 +531,6 @@ function templateDraft(name: string, keepTime: boolean): TemplateDraft {
   };
 }
 
-/**
- * Sets the composer up from a template. The media and project stay. What the
- * template replaces comes back with Undo.
- */
 function applyTemplate(template: PostTemplate) {
   const before = {
     platforms: [...post.platforms],
@@ -614,7 +549,6 @@ function applyTemplate(template: PostTemplate) {
   const available = availablePlatforms();
   const platforms = template.platforms.filter((id) => available.includes(id));
   const left = template.platforms.filter((id) => !available.includes(id));
-  // A time that has already gone by today goes out tomorrow.
   const today = localDateKey(new Date());
   const passed = (atLocal(today, template.time)?.getTime() ?? 0) <= Date.now();
   const day = passed ? localDateKey(new Date(Date.now() + 24 * 60 * 60 * 1000)) : today;
@@ -692,10 +626,6 @@ const KIND_MEDIA: Record<PostKind, string> = {
   story: msg("A story takes one picture or one video."),
 };
 
-/**
- * Switches what kind of post it is. Platforms and media the new kind can't
- * take are dropped, and the toast can put them back.
- */
 function setKind(kind: PostKind) {
   if (kind === post.kind) return;
   const before = {
@@ -766,8 +696,6 @@ function setKind(kind: PostKind) {
 
 const POST_COLUMN = "mx-auto flex w-full max-w-[820px] flex-col px-10 pt-8 pb-12";
 
-/** How a post that goes out later gets its time. Post now is a button of its own. */
-
 const SUBMIT_LABELS: Record<When, string> = { now: msg("Post now"), queue: msg("Add to queue"), schedule: msg({ message: "Schedule", context: "verb" }) };
 
 export function DashboardNewPostView() {
@@ -795,7 +723,6 @@ export function DashboardNewPostView() {
     const kind = kindFromMedia();
     if (kind !== post.kind) setPost("kind", kind);
   });
-  // A calendar slot opens this composer on that day, at the slot's time or the plus button's time.
   createEffect(() => {
     if (handed) return;
     const day = Array.isArray(params.date) ? params.date[0] : params.date;
@@ -811,7 +738,7 @@ export function DashboardNewPostView() {
   });
   createEffect(() => {
     loadSocialConnections(auth.user()?.id);
-    // Keeps a pick whose account was removed, so opening a saved post never moves it to another account.
+    // Keeps a pick whose account was removed, so a saved post never moves to another account.
     const next = accountsForPlatforms(post.platforms, post.accounts, { keepRemoved: true });
     if (!sameChoices(next, post.accounts)) setPost("accounts", reconcile(next));
   });
@@ -825,7 +752,6 @@ export function DashboardNewPostView() {
       : t("{count, plural, one {# selected} other {# selected}}", { count: platforms });
   };
 
-  // "Make a post" on a project lands here with the project's key.
   createEffect(
     on(
       () => params.project,
@@ -863,7 +789,6 @@ export function DashboardNewPostView() {
       }),
       ...tiktokLimitIssues(post.kind, post.platforms, media?.kind === "video" ? media.duration : null),
       ...(post.kind === "story" ? [] : threadIssues(keptThread(keptReplies()), post.platforms, (index) => summarizeMedia(keptReplies()[index]?.media ?? []))),
-      // A saved post whose accounts here were removed goes out from none of them until another is picked.
       ...post.platforms.flatMap((id): PostIssue[] =>
         connectionsFor(id).length && readChoices(post.accounts)[id]?.length && !accountsFor(id, post.accounts).length
           ? [{ platform: id, level: "error", message: t("Its {platform} account was removed. Pick which account it goes out from.", { platform: socialPlatform(id).name }) }]
@@ -917,12 +842,7 @@ export function DashboardNewPostView() {
 
   const untimedDay = () => (post.when === "schedule" && !scheduledAt() ? atLocal(post.day, "00:00") : null);
 
-  /**
-   * The files kept with the post, so it can be sent, or opened and posted
-   * again later: the shared files, while a network goes out with them, and
-   * those of networks with their own. Networks plan.video only plans for keep
-   * theirs too, or the post would open again without them.
-   */
+  /** Networks plan.video only plans for keep their files too, or the post would reopen without them. */
   const keptFiles = (): PostFiles => {
     const owners = post.platforms.filter((id) => post.ownMedia[id]);
     return {
@@ -932,11 +852,7 @@ export function DashboardNewPostView() {
     };
   };
 
-  /**
-   * Makes the saved post's thumbnail from what it carries: its first file, at
-   * its cover for a video, or the linked project's cover. Read now, since the
-   * composer is cleared before the picture is made.
-   */
+  /** Read now: the composer is cleared before the picture is made. */
   const keepThumbnail = (id: string) => {
     const first = post.platforms[0];
     const item = (first ? mediaFor(first)[0] : undefined) ?? post.media[0];
@@ -970,10 +886,8 @@ export function DashboardNewPostView() {
         x: post.platforms.includes("x") && post.kind !== "story" ? xPostSettings(post.settings) : undefined,
         pinterest: post.platforms.includes("pinterest") && post.kind !== "story" ? pinterestPostSettings(post.settings) : undefined,
         story: post.kind === "story",
-        // Saved over a post, an emptied thread takes the place of the one it had.
         thread: post.kind === "story" ? [] : keptThread(keptReplies()),
         captions: post.kind === "story" ? undefined : ownCaptions(),
-        // Saved over a post, these take the place of the files it had, none included.
         files: keptFiles(),
         when,
         untimed: !!untimed,
@@ -1012,10 +926,6 @@ export function DashboardNewPostView() {
     }
   };
 
-  /**
-   * Saves the post with its video and hands it to the publisher, which sends
-   * it after the composer is clear. Posts shows how it goes.
-   */
   const publishNow = async () => {
     const userId = auth.user()?.id;
     if (!userId) {
@@ -1102,8 +1012,7 @@ export function DashboardNewPostView() {
     if (!canSubmit()) return;
     setBusy("post");
     try {
-      // The linked project's video may still be rendering. The post goes once it lands,
-      // and is checked again first, now that its length and shape are known.
+      // The linked project's video may still be rendering; the post goes once it lands and is checked again then.
       if (exportRun && (!(await projectExportDone()) || errors().length || mediaErrors().length)) return;
       // Without the project's video, as when its export failed, networks that take words alone would get only those.
       if (projectVideoMissing()) {
@@ -1111,7 +1020,7 @@ export function DashboardNewPostView() {
         return;
       }
 
-      // Nothing goes out from guest mode's demo: the post stays as it is, and the guest is asked to make an account.
+      // Guest mode's demo never sends anything.
       if (auth.isGuest()) {
         askForAccount({ reason: post.when === "now" || toInbox() ? "post" : "schedule" });
         return;
@@ -1124,7 +1033,6 @@ export function DashboardNewPostView() {
 
       if (post.when !== "now") {
         const queued = post.when === "queue";
-        // A series that's running says when it goes out next, not its first day.
         const next = nextSeriesRun();
         const saved = await save("scheduled");
         if (!saved) return;
@@ -1164,7 +1072,6 @@ export function DashboardNewPostView() {
     }
   };
 
-  /** While Post now sends, the time picked for later, so the bar keeps showing it. */
   const [nowFrom, setNowFrom] = createSignal<Exclude<When, "now"> | null>(null);
   const laterWhen = () => nowFrom() ?? (post.when === "now" ? "schedule" : post.when);
   const postNow = async () => {
@@ -1308,10 +1215,6 @@ export function DashboardNewPostView() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Media
-
-/** Where an editor's files go: the shared media, or one platform's own. */
 type MediaSlot = {
   platform?: PlatformId;
   items(): PostMedia[];
@@ -1339,7 +1242,6 @@ function ownMediaSlot(id: PlatformId): MediaSlot {
 
 const maxFor = (slot: MediaSlot) => (post.kind === "story" ? 1 : slot.platform ? picturesOut(slot.platform) : MAX_IMAGES);
 
-/** Starts a platform off with what it was getting from the shared media. */
 function giveOwnMedia(id: PlatformId) {
   const items = post.kind === "image" ? post.media.slice(0, picturesOut(id)) : [...post.media];
   setPost("ownMedia", id, { items, cover: post.cover });
@@ -1415,7 +1317,6 @@ function MediaSection() {
   );
 }
 
-/** Under the shared media: who goes out with something else, and who skips pictures. */
 function SharedMediaNote() {
   const owners = () => post.platforms.filter((id) => post.ownMedia[id]);
   const skipping = () =>
@@ -1451,7 +1352,6 @@ function skipGroups(ids: readonly PlatformId[]): { out: number; ids: PlatformId[
   return [...groups].sort(([a], [b]) => a - b).map(([out, list]) => ({ out, ids: list }));
 }
 
-/** A platform on the shared media: what it gets from it, and the way to give it its own. */
 function SharedMediaNotice(props: { platform: PlatformId }) {
   const name = () => socialPlatform(props.platform).name;
   const out = () => (post.media[0]?.kind === "image" ? Math.min(post.media.length, picturesOut(props.platform)) : post.media.length);
@@ -1516,7 +1416,6 @@ function MediaEditor(props: { slot: MediaSlot }) {
   const [reading, setReading] = createSignal(false);
   const [opening, setOpening] = createSignal(false);
 
-  /** Files of the wrong kind for this post: offer to switch to the kind that takes them. */
   const offerKind = (kind: PostKind, files: File[]) =>
     toast(t(KIND_MEDIA[post.kind]), {
       action: {
@@ -1824,7 +1723,6 @@ function ownDropHint(id: PlatformId): string {
   return t("Only {platform} gets this. One JPG or PNG, or an MP4 or MOV up to a minute.", { platform: name });
 }
 
-/** How the linked project's video is coming along, while the post has none yet. */
 function ProjectExportStatus(props: { projectKey: string; reading: boolean; onPick(): void }) {
   const state = () => {
     const run = projectExport();
@@ -1883,7 +1781,6 @@ function ProjectExportStatus(props: { projectKey: string; reading: boolean; onPi
   );
 }
 
-/** What keeps the media from going out anywhere. */
 function MediaProblems(props: { slot: MediaSlot }) {
   const problems = createMemo(() => mediaProblems(props.slot.items()));
   const video = () => props.slot.items()[0]?.kind === "video";
@@ -1903,7 +1800,6 @@ function MediaProblems(props: { slot: MediaSlot }) {
   );
 }
 
-/** The project the media comes from, under the media it was exported as. */
 function LinkedProjectRow(props: { framed?: boolean }) {
   return (
     <Show when={post.project}>
@@ -1936,11 +1832,6 @@ function LinkedProjectRow(props: { framed?: boolean }) {
   );
 }
 
-/**
- * A cover only shows where it can go out: on a network's own media if that
- * network takes one, on the shared media if any network sharing it does (or
- * none is picked yet).
- */
 const takesCover = (platform: PlatformId | undefined) =>
   platform
     ? !!socialPlatform(platform).customCover
@@ -1949,7 +1840,6 @@ const takesCover = (platform: PlatformId | undefined) =>
 /** "0:14.1": a cover can sit between whole seconds. */
 const coverClock = (time: number) => `${formatDuration(Math.floor(time))}.${Math.floor((time % 1) * 10)}`;
 
-/** Stills from across the video; the one picked is the cover it goes out with. */
 function CoverPicker(props: { slot: MediaSlot; media: PostMedia }) {
   const cover = () => props.slot.cover();
   const [frames, setFrames] = createSignal<{ time: number; src: string }[]>([]);
@@ -2159,10 +2049,6 @@ function ImageGrid(props: {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Templates
-
-/** Starts the post from a template, or keeps what is set up as one. */
 function TemplatesMenu(props: { canSave: boolean }) {
   const auth = useAuth();
   const [, setParams] = useSearchParams();
@@ -2214,7 +2100,6 @@ function SaveTemplateDialog(props: { onClose(): void }) {
   const [keepTime, setKeepTime] = createSignal(true);
   const [error, setError] = createSignal<string | null>(null);
   let input: HTMLInputElement | undefined;
-  /** "every week on Monday", lowercase only where the sentence needs it. */
   const repeats = () => (post.repeat ? cadencePhrase(post.repeat, post.day) : null);
 
   const kept = () => {
@@ -2315,13 +2200,9 @@ function SaveTemplateDialog(props: { onClose(): void }) {
 
 const ITEM_LIST = localized((locale) => new Intl.ListFormat(locale, { type: "conjunction" }), "en-GB");
 
-/** "a", "a and b", "a, b and c". */
 function listItems(parts: readonly string[]): string {
   return ITEM_LIST().format(parts);
 }
-
-// ---------------------------------------------------------------------------
-// Caption
 
 function CaptionSection() {
   const auth = useAuth();
@@ -2348,7 +2229,6 @@ function CaptionSection() {
     else setPost("overrides", id, text);
   };
 
-  /** Starts the caption with what the video's captions say, ahead of anything already in it, such as music credits. */
   const takeVideoWords = () => write([linkedProjectWords(), value().trim()].filter(Boolean).join("\n\n"));
 
   const resetOverride = (id: PlatformId) =>
@@ -2359,7 +2239,6 @@ function CaptionSection() {
       }),
     );
 
-  /** The tightest limit among the platforms that use the shared caption. */
   const limit = () => {
     const id = active();
     if (id !== "all") return { limit: socialPlatform(id).captionLimit, name: socialPlatform(id).name };
@@ -2457,18 +2336,9 @@ function CaptionSection() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Thread
-
-/**
- * Follow-ups the publisher posts under the post once it's out, each a while
- * after the one before. Shown while the post goes to a network that takes
- * them, or already has some.
- */
 function ThreadSection() {
   const networks = () => threadPlatforms(post.platforms);
   const others = () => post.platforms.filter((id) => !THREAD_PLATFORMS.includes(id));
-  /** The tightest limit among the networks the thread goes out on. */
   const limit = () => {
     const tightest = [...networks()].sort((a, b) => replyLimit(a) - replyLimit(b))[0];
     return tightest ? { limit: replyLimit(tightest), name: socialPlatform(tightest).name } : null;
@@ -2567,10 +2437,7 @@ function ThreadSection() {
   );
 }
 
-/**
- * Puts files in a follow-up: one video, or up to 4 pictures. A video takes
- * the place of what it had, and so do pictures put in after a video.
- */
+/** One video or up to 4 pictures; a video replaces what was there, and so do pictures after a video. */
 async function addReplyMedia(index: number, files: readonly File[]) {
   const reply = post.thread[index];
   if (!reply || !files.length) return;
@@ -2602,7 +2469,6 @@ async function addReplyMedia(index: number, files: readonly File[]) {
   releaseUnused(replaced);
 }
 
-/** What a follow-up carries, in a row of small tiles, each with a way to take it off. */
 function ReplyMedia(props: { index: number }) {
   const media = () => post.thread[props.index]?.media ?? [];
   const remove = (id: string) => {
@@ -2633,7 +2499,6 @@ function ReplyMedia(props: { index: number }) {
   );
 }
 
-/** Opens the file chooser for a follow-up's pictures or video. Shown while the thread goes to a network that posts them. */
 function ReplyMediaButton(props: { index: number }) {
   const takes = () => REPLY_MEDIA_PLATFORMS.some((id) => post.platforms.includes(id));
   const full = () => {
@@ -2662,13 +2527,11 @@ function ReplyMediaButton(props: { index: number }) {
 
 type DelayChoice = { id: string; minutes: number; label: string };
 
-/** "5 minutes after the post", "Right after the one before". */
 function delayLabel(minutes: number, label: string, first: boolean) {
   if (!minutes) return first ? t("Right after the post") : t("Right after the one before");
   return first ? t("{delay} after the post", { delay: t(label) }) : t("{delay} after the one before", { delay: t(label) });
 }
 
-/** How long after the post, or the follow-up before it, one goes out. */
 function DelaySelect(props: { value: number; first: boolean; onChange(minutes: number): void }) {
   const options = (): DelayChoice[] => REPLY_DELAYS.map((option) => ({ id: String(option.minutes), minutes: option.minutes, label: option.label }));
   return (
@@ -2698,13 +2561,11 @@ function DelaySelect(props: { value: number; first: boolean; onChange(minutes: n
   );
 }
 
-/** One row of platform tabs for the media and caption: all platforms, or one on its own. */
 function EditingTabs() {
   const active = () => {
     const current = editing();
     return current !== "all" && post.platforms.includes(current) ? current : "all";
   };
-  /** The tabs' name, as a screen reader says it. */
   const what = () => (post.kind === "story" ? t("media for") : post.kind === "text" ? t("caption for") : t("media and caption for"));
   const pick = (id: PlatformId | "all") => {
     setEditing(id);
@@ -2733,7 +2594,6 @@ function EditingTabs() {
   );
 }
 
-/** A row of platform tabs, framed as one switch like `Segmented`. */
 const TAB_LIST = "flex w-fit max-w-full flex-wrap items-center gap-0.5 rounded-lg bg-accent p-0.5";
 
 function PlatformTab(props: { selected: boolean; onClick(): void; children: JSX.Element }) {
@@ -2755,10 +2615,6 @@ function PlatformTab(props: { selected: boolean; onClick(): void; children: JSX.
   );
 }
 
-// ---------------------------------------------------------------------------
-// Per-platform settings
-
-/** One platform's settings at a time, the same one the preview shows. */
 function PlatformSettingsSection(props: { issues: PostIssue[] }) {
   const settings = (...args: unknown[]) => (setPost as (...path: unknown[]) => void)("settings", ...args);
   const shown = () => platformsWithSettings(post.kind, post.platforms);
@@ -2826,7 +2682,6 @@ function PlatformSettingsSection(props: { issues: PostIssue[] }) {
   );
 }
 
-/** The bottom bar's date and time: shows when a post goes out later, and opens the fields to change it. */
 function WhenButton(props: { problem: string | null; queuedAt: Date | null }) {
   const later = () => (post.when === "queue" ? "queue" : "schedule");
   const label = () => {
@@ -2868,14 +2723,6 @@ function WhenButton(props: { problem: string | null; queuedAt: Date | null }) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Scheduling
-
-/**
- * What the When popup holds: times to take with one press, like a menu, then
- * the post's own date and time and how it repeats. With the queue picked, the
- * queue's slots stand where the date and time were.
- */
 function WhenFields(props: { problem: string | null; queuedAt: Date | null }) {
   const openQueueSettings = useOpenQueueSettings();
   const choose = (at: Date) =>
@@ -2890,7 +2737,6 @@ function WhenFields(props: { problem: string | null; queuedAt: Date | null }) {
   onCleanup(() => clearInterval(clock));
 
   const earliestTime = (day: string) => (day === localDateKey(now()) ? timeOf(new Date(now().getTime() + 60_000)) : undefined);
-  // A running series shows its next run.
   const at = () => nextSeriesRun() ?? atLocal(post.day, post.time);
   const queued = () => post.when === "queue";
 
@@ -2959,13 +2805,7 @@ function WhenFields(props: { problem: string | null; queuedAt: Date | null }) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Preview
-
-// By default the preview keeps to the right: a third of the page, no wider
-// than 560px on big screens. Dragging its edge sets a width of its own.
 const PREVIEW_PANEL = "relative hidden w-[320px] shrink-0 flex-col border-l border-border-strong bg-sidebar/40 @3xl:flex @5xl:w-[min(36%,560px)]";
-/** Narrowest the preview column can be dragged, and the room the form keeps. */
 const PREVIEW_MIN = 240;
 const FORM_MIN = 440;
 /** A dragged width. Absent until the divider moves, so the column stays responsive. */
@@ -2976,7 +2816,6 @@ function clampPreview(width: number, container: number): number {
   return Math.round(Math.min(max, Math.max(PREVIEW_MIN, width)));
 }
 
-/** The preview column, with a divider that widens it to the left and narrows it to the right. */
 function PreviewAside(props: { children: JSX.Element }) {
   let aside!: HTMLElement;
   const [resizing, setResizing] = createSignal(false);
@@ -3065,14 +2904,8 @@ function PreviewAside(props: { children: JSX.Element }) {
   );
 }
 
-/** The phone at its own size, before the stage scales it. */
 const PHONE = { width: 286, height: 588 };
 
-/**
- * Scales the phone to the column. Until the divider is dragged it stops at
- * one and a half times, which is the size the preview opened at before.
- */
-/** Room kept on the phone's left, which moves it right of the panel's center by half this. */
 const PREVIEW_NUDGE = 64;
 
 function PreviewStage(props: { children: JSX.Element }) {

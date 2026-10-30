@@ -2,10 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// How a workspace shows in the sidebar: its name, its picture (a logo, an
-// emoji, initials or the plan.video mark), its color and its shape. Every
-// change saves as it is made.
-
 import { Match, Show, Switch, createEffect, createMemo, createSignal, on, untrack, type JSX } from "solid-js";
 import { toast } from "somoto";
 
@@ -52,15 +48,9 @@ const FITS: { value: Fit; label: string }[] = [
   { value: "contain", label: msg({ message: "Fit", context: "fit mode" }) },
 ];
 
-/** Sizes to try, largest first, until the picture fits in the account copy. */
 const LOGO_SIZES = [256, 192, 128, 96];
 const LOGO_FILE_MAX = 8 * 1024 * 1024;
 
-/**
- * Draws a picture onto a small square: cropped to fill it, or whole with a
- * margin so a wide wordmark still reads. Transparent parts let the
- * workspace color through.
- */
 async function shrinkLogo(file: File, fit: Fit): Promise<string> {
   const url = URL.createObjectURL(file);
   try {
@@ -91,7 +81,6 @@ async function shrinkLogo(file: File, fit: Fit): Promise<string> {
   }
 }
 
-/** Near-square pictures fill the badge; wide or tall ones fit inside it. */
 function naturalFit(file: File): Promise<Fit> {
   return new Promise((resolve) => {
     const url = URL.createObjectURL(file);
@@ -119,13 +108,11 @@ export function WorkspaceAppearance() {
   const [name, setName] = createSignal(workspace().name);
   const [initials, setInitials] = createSignal("");
   const [emoji, setEmoji] = createSignal("");
-  /** The last picture picked here, kept so Fill and Fit can redraw it. */
   const [source, setSource] = createSignal<File | null>(null);
   const [fit, setFit] = createSignal<Fit>("cover");
   const [busy, setBusy] = createSignal(false);
   let fileInput: HTMLInputElement | undefined;
 
-  // Start over on a switch to another workspace.
   createEffect(
     on(
       workspaceId,
@@ -138,7 +125,6 @@ export function WorkspaceAppearance() {
       },
     ),
   );
-  // A rename from another browser.
   createEffect(on(workspaceName, setName, { defer: true }));
 
   const apply = (changes: WorkspaceChanges) => {
@@ -154,7 +140,6 @@ export function WorkspaceAppearance() {
 
   const chooseTab = (next: IconType) => {
     setTab(next);
-    // Logo and Emoji wait for a pick; the other two show straight away.
     if (next === "mark") apply({ icon: { type: "mark" } });
     if (next === "letters") apply({ icon: initials() ? { type: "letters", value: initials() } : { type: "letters" } });
     if (next === "emoji" && emoji()) apply({ icon: { type: "emoji", value: emoji() } });
@@ -196,11 +181,9 @@ export function WorkspaceAppearance() {
   const hasLogo = () => icon().type === "image";
 
   return (
-    // Headed like the page's other sections, Members and Delete workspace.
     <section class="flex flex-col gap-3">
       <h2 class="px-1 text-sm font-medium text-foreground">{t("Customize")}</h2>
       <DashboardSurfaceCard class="flex flex-col divide-y divide-(--plane-border-subtle) p-0">
-        {/* The badge as the sidebar shows it, beside the name. */}
         <div class="flex items-center gap-3 p-4">
           <WorkspaceBadge workspace={workspace()} class="size-10 shrink-0 rounded-xl text-base" />
           <label class="flex min-w-0 flex-1 flex-col gap-1">
@@ -333,7 +316,6 @@ export function WorkspaceAppearance() {
   );
 }
 
-/** One setting in the card: its name on the left, its control on the right, and anything more under both. */
 function SettingRow(props: { label: string; control: JSX.Element; children?: JSX.Element }) {
   return (
     <div class="flex flex-col gap-3 px-4 py-3">

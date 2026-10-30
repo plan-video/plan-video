@@ -2,9 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// How much of the account's cloud storage is in use, by kind, against what
-// its plan allows.
-
 import { useSearchParams } from "@solidjs/router";
 import { For, Match, Show, Switch, createResource } from "solid-js";
 
@@ -17,7 +14,6 @@ import { isDesktop } from "@/projects";
 
 import { DashboardScrollView, DashboardSurfaceSection } from "./shared";
 
-/** What the first paid plan stores, offered to Free accounts. */
 const CREATOR_LIMIT = msg("50 GB");
 
 const PARTS = [
@@ -26,9 +22,8 @@ const PARTS = [
   { id: "projects", label: msg("Projects"), hint: msg("Your editor projects"), tone: "bg-primary/40" },
 ] as const;
 
-/** "5 GB", "1.2 GB", "340 MB": whole gigabytes without a trailing ".0". */
+/** Whole gigabytes without a trailing ".0". */
 function size(bytes: number) {
-  // Other languages in their own digits and units, as formatBytes writes them.
   const locale = intlLocale();
   const unit = (value: number, name: string) => new Intl.NumberFormat(locale, { style: "unit", unit: name, unitDisplay: "short" }).format(value);
   if (bytes <= 0) return locale ? unit(0, "megabyte") : "0 MB";

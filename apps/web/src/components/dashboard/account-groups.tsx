@@ -2,8 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Account groups, as the Connections page lists and edits them.
-
 import { For, Show, createEffect, createSignal } from "solid-js";
 import { toast } from "somoto";
 
@@ -38,7 +36,6 @@ import { accountLabel, connectionsFor, socialConnections } from "@/lib/social-co
 import { DashboardGroupLabel } from "./page-header";
 import { DashboardSurfaceCard } from "./shared";
 
-/** Deletes a group, with Undo on the toast that says so. */
 export function deleteGroupWithUndo(userId: string, group: AccountGroup) {
   const index = accountGroups().findIndex((row) => row.id === group.id);
   deleteAccountGroup(userId, group.id);
@@ -145,7 +142,6 @@ export function AccountGroupsSection() {
   );
 }
 
-/** Makes a group, or edits one. A new one can start from accounts already picked, as New post's are. */
 export function GroupFormDialog(props: { group: AccountGroup | null; accounts?: readonly string[]; onClose(): void }) {
   const auth = useAuth();
   const [name, setName] = createSignal(props.group?.name ?? "");

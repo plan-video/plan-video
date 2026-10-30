@@ -2,9 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The Projects sidebar's folders: open one to see its projects, drop selected
-// project cards on one to move them in, and rename or delete one from its menu.
-
 import { For, Show, createSignal } from "solid-js";
 import { toast } from "somoto";
 
@@ -31,20 +28,16 @@ import {
 
 import { DashboardSidebarSection, dashboardNavItemClass, navIconClass } from "./sidebar";
 
-/** What a project card's drag carries: the keys of the projects it moves, as JSON. */
 export const PROJECTS_DRAG_TYPE = "application/x-planvideo-projects";
 
-/** The folder whose name is being typed in the sidebar, as after New folder. */
 const [editing, setEditing] = createSignal<string | null>(null);
 
-/** Makes a folder, holding `projects` if given, and puts its name up for typing. */
 export function startNewFolder(projects: readonly string[] = []): ProjectFolder | undefined {
   const folder = createProjectFolder(projects);
   if (folder) setEditing(folder.id);
   return folder;
 }
 
-/** Moves the projects in, and says so. */
 export function moveIntoFolder(keys: readonly string[], folder: ProjectFolder) {
   moveProjectsToFolder(keys, folder.id);
   toast(t("{count, plural, one {Moved to {name}} other {Moved # projects to {name}}}", { count: keys.length, name: folder.name }));
@@ -132,7 +125,6 @@ function FolderRow(props: { folder: ProjectFolder; active: boolean; onOpen(): vo
     if (projects.length) moveIntoFolder(projects, props.folder);
   };
 
-  // Enter and a click elsewhere keep the name; Escape, or an empty name, keeps the one before.
   let cancelled = false;
   const finish = (input: HTMLInputElement) => {
     if (!renaming()) return;

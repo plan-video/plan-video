@@ -2,8 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Setting up the posting queue: which days, at which times.
-
 import { useSearchParams } from "@solidjs/router";
 import { For, Show, createEffect, createSignal } from "solid-js";
 import { toast } from "somoto";
@@ -21,7 +19,6 @@ import { TimePicker } from "./date-time-picker";
 import { nextQueueTimes } from "./queue";
 import { formatWhen, timeZoneName } from "./save";
 
-/** Loads the active workspace's slots and the calendar they are checked against. */
 export function useQueueSlots() {
   const auth = useAuth();
   createEffect(() => loadQueueSlots(auth.ownerId()));
@@ -147,13 +144,11 @@ export function QueueSlotsEditor() {
   );
 }
 
-/** The pages that send you to the queue settings, and can take you back. */
 export const QUEUE_RETURN_LABELS: Partial<Record<DashboardView, string>> = {
   "new-post": msg("New post"),
   "bulk-tools": msg("Bulk tools"),
 };
 
-/** Opens the posting queue in Settings, remembering the page you came from. */
 export function useOpenQueueSettings() {
   const [params, setParams] = useSearchParams();
   return () => {

@@ -2,9 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Every video and picture kept to post: uploaded here, or attached to a post.
-// Each one shows where it fits, and any of them can start a post.
-
 import { useSearchParams } from "@solidjs/router";
 import { For, Show, createEffect, createMemo, createResource, createSignal, on, onCleanup, onMount, type JSX } from "solid-js";
 import { Portal } from "solid-js/web";
@@ -116,7 +113,6 @@ function sortMedia(list: readonly MediaItem[], sort: Sort): MediaItem[] {
   return [...list].sort(order[sort]);
 }
 
-/** Why these can't go in one post together, or null. */
 function postProblem(chosen: readonly MediaItem[]): string | null {
   const videos = chosen.filter((item) => item.kind === "video").length;
   if ((videos && chosen.length > 1) || chosen.length > MEDIA_LIMITS.maxImages) {
@@ -127,7 +123,6 @@ function postProblem(chosen: readonly MediaItem[]): string | null {
 
 type Fit = { id: PlatformId; name: string; level: "ready" | "warning" | "error"; note: string };
 
-/** Where an item can go as it is, platform by platform. */
 function fitsOf(item: MediaItem): Fit[] {
   const aspect = item.width && item.height ? item.width / item.height : 0;
   return SOCIAL_PLATFORMS.filter((platform) => platform.kinds.includes(item.kind)).map((platform): Fit => {
@@ -179,11 +174,9 @@ export function DashboardMediaView() {
   const [layout, setLayoutSignal] = createSignal<Layout>(readLayout());
   const [selected, setSelected] = createSignal<string[]>([]);
   const [open, setOpen] = createSignal<{ id: string; rename: boolean } | null>(null);
-  /** The file shown full size, over the page. */
   const [viewing, setViewing] = createSignal<string | null>(null);
   const [dragging, setDragging] = createSignal(false);
   const [progress, setProgress] = createSignal<{ done: number; total: number } | null>(null);
-  /** Where a shift-click range starts. */
   let anchor: string | null = null;
 
   onMount(() => void loadMediaLibrary());
@@ -197,7 +190,6 @@ export function DashboardMediaView() {
   });
   const count = (kind: Filter) => (kind === "all" ? mediaItems().length : mediaItems().filter((item) => item.kind === kind).length);
   const totalBytes = () => mediaItems().reduce((total, item) => total + item.size, 0);
-  // Read again once an upload or delete settles, not on every file.
   const [usage] = createResource(
     () => cloudEnabled && !progress() && mediaItems().length + totalBytes(),
     () => cloudUsage().catch(() => undefined),
@@ -318,7 +310,6 @@ export function DashboardMediaView() {
     setOpen({ id: item.id, rename: false });
   };
 
-  /** Shows a file full size. The panel follows, so closing it leaves the last one open there. */
   const view = (id: string) => {
     setOpen({ id, rename: false });
     setViewing(id);
@@ -373,7 +364,6 @@ export function DashboardMediaView() {
         )}
       </Show>
       <DashboardPageHeader>
-        {/* An empty library's picture says what the page is for, and has its own Upload. */}
         <Show when={!mediaLoaded() || mediaItems().length || progress() || mediaLoadError()}>
           <Show when={mediaLoaded()}>
             <DashboardFilterCount shown={results().length} total={mediaItems().length} />
@@ -623,7 +613,6 @@ export function DashboardMediaView() {
   );
 }
 
-/** A file at full size over the page: pictures fit the window, videos play. The arrow keys step through the list. */
 function MediaViewer(props: {
   items: readonly MediaItem[];
   id: string;
@@ -726,7 +715,6 @@ function ViewerStep(props: { label: string; icon: string; class: string; onClick
   );
 }
 
-/** Loads the stored file itself, showing the poster until it is ready. */
 function ViewerFile(props: { item: MediaItem }) {
   const [url, setUrl] = createSignal<string | null>(null);
   let made: string | null = null;
@@ -807,7 +795,6 @@ function CheckMark(props: { checked: boolean; class?: string; onClick(event: Mou
 
 type ItemActions = { onOpen(): void; onUse(): void; onDownload(): void; onRename(): void; onDelete(): void };
 
-/** Double-click opens a file, unless it is part of picking a selection. */
 const opensOnDoubleClick = (event: MouseEvent, selecting: boolean) => !selecting && !event.shiftKey && !event.metaKey && !event.ctrlKey;
 
 function ItemMenu(props: ItemActions & { class?: string }) {

@@ -54,9 +54,7 @@ export type ColorOpacityPickerProps = {
   onBeginChange?(label: string): void;
   onEndChange?(): void;
   withoutOpacity?: boolean;
-  /** The entity the sliders keyframe, when what they edit is a prop of one. */
   keyframeTarget?: Entity;
-  /** A swatch that sets the color back to this value. */
   defaultColor?: number;
 };
 

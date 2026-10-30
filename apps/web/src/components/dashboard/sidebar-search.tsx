@@ -60,10 +60,7 @@ const PAGES: SearchPage[] = [
   { view: "help", name: msg("Help"), section: msg("Settings"), icon: "help" },
 ];
 
-/**
- * What a page is found by: its name and section as shown, and in English too,
- * so the English words still find it in another language.
- */
+/** In English too, so the English words still find a page in another language. */
 function searchValue(page: SearchPage) {
   const english = `${page.name} ${page.section}`;
   const shown = `${t(page.name)} ${t(page.section)}`;
@@ -75,7 +72,6 @@ type DashboardSidebarSearchProps = {
   placeholder?: string;
 };
 
-/** The search field in the top bar. Opens a page picker in place, the way Plane's top-bar search does. */
 export function DashboardSidebarSearch(props: DashboardSidebarSearchProps) {
   const [open, setOpen] = createSignal(false);
 
@@ -123,7 +119,6 @@ export function DashboardSidebarSearch(props: DashboardSidebarSearchProps) {
 
   return (
     <>
-      {/* Plane's top-bar search (top-nav-power-k.tsx): a 364px field, 28px tall. */}
       <button
         type="button"
         aria-label={t("Search")}
@@ -150,7 +145,6 @@ export function DashboardSidebarSearch(props: DashboardSidebarSearchProps) {
             class="fixed inset-0 z-[200] cursor-default"
             onClick={() => setOpen(false)}
           />
-          {/* Plane's top-bar search: the field opens into a panel in place, under the top bar's search. */}
           <div
             role="dialog"
             aria-modal="true"

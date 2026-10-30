@@ -2,10 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The active workspace: its name and how it looks, who is in it, and
-// deleting it. A workspace someone shared shows who shared it, and leaving it
-// in place of deleting.
-
 import { Show, createEffect, createSignal, onMount } from "solid-js";
 import { toast } from "somoto";
 
@@ -78,7 +74,6 @@ export function DashboardWorkspaceView(props: { onOpen(view: "billing"): void })
   return (
     <div class="flex min-h-0 flex-1 flex-col">
       <DashboardScrollView>
-        {/* Someone else's workspace says whose it is and your part in it. Your own has its name and picture under Customize. */}
         <Show when={shared()}>
           {(current) => (
             <DashboardSurfaceCard>
@@ -95,7 +90,6 @@ export function DashboardWorkspaceView(props: { onOpen(view: "billing"): void })
           )}
         </Show>
 
-        {/* How it looks is the owner's to change. */}
         <Show when={!shared()}>
           <WorkspaceAppearance />
         </Show>
