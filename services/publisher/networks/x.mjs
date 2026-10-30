@@ -1,12 +1,6 @@
-// Posts to the member's own X account through the X API v2: the words, with
-// the post's video or up to 4 of its pictures, uploaded in 5 MB chunks. X
-// processes a video after the upload, so a post with one is `processing`
-// until X has it ready; then publish makes the post, after the publisher has
-// claimed the row, so it's made once only. X bills plan.video for every
-// post, and far more for one with a link, so only paid plans post to X, up to
-// their plan's posts and links a month and 50 a day (xAllowed in plans.mjs).
-// A thread's follow-ups are posts too, each a reply to the one before, and
-// count the same.
+// A post with a video is `processing` until X has it ready; publish makes the post only after the
+// publisher has claimed the row, so it's made once. X bills plan.video per post, far more with a link,
+// so only paid plans post to X, within their plan's monthly posts and links and 50 a day (plans.mjs).
 
 import { PublishError } from "../errors.mjs";
 import { captionOf } from "./text.mjs";
@@ -16,7 +10,6 @@ const POSTS_URL = "https://api.x.com/2/tweets";
 const TEXT_LIMIT = 25_000;
 const MAX_VIDEO_BYTES = 1024 * 1024 * 1024;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
-/** Pictures one post can carry. */
 const MAX_PICTURES = 4;
 const CHUNK = 5 * 1024 * 1024;
 const PROCESSING_MS = 60 * 60_000;
@@ -57,7 +50,6 @@ async function call(url, accessToken, init = {}) {
   return payload;
 }
 
-/** Where X is with an upload: ready, still working on it, or turned down. */
 function processing(info) {
   if (!info || info.state === "succeeded") return "ready";
   if (info.state === "failed") {
@@ -67,7 +59,7 @@ function processing(info) {
   return "processing";
 }
 
-/** Makes the post, as a reply when `replyTo` names one. When X's answer is lost, it may have made it anyway, so that's never tried again on its own. */
+/** When X's answer is lost it may have made the post anyway, so that's never tried again on its own. */
 async function makePost(session, text, mediaIds = [], replyTo = null) {
   const payload = await call(POSTS_URL, session.accessToken, {
     method: "POST",
@@ -87,7 +79,6 @@ async function makePost(session, text, mediaIds = [], replyTo = null) {
   return { state: "sent", publishId: id, url: `https://x.com/i/status/${id}` };
 }
 
-/** Uploads one file in 5 MB chunks. Says whether X has it ready, or is still working on it. */
 async function upload(session, media, file) {
   const max = file.kind === "video" ? MAX_VIDEO_BYTES : MAX_IMAGE_BYTES;
   if (file.size > max) throw new PublishError(file.kind === "video" ? "That video is too large for X. It can be 1 GB." : "A picture is too large for X. Each can be 5 MB.");
@@ -113,36 +104,25 @@ async function upload(session, media, file) {
 const NOT_DOMAINS = new Set(["js", "jsx", "ts", "tsx", "mjs", "cjs", "py", "rb", "rs", "go", "md", "txt", "json", "yml", "yaml", "toml", "css", "html", "htm", "php", "sh", "exe", "zip", "png", "jpg", "jpeg", "gif", "webp", "svg", "mp3", "mp4", "mov", "wav", "pdf", "doc", "docx", "csv"]);
 const ADDRESS = /(?:^|[^\p{L}\p{N}_@#$.-])((?:[\p{L}\p{N}](?:[\p{L}\p{N}-]*[\p{L}\p{N}])?\.)+(\p{L}{2,24}|xn--[a-z0-9-]+))(?=$|[/?#:]|[^\p{L}\p{N}_-])/gu;
 
-/**
- * Whether X reads a link in the words, which it bills at $0.20 rather than
- * $0.015. It errs towards yes: an address with https:// or www., or a name
- * with a dot and letters after it, as plan.video, counts, unless the letters
- * end a file's name.
- */
+/** X bills a post with a link far more, so this errs towards yes; names whose letters end a file's name don't count. */
 export function hasLink(text) {
   if (/(?:https?:\/\/|\bwww\.)\S/iu.test(text)) return true;
   for (const [, , ending] of text.matchAll(ADDRESS)) if (!NOT_DOMAINS.has(ending.toLowerCase())) return true;
   return false;
 }
 
-/** The words a post goes out with on X. */
 const textOf = (post) => [...captionOf(post, "x").trim()].slice(0, TEXT_LIMIT).join("");
 
-/** The uploads a send left on the row, which X may still be working on. */
 const uploads = (delivery) => String(delivery.publish_id ?? "").split(",").filter((id) => /^\d{1,30}$/.test(id));
 
 /** A follow-up's uploads X is still working on, as its row keeps them: `media:<when started>:<id>,<id>`. */
 const PENDING = /^media:(\d{1,15}):(\d{1,30}(?:,\d{1,30}){0,3})$/;
 
-/**
- * X for paid plans, up to what their plan allows. `limits` is plans.mjs's:
- * it says whether the owner has a post left, and counts the ones X makes.
- */
 export function createX({ limits, log = console }) {
   /** The last post started for each owner, which the next waits for, so two at once can't both take the last one left. */
   const turns = new Map();
 
-  /** Makes the post once the owner's plan has room for it, then counts it. One X may have made without saying so counts too. */
+  /** Waits for the owner's plan to have room, then counts the post; one X may have made without saying so counts too. */
   function makeWithin(userId, session, text, mediaIds, replyTo = null) {
     const link = hasLink(text);
     const run = async () => {
@@ -167,10 +147,9 @@ export function createX({ limits, log = console }) {
   return {
     needsFile: false,
 
-    /** About the memory an upload holds (pool.mjs): a piece of a file at a time, read whole, copied into the form, and sent. */
+    /** Memory an upload holds (pool.mjs): a chunk at a time, read whole, copied into the form, and sent. */
     holds: (files) => (files.length ? 3 * CHUNK : 0),
 
-    /** Posts the words with the post's video, or up to 4 of its pictures. */
     async send({ post, session, files, media, delivery }) {
       const text = textOf(post);
       // Asked before anything is uploaded too, so a post that can't go doesn't send its video for nothing.
@@ -188,7 +167,7 @@ export function createX({ limits, log = console }) {
       return { state: "processing", publishId: ids.join(",") };
     },
 
-    /** Whether X has the files ready. Only asks: the post is made in publish. */
+    /** Only asks: the post is made in publish. */
     async check({ session, delivery }) {
       for (const id of uploads(delivery)) {
         const payload = await call(`${MEDIA_URL}?command=STATUS&media_id=${id}`, session.accessToken);
@@ -199,20 +178,13 @@ export function createX({ limits, log = console }) {
       return { state: "ready" };
     },
 
-    /** Makes the post with the files, once check finds them ready. */
     async publish({ post, session, delivery }) {
       return makeWithin(delivery.user_id, session, textOf(post), uploads(delivery));
     },
 
-    /** A follow-up's pictures or video go with it. */
     replyMedia: true,
 
-    /**
-     * Posts a follow-up of the post's thread, as a reply to the one before,
-     * with its video or up to 4 pictures. A video X is still processing is
-     * `processing`, and `pending` brings it back on the next look, so the
-     * reply is made once X has it ready.
-     */
+    /** A video X is still processing is `processing`, and `pending` brings it back so the reply is made once ready. */
     async reply({ session, text, parent, delivery, files = [], media, pending }) {
       if (!/^\d{1,30}$/.test(parent)) throw new PublishError("X didn't say where the post before this follow-up is.");
       const words = [...text.trim()].slice(0, TEXT_LIMIT).join("");

@@ -1,12 +1,6 @@
-// Checks that a TOKEN_KEY opens every kept login: each row of social_tokens and
-// bluesky_sessions. Run it on the server to prove a backup of the key is good,
-// with the backup on stdin so it never shows in the process list:
-//
-//   ssh root@server 'cd /opt/plan-video-publisher/publisher &&
-//     sudo -u planvideo-publisher /opt/node-v22.22.1/bin/node scripts/check-keys.mjs --stdin' < backup
-//
-// Without --stdin it checks publisher.env's own key. Exits 0 when every
-// row opens, 1 when any doesn't. Prints counts and a fingerprint, never a key.
+// Checks that a TOKEN_KEY opens every row of social_tokens and bluesky_sessions. Give a backup on stdin
+// (--stdin) so it never shows in the process list; without it, publisher.env's own key is checked.
+// Exits 1 when any row doesn't open. Prints counts and a fingerprint, never a key.
 
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -17,10 +11,8 @@ import { blueskyBinding, sealer, tokenBinding } from "../vault.mjs";
 
 const PAGE = 1000;
 
-/** A short fingerprint of a key, to compare two copies without showing either. */
 export const fingerprint = (base64Key) => createHash("sha256").update(Buffer.from(base64Key, "base64")).digest("hex").slice(0, 16);
 
-/** How many rows of each table the key opens, and which it doesn't. */
 export async function checkKeys({ db, key }) {
   const box = sealer(key);
   const tables = [
@@ -64,7 +56,7 @@ function loadEnv(path) {
   return env;
 }
 
-/** The key on stdin, bare or as a TOKEN_KEY= line among others. */
+/** Bare, or as a TOKEN_KEY= line among others. */
 function keyFromStdin() {
   const text = readFileSync(0, "utf8");
   const line = text.split("\n").map((item) => item.trim()).find((item) => item.startsWith("TOKEN_KEY="));

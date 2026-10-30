@@ -1,7 +1,5 @@
-// Plugs, set on the Plugs page: once a sent post has enough likes, repost it,
-// or reply under it with a plug. Checked 6, 12 and 18 hours after the post
-// went out. Bluesky only, like the page. Before acting, the network is asked
-// whether the account already reposted or replied, so nothing is done twice.
+// Bluesky only. Before acting, the network is asked whether the account already reposted or replied,
+// so nothing is done twice.
 
 import { PublishError } from "./errors.mjs";
 import { postNow, reply, repost } from "./networks/bluesky.mjs";
@@ -11,7 +9,7 @@ const KINDS = ["auto-repost", "auto-plug"];
 export const plugs = {
   platforms: ["bluesky"],
 
-  /** The plugs on the account that are on, and were set before the post went out. */
+  /** Only plugs set before the post went out. */
   forAccount(settings, connectionId, platform, sentAt) {
     if (platform !== "bluesky" || !Array.isArray(settings)) return [];
     return settings.filter(
@@ -25,7 +23,7 @@ export const plugs = {
     );
   },
 
-  /** Runs the plugs whose likes the post has reached. Returns the kinds done, including ones the post can no longer take. */
+  /** Returns the kinds done, including ones the post can no longer take. */
   async run(row, wanted, session) {
     if (!row.publish_id) return KINDS;
     const target = await postNow(row.publish_id);

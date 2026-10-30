@@ -2,11 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// `planvideo mcp`: the entry point for agents that only run stdio servers (Claude
-// Desktop). A message pipe between stdio and the app's HTTP endpoint: each
-// side is an SDK transport, so session handling and SSE framing are theirs,
-// and nothing here looks inside a message. Stdout belongs to the protocol;
-// anything for a human goes to stderr.
+// For stdio-only agents. Stdout belongs to the protocol; anything for a human goes to stderr.
 
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
@@ -39,9 +35,7 @@ export async function runProxy(): Promise<void> {
   stdio.onmessage = (message: JSONRPCMessage) => void upstream.send(message).catch(fail);
   upstream.onerror = (error) => console.error(`[planvideo mcp] ${error.message}`);
   stdio.onerror = (error) => console.error(`[planvideo mcp] ${error.message}`);
-  // The app went away (quit, or the session was closed): the agent sees EOF.
   upstream.onclose = () => process.exit(0);
-  // The agent went away: tell the app, which ends the session.
   stdio.onclose = () => void upstream.close().finally(() => process.exit(0));
 
   await upstream.start();

@@ -1,12 +1,5 @@
-// Emails about what went wrong while nobody had plan.video open: a scheduled
-// post that didn't go out, and a LinkedIn login that runs out. The dashboard
-// shows the same as notices, but only once it's opened, and a post that fails
-// at 3 a.m. fails with nobody watching.
-//
-// Each is noted in publisher_notices as it happens and emailed a few minutes
-// later, with anything else of that person's waiting, in one email. One fixed
-// meanwhile, like a post sent again from an open tab or an account connected
-// again, isn't emailed. Emails go out through Resend, from hello@plan.video.
+// Notices wait a few minutes in publisher_notices and go out in one email per person; one fixed meanwhile
+// (a post sent again, an account reconnected) isn't emailed. Sent through Resend.
 
 import { createHash } from "node:crypto";
 
@@ -27,7 +20,6 @@ const networkName = (platform) => NAMES[platform] ?? platform;
 
 const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 
-/** Sends one email through Resend's API. */
 export function createMailer({ apiKey, from, fetch: send = fetch, log = console }) {
   return {
     /** "sent"; "retry" when Resend may take it later; "refused" when it never will. */
@@ -60,7 +52,6 @@ const clip = (text, max) => {
   return chars.length > max ? `${chars.slice(0, max - 1).join("").trimEnd()}…` : text;
 };
 
-/** What a post is called in an email: its title, else the start of its caption. */
 export function postName(post) {
   const title = typeof post?.title === "string" ? post.title.trim() : "";
   const caption = typeof post?.description === "string" ? (post.description.trim().split("\n")[0] ?? "") : "";
@@ -78,10 +69,6 @@ function format(at, options, zone) {
 const when = (iso, zone) => format(new Date(iso), { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }, zone);
 const dayOf = (time) => format(new Date(time), { day: "numeric", month: "long" }, "UTC");
 
-/**
- * One email for a person's notices: the posts that didn't go out, then the
- * accounts to connect again. `accounts` names each connection.
- */
 export function compose(notices, { accounts = new Map(), publicUrl = "https://plan.video" } = {}) {
   // A send that failed again since is listed once, as it failed last.
   const byDelivery = new Map();
@@ -213,10 +200,6 @@ export function compose(notices, { accounts = new Map(), publicUrl = "https://pl
   return { subject, html, text };
 }
 
-/**
- * The notices. `vault` reads LinkedIn logins for when they run out; `mailer`
- * (createMailer) sends the emails.
- */
 export function createNotices({ db, vault, mailer, publicUrl = "https://plan.video", now = () => Date.now(), log = console }) {
   const iso = (time) => new Date(time).toISOString();
   let quietUntil = 0;
@@ -238,11 +221,9 @@ export function createNotices({ db, vault, mailer, publicUrl = "https://plan.vid
     }
   }
 
-  /** The things noticed that are still so: the send still failed, the login still the one that runs out. */
   async function stillSo(userId, notices) {
     const sendsOf = (reply) => notices.filter((item) => item.kind === "failed" && !!item.detail.reply === reply).map((item) => item.detail.delivery);
     const deliveries = sendsOf(false);
-    // A thread's follow-up is kept in post_replies (replies.mjs).
     const replies = sendsOf(true);
     const connections = [...new Set(notices.filter((item) => item.kind !== "failed").map((item) => item.detail.connection))];
     const [sends, followUps, logins] = await Promise.all([
@@ -270,11 +251,9 @@ export function createNotices({ db, vault, mailer, publicUrl = "https://plan.vid
   async function sendTo(userId, notices) {
     const mark = (list, values) => (list.length ? db.update("publisher_notices", { id: list.map((item) => item.id) }, values) : null);
     const still = await stillSo(userId, notices);
-    // Fixed meanwhile, so let go without an email.
     await mark(notices.filter((item) => !still.includes(item)), { sent_at: iso(now()) });
     if (!still.length) return false;
     const to = await db.rpc("publisher_recipient", { person: userId });
-    // Nobody to email, or they turned these emails off in the account settings.
     if (typeof to?.email !== "string" || !to.email || to.alerts === false) {
       await mark(still, { sent_at: iso(now()) });
       return false;
@@ -294,10 +273,7 @@ export function createNotices({ db, vault, mailer, publicUrl = "https://plan.vid
   let sending = false;
 
   return {
-    /**
-     * A send that failed for good. Not when the person was watching: a Post
-     * now that fails on its first try fails in front of whoever pressed it.
-     */
+    /** Not when the person was watching: a Post now that fails on its first try fails in front of them. */
     async failed(row, { post, zone, message, reply = false } = {}) {
       if (row.requested && row.attempts <= 1) return;
       await note(row.user_id, `failed:${row.id}:${iso(now())}`, "failed", {
@@ -314,9 +290,8 @@ export function createNotices({ db, vault, mailer, publicUrl = "https://plan.vid
     },
 
     /**
-     * Notes the LinkedIn logins that ran out or run out within a week. Only
-     * partner apps get LinkedIn refresh tokens; without one, the member has
-     * to connect again every 60 days. Other networks' logins renew themselves.
+     * Only partner apps get LinkedIn refresh tokens; without one, the member has to connect again every
+     * 60 days. Other networks' logins renew themselves.
      */
     async watchLogins() {
       const at = now();
@@ -347,7 +322,6 @@ export function createNotices({ db, vault, mailer, publicUrl = "https://plan.vid
       }
     },
 
-    /** Emails each person's notices that have waited long enough. Returns how many emails went. */
     async send() {
       if (sending) return 0;
       sending = true;

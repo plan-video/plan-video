@@ -1,12 +1,7 @@
-// Makes plan.video's products, prices, billing portal and webhook in a Stripe
-// account, or brings them up to date. Safe to run again: everything is found
-// by lookup key, metadata or URL first. Run it once in test mode and once live.
-//
-//   STRIPE_SECRET_KEY=sk_... PUBLIC_URL=https://plan.video node scripts/setup-stripe.mjs
-//
-// It prints STRIPE_WEBHOOK_SECRET the first time it makes the webhook; put
-// that in /etc/plan-video/billing.env. Pass --no-webhook for local testing
-// with `stripe listen --forward-to localhost:5173/api/billing/webhook`.
+// Safe to run again: everything is found by lookup key, metadata or URL first. Run once in test
+// mode and once live. It prints STRIPE_WEBHOOK_SECRET the first time; put that in
+// /etc/plan-video/billing.env. --no-webhook for local testing with
+// `stripe listen --forward-to localhost:5173/api/billing/webhook`.
 
 import { BILLINGS, LEVELS, accountsKey, form, lookupKey } from "../handler.mjs";
 
@@ -18,13 +13,12 @@ if (!key) {
   process.exit(1);
 }
 
-/** Dollars a month, as lib/plans.ts sells them; yearly is billed as 12 of its month. */
+/** Must match lib/plans.ts; yearly is billed as 12 of its month. */
 const PRICES = {
   creator: { name: "Creator", monthly: 19, yearly: 15 },
   pro: { name: "Pro", monthly: 39, yearly: 31 },
   agency: { name: "Agency", monthly: 79, yearly: 63 },
 };
-/** Each social account past Agency's 100: a dollar a month, billed monthly or yearly alike. */
 const ACCOUNT_PRICE = 1;
 
 const EVENTS = [
@@ -113,7 +107,6 @@ for (const plan of Object.keys(LEVELS)) {
   portalProducts.push({ product: product.id, prices: ids });
 }
 
-// Extra social accounts: a product of their own, added to an Agency subscription as a second line.
 {
   let product = products.find((item) => item.metadata?.app === "planvideo" && item.metadata?.addon === "accounts");
   if (!product) {

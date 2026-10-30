@@ -1,17 +1,12 @@
-// TikTok Login Kit and the calls that post. The client secret stays on the
-// server. The browser only sends a sign-in token and the PKCE verifier; the
-// publisher sends videos to TikTok itself, so no upload passes through here.
+// The client secret stays on the server; the publisher sends videos to TikTok itself, so no
+// upload passes through here.
 
 const TIKTOK = "https://open.tiktokapis.com";
 const SCOPE = "user.info.basic,video.publish,video.upload";
 const MAX_VIDEO_BYTES = 200 * 1024 * 1024;
 const JSON_MAX = 1024 * 1024;
 
-/**
- * The redirect URIs saved on the TikTok app, exactly: the site's callback at
- * its own address and its www one (`site` is PUBLIC_URL, plan.video's by
- * default), and the dev server's.
- */
+/** The redirect URIs must match the ones saved on the app exactly. */
 export function redirectsFor(site = "https://plan.video") {
   const own = new URL(site);
   const www = new URL(site);
@@ -19,7 +14,6 @@ export function redirectsFor(site = "https://plan.video") {
   return new Set([`${own.origin}/tiktok/callback`, `${www.origin}/tiktok/callback`, "http://localhost:5173/tiktok/callback"]);
 }
 
-/** TikTok's Login Kit page for an account, coming back to `redirectUri` (one of redirectsFor()) with `state`. */
 export function authorizeUrl(env, { redirectUri, state, codeChallenge }) {
   const url = new URL("https://www.tiktok.com/v2/auth/authorize/");
   url.searchParams.set("client_key", env.clientKey);
@@ -53,12 +47,7 @@ function limit(name, max, seconds) {
   if (entry.count > max) throw new Refused(429, "Too many TikTok requests. Wait a few minutes and try again.");
 }
 
-/**
- * Whether a token was granted to an outside app (Claude's connector, say)
- * instead of signed in here. Those carry the OAuth client's `client_id` and
- * are only good at /mcp. One that can't be read isn't a token Supabase made,
- * and Supabase turns it away.
- */
+// OAuth-client tokens (Claude's connector, say) carry `client_id` and only work at /mcp.
 function grantedToApp(token) {
   try {
     return JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString("utf8"))?.client_id != null;
@@ -126,7 +115,7 @@ export async function handleTikTok(req, res, path, env) {
     return;
   }
 
-  // Swapping the code, and refreshing, happen in the publisher (tiktok-logins.mjs), which keeps the
+  // Swapping the code and refreshing happen in the publisher (tiktok-logins.mjs), which keeps the
   // login and gives the browser a ticket: no browser is handed TikTok's tokens.
   if (path === "/api/tiktok/exchange" || path === "/api/tiktok/refresh") {
     json(res, 410, { error: "Reload plan.video and connect TikTok again." });
@@ -215,7 +204,7 @@ const PRIVACY = {
   private: "SELF_ONLY",
 };
 
-/** What TikTok is told about a post that goes straight to the profile. Null without a choice of who can watch. */
+/** Null without a choice of who can watch. */
 export function postInfoFor(options) {
   const privacy = PRIVACY[options.privacy];
   if (!privacy) return null;
@@ -262,10 +251,8 @@ export async function tokenRequest(env, fields) {
   };
 }
 
-/**
- * One call to TikTok's API. An answer that never came back is `unreachable`: TikTok
- * may still have acted on it, so whoever asked decides whether trying again is safe.
- */
+// An answer that never came back is `unreachable`: TikTok may still have acted on it, so the
+// caller decides whether trying again is safe.
 export async function tiktok(accessToken, method, path, body) {
   const response = await fetch(`${TIKTOK}${path}`, {
     method,
@@ -280,7 +267,7 @@ export async function tiktok(accessToken, method, path, body) {
   return { data: payload?.data ?? {} };
 }
 
-/** A video's cover on TikTok's image hosts, or nothing. The link expires after a few hours, so it is never saved. */
+/** The link expires after a few hours, so it is never saved. */
 function coverLink(value) {
   try {
     const url = new URL(value);
@@ -290,14 +277,14 @@ function coverLink(value) {
   }
 }
 
-/** How many of the account's newest videos are read for analytics, 20 to a page. */
+/** 20 to a page. */
 const VIDEO_PAGES = 10;
 
 function count(value) {
   return Number.isFinite(value) && value > 0 ? Math.round(value) : 0;
 }
 
-/** The account's newest videos with their views, likes, comments and shares so far. TikTok has no numbers per day. */
+/** TikTok has no numbers per day. */
 export async function videosFor(accessToken) {
   const fields = "id,title,video_description,create_time,cover_image_url,view_count,like_count,comment_count,share_count";
   const videos = [];
@@ -324,7 +311,6 @@ export async function videosFor(accessToken) {
   return { videos };
 }
 
-/** The account's name and a small copy of its picture, which is saved on the connection. */
 export async function profileFor(accessToken) {
   const result = await tiktok(accessToken, "GET", "/v2/user/info/?fields=open_id,display_name,avatar_url_100");
   if ("error" in result) return { error: result.error };
@@ -336,14 +322,13 @@ export async function profileFor(accessToken) {
   };
 }
 
-/** What TikTok lets the account post now (creator info), with a copy of its picture. */
 export async function creatorFor(accessToken) {
   const result = await tiktok(accessToken, "POST", "/v2/post/publish/creator_info/query/", {});
   if (result.data?.creator_avatar_url) result.data.creator_avatar_url = await inlineAvatar(result.data.creator_avatar_url);
   return result;
 }
 
-/** TikTok's avatar links often won't load on another site, so the picture itself goes back. Empty when it isn't a format browsers show. */
+/** TikTok's avatar links often won't load on another site, so the picture itself goes back. */
 async function inlineAvatar(url, maxBytes = 512 * 1024) {
   try {
     const host = new URL(url).hostname;

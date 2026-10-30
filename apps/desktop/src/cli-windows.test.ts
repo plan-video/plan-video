@@ -2,10 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The parts of the Windows CLI install that are decisions rather than system
-// calls: where the shim lives, what it says, and how the user's PATH is
-// edited without disturbing the entries around ours.
-
 import { describe, expect, it } from "vitest";
 
 import { pathHas, pathWith, pathWithout, shimContent, shimDir, shimPath, stagedScript } from "./cli-windows";

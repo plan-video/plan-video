@@ -1,5 +1,5 @@
-// Safety probe for the signer's rules, run on the server against the real
-// bucket under a throwaway user id. Everything it writes is deleted at the end.
+// Runs on the server against the real bucket under a throwaway user id; everything it writes
+// is deleted at the end.
 import { ROUTES, Refused, deleteKeys, listKeys } from "./server.mjs";
 
 const upload = ROUTES["POST /api/storage/upload-url"];
@@ -102,7 +102,6 @@ try {
   await remove(alice, { purpose: "projects", id: "p1" });
   record("deleting a project removes all its files", (await listKeys(`projects/${alice.id}/`)).length === 0);
 
-  // A post's file moving to the post history once the post has gone out.
   const clip = new Uint8Array(2000).fill(3);
   signed = await upload(dave, { purpose: "posts", id: "clip", contentType: "video/mp4", size: clip.length });
   await put(signed, clip, "video/mp4");
@@ -164,8 +163,7 @@ try {
   await remove(dave, { purpose: "posts", ids: ["clip", "late"] });
   record("deleting a post removes its sent/ file", (await listKeys(`sent/${dave.id}/`)).length === 0);
 
-  // The sent/ ceiling: 50 GB on Free. Signing counts the space before the file
-  // arrives. A fresh account: dave's links above are still held.
+  // The sent/ ceiling: 50 GB on Free. A fresh account: dave's links above are still held.
   for (let index = 0; index < 100; index++) {
     await upload(frank, { purpose: "posts", id: `hist-${index}`, contentType: "video/mp4", size: 500 * 1000 * 1000, sent: true });
   }

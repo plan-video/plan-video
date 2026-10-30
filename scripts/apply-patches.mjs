@@ -2,10 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Applies patches/*.patch to node_modules.
-//
-// The patch is applied with git instead of the patch-package CLI, so an
-// install that omits workspace-root dev dependencies can still run it.
+// git apply rather than patch-package, so an install without the root dev dependencies can still run it.
 import { spawnSync } from "node:child_process";
 import { readdirSync } from "node:fs";
 import { dirname, join } from "node:path";

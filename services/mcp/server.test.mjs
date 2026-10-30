@@ -2,9 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Runs server.mjs on a spare port, against a stand-in for Supabase, and talks
-// to it the way tabs, agents and strangers on the internet do.
-
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
@@ -20,7 +17,7 @@ const ORIGIN = "http://localhost:5173";
 const ALICE = "0b6a3d4e-6f2a-4c1e-9d4b-3c2f1e0a9b8c";
 const MiB = 1024 * 1024;
 
-/** A token shaped like Supabase's: only its claims matter to the stand-in. */
+/** Only its claims matter to the stand-in. */
 function token(claims) {
   const part = (value) => Buffer.from(JSON.stringify(value)).toString("base64url");
   return `${part({ alg: "HS256" })}.${part({ exp: Math.floor(Date.now() / 1000) + 3600, ...claims })}.sig`;
@@ -38,7 +35,6 @@ let child;
 let dir;
 let port;
 
-/** A port nothing is listening on. */
 function sparePort() {
   return new Promise((resolve) => {
     const probe = createServer().listen(0, "127.0.0.1", () => {
@@ -79,14 +75,12 @@ after(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-/** The server's resident memory, in MiB. */
 function rss() {
   return Number(execFileSync("ps", ["-o", "rss=", "-p", String(child.pid)], { encoding: "utf8" }).trim()) / 1024;
 }
 
 const wait = (ms) => new Promise((done) => setTimeout(done, ms));
 
-/** Opens a tab socket from `ip`; resolves once open, or to the HTTP status it was refused with. */
 function openTab(ip) {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(`ws://127.0.0.1:${port}/api/mcp/tab`, { origin: ORIGIN, headers: { "X-Forwarded-For": ip } });
@@ -99,22 +93,15 @@ function openTab(ip) {
   });
 }
 
-/** Resolves with the close code once `ws` closes. */
 function closed(ws) {
   return new Promise((resolve) => (ws.readyState === WebSocket.CLOSED ? resolve(ws.closeCode) : ws.on("close", (code) => resolve(code))));
 }
 
-/** The next message `ws` is sent, parsed. */
 function nextMessage(ws) {
   return new Promise((resolve) => ws.once("message", (data) => resolve(JSON.parse(String(data)))));
 }
 
-/**
- * The attack: a raw socket that upgrades, announces a text frame just under the
- * 24 MiB limit, and sends all of it but the last byte, so the frame never ends
- * and never says hello. Resolves once the bytes are written or the server cuts
- * it off; the socket is left open.
- */
+/** A raw socket announcing a text frame just under the 24 MiB limit that never ends or says hello. */
 function bigFrameBeforeHello(ip) {
   return new Promise((resolve) => {
     const socket = connect(port, "127.0.0.1");
@@ -175,11 +162,9 @@ test("one address can hold only 20 sockets that haven't said hello", async () =>
   for (let i = 0; i < 20; i++) open.push(await openTab(ip));
   assert.ok(open.every((ws) => ws instanceof WebSocket));
   assert.equal(await openTab(ip), 429);
-  // Another address is still let in.
   const other = await openTab("203.0.113.8");
   assert.ok(other instanceof WebSocket);
   other.close();
-  // A socket that goes frees its place.
   open[0].close();
   await closed(open[0]);
   await wait(50);
@@ -239,7 +224,6 @@ test("a signed-in tab answers an agent's call with a big result, end to end", as
   assert.equal(result.content[1].data.length, image.length);
   assert.equal(result.content[1].data, image);
 
-  // Still connected after the big message.
   assert.equal(tab.readyState, WebSocket.OPEN);
   tab.close();
   await closed(tab);

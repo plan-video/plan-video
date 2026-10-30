@@ -65,7 +65,6 @@ test("a post's follow-ups go out under it, each its delay after the one before",
   assert.equal(replied[0].root, "x-post");
   assert.equal(replied[0].parent, "x-post");
 
-  // Not before its five minutes.
   advance(4 * MINUTE);
   await worker.tick();
   assert.equal(replied.length, 1);
@@ -158,7 +157,6 @@ test("a follow-up that may work later is tried again, up to four times", async (
 test("a follow-up cut off while it was going isn't sent again", async () => {
   const { db, worker, replied, advance } = setup({ thread: [{ id: "a", text: "First", delay: 5 }] });
   await worker.tick();
-  // A restart caught it halfway.
   Object.assign(db.tables.post_replies[0], { state: "sending", updated_at: new Date(T0).toISOString() });
   advance(31 * MINUTE);
   await worker.tick();
@@ -251,7 +249,6 @@ test("a follow-up the network is still processing is looked at again, and posted
   advance(MINUTE);
   await worker.tick();
   assert.equal(replied.length, 3);
-  // Uploaded once: the later looks bring the upload back instead of the files.
   assert.deepEqual(replied.map((call) => [call.files.length, call.pending ?? null]), [
     [1, null],
     [0, "media:1:9"],

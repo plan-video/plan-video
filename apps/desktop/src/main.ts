@@ -55,19 +55,15 @@ const DEV_URL = "http://localhost:5173";
 const AUTH_PROTOCOL = "planvideo";
 const MACOS_CORNER_RADIUS = 18;
 const MACOS_BACKDROP = { blur: 80, red: 0.07, green: 0.07, blue: 0.07, alpha: 0.9 };
-// Window Controls Overlay on Windows: as tall as the renderer's `h-10` drag
-// strip, coloured like the sidebar it sits on (`--sidebar`), with symbols in
-// `--muted-foreground` like the other title bar icons. The dark value is that
-// token flattened onto the sidebar, since the overlay takes opaque colours.
+// Windows Controls Overlay matches the renderer's `h-10` drag strip and `--sidebar`; the dark value is
+// that token flattened onto the sidebar, since the overlay takes opaque colours only.
 const WINDOWS_OVERLAY_HEIGHT = 40;
 const WINDOWS_OVERLAY_COLORS = {
   dark: { color: "#121212", symbolColor: "#a1a1a1" },
   light: { color: "#ffffff", symbolColor: "#737373" },
 };
 
-// A Squirrel.Windows install/update/uninstall launch: housekeeping only, the
-// app quits on its own. Decided first so nothing below starts a service or
-// checks for updates on a launch that is about to end.
+// A Squirrel.Windows install/update/uninstall launch quits on its own, so decide it before starting any service.
 const squirrelLaunch = handleSquirrelEvent();
 
 app.setName("plan.video");
@@ -113,27 +109,20 @@ const openWrites = new Map<string, { handle: FileHandle; path: string; temp: str
 
 let mainWindow: BrowserWindow | null = null;
 
-// Deep links that arrived before the renderer could take them, keyed by the
-// channel they belong to so auth and checkout never drain each other's link.
+// Keyed by channel so auth and checkout never drain each other's link.
 const pendingDeepLinks = new Map<DeepLinkChannel, string>();
 
-// Renderer console mirror, served to the CLI via LOGS_GET. Lives in main so
-// it survives reloads and captures everything the devtools console shows
-// (page logs, worker logs, uncaught errors) without touching the web bundle.
+// Lives in main so it survives reloads and captures worker logs and uncaught errors too.
 const LOG_BUFFER_MAX = 2000;
 const logBuffer: LogEntry[] = [];
 
-// The docs the MCP instructions point agents at: staged into the bundle by
-// scripts/stage-docs.mjs (Contents/Resources/docs) when packaged; the repo's
-// own `docs/` in development, so edits show up without a staging step. Null
-// when neither exists.
+// Packaged: staged by scripts/stage-docs.mjs into Contents/Resources/docs; dev: the repo's `docs/`.
 function docsDir(): string | null {
   const dir = app.isPackaged ? join(process.resourcesPath, "docs") : join(app.getAppPath(), "..", "..", "docs");
   return existsSync(dir) ? dir : null;
 }
 
-// The MCP server agents and the planvideo CLI talk to. Started once the app is
-// ready; the first connection switches the app into headless mode.
+// The first connection switches the app into headless mode.
 const dapi = new DapiServer({
   version: app.getVersion(),
   logs: () => logBuffer,
@@ -166,7 +155,6 @@ function isHiddenLaunch(argv: string[]): boolean {
   return argv.includes("--hidden");
 }
 
-// planvideo://auth/callback → auth, planvideo://checkout/callback → checkout.
 function deepLinkChannel(url: string): DeepLinkChannel | null {
   let host: string;
   try {
@@ -184,10 +172,8 @@ function deliverDeepLink(url: string) {
   const channel = deepLinkChannel(url);
   if (!channel) return;
 
-  // A link that arrives before the page can receive it is parked rather than
-  // pushed: the renderer's subscription only exists once the component holding
-  // it mounts, which is well after did-finish-load. Parked links are handed
-  // over by the take* handlers below, which every consumer calls on mount.
+  // Parked until the page can take it: the renderer subscribes only once its component mounts, well
+  // after did-finish-load. Consumers drain parked links via the take* handlers on mount.
   if (!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isLoading()) {
     pendingDeepLinks.set(channel, url);
     return;
@@ -205,8 +191,7 @@ function takePendingDeepLink(channel: DeepLinkChannel): string | null {
 async function setFileInputFiles(selector: string, absolutePath: string) {
   if (!mainWindow) throw new Error("No main window");
   const wc = mainWindow.webContents;
-  // Stay attached between calls — attach/detach dominates the cost of a
-  // transfer, and file materialization happens in bursts.
+  // Stay attached between calls: attach/detach dominates a transfer's cost, and writes come in bursts.
   if (!wc.debugger.isAttached()) wc.debugger.attach("1.3");
   const { root } = await wc.debugger.sendCommand("DOM.getDocument");
   const { nodeId } = await wc.debugger.sendCommand("DOM.querySelector", {
@@ -337,7 +322,7 @@ if (squirrelLaunch) {
     const image = await mainWindow.webContents.capturePage(undefined, { stayHidden: true });
     const { width, height } = image.getSize();
     const png = image.toPNG();
-    // A plain Uint8Array over the PNG, so the renderer sees bytes and not a Buffer.
+    // A plain Uint8Array, so the renderer sees bytes and not a Buffer.
     return { png: new Uint8Array(png.buffer, png.byteOffset, png.byteLength), width, height };
   });
   mainBridge.handle(MAIN_CHANNELS.LOGS_GET, () => logBuffer);
@@ -381,18 +366,13 @@ if (squirrelLaunch) {
   mainBridge.handle(MAIN_CHANNELS.FILE_WRITE_OPEN, async ({ path, exclusive }) => {
     await mkdir(dirname(path), { recursive: true });
 
-    // `exclusive` means the name must be free, so it is taken now rather than
-    // at the rename below — the empty file that reserves it is renamed over
-    // when the write finishes, and removed when it is abandoned.
+    // `exclusive` reserves the name now with an empty file, renamed over on finish and removed on abandon.
     if (exclusive) {
       noteContent(path, "");
       await (await open(path, "wx")).close();
     }
 
-    // The bytes go to a temp file beside the destination and are renamed into
-    // place once they are whole. Nothing ever sees half an asset — not the
-    // watcher, not a scan of the library, not an import — so there is no
-    // window anyone has to be kept out of.
+    // Written to a temp file beside the destination and renamed when whole, so nothing ever sees half an asset.
     const temp = tempPathFor(path);
     const handle = await open(temp, "wx");
     const id = randomUUID();
@@ -412,8 +392,7 @@ if (squirrelLaunch) {
     openWrites.delete(id);
     try {
       await entry.handle.close();
-      // Claimed before the rename, which is the first and only moment the
-      // destination changes (see `noteRenamed`).
+      // Claimed before the rename, the only moment the destination changes (see `noteRenamed`).
       await noteRenamed(entry.temp, entry.path);
       await rename(entry.temp, entry.path);
     } catch (error) {
@@ -422,9 +401,7 @@ if (squirrelLaunch) {
     }
   });
 
-  // Abort: close the fd and drop the temp file (cancel / error cleanup). The
-  // destination is left alone — an abandoned write never reached it — bar the
-  // name an `exclusive` open reserved, which is given back.
+  // An abandoned write never reached the destination; only an `exclusive` reservation is given back.
   mainBridge.handle(MAIN_CHANNELS.FILE_WRITE_ABORT, async ({ id }) => {
     const entry = openWrites.get(id);
     if (!entry) return;
@@ -455,8 +432,7 @@ if (squirrelLaunch) {
     if (url) deliverDeepLink(url);
 
     dapi.start();
-    // The chat's sessions get the MCP server by URL; `?client=chat` keeps the
-    // app from switching into remote-controlled mode for them (see dapi/http).
+    // `?client=chat` keeps the app from switching into remote-controlled mode (see dapi/http).
     dapi.mcpUrl().then((url) =>
       startAgentChat({
         dataDir: join(app.getPath("userData"), "agent-chat"),

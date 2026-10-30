@@ -7,7 +7,6 @@ import { test } from "node:test";
 
 import { NO_TAB, noTab, Relay, RelayError } from "./relay.mjs";
 
-/** A tab socket that records what it was sent. */
 function socket() {
   return {
     sent: [],

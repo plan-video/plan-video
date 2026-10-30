@@ -1,7 +1,3 @@
-// Sends going several at once (pool.mjs, worker.mjs's dispatch): each in its
-// lane, a person's share at most, nothing sent twice, and the passes and
-// looks timed so posts go out at their moment.
-
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -14,7 +10,6 @@ import { createWorker, lookAgainIn } from "./worker.mjs";
 const T0 = Date.parse("2026-10-12T16:00:00Z");
 const VIDEO = { key: "posts/u1/p1", size: 80, type: "video/mp4", kind: "video" };
 
-/** Lets everything waiting on promises and timers of 0 run, until `done()` or a while. */
 async function until(done, tries = 500) {
   for (let i = 0; i < tries; i++) {
     if (done()) return true;
@@ -23,7 +18,6 @@ async function until(done, tries = 500) {
   return done();
 }
 
-/** A promise that resolves when told to. */
 function gate() {
   let open;
   const promise = new Promise((resolve) => (open = resolve));
@@ -48,10 +42,6 @@ const post = (user, id, accounts, extra = {}) => ({
   },
 });
 
-/**
- * A worker on a fake database whose networks do what `behave` says, and keep
- * how many sends were going at once: in all, by person and by lane.
- */
 function world({ posts, behave, sendsAtOnce = 8, perUser = 4, memoryBudget, plugs, planLimits, file = VIDEO, holds } = {}) {
   let clock = T0;
   const db = fakeDb({ posts });
@@ -169,7 +159,6 @@ test("two posts to one account go one after the other, never at once", async () 
 test("a person's YouTube channels upload one at a time, so their daily share is never overrun", async () => {
   const db = fakeDb();
   let clock = T0;
-  // Free: one upload a day.
   const planLimits = createPlanLimits({ db, now: () => clock, log: { error() {} }, youtube: { 1: 1, 2: 1, 3: 1, 4: 1 } });
   planLimits.review = async () => undefined;
   planLimits.over = () => false;
@@ -177,13 +166,11 @@ test("a person's YouTube channels upload one at a time, so their daily share is 
     posts: [post("u1", "a", [["youtube", "yt1"]]), post("u1", "b", [["youtube", "yt2"]])],
     planLimits,
     behave: async (name, kind, ctx) => {
-      // The upload starts, which counts it, then takes a while.
       await ctx.progress?.("upload:1");
       await new Promise((resolve) => setTimeout(resolve, 5));
       return { state: "sent", publishId: "v" };
     },
   });
-  // Uploads are counted where the limits read them.
   planLimits.countUpload = (user, platform) => db.insert("publisher_uploads", [{ user_id: user, platform, at: new Date(w.now()).toISOString() }]);
   await w.worker.tick();
   assert.equal(w.sent().length, 1, "only one upload went");
@@ -240,7 +227,6 @@ test("a pass during a long upload doesn't fail it as cut off by a restart", asyn
       return { state: "sent", publishId: "v" };
     },
   });
-  // A send left going by the publisher before this one: that one was cut off.
   w.db.tables.post_deliveries.push({
     id: "old",
     user_id: "u9",
@@ -345,18 +331,15 @@ test("a pass says when the soonest run it saw coming is due, so it can be planne
   w.setClock(T0 + 10_000);
   await w.worker.tick();
   assert.equal(w.worker.nextRun(), T0 + 60_000);
-  // Nothing within two minutes: no wake, the next pass looks again.
   w.setClock(T0 + 61_000);
   await w.worker.tick();
   assert.equal(w.worker.nextRun(), null);
   w.setClock(T0 + 4 * 60_000);
   await w.worker.tick();
   assert.equal(w.worker.nextRun(), T0 + 5 * 60_000);
-  // A repeating post's next run, a day on.
   w.setClock(T0 + 24 * 3_600_000 - 30_000);
   await w.worker.tick();
   assert.equal(w.worker.nextRun(), T0 + 24 * 3_600_000);
-  // A paused post isn't one.
   daily.post.paused = true;
   await w.worker.tick();
   assert.equal(w.worker.nextRun(), null);
@@ -386,19 +369,16 @@ test("a pass asked for while one runs runs again after it, rather than being dro
   };
   const first = w.worker.pass();
   assert.ok(await until(() => reads === 1));
-  // The run comes due while the first pass is still reading.
   w.setClock(T0 + 60_000);
   const second = w.worker.pass();
   assert.equal(first, second);
   slow.open();
   await first;
-  // Planned by the pass asked for meanwhile, without another.
   assert.equal(reads, 2);
   assert.ok(await until(() => w.rows()[0]?.state === "sent"));
 });
 
 test("a lane freed just as a look ends is filled, not left until the next look", async () => {
-  // Many rows in few lanes, with sends ending at every point of the looks: each must be picked up on its lane's end.
   for (let seed = 1; seed <= 30; seed++) {
     let random = seed;
     const next = () => ((random = (random * 16807) % 2147483647) / 2147483647);
@@ -510,7 +490,6 @@ test("the memory a send holds is let go when it fails", async () => {
 
 test("a row that keeps coming straight back due doesn't spin", async () => {
   const w = world({ posts: [post("u1", "p1", [["x", "x1"]])] });
-  // A claim that never matches leaves the row as it was, due now.
   const update = w.db.update.bind(w.db);
   let claims = 0;
   w.db.update = async (table, filter, values) => {
@@ -538,7 +517,6 @@ test("a look for due rows that fails holds up neither the follow-ups nor the nex
   };
   await w.worker.tick();
   assert.match(String(w.errors[0]?.[0]), /couldn't look for due post_deliveries/);
-  // The next look, right after, finds it.
   assert.equal(w.sent().length, 1);
   assert.equal(w.rows()[0].state, "sent");
 });
@@ -548,7 +526,6 @@ test("a send that throws past its own handling still lets its lane go", async ()
   const update = w.db.update.bind(w.db);
   let broke = false;
   w.db.update = async (table, filter, values) => {
-    // The first claim's connection drops.
     if (!broke && values.state === "sending") {
       broke = true;
       throw new Error("connection lost");
@@ -582,11 +559,6 @@ test("plugs run in their account's lane too", async () => {
   assert.ok(most <= 2, "two accounts, two lanes");
 });
 
-/**
- * Random posts, networks, answers and Post nows, run to the end, with what
- * must hold throughout: no account sends two things at once, nobody has more
- * than their share, nothing is made twice, and everything ends sent or failed.
- */
 test("under random load, nothing is made twice, no lane runs two at once, and everything ends", async () => {
   for (let seed = 1; seed <= 25; seed++) {
     let random = seed * 7919;
@@ -599,7 +571,6 @@ test("under random load, nothing is made twice, no lane runs two at once, and ev
       const accounts = [...new Set(Array.from({ length: 1 + Math.floor(next() * 4) }, () => pick(platforms)))].map((platform) => [platform, `${platform}-${user}-${Math.floor(next() * 2)}`]);
       posts.push(post(user, `p${index}`, accounts, { start: pick(["16:00", "16:00", "16:01", "16:03"]) }));
     }
-    /** Each row's post as made on the network. */
     const made = new Map();
     const sendsAtOnce = 1 + Math.floor(next() * 6);
     const perUser = 1 + Math.floor(next() * 3);
@@ -623,12 +594,10 @@ test("under random load, nothing is made twice, no lane runs two at once, and ev
         const chosen = pick(posts);
         await w.worker.request(chosen.user_id, chosen.post.id).catch(() => null);
       }
-      // Passes, looks and ticks, overlapping.
       const runs = [w.worker.pass(), w.worker.dispatch()];
       if (next() < 0.5) runs.push(w.worker.dispatch());
       await Promise.all(runs);
       await w.worker.tick();
-      // On a few seconds, or to the next look when nothing's due before it, as tries wait minutes.
       const waiting = w.rows().filter((row) => row.state === "queued" || row.state === "processing").map((row) => Date.parse(row.next_at));
       const soonest = Math.min(...waiting);
       if (waiting.length && soonest > w.now() && next() < 0.5) w.setClock(soonest);
@@ -644,7 +613,6 @@ test("under random load, nothing is made twice, no lane runs two at once, and ev
     for (const [lane, count] of w.most.lanes) assert.equal(count, 1, `seed ${seed}: lane ${lane} ran ${count} at once`);
     for (const [user, count] of w.most.users) assert.ok(count <= perUser, `seed ${seed}: ${user} had ${count} of ${perUser}`);
     assert.ok(w.most.all <= sendsAtOnce, `seed ${seed}: ${w.most.all} at once of ${sendsAtOnce}`);
-    // A row the network made is sent, with what it made.
     for (const row of rows) if (made.has(row.id)) assert.equal(row.state, "sent");
   }
 });

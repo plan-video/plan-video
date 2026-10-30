@@ -1,7 +1,3 @@
-// Uploads a post's video to YouTube, in 8 MB pieces read from cloud storage,
-// the way the browser did through services/youtube, carrying on an upload
-// that was cut off rather than starting another.
-
 import { clip, explain, failureText, startUpload } from "../../youtube/handler.mjs";
 
 import { PublishError } from "../errors.mjs";
@@ -26,10 +22,7 @@ async function videoState(accessToken, videoId) {
 
 const watchUrl = (videoId, short) => (short ? `https://www.youtube.com/shorts/${videoId}` : `https://www.youtube.com/watch?v=${videoId}`);
 
-/**
- * How far YouTube has an upload: `{ done }` with the video when it finished, the
- * bytes it has so far, or null when the upload is gone and has to start again.
- */
+/** `{ done }` when finished, the bytes YouTube has so far, or null when the upload is gone and has to start again. */
 async function uploadState(uploadUrl, size) {
   const response = await fetch(uploadUrl, {
     method: "PUT",
@@ -46,14 +39,11 @@ async function uploadState(uploadUrl, size) {
   throw new PublishError("YouTube didn't say how far the upload got. Trying again soon.", { retry: true });
 }
 
-/** The privacy a post asks YouTube for. */
 const privacyOf = (chosen) => (["public", "unlisted", "private"].includes(chosen.privacy) ? chosen.privacy : "public");
 
 /**
- * The upload as YouTube kept it. YouTube keeps a video private when the app that
- * uploaded it hasn't passed its review, whatever privacy was asked for, so a
- * video that came back private when it wasn't meant to be says so (note
- * "private") rather than passing as posted the way it was asked.
+ * YouTube keeps a video private when the uploading app hasn't passed its review, whatever was asked, so
+ * one that came back private unasked says so (note "private") rather than passing as posted.
  */
 const finished = (payload, short, wanted) => {
   const videoId = typeof payload?.id === "string" ? payload.id : "";
@@ -69,9 +59,8 @@ export const youtube = {
   holds: (files) => (files.some((file) => file.kind === "video") ? 2 * CHUNK : 0),
 
   /**
-   * The upload's address is kept on the row as soon as YouTube gives it, so a
-   * try cut off partway carries on with the same upload, and one whose last
-   * answer was lost finds the video already there, rather than sending it twice.
+   * The upload's address is kept on the row as soon as YouTube gives it, so a try cut off partway carries on
+   * with the same upload, and one whose last answer was lost finds the video already there, not sent twice.
    */
   async send({ post, session, files, media, delivery, progress }) {
     const chosen = post.youtube ?? {};

@@ -2,26 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Puts `planvideo` (and a `dapi` alias) on the PATH, running this workspace's
-// build, for developing against the CLI. `npm run dev:desktop` rebuilds the
-// CLI on every start, so the link keeps running the latest code. `dapi` is
-// where a dev build of the desktop app looks for the binary it registers
-// with agents and reports in the settings CLI card (apps/desktop/src/cli-install.ts
-// and mcp-install.ts), so that name and path are load-bearing; `planvideo` is
-// added alongside it purely for typing at a shell.
-//
-//   macOS    symlinks in Homebrew's bin, `/opt/homebrew/bin/{dapi,planvideo}`,
-//            which is user-writable, so no admin prompt. The packaged app uses
-//            `/usr/local/bin` instead and the two never collide.
-//   Windows  `%LOCALAPPDATA%\plan.video\bin\{dapi,planvideo}.cmd`, the same
-//            file the packaged app keeps its own shim in (apps/desktop/src/cli-windows.ts).
-//            A packaged app rewrites the `dapi` one on launch, so run this again
-//            after using one. The folder is added to the user PATH the way the
-//            packaged app's "Install CLI" does it; `--remove` leaves that
-//            entry, since a packaged install may still use it.
-//
-//   node scripts/dev-link.mjs            create the link
-//   node scripts/dev-link.mjs --remove   delete it
+// `dapi` and its path are load-bearing: a dev build of the desktop app registers that binary with
+// agents (apps/desktop/src/cli-install.ts, mcp-install.ts).
+//   macOS    /opt/homebrew/bin/{dapi,planvideo}: user-writable, so no admin prompt.
+//   Windows  %LOCALAPPDATA%\plan.video\bin\{dapi,planvideo}.cmd, shared with the packaged app, which
+//            rewrites `dapi` on launch (rerun this after using one). `--remove` leaves the PATH entry.
+//   node scripts/dev-link.mjs [--remove]
 
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
@@ -85,11 +71,8 @@ if (process.platform === "win32") {
   process.exit(1);
 }
 
-// The user PATH in HKCU\Environment, edited the same way as
-// apps/desktop/src/cli-windows.ts: through the registry, so the %VARIABLE%
-// entries already there stay unexpanded, with a throwaway variable deletion
-// to make .NET broadcast the change to new terminals. Returns whether the
-// entry was added.
+// Edited via the registry like apps/desktop/src/cli-windows.ts, so existing %VARIABLE% entries stay
+// unexpanded; a throwaway variable deletion makes .NET broadcast the change to new terminals.
 function addToUserPath(dir) {
   const normalize = (entry) => win32.normalize(entry).replace(/[\\/]+$/, "").toLowerCase();
   const powershell = (script, env) =>

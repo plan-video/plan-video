@@ -1,35 +1,19 @@
-// What Instagram and Threads share: a post is made in two steps. A container
-// is made for each picture or video, from a link it pulls the file from, and
-// for a carousel one more holds them. Once Meta has worked on the files, the
-// container is published. So a post with files is `processing` in between:
-// send makes the containers, check asks after them, and publish makes the
-// post once they're ready, after the publisher has claimed the row, so it's
-// made once only.
-//
-// The row keeps what send made as `<kind>:<id>,<id>…`: `one` for a single
-// container to publish, `set` for a carousel's items, whose holder publish makes.
+// Instagram and Threads post in two steps: containers for the files (pulled from links), then publish,
+// which runs only after the publisher has claimed the row, so a post is made once. The row keeps what send
+// made as `<kind>:<id>,<id>…`: `one` for a single container, `set` for a carousel's items.
 
 import { PublishError } from "../errors.mjs";
 import { META_NAMES, metaFetch, publishError } from "../meta.mjs";
 
 /** A carousel's holder is made once its items are ready, and is quick: publish waits this long for it. */
 const HOLDER_WAIT_MS = 60_000;
-/** How long Meta may work on a post's files before it's given up on. */
 const PROCESSING_MS = 60 * 60_000;
 /** A post with pictures alone is usually ready in seconds, so send waits this long before leaving it to check. */
 const QUICK_WAIT_MS = 15_000;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/**
- * `config` says how the network names things:
- *   network                 "instagram" | "threads"
- *   api                     the API's address, with its version
- *   create, publishPath     the account's container and publish routes
- *   statusFields            the fields to ask a container for
- *   statusOf(data)          "ready" | "working" | "failed" | "expired", and why
- *   limitError(error)       a time to wait for, when the account posted its most for the day
- */
+/** `statusOf(data)` gives "ready" | "working" | "failed" | "expired"; `limitError(error)` a time to wait when the account posted its most for the day. */
 export function containers(config) {
   const name = META_NAMES[config.network];
 
@@ -57,7 +41,6 @@ export function containers(config) {
     return working ? "working" : "ready";
   }
 
-  /** Waits up to `ms` for the containers to be ready. */
   async function waitFor(session, ids, ms) {
     const until = Date.now() + ms;
     for (;;) {
@@ -74,7 +57,6 @@ export function containers(config) {
     if (!done.ok || !done.data?.id) {
       const wait = config.limitError(done.error);
       if (wait) throw new PublishError(`This ${name} account has posted as much as ${name} allows in a day. It goes out on its own once it can.`, { until: wait, retry: true });
-      // Not ready after all: looked at again.
       if (done.error?.code === 9007) throw new PublishError(`${name} is still working on the post's files.`, { retry: true });
       throw publishError(config.network, done.error, "publish the post");
     }
@@ -83,13 +65,11 @@ export function containers(config) {
     return { state: "sent", publishId: mediaId, ...(link.ok && typeof link.data?.permalink === "string" ? { url: link.data.permalink } : {}) };
   }
 
-  /** What the row says send made. */
   function made(delivery) {
     const at = delivery.publish_id.indexOf(":");
     return { kind: delivery.publish_id.slice(0, at), ids: delivery.publish_id.slice(at + 1).split(",").filter(Boolean) };
   }
 
-  /** Makes the post once its files are ready: a carousel gets its holder first. */
   async function finish({ session, kind, ids, holder }) {
     if (kind === "one") return publishContainer(session, ids[0]);
     const id = await make(session, holder(ids));
@@ -98,11 +78,7 @@ export function containers(config) {
   }
 
   return {
-    /**
-     * Makes the containers: `single` the fields of one, or `items` those of a
-     * carousel's, whose holder `holder(ids)` describes. Publishes at once when
-     * they're ready within a few seconds; otherwise check and publish finish it.
-     */
+    /** Publishes at once when the containers are ready within a few seconds; otherwise check and publish finish it. */
     async start({ session, single, items, holder }) {
       if (single) {
         const id = await make(session, single);

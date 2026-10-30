@@ -1,13 +1,6 @@
-// The site's support form (/support): a bug report, a feature request or a
-// question, emailed to the founder's inbox through Resend, with the sender's
-// address as Reply-To so the answer goes straight back to them.
-//
-// Anyone can send one, signed in or not, so it's guarded: nothing is ever
-// emailed to the address someone typed (that would let a stranger mail anyone
-// through plan.video), a hidden field bots fill in is thanked and dropped, and
-// each address, each network and the whole site have a limit an hour and a day.
-// A signed-in sender's account id and email are checked with Supabase and
-// added, so a report can be matched to its account.
+// Anyone can send a report, signed in or not, so nothing is ever emailed to the address someone typed
+// (it's only the Reply-To), a hidden field bots fill in is thanked and dropped, and each address, each
+// network and the whole site have hourly and daily limits.
 
 import { createHash } from "node:crypto";
 import { isIP } from "node:net";
@@ -23,7 +16,6 @@ const BODY_MAX = 16 * 1024;
 const HOUR = 3600_000;
 const DAY = 24 * HOUR;
 
-/** Reports a network may send, and the whole site may get, in a window. */
 const LIMITS = [
   { scope: "ip", max: 5, ms: HOUR },
   { scope: "ip", max: 15, ms: DAY },
@@ -34,16 +26,12 @@ const LIMITS = [
 const escape = (text) =>
   String(text).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
 
-/** One line of text, at most `max` characters, with anything that isn't printable taken out. */
 const line = (value, max) =>
   typeof value === "string"
     ? [...value.replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, " ").trim()].slice(0, max).join("")
     : "";
 
-/**
- * The sender's network as Caddy saw it: the last X-Forwarded-For hop, the one
- * it appended. An IPv6 address counts by its /64 (as services/agent does).
- */
+/** The last X-Forwarded-For hop, the one the reverse proxy appended. IPv6 counts by its /64 (as services/agent does). */
 export function clientIp(req) {
   const forwarded = String(req.headers["x-forwarded-for"] ?? "").split(",").map((part) => part.trim()).filter(Boolean);
   let ip = (forwarded.at(-1) ?? req.socket?.remoteAddress ?? "").split("%")[0];
@@ -56,7 +44,6 @@ export function clientIp(req) {
   return `${groups.slice(0, 4).map((group) => Number.parseInt(group, 16).toString(16)).join(":")}::/64`;
 }
 
-/** What the form sent, checked: `{ report }`, `{ error }`, or `{ trap: true }` for a bot. */
 export function parseReport(body) {
   if (!body || typeof body !== "object") return { error: "That request isn't a report." };
   // The hidden field: people never see it, form-filling bots fill it in.
@@ -79,7 +66,6 @@ export function parseReport(body) {
   };
 }
 
-/** The email for one report: subject, HTML and text. */
 export function composeReport(report, { account, at }) {
   const firstLine = line(report.message.split("\n")[0], 80);
   const subject = `[${KINDS[report.kind]}] ${firstLine}`;
@@ -104,14 +90,10 @@ export function composeReport(report, { account, at }) {
   return { subject, html, text };
 }
 
-/**
- * Handles POST /api/publisher/support. `mailer` is notices.mjs's, `to` the
- * inbox reports go to; without either the form says to email instead.
- */
+/** Without `mailer` or `to`, the form says to email instead. */
 export function createSupport({ mailer, to, supabaseUrl, anonKey, readBody, json, now = () => Date.now(), fetch: call = fetch, log = console }) {
   const windows = new Map();
 
-  /** Counts one more against `key`'s window; false once it's over `max`. */
   function allowed(key, max, ms) {
     const at = now();
     const entry = windows.get(key);
@@ -124,7 +106,6 @@ export function createSupport({ mailer, to, supabaseUrl, anonKey, readBody, json
     return entry.count <= max;
   }
 
-  /** The signed-in sender, if the browser sent a Supabase token that still works; null otherwise. */
   async function accountOf(req) {
     const header = req.headers.authorization ?? "";
     const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";

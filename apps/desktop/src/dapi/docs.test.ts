@@ -8,7 +8,6 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { instructions } from "./docs";
 
-// The docs in miniature, laid out like the repo's `docs/`.
 const root = mkdtempSync(join(tmpdir(), "dapi-docs-"));
 const docsDir = join(root, "docs");
 const repoDocs = join(__dirname, "..", "..", "..", "..", "docs");
@@ -49,7 +48,7 @@ describe("the repo's INSTRUCTIONS.md", () => {
     if (!existsSync(repoDocs)) return;
     const text = readFileSync(join(repoDocs, "INSTRUCTIONS.md"), "utf8");
     const pages = [...text.matchAll(/`((?:skills|reference|guides|examples|brand)\/[^`]*?\.(?:md|tsx?))`/g)].map((m) => m[1]);
-    // Only posting until agentic editing launches; then editor.md and watch.md come back.
+    // Only the posting skill while agentic editing is off.
     expect(pages).toContain("skills/post.md");
     for (const page of pages) expect(existsSync(join(repoDocs, ...page.split("/")))).toBe(true);
   });

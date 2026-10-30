@@ -36,8 +36,7 @@ function buildIssueBody(input: { body?: string; commands?: string[]; logs: strin
   return `${sections.join("\n\n")}\n`;
 }
 
-// --repo is explicit because the app is not a checkout of the editor; the body
-// goes over stdin so a long log tail can't blow the argv size limit.
+// --repo because the app is not a checkout; the body goes over stdin so a long log can't exceed the argv limit.
 function createIssue(title: string, body: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const gh = spawn("gh", ["issue", "create", "--repo", REPO, "--title", title, "--body-file", "-"]);
@@ -52,7 +51,6 @@ function createIssue(title: string, body: string): Promise<string> {
     });
     gh.on("close", (code) => {
       if (code !== 0) {
-        // gh explains itself well (not authenticated, no access, rate limited).
         reject(new Error(stderr.trim() || `gh issue create exited with code ${code}`));
         return;
       }

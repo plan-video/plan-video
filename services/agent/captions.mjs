@@ -2,29 +2,19 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Caption upgrades in the editor: emoji, keyword highlights and translation.
-// The browser sends the caption's lines as words and gets back where an emoji
-// or a highlight goes, or each line in another language. The words' timing
-// never leaves the browser: it fits the answer back onto the caption itself.
-//
-// Shares the agent's key, sign-in check and the site's daily spend, with a
-// daily cap of its own per person by plan, counted the agent's way: a team
-// member on Free from the owner's, Free accounts within their share of the
-// site's day and their network's.
+// The words' timing never leaves the browser: it fits the answer back onto the caption.
+// Shares the agent's key, sign-in check and site-wide spend, with its own daily cap per person.
 
 import Anthropic from "@anthropic-ai/sdk";
 
 import { budgetsFor, checkBudgets, clientFor, cost, holdBudgets, json, limit, mostCost, Refused, settleBudgets, userFor } from "./handler.mjs";
 
-/** The cheapest model, as the agent uses: picking words and translating short lines needs no more. */
 const MODEL = "claude-haiku-5-5";
-/** A long video's captions, translated, with room to spare. */
 const MAX_TOKENS = 16000;
 const MAX_BODY_BYTES = 200 * 1024;
 const MAX_WORDS = 4000;
 const MAX_WORD_LENGTH = 64;
 
-/** What caption tools say when one of their day's budgets is spent. */
 const CAPTIONS_LIMITS = {
   person: "You've reached today's limit for caption tools. They're back tomorrow.",
   team: "Your team has reached today's limit for caption tools. They're back tomorrow.",
@@ -116,7 +106,6 @@ function readBody(req, max) {
   });
 }
 
-/** The lines as sent, checked: arrays of short strings, not too many words in all. */
 function readLines(value) {
   if (!Array.isArray(value) || value.length === 0) throw new Refused(400, "There are no words to work on.");
   let count = 0;
@@ -140,7 +129,6 @@ function languageName(code) {
   return name;
 }
 
-/** Picks that point at a real word, one per word. */
 function realPicks(picks, lines) {
   const seen = new Set();
   return (Array.isArray(picks) ? picks : []).filter((pick) => {
@@ -195,7 +183,7 @@ export async function handleCaptions(req, res, env) {
 
   const user = await userFor(req, env);
   limit(`captions:${user.id}`, 40, 600, "That's a lot at once. Wait a few minutes and try again.");
-  // What one person can spend on captions in a day, in input-token equivalents: a few hundred runs on Creator.
+  // In input-token equivalents: a few hundred runs on Creator.
   const budgets = budgetsFor({ name: "captions", personBudget: env.captionsBudget, messages: CAPTIONS_LIMITS }, user, req, env);
   checkBudgets(budgets);
 

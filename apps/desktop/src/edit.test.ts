@@ -2,10 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The canvas shows an edit before the file has it, and an export and the next
-// open render the file: an edit the write left out would move back. So the
-// user wins — a prop is written over whatever the source held for it.
-
 import { tmpdir } from "node:os";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -39,7 +35,6 @@ describe("applyEdits", () => {
     expect(result.skipped).toEqual([]);
     const text = await readFile(join(dir, FILE), "utf8");
     expect(text).toContain(`<video id="clip" x={555} y={42} rotation={90} />`);
-    // The constant is someone else's too, and stays.
     expect(text).toContain(`const X = 100;`);
   });
 });

@@ -1,13 +1,7 @@
-// While the app is invite-only, the database itself keeps out anyone who
-// hasn't been let in (migrations/20261026100000_access_gate.sql, audit M10):
-// they can't save anywhere, and Supabase Auth won't make their account. Runs
-// against a local stack, as helpers.mjs says. The last test goes through
-// Supabase Auth's hook, so it needs it on in the stack's config.toml:
-//
+// Run as helpers.mjs says. The last test needs Supabase Auth's hook on in the stack's config.toml:
 //   [auth.hook.before_user_created]
 //   enabled = true
 //   uri = "pg-functions://postgres/public/before_user_created"
-//
 // and BEFORE_USER_CREATED_HOOK=on when running it.
 
 import assert from "node:assert/strict";
@@ -20,7 +14,7 @@ const W = "default";
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64");
 
 const gate = (on) => sql(`update public.invite_gate set invite_only = ${on ? "true" : "false"};`);
-// A local database starts open (supabase/seed.sql); the tests close it, and leave it as they found it.
+// A local database starts open (supabase/seed.sql); the tests close it and restore it after.
 const wasOn = sql("select invite_only from public.invite_gate;") === "t";
 
 function account(workspaces = [W]) {
@@ -53,7 +47,6 @@ function post(id) {
   };
 }
 
-// Each write a person makes from the dashboard, as the browser makes it. Each answers with its status and body.
 const writes = {
   account: (person) => saveOwner(person, account()),
   post: (person, id = `p-${randomUUID().slice(0, 8)}`) =>
@@ -101,7 +94,6 @@ function turnedDown(result, what) {
 
 let stranger, fresh, invited, owner, member;
 const strangerPost = `stranger-${randomUUID().slice(0, 8)}`;
-// What the stranger saved while the app was open, to see what they can change, read and clear out once it isn't.
 const theirs = {};
 
 before(async () => {
@@ -138,7 +130,6 @@ before(async () => {
   }
 });
 
-/** A value as the database has it, read past every rule. */
 const stored = (query) => sql(query);
 
 after(() => gate(wasOn));
@@ -150,13 +141,13 @@ describe("someone who made an account past the site, without an invite", () => {
   });
 
   test("can't save their account, posts, thumbnails, chats, previews, avatar or a roadmap vote", async () => {
-    // Someone who never saved anything, and so would be adding their account rather than changing it.
+    // Never saved anything, so this is an insert, not an update.
     turnedDown(await writes.account(fresh), "account");
     assert.equal(stored(`select count(*) from public.account_state where user_id = '${fresh.id}';`), "0");
     turnedDown(await writes.thumbnail(stranger, `${strangerPost}-bare`), "a post's first thumbnail");
     turnedDown(await writes.post(stranger), "new post");
     const changed = await writes.postChange(stranger, strangerPost);
-    // An update the rules turn down quietly changes nothing, or is refused outright.
+    // RLS may turn an update down quietly (no rows) or refuse it outright.
     if (changed.status < 300) assert.deepEqual(changed.data, []);
     else turnedDown(changed, "post change");
     assert.equal((await call(`/rest/v1/posts?select=data&owner_id=eq.${stranger.id}&id=eq.${strangerPost}`)).data[0].data.title, strangerPost);
@@ -314,7 +305,6 @@ describe("the sign-up hook", () => {
     assert.ok(refusal(hook("")));
     assert.ok(refusal(hook(undefined)));
 
-    // On the waitlist but not invited yet.
     const waiting = address("waiting");
     await call("/rest/v1/waitlist", { method: "POST", body: { email: waiting } });
     assert.ok(refusal(hook(waiting)));

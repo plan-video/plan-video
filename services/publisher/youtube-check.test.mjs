@@ -19,7 +19,6 @@ const UPLOAD = "upload:https://www.googleapis.com/upload/youtube/v3/videos?uploa
 const row = (id, values) => ({ id, user_id: OWNER, workspace_id: "brand", post_id: id, occurrence: "once", platform: "youtube", connection_id: "yt1", state: "sent", publish_id: null, url: null, error: null, updated_at: OLD, ...values });
 const watch = (videoId) => `https://www.youtube.com/watch?v=${videoId}`;
 
-/** The account's copy as a browser saves it, with the channel named as it was when connected. */
 const account = () => ({
   user_id: OWNER,
   payload: {
@@ -36,10 +35,6 @@ const account = () => ({
   },
 });
 
-/**
- * Google and YouTube as the test sets them: `token` answers the refresh,
- * `videos` the lookups (with the ids asked for). Returns what was asked.
- */
 function google({ token = () => ({ status: 200, body: { access_token: "ya29.new", expires_in: 3600 } }), videos = (ids) => ({ status: 200, body: { items: ids.map((id) => ({ id })) } }) } = {}) {
   const asked = [];
   const original = globalThis.fetch;
@@ -106,7 +101,6 @@ test("a video deleted on YouTube loses its id and link; the rest stay, and new o
   assert.equal(byId("d4").publish_id, "cccccccccc3");
   assert.equal(byId("d5").publish_id, UPLOAD);
   assert.equal(db.tables.social_tokens.length, 1);
-  // The channel's name and picture are as YouTube has them now, saved as a new revision; nothing else moved.
   assert.equal(connection().handle, "New Name");
   assert.equal(connection().avatarUrl, "https://yt3.test/new.jpg");
   assert.deepEqual(connection().youtube, { channelId: "UC1", scope: "s" });
@@ -114,7 +108,6 @@ test("a video deleted on YouTube loses its id and link; the rest stay, and new o
   assert.notEqual(payload.revision, "r1");
   assert.deepEqual(payload.slices.brand.connections[1], account().payload.slices.brand.connections[1]);
   assert.equal(payload.workspaces.list.length, 1);
-  // One line of counts, no tokens.
   assert.equal(lines.length, 1);
   assert.doesNotMatch(lines[0], /ya29|refresh|aaaaaaaaaa1/);
 });
@@ -132,7 +125,6 @@ test("a deleted video's row is cleared though the account can't be saved: no pos
   }
   assert.equal(byId("d1").publish_id, null);
   assert.equal(byId("d1").url, null);
-  // Only the channel's name was tried on the account.
   assert.ok(saves <= 3);
 });
 
@@ -180,7 +172,6 @@ test("access taken away at Google drops the login, the channel's videos' ids and
       row("o1", { connection_id: "yt9", user_id: "0f0f0f0f-0000-4000-8000-000000000002", publish_id: "zzzzzzzzzz9", url: watch("zzzzzzzzzz9") }),
     ],
   });
-  // Someone else's channel, connected and fine.
   db.tables.social_tokens.push({ ...db.tables.social_tokens[0], user_id: "0f0f0f0f-0000-4000-8000-000000000002", connection_id: "yt9" });
   db.tables.social_tokens[1].sealed = "unreadable";
   const { asked, restore } = google({ token: () => ({ status: 400, body: { error: "invalid_grant", error_description: "Token has been expired or revoked." } }) });
@@ -194,9 +185,7 @@ test("access taken away at Google drops the login, the channel's videos' ids and
   assert.deepEqual(db.tables.social_tokens.map((item) => item.connection_id), ["yt9"]);
   for (const id of ["d1", "d2"]) assert.deepEqual([byId(id).publish_id, byId(id).url, byId(id).error], [null, null, null], id);
   assert.equal(byId("d1").state, "sent", "the row still says it went out");
-  // Still going out: left for the worker, which fails it without the login.
   assert.equal(byId("d3").error, "Your plan uploads up to 3 YouTube videos a day");
-  // The other channel's login couldn't be read: nothing of it is touched.
   assert.equal(byId("o1").publish_id, "zzzzzzzzzz9");
   assert.equal(connection().handle, "YouTube");
   assert.equal("avatarUrl" in connection(), false);
@@ -286,7 +275,6 @@ test("Assistant chats holding YouTube's numbers go 30 days after their last mess
     { id: "c4", user_id: OWNER, messages: otherTool, updated_at: iso(T0 - 40 * day) },
     { id: "c5", user_id: OWNER, messages: [{ role: "user", content: "a plain string" }], updated_at: iso(T0 - 40 * day) },
   );
-  // More old chats than one page holds, with YouTube's numbers in the last.
   for (let index = 0; index < 45; index++) db.tables.agent_chats.push({ id: `d${String(index).padStart(2, "0")}`, user_id: OWNER, messages: [], updated_at: iso(T0 - 50 * day) });
   db.tables.agent_chats.push({ id: "z1", user_id: OWNER, messages: youtubeAnswer("u9"), updated_at: iso(T0 - 50 * day) });
   const { restore } = google();

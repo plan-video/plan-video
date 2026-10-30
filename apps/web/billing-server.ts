@@ -8,12 +8,8 @@ import type { Plugin } from "vite";
 import { fail, handleBilling } from "../../services/billing/handler.mjs";
 import { serverEnv } from "./server-env";
 
-/**
- * Dev-server routes under `/api/billing/`. The Stripe key and the Supabase
- * service role stay in `apps/web/server.env` and never enter the browser bundle.
- * Use a test-mode key here, and `stripe listen --forward-to
- * localhost:5173/api/billing/webhook` for webhooks.
- */
+// The Stripe key and service role stay in apps/web/server.env, out of the browser bundle.
+// Use a test-mode key, and `stripe listen --forward-to localhost:5173/api/billing/webhook` for webhooks.
 export function billingDevPlugin(envDir: string, mode: string): Plugin {
   return {
     name: "plan-billing",

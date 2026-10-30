@@ -42,7 +42,6 @@ test("a login about to run out is refreshed once, and the new refresh token kept
   assert.equal(b.session.accessToken, "new");
   const kept = await vault.read("u1", "c1");
   assert.equal(kept.session.refreshToken, "r2");
-  // Fresh enough now: no second call.
   await vault.fresh("u1", "c1");
   assert.equal(calls, 1);
 });
@@ -73,7 +72,6 @@ test("a refresh doesn't write over a login saved meanwhile, nor bring back a rem
 test("an account-name-only Bluesky login needs its ticket checked first", async () => {
   const vault = createVault({ db: fakeDb(), key: KEY, env: {} });
   await assert.rejects(vault.put("u1", "c1", "bluesky", { oauth: true, did: "did:plc:x" }), /isn't a login/);
-  // Whose session it uses comes from whose login it is, never from the browser.
   await vault.put("u1", "c1", "bluesky", { oauth: true, did: "did:plc:x", owner: "u2" }, { allowOAuth: true });
   assert.deepEqual((await vault.read("u1", "c1")).session, { did: "did:plc:x", oauth: true, owner: "u1" });
 });

@@ -13,27 +13,19 @@ import type { CliInstallResult, CliStatus, CliUninstallResult } from "./main-cha
 
 export const CLI_LINK_DIR = "/usr/local/bin";
 
-// The dev workflow links the workspace build into Homebrew's bin instead
-// (`npm run link` in apps/cli), so that location counts as installed too.
+// `npm run link` in apps/cli links the workspace build here, so it counts as installed too.
 const DEV_LINK_DIR = "/opt/homebrew/bin";
 
-// `planvideo` is what we point to first when reporting status; `dapi` rides
-// alongside it as an alias, and is also what an install from before this
-// pair existed left behind.
+// `dapi` is also what older installs left behind.
 const LINK_NAMES = ["planvideo", "dapi"] as const;
 
 const linkPaths = (dir: string): string[] => LINK_NAMES.map((name) => `${dir}/${name}`);
 
-/**
- * Whether `path` is a symlink — dangling or not, since a link left behind
- * by a deleted bundle is exactly what removal is for. `existsSync` follows
- * links and would miss that case.
- */
+/** Dangling links count (a deleted bundle leaves them); `existsSync` follows links and would miss them. */
 function isLink(path: string): boolean {
   return lstatSync(path, { throwIfNoEntry: false })?.isSymbolicLink() ?? false;
 }
 
-/** The first of the two locations that holds any of our links, or null. */
 function installedDir(): string | null {
   for (const dir of [CLI_LINK_DIR, DEV_LINK_DIR]) {
     if (linkPaths(dir).some((path) => isLink(path) || existsSync(path))) {
@@ -43,11 +35,7 @@ function installedDir(): string | null {
   return null;
 }
 
-/**
- * Rewrites the Windows shim so it names this executable. Runs on every
- * packaged launch, because an update moved the app to a new folder; the
- * agents' MCP entries point at the shim whether or not it is on PATH.
- */
+/** Runs on every packaged launch: an update moves the app, and agents' MCP entries point at the shim. */
 export function refreshCliShim(): void {
   if (process.platform !== "win32" || !app.isPackaged) return;
   writeShim().catch((e) => console.error("cli shim: could not write", e));
@@ -70,7 +58,6 @@ async function cliStatusDarwin(): Promise<CliStatus> {
   return { installed: false, path: null, managed: false, available: app.isPackaged };
 }
 
-/** Where `planvideo` (or its `dapi` alias) stands on this machine, without asking for a password. */
 export async function cliStatus(): Promise<CliStatus> {
   if (process.platform === "win32") return cliStatusWin32();
   if (process.platform === "darwin") return cliStatusDarwin();
@@ -78,7 +65,6 @@ export async function cliStatus(): Promise<CliStatus> {
   return { installed: false, path: null, managed: false, available: false };
 }
 
-// The standard macOS admin prompt, for the one shell line that needs it.
 function elevated(shell: string): Promise<void> {
   const script = `do shell script "${shell.replaceAll('"', '\\"')}" with administrator privileges`;
   return new Promise((resolve, reject) => {
@@ -86,7 +72,7 @@ function elevated(shell: string): Promise<void> {
   });
 }
 
-/** osascript error -128: the user dismissed the prompt. Not an error, not done. */
+/** osascript error -128: the user dismissed the prompt. */
 const cancelled = (e: unknown): boolean => ((e as Error).message ?? "").includes("-128");
 
 async function installCliDarwin(): Promise<CliInstallResult> {
@@ -161,10 +147,6 @@ async function uninstallCliDarwin(): Promise<CliUninstallResult> {
 }
 
 
-/**
- * Takes the `planvideo`/`dapi` links off PATH, whichever of the two
- * locations holds them.
- */
 export async function uninstallCli(): Promise<CliUninstallResult> {
   if (process.platform === "win32") return uninstallCliWin32();
   if (process.platform === "darwin") return uninstallCliDarwin();

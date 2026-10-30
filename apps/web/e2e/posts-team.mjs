@@ -1,7 +1,4 @@
-// A workspace shared with a team member, through the posts table: the
-// owner's and the member's posts reach each other, the owner's other
-// workspaces never reach the member, and a paused team holds the member's
-// changes until it's back. See helpers.mjs for how to run it.
+// See helpers.mjs for how to run it.
 
 import { assert, inStore, launch, openDashboard, person, post, postIn, randomUUID, rest, serverPost, sleep, slice, step, until } from "./helpers.mjs";
 
@@ -79,12 +76,11 @@ await step("with the owner's team paused, the member's change is held and named;
   await until("named as not synced", () => inStore(M, (_store, posts) => posts.unsyncedPosts().has("team-1")), 20_000);
   assert.notEqual((await serverPost(owner.id, "team-1")).data.description, "While paused");
   await rest(`/rest/v1/user_data?id=eq.${owner.id}`, { method: "PATCH", body: { access_level: 3 } });
-  // The member's team list is read again (on their next focus, or the team's next change), and the workspace is open again.
+  // Stands in for the refetch on the member's next focus or the team's next change.
   await M.page.evaluate(async () => (await import("/src/lib/team.ts")).refreshTeam());
   await until("active again", () => M.page.evaluate(async (id) => (await import("/src/lib/workspaces.ts")).sharedWorkspaces().find((row) => row.id === id)?.state === "active", sharedId));
   await switchTo(M, sharedId);
   await until("member's calendar again", () => inStore(M, async (store) => (await store.hydrateCalendar(), store.loaded() && store.allPosts().some((post) => post.id === "team-1"))));
-  // What was changed while paused went once it could.
   await until("the paused change on the server", async () => (await serverPost(owner.id, "team-1")).data.description === "While paused", 20_000);
   assert.equal(await inStore(M, (store) => store.revisePost("team-1", { description: "After the pause" }) ?? "edited"), "edited");
   try {

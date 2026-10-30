@@ -31,7 +31,6 @@ test("a new key on a rebuilt server is found out, even after someone connects wi
   const db = fakeDb();
   db.tables.social_tokens.push(login(OTHER, "u1", "c1", iso(T0 - 3e9)), login(OTHER, "u2", "c2", iso(T0 - 2e9)), login(OTHER, "u3", "c3", iso(T0 - 1e9)));
   assert.equal(await keyOpensLogins(db, KEY), "wrong");
-  // One new connection made since, sealed with the new key, doesn't hide it.
   db.tables.social_tokens.push(login(KEY, "u4", "c4"));
   assert.equal(await keyOpensLogins(db, KEY), "wrong");
 });
@@ -72,7 +71,6 @@ test("health stops sending while the key is wrong and says why", async () => {
   const problems = await health.check();
   assert.equal(health.keyWrong(), true);
   assert.match(problems.join(), /TOKEN_KEY opens none/);
-  // Back with the right key: sending goes on.
   const right = createHealth({ db, key: OTHER, now: () => T0, log: { error() {} } });
   await right.check();
   assert.equal(right.keyWrong(), false);

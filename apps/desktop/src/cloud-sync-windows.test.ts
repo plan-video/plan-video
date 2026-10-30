@@ -33,7 +33,7 @@ describe("dropboxRoots", () => {
 });
 
 describe("windowsCloudSyncKind", () => {
-  // No LOCALAPPDATA: nothing is read from disk, only the fixed locations apply.
+  // No LOCALAPPDATA, so nothing is read from disk.
   const env = { OneDrive: "C:\\Users\\me\\OneDrive" };
 
   it("names the service a folder sits under", async () => {

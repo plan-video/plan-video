@@ -1,9 +1,3 @@
-// Client connect links: a client with the link alone connects their own
-// accounts to the workspace it was made for. The login lands in the vault
-// under the owner and the account in that workspace's connections, without a
-// token reaching anyone's browser; the link stops working once turned off,
-// replaced or run out; and the owner's plan still caps the accounts.
-
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
@@ -140,7 +134,6 @@ async function setup(t, { level = 2, limit = 40, connections = [] } = {}) {
     now,
   });
 
-  /** Asks the API as `person`, or signed out when null. */
   async function ask(person, route, body) {
     const req = Object.assign(new Readable({ read() {} }), { method: "POST", headers: person ? { authorization: `Bearer ${person}` } : {}, socket: { remoteAddress: "203.0.113.9" } });
     req.push(JSON.stringify(body));
@@ -160,7 +153,6 @@ async function setup(t, { level = 2, limit = 40, connections = [] } = {}) {
   return { db, vault, links, ask, clock, brand, bluesky };
 }
 
-/** A link for the owner's Acme workspace, made by the owner. */
 async function ownerLink(ask) {
   const made = await ask(OWNER, "connect-link/create", { workspace: "brand", workspaceName: "Acme", fromName: "Sam" });
   assert.equal(made.status, 200, made.error);

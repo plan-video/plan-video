@@ -9,20 +9,12 @@ import { present, toCallToolResult, toErrorResult } from "./present";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { GenericTool, ToolName } from "@plan.video/dapi";
 
-/** Runs one tool wherever it lives (main or renderer) and returns the handler's raw result. */
 export type ToolRunner = (tool: GenericTool, args: unknown, signal: AbortSignal) => Promise<unknown>;
 
 /**
- * Serves tools on an MCP session, by default the ones agents are given (see
- * `servedTools`): each registered with the SDK, which validates arguments
- * against the zod schema and structured content against the output schema,
- * and a `tools/list` of our own.
- *
- * The list is ours because the SDK's converts the zod schemas to JSON Schema
- * draft-07, and the validators clients run reject that dialect — Claude Code
- * fails every call on the `outputSchema` before it reaches the app. What
- * clients get instead is the same schema in 2020-12 (see `toolJsonSchemas`);
- * `tools/call` and the validation behind it stay the SDK's.
+ * `tools/list` is our own: the SDK's converts zod to JSON Schema draft-07, which clients'
+ * validators reject (Claude Code fails every call on `outputSchema`). We serve 2020-12 instead
+ * (see `toolJsonSchemas`); `tools/call` and its validation stay the SDK's.
  */
 export function serveCatalog(session: McpServer, run: ToolRunner, tools: readonly GenericTool[] = servedTools): void {
   for (const tool of tools) {

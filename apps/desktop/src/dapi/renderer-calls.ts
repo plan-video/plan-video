@@ -13,12 +13,7 @@ type InFlight = {
   reject(error: Error): void;
 };
 
-/**
- * Runs renderer tools from main: one `dapi:call` per request, answered by
- * `dapi:reply`, or `dapi:cancel` if the caller gives up. Calls wait for the
- * current window to finish loading; a window that reloads or dies fails the
- * calls it was answering.
- */
+/** A window that reloads or dies fails the calls it was answering. */
 export class RendererCalls {
   private readonly inFlight = new Map<string, InFlight>();
   private window: BrowserWindow | null = null;
@@ -78,7 +73,6 @@ export class RendererCalls {
     for (const call of calls) call.reject(new Error(message));
   }
 
-  // Resolves with the current window once it has finished loading.
   private ready(timeoutMs = 30000): Promise<BrowserWindow> {
     const window = this.window;
     if (!window || window.isDestroyed()) return Promise.reject(new Error("The app has no window"));

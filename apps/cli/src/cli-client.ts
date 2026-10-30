@@ -20,13 +20,6 @@ const TIMEOUTS: Record<string, number> = {
   media_listen: 600_000,
 };
 
-/**
- * Calls one tool in the running app over an MCP session on its HTTP
- * endpoint — the same URL agents register. Typed by the catalog: the input is
- * what the tool's schema accepts, the output its structured content. One
- * session per call; a command makes one or two, and the process exits when
- * it settles.
- */
 export async function call<N extends ToolName>(name: N, input: ToolInput<N>): Promise<ToolOutput<N>> {
   const client = await connect();
   try {
@@ -46,7 +39,6 @@ export async function call<N extends ToolName>(name: N, input: ToolInput<N>): Pr
   }
 }
 
-/** Liveness: a round-trip through the app's MCP server. */
 export async function ping(): Promise<void> {
   const client = await connect();
   try {
@@ -56,19 +48,13 @@ export async function ping(): Promise<void> {
   }
 }
 
-// Connecting is where "the app is not running" shows up: the `initialize`
-// request's fetch is refused, see `isAppDown`.
 async function connect(): Promise<Client> {
   const client = new Client({ name: "planvideo", version });
   await client.connect(new StreamableHTTPClientTransport(new URL(MCP_URL)));
   return client;
 }
 
-/**
- * Nothing is listening on the app's port. Node's fetch reports that as a
- * `fetch failed` TypeError whose cause carries the errno, so the chain of
- * causes is searched.
- */
+/** Node's fetch reports a refused connection as a `fetch failed` TypeError with the errno in its cause chain. */
 export function isAppDown(e: unknown): boolean {
   for (let error = e, depth = 0; error && depth < 5; error = (error as { cause?: unknown }).cause, depth++) {
     const code = (error as NodeJS.ErrnoException).code;
@@ -101,9 +87,6 @@ function launchDarwin(background: boolean): Promise<boolean> {
   return new Promise((res) => execFile("open", args, { env }, (err) => res(!err)));
 }
 
-/**
- * Launches the app, or surfaces the running instance
- */
 export function launchApp(background: boolean): Promise<boolean> {
   if (process.platform === "win32") return launchWin32(background);
   if (process.platform === "darwin") return launchDarwin(background);
@@ -111,10 +94,6 @@ export function launchApp(background: boolean): Promise<boolean> {
   return Promise.resolve(false);
 }
 
-/**
- * Bridges the cold-start gap after launching the app: retries while the app
- * looks down, until it answers a ping.
- */
 export async function waitForApp(timeoutMs = 30000): Promise<void> {
   const start = Date.now();
   let lastError: unknown = null;

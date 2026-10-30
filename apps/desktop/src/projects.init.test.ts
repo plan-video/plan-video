@@ -2,10 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// What `open` writes into a folder, and what it refuses: the promise the
-// tool reference makes is that a folder opened from anywhere on disk stays
-// the user's, gaining an entry and the record and nothing else.
-
 import { tmpdir } from "node:os";
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";

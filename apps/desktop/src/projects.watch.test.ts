@@ -2,10 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// What the watcher must and must not report. The app writes the files it
-// watches, so the whole question is whether a change is its own — answered by
-// content (see `noteContent`), which is what these pin down.
-
 import { tmpdir } from "node:os";
 import { mkdir, mkdtemp, open, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -26,7 +22,6 @@ const { noteContent, noteRenamed, unwatchProject, watchProject, writeManifest } 
 let dir: string;
 let changed: string[] = [];
 
-/** A window that only remembers which project files it was told about. */
 const window = {
   isDestroyed: () => false,
   webContents: {
@@ -39,10 +34,8 @@ const window = {
   },
 } as unknown as Parameters<typeof watchProject>[0];
 
-/** Long enough for an event to have arrived, for the cases where none may. */
 const settle = (ms = 400): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** Waits for `path` to be reported, and fails the test when it never is. */
 async function waitFor(path: string, timeout = 4000): Promise<void> {
   const until = Date.now() + timeout;
   while (Date.now() < until) {
@@ -70,8 +63,7 @@ describe("watchProject", () => {
     await waitFor("index.tsx");
   });
 
-  // Without this the claim above proves nothing: a rename that never reached
-  // the watcher would look exactly like a claim that worked.
+  // Without this the claim test proves nothing: a rename that never reached the watcher looks the same.
   it("reports a file someone else replaces by rename", async () => {
     await writeFileAtomic(join(dir, "index.tsx"), "export const stage = 1;\n");
     await waitFor("index.tsx");
@@ -91,7 +83,6 @@ describe("watchProject", () => {
     const file = join(dir, "index.tsx");
     noteContent(file, "ours\n");
     await writeFileAtomic(file, "ours\n");
-    // No claim: this one is someone else's, however close behind it comes.
     await writeFile(file, "theirs\n", "utf8");
 
     await waitFor("index.tsx");
@@ -132,13 +123,11 @@ describe("watchProject", () => {
     changed = [];
     const temp = tempPathFor(file);
     const handle = await open(temp, "wx");
-    // Positioned chunks, the way an encoder writes one.
     await handle.write(Buffer.from("chunk one"), 0, 9, 0);
     await settle();
     await handle.write(Buffer.from(" and two"), 0, 8, 9);
     await handle.close();
     await settle();
-    // Nothing has appeared where the library looks, so there is nothing to say.
     expect(changed).toEqual([]);
 
     await noteRenamed(temp, file);
@@ -159,8 +148,6 @@ describe("watchProject", () => {
     await waitFor("assets/clip.bin");
   });
 
-  // The claim for a file too big to hash is its size and mtime, which a rename
-  // has to carry across untouched for `noteRenamed` to mean anything.
   it("says nothing about a file too big to hash, claimed before its rename", async () => {
     const file = join(dir, "assets", "big.bin");
     await mkdir(join(dir, "assets"), { recursive: true });

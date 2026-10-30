@@ -2,18 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Signs uploads and reads for the R2 bucket, one file at a time. The browser
-// sends the file straight to R2; this process only checks who is asking,
-// what the file is and how much they already store, then returns a link
-// that expires. The R2 secret never leaves the server, and every key it
-// signs sits under the asking user's own id, or, for a workspace someone
-// shared with them, under its owner's (see teamActor).
-//
-// A post's file sits under posts/ while the post is waiting, and moves to
-// sent/ once it has gone out. Waiting files count against the plan; sent ones
-// are the account's post history, kept with no expiry and counted only against
-// a much larger ceiling, so the space can't be farmed by marking posts sent.
-// Only a post the publisher says went out can put files there (see sentFiles).
+// The R2 secret never leaves this server, and every key it signs sits under the
+// caller's own id, or a shared workspace owner's (see teamActor).
+// Waiting post files (posts/) count against the plan; sent/ ones only against a much larger
+// ceiling, and only a post the publisher says went out can put files there (see sentFiles).
 
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
@@ -38,10 +30,9 @@ const BODY_MAX = 64 * 1024;
 
 const MiB = 1024 * 1024;
 const GB = 1000 ** 3;
-/** The plans, by user_data.access_level, and what each may store. */
 const PLANS = ["free", "creator", "pro", "agency"];
 const QUOTAS = { free: 5 * GB, creator: 50 * GB, pro: 150 * GB, agency: 250 * GB };
-/** Files of posts that went out. Far above what real posting fills, it only stops abuse. */
+/** Far above what real posting fills: it only stops abuse. */
 const SENT_QUOTAS = { free: 50 * GB, creator: 500 * GB, pro: 500 * GB, agency: 500 * GB };
 const IMAGE_MAX = 8 * MiB;
 const VIDEO_MAX = 500 * MiB;
@@ -58,7 +49,7 @@ const MEDIA_TYPES = {
 };
 const PROJECT_TYPE = "application/octet-stream";
 const PURPOSES = new Set(["media", "posts", "projects"]);
-/** Where a post's file goes once the post has gone out. Not a purpose: nobody names it but this server. */
+/** Not a purpose: nobody names it but this server. */
 const SENT = "sent";
 const ID = /^[A-Za-z0-9_-]{1,100}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -82,13 +73,9 @@ for (const key of ["R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", 
 const REQUIRE_INVITE = env.REQUIRE_INVITE !== "false";
 const BUCKET = env.R2_BUCKET;
 
-/**
- * The bucket's S3 address. R2_ENDPOINT names it outright (another
- * S3-compatible store, say); otherwise it is the account's R2 address in
- * R2_JURISDICTION: "eu" when unset, where plan.video's bucket is, "fedramp",
- * or "default" for a bucket made without one. The publisher's media.mjs reads
- * the same two settings from the same file.
- */
+// R2_ENDPOINT names any S3-compatible store outright; otherwise it is the account's R2
+// address in R2_JURISDICTION ("eu" when unset, "fedramp", or "default" for none).
+// The publisher's media.mjs reads the same two settings from the same file.
 function r2Endpoint() {
   if (env.R2_ENDPOINT) return env.R2_ENDPOINT;
   const jurisdiction = env.R2_JURISDICTION || "eu";
@@ -110,8 +97,7 @@ class Refused extends Error {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Rate limits, kept in memory: a restart only forgives a few minutes.
+// Rate limits live in memory: a restart only forgives a few minutes.
 
 const windows = new Map();
 
@@ -133,17 +119,11 @@ setInterval(() => {
   for (const userId of [...holds.keys()]) holdsOf(userId);
 }, 60_000).unref();
 
-// ---------------------------------------------------------------------------
-// Who is asking. Supabase answers for the token; the answer is kept a minute.
+// Supabase's answer for a token is cached a minute.
 
 const sessions = new Map();
 
-/**
- * Whether a token was granted to an outside app (Claude's connector, say)
- * instead of signed in here. Those carry the OAuth client's `client_id` and
- * are only good at /mcp. One that can't be read isn't a token Supabase made,
- * and Supabase turns it away.
- */
+// OAuth-client tokens (Claude's connector, say) carry `client_id` and only work at /mcp.
 function grantedToApp(token) {
   try {
     return JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString("utf8"))?.client_id != null;
@@ -160,7 +140,6 @@ async function supabaseCall(path, token, init = {}) {
   });
 }
 
-/** The sign-in token a request came with. */
 const tokenOf = (req) => (req?.headers?.authorization ?? "").slice(7).trim();
 
 async function userFor(req) {
@@ -187,7 +166,7 @@ async function userFor(req) {
   return known;
 }
 
-/** Access level 1 is Free, 2 Creator, 3 Pro and 4 Agency. A row that can't be read counts as Free, so an outage never grants space. */
+/** 1 Free, 2 Creator, 3 Pro, 4 Agency. An unreadable row counts as Free, so an outage never grants space. */
 async function planOf(userId, token) {
   const res = await supabaseCall(`/rest/v1/user_data?select=access_level&id=eq.${userId}`, token);
   if (!res.ok) return "free";
@@ -196,12 +175,8 @@ async function planOf(userId, token) {
   return PLANS[Math.min(PLANS.length, Math.max(1, level)) - 1];
 }
 
-// ---------------------------------------------------------------------------
-// Working in someone else's workspace. A request naming `team`, `{ owner,
-// workspace }`, is about the files of a workspace shared with the person: its
-// posts' files and its media library, which the owner's account keeps. Once
-// Supabase says they're in it, the request goes on as the owner, on the
-// owner's plan. Projects stay each person's own.
+// A request naming `team` ({ owner, workspace }) runs as the owner, on the owner's plan,
+// once Supabase confirms the caller is in that workspace. Projects stay each person's own.
 
 const TEAM_PURPOSES = new Set(["media", "posts"]);
 const teams = new Map();
@@ -247,8 +222,7 @@ async function teamActor(req, user, body) {
   return known.actor;
 }
 
-// ---------------------------------------------------------------------------
-// Keys. Every key starts with the purpose and the user's own id.
+// Every key starts with the purpose and the user's own id.
 
 function projectPath(path) {
   if (typeof path !== "string" || path.length === 0 || path.length > 512) return null;
@@ -258,7 +232,7 @@ function projectPath(path) {
   return parts.join("/");
 }
 
-/** A post's file once the post has gone out. `id` is checked by keyFor first. */
+/** `id` is checked by keyFor first. */
 const sentKey = (userId, id) => `${SENT}/${userId}/${id}`;
 
 function keyFor(userId, body) {
@@ -270,9 +244,6 @@ function keyFor(userId, body) {
   if (!path) throw new Refused(400, "That project file can't be stored.");
   return `projects/${userId}/${id}/${path}`;
 }
-
-// ---------------------------------------------------------------------------
-// How much each user stores. Counted from R2, then kept up to date in memory.
 
 const usage = new Map();
 const USAGE_SECONDS = 10 * 60;
@@ -288,11 +259,7 @@ async function listKeys(prefix) {
   return found;
 }
 
-/**
- * Bytes stored under each purpose, and, apart from them, under sent/. `at` is
- * when the listing began: a file older than that is in it. Each hold learns
- * what the listing found at its key.
- */
+/** `at` is when the listing began: a file older than that is in it. */
 async function measure(userId) {
   const cached = usage.get(userId);
   if (cached && cached.until > Date.now()) return cached;
@@ -320,27 +287,18 @@ async function measure(userId) {
 
 const total = (parts) => Object.values(parts).reduce((sum, bytes) => sum + bytes, 0);
 
-// ---------------------------------------------------------------------------
-// Uploads on their way. A signed link works until it expires, so its file
-// counts from the moment it's signed: a hold on its key, kept until the link
-// is long dead. Once a listing finds the file there, the hold adds only what
-// the listing doesn't count already, so nothing counts twice. A hold is never
-// let go early, not on a delete nor on a move to sent/: the link could upload
-// the same file again. The link fixes the file's size (see uploadUrl), so a
-// hold can't be outgrown.
+// A signed link works until it expires, so its file counts from signing: a hold on its key
+// until the link is long dead, adding only what the listing doesn't count already. Never
+// released early (delete, move to sent/): the link could upload again. The link fixes the
+// file's size (see uploadUrl), so a hold can't be outgrown.
 
 /** A file still arriving when its link runs out may take a while to land. */
 const HOLD_SECONDS = LINK_SECONDS + 15 * 60;
 /** R2's clock and this server's may differ a little. */
 const CLOCK_SLACK = 60_000;
-/**
- * By user, then key: `{ purpose, size, counted, until }`. `purpose` is one of
- * PURPOSES, or SENT; `size` is the largest file signed for the key; `counted`
- * what the cached listing has there.
- */
+/** By user, then key: `{ purpose, size, counted, until }`. `size` is the largest file signed for the key. */
 const holds = new Map();
 
-/** The user's holds, with those past their time dropped. */
 function holdsOf(userId) {
   const mine = holds.get(userId);
   if (!mine) return undefined;
@@ -357,10 +315,8 @@ function holdsOf(userId) {
   return mine;
 }
 
-/** What a hold adds on top of the listing. */
 const extra = (hold) => Math.max(0, hold.size - hold.counted);
 
-/** What the user stores, with every upload still on its way counted as arrived. */
 async function projected(userId) {
   const mine = holdsOf(userId);
   const { parts, sent, at } = await measure(userId);
@@ -372,11 +328,8 @@ async function projected(userId) {
   return soon;
 }
 
-/**
- * Runs `work` for one user at a time, so parallel uploads can't all pass the
- * same check before any of them is held. This is one Node process, so a queue
- * in memory is all the lock it needs.
- */
+// One user at a time, so parallel uploads can't all pass the check before any is held.
+// This is one Node process, so an in-memory queue is all the lock it needs.
 const queues = new Map();
 
 function oneAtATime(userId, work) {
@@ -389,7 +342,6 @@ function oneAtATime(userId, work) {
   return run;
 }
 
-/** Size and time of a stored file, or null when there's none. */
 async function stat(key) {
   try {
     const head = await s3.send(new HeadObjectCommand({ Bucket: BUCKET, Key: key }));
@@ -411,21 +363,13 @@ async function deleteKeys(keys) {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Routes
-
-/** The posts a post file may belong to: its own id, or the part before `_<random>` (see isFileOf). */
 function postsOf(id) {
   const cut = id.lastIndexOf("_");
   return cut > 0 && isFileOf(id.slice(0, cut), id) ? [id, id.slice(0, cut)] : [id];
 }
 
-/**
- * Which of these files of `ownerId`'s posts belong to a post that went out:
- * one with a post_deliveries row in `sent`, which only the publisher writes.
- * Asked with the caller's own token, so Supabase answers only about posts
- * they may see: their own, or those of a workspace shared with them.
- */
+// Only the publisher writes `sent` post_deliveries rows. Asked with the caller's own token,
+// so Supabase answers only about posts they may see.
 async function sentFiles(req, ownerId, ids) {
   const asked = [...new Set(ids.flatMap(postsOf))];
   const went = new Set();
@@ -442,8 +386,7 @@ async function sentFiles(req, ownerId, ids) {
 
 async function uploadUrl(user, body, req) {
   limit(`upload:${user.id}`, 1500, 3600);
-  // A post that went out with no copy yet goes straight to sent/. One that
-  // didn't go out is stored as waiting, on the plan, like any other.
+  // A post that went out with no copy yet goes straight to sent/; one that didn't is stored as waiting.
   let sent = body?.sent === true;
   if (sent && body.purpose !== "posts") throw new Refused(400, "That file can't be stored.");
   let key = keyFor(user.id, body);
@@ -471,10 +414,9 @@ async function uploadUrl(user, body, req) {
     const found = await stat(key);
     const room = await projected(user.id);
     const held = holds.get(user.id)?.get(key);
-    // What the listing counts at the key: the file there, if the listing is sure to have it.
+    // Only what the listing is sure to have counts.
     const counted = held ? held.counted : found && found.at < room.at - CLOCK_SLACK ? found.size : 0;
     const largest = Math.max(held?.size ?? 0, size);
-    // What this link adds, once it lands in place of what's there.
     const adds = largest - counted - (held ? extra(held) : 0);
     if (sent) {
       // Its own status, not 413: the browser stops all backups on a full plan, and this ceiling isn't the plan.
@@ -496,11 +438,7 @@ async function uploadUrl(user, body, req) {
   });
 }
 
-/**
- * A post's file, from posts/ or sent/. Both can be there: a post moved back to
- * drafts uploads again, and a post that went out with a newer file than its
- * old waiting copy uploads to sent/. The newer one is the post's file.
- */
+/** Both posts/ and sent/ can hold a copy of a post's file: the newer one wins. */
 async function postKey(userId, id) {
   const waiting = `posts/${userId}/${id}`;
   const kept = sentKey(userId, id);
@@ -520,7 +458,6 @@ async function readUrl(user, body) {
   return signRead(user, body);
 }
 
-/** Read links for many files at once, for a browser fetching a whole project or library. */
 async function readUrls(user, body) {
   limit(`reads:${user.id}`, 600, 3600);
   const targets = body?.targets;
@@ -528,10 +465,7 @@ async function readUrls(user, body) {
   return { links: await Promise.all(targets.map((target) => signRead(user, target))) };
 }
 
-/**
- * What the account keeps of its projects, file by file, so another browser
- * can fetch them. Only ever under the asking user's own id.
- */
+/** Only ever under the asking user's own id. */
 async function list(user, body) {
   limit(`list:${user.id}`, 600, 3600);
   if (body?.purpose !== "projects") throw new Refused(400, "That can't be listed.");
@@ -569,7 +503,6 @@ async function remove(user, body) {
   return { deleted: keys.length };
 }
 
-/** Every file the account stores, for when the account is deleted. */
 async function erase(user, body) {
   limit(`erase:${user.id}`, 10, 3600);
   if (body?.everything !== true) throw new Refused(400, "Say that everything should go.");
@@ -582,14 +515,9 @@ async function erase(user, body) {
   return { deleted: keys.length };
 }
 
-/**
- * Moves the files of posts that went out from posts/ to sent/, copied inside
- * the bucket. Each comes with the size of the file the post went out with, so
- * an older file left under the post's id is never kept in its place. Says, by
- * id, which moved (or had already), which have no matching file to move,
- * which don't fit under the sent/ ceiling and stay put, and which belong to no
- * post that went out (see sentFiles) and stay put too, counting on the plan.
- */
+// Copies files of posts that went out from posts/ to sent/. Each comes with the size the post
+// went out with, so an older file under its id is never kept instead. Files over the sent/
+// ceiling, or of posts that didn't go out (see sentFiles), stay put on the plan.
 async function settle(user, body, req) {
   limit(`settle:${user.id}`, 300, 3600);
   const files = body?.files;
@@ -649,15 +577,10 @@ async function usageOf(user) {
   return { used: total(parts), limit: QUOTAS[user.plan], plan: user.plan, parts };
 }
 
-/** Whether `id` names one of the post's files: the post's own id, or `<post id>_<random>`. */
 const isFileOf = (postId, id) => id === postId || (id.startsWith(`${postId}_`) && /^[A-Za-z0-9]{1,32}$/.test(id.slice(postId.length + 1)));
 
-/**
- * A read link for a file of a shared post preview: `file` when it's one of
- * the post's, else the post's first. Asked by whoever has the preview link,
- * signed in or not: Supabase says which post the preview is of, and only
- * while it is still shared.
- */
+// Anyone with the preview link may ask, signed in or not: Supabase says which post it's of,
+// and only while it is still shared.
 async function previewUrl(body) {
   const preview = body?.preview;
   if (typeof preview !== "string" || !UUID.test(preview)) throw new Refused(404, "This preview isn't shared.");
@@ -676,12 +599,11 @@ async function previewUrl(body) {
   return { url, expiresIn: LINK_SECONDS };
 }
 
-/** Routes anyone may call, without signing in. */
 const PUBLIC_ROUTES = {
   "POST /api/storage/preview-url": previewUrl,
 };
 
-/** Routes a request about a shared workspace may take, as its owner. */
+/** Requests about a shared workspace may only take these routes, as its owner. */
 const TEAM_ROUTES = new Set([uploadUrl, readUrl, readUrls, remove, settle]);
 
 const ROUTES = {
@@ -694,9 +616,6 @@ const ROUTES = {
   "POST /api/storage/settle": settle,
   "GET /api/storage/usage": usageOf,
 };
-
-// ---------------------------------------------------------------------------
-// Server
 
 function json(res, status, body) {
   if (res.writableEnded) return;

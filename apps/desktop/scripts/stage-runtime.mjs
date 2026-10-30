@@ -2,17 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Stages the main process's external dependencies into apps/desktop/runtime
-// so electron-forge can ship them as an app resource (Contents/Resources/
-// runtime). A packaged app has no node_modules of its own: everything else
-// is bundled into dist/main.js, but esbuild (native binary) and the babel
-// toolchain stay external and are loaded from here at run time (see `load`
-// in src/projects.ts). The staged layout:
-//   runtime/package.json   the externals, pinned to the workspace's versions
-//   runtime/node_modules   a fresh `npm install --omit=dev` of them
-//
-// The list of externals is read from the build:main script so that it cannot
-// drift from what the bundle actually leaves unresolved.
+// A packaged app has no node_modules: esbuild (native binary) and babel stay external and load from
+// Contents/Resources/runtime (see `load` in src/projects.ts). The externals list is read from the
+// build:main script so it cannot drift from what the bundle leaves unresolved.
 
 import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
@@ -31,8 +23,7 @@ const externals = [...pkg.scripts["build:main"].matchAll(/--external:(\S+)/g)]
   // Electron is provided by the host binary, not installed.
   .filter((name) => name !== "electron");
 
-// Pin what the workspace has installed (and was tested against), not the
-// ranges in package.json.
+// Pin what the workspace has installed (and was tested against), not the ranges in package.json.
 const dependencies = Object.fromEntries(
   externals.map((name) => [name, require(`${name}/package.json`).version]),
 );
@@ -47,10 +38,8 @@ writeFileSync(
 
 npm(["install", "--omit=dev", "--no-audit", "--no-fund", "--no-package-lock"], { cwd: stageDir });
 
-// Mach-O files inside Resources are not reached by the app-bundle signing
-// pass, and notarization rejects unsigned executables; sign them here.
-// esbuild's postinstall hard-links the native binary over its bin/esbuild
-// shim, so the same executable can sit in two places.
+// The app-bundle signing pass misses Mach-O files in Resources, and notarization rejects unsigned
+// executables. esbuild's postinstall hard-links its binary over bin/esbuild, so one may sit in two places.
 const MACHO_MAGIC = new Set([0xfeedface, 0xfeedfacf, 0xcefaedfe, 0xcffaedfe, 0xcafebabe]);
 function isMachO(path) {
   const fd = openSync(path, "r");

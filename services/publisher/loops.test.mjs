@@ -1,6 +1,3 @@
-// The service's timers, on the real clock: a run is planned the moment it's
-// due rather than at the next half minute, and a "Post now" goes in a moment.
-
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -10,10 +7,7 @@ import { createWorker } from "./worker.mjs";
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/**
- * A worker whose clock runs with the real one, but set so the next whole
- * minute, when its post is due, is `lead` ms away.
- */
+/** Its clock runs with the real one, set so the next whole minute, when its post is due, is `lead` ms away. */
 function setup({ lead, platforms = ["x"] }) {
   const real = Date.now();
   const minute = Math.ceil(real / 60_000) * 60_000 + 60_000;

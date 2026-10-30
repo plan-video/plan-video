@@ -26,12 +26,11 @@ export default [
           jsx: true,
         },
         project: ["./tsconfig.app.json", "./tsconfig.node.json"],
-        tsconfigRootDir: import.meta.dirname, // ESM way to get __dirname
+        tsconfigRootDir: import.meta.dirname,
       },
       globals: {
         ...globals.browser,
         ...globals.node,
-        // Vite `define` (see vite.config.ts); declared in src/vite-env.d.ts
         APP_VERSION: "readonly",
       },
     },
@@ -41,15 +40,12 @@ export default [
     },
     rules: {
       "solid/reactivity": "off",
-      // Additional helpful SolidJS rules
       "solid/no-destructure": "warn",
       "solid/jsx-no-undef": "error",
       "solid/jsx-uses-vars": "error",
-      // Disable base no-unused-vars in favor of TypeScript version
       "no-unused-vars": "off",
-      // Disable no-redeclare to allow TypeScript function overloads
+      // Allows TypeScript function overloads.
       "no-redeclare": "off",
-      // TypeScript rules
       "@typescript-eslint/no-unused-vars": [
         "warn",
         { argsIgnorePattern: "^_" },
@@ -57,9 +53,7 @@ export default [
     },
   },
   {
-    // plan.video's website (site/, lib/site.ts) stays apart from the app, so
-    // the app builds and runs without it: the app reaches the site through
-    // lib/site.ts alone, never by importing its files.
+    // The app must build without the website: it reaches the site only through lib/site.ts.
     files: ["src/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-imports": ["error", {
@@ -71,7 +65,6 @@ export default [
     },
   },
   {
-    // The end-to-end checks: Node scripts that also run code in the browser page.
     files: ["e2e/**/*.mjs"],
     languageOptions: {
       ecmaVersion: "latest",
@@ -83,14 +76,12 @@ export default [
     },
   },
   {
-    // Ignore patterns
     ignores: [
       "node_modules/**",
       "dist/**",
       "dist-ssr/**",
       "*.config.js",
       "*.config.ts",
-      // The site's Node scripts (films, link pictures), as the repository's own scripts/ go unlinted.
       "site/scripts/**",
     ],
   },

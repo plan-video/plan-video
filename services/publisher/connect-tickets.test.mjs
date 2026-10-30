@@ -1,9 +1,3 @@
-// TikTok and LinkedIn connect through the publisher, as YouTube and X do: the
-// browser that connects an account, an admin's included, gets a ticket and
-// never the account's tokens. And every network's ticket attaches its login
-// once, within 15 minutes, for the person who connected it in the workspace
-// they connected it in.
-
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
@@ -30,7 +24,6 @@ const ADMIN2 = "0f0f0f0f-0000-4000-8000-000000000004";
 const T0 = Date.parse("2026-10-16T12:00:00Z");
 const MINUTE = 60_000;
 const TEAM = { owner: OWNER, workspace: "brand" };
-/** Another of the owner's workspaces, where ADMIN is an admin too. */
 const OTHER = { owner: OWNER, workspace: "other" };
 const DID = "did:plc:aaaaaaaaaaaaaaaaaaaaaaaa";
 const META_ENV = {
@@ -54,7 +47,6 @@ const NETWORKS = {
   },
 };
 
-/** Every network a ticket attaches, how to connect it, and the login it keeps. */
 const EVERY = {
   youtube: { route: "youtube/exchange", code: { code: "g", redirectUri: "https://plan.video/youtube/callback", codeVerifier: "v".repeat(43) }, token: "ya29.youtube-access" },
   tiktok: { route: "tiktok/exchange", code: NETWORKS.tiktok.code, token: "act.tiktok-access" },
@@ -66,12 +58,10 @@ const EVERY = {
   bluesky: { route: "bluesky/callback", code: { query: "code=c&state=s" } },
 };
 
-/** Who can do what in the owner's workspaces, by `person|workspace`. */
 const ROLES = () => ({ [`${OWNER}|brand`]: "owner", [`${OWNER}|other`]: "owner", [`${ADMIN}|brand`]: "admin", [`${ADMIN}|other`]: "admin", [`${ADMIN2}|brand`]: "admin", [`${MEMBER}|brand`]: "member" });
 
 async function setup(t, { clock = { now: T0 } } = {}) {
   const now = () => clock.now;
-  // One clock for everything, Bluesky's tickets and the logins' refreshes included.
   t.mock.method(Date, "now", now);
   const db = fakeDb({ users: [{ id: OWNER, access_level: 2 }], posts: [{ user_id: OWNER, workspace_id: "brand", time_zone: "UTC", connections: [], post: { id: "p", status: "draft", platforms: [] } }] });
   const rpc = db.rpc.bind(db);
@@ -166,7 +156,6 @@ async function setup(t, { clock = { now: T0 } } = {}) {
     return { status, ...JSON.parse(answer) };
   }
 
-  /** Connects an account of the network as `person`, in `team` when given, and gives the session the browser saves with. */
   async function connect(network, person, team) {
     const answer = await ask(person, EVERY[network].route, team ? { ...EVERY[network].code, team } : EVERY[network].code);
     assert.equal(answer.status, 200, answer.error);
@@ -174,7 +163,6 @@ async function setup(t, { clock = { now: T0 } } = {}) {
     return { ticket: answer.accounts ? answer.accounts[0].ticket : answer.ticket };
   }
 
-  /** Saves a connected account's login to `connectionId`, as `person`, in `team` when given. Answers the status. */
   async function save(network, person, connectionId, session, team) {
     return (await ask(person, "login/save", { connectionId, platform: network, session, ...(team ? { team } : {}) })).status;
   }
@@ -244,7 +232,6 @@ for (const [network, about] of Object.entries(NETWORKS)) {
 }
 
 for (const network of Object.keys(EVERY)) {
-  /** The login kept for a connection, as the account it names. */
   const keptOf = async (vault, connectionId) => {
     const kept = await vault.read(OWNER, connectionId);
     return network === "bluesky" ? kept.session.did : kept.session.accessToken;
@@ -267,14 +254,11 @@ for (const network of Object.keys(EVERY)) {
     const { vault, connect, save } = await setup(t);
     const session = await connect(network, ADMIN, TEAM);
     assert.equal(await save(network, ADMIN, "c1", session, TEAM), 200);
-    // Not to a second connection, in the same workspace or the owner's own.
     assert.equal(await save(network, ADMIN, "c2", session, TEAM), 403);
     assert.deepEqual((await vault.list(OWNER)).map((login) => login.connectionId), ["c1"]);
-    // The same save again, as a browser trying again does, is answered without keeping it again.
     await vault.remove(OWNER, "c1");
     assert.equal(await save(network, ADMIN, "c1", session, TEAM), 200);
     assert.deepEqual(await vault.list(OWNER), []);
-    // Connecting again gives a new ticket, which attaches.
     assert.equal(await save(network, ADMIN, "c2", await connect(network, ADMIN, TEAM), TEAM), 200);
   });
 
@@ -288,9 +272,7 @@ for (const network of Object.keys(EVERY)) {
 
   test(`${network}: a ticket attaches nothing for another person`, async (t) => {
     const { vault, connect, save } = await setup(t);
-    // Another admin of the same workspace.
     assert.equal(await save(network, ADMIN2, "c1", await connect(network, ADMIN, TEAM), TEAM), 403);
-    // The owner, with an admin's ticket, or an admin with the owner's.
     assert.equal(await save(network, OWNER, "c1", await connect(network, ADMIN, TEAM), TEAM), 403);
     assert.equal(await save(network, OWNER, "c1", await connect(network, ADMIN, TEAM)), 403);
     assert.equal(await save(network, ADMIN, "c1", await connect(network, OWNER), TEAM), 403);
@@ -300,13 +282,10 @@ for (const network of Object.keys(EVERY)) {
   test(`${network}: an admin taken out of a workspace can't attach its account in another of the owner's`, async (t) => {
     const { vault, connect, save, roles } = await setup(t);
     const session = await connect(network, ADMIN, TEAM);
-    // Not while still in both,
     assert.equal(await save(network, ADMIN, "c1", session, OTHER), 403);
-    // nor once taken out of the one it was connected in,
     delete roles[`${ADMIN}|brand`];
     assert.equal(await save(network, ADMIN, "c1", session, OTHER), 403);
     assert.equal(await save(network, ADMIN, "c1", session, TEAM), 403);
-    // nor in their own.
     assert.equal(await save(network, ADMIN, "c1", session), 403);
     assert.deepEqual(await vault.list(OWNER), []);
     assert.deepEqual(await vault.list(ADMIN), []);
@@ -332,7 +311,6 @@ test("a ticket of the older kind, bound only to the owner and without a nonce, a
   for (const [network, binding] of [["youtube", `youtube-ticket:${OWNER}`], ["tiktok", `tiktok-ticket:${OWNER}`], ["x", `x-ticket:${OWNER}`], ["instagram", `instagram-ticket:${OWNER}`]]) {
     assert.equal(await save(network, OWNER, "c1", { ticket: box.seal({ session, until: T0 + 30 * 24 * 60 * MINUTE }, binding) }), 403);
   }
-  // Nor one sealed for the holder without a nonce.
   assert.equal(await save("youtube", OWNER, "c1", { ticket: box.seal({ session, until: T0 + MINUTE }, `youtube-ticket:${OWNER}:${OWNER}:`) }), 403);
   assert.deepEqual(await vault.list(OWNER), []);
 });
@@ -346,7 +324,6 @@ test("linkedin: the browser learns whether the login renews itself, without the 
 test("the network services no longer swap codes or refresh logins for a browser", async () => {
   const env = { clientKey: "k", clientSecret: "s", clientId: "i", supabaseUrl: "https://db.test", supabaseAnonKey: "a" };
   const original = globalThis.fetch;
-  // Whoever asks is signed in to plan.video; nothing else is called.
   globalThis.fetch = async (url) => {
     if (String(url).startsWith("https://db.test/auth/v1/user")) return new Response(JSON.stringify({ id: OWNER }), { status: 200 });
     throw new Error(`unexpected call to ${url}`);

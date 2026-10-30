@@ -7,25 +7,18 @@ import { join } from "node:path";
 import { access, writeFile } from "node:fs/promises";
 
 /**
- * Desktop analytics. The renderer's Umami script never fires inside Electron
- * (its `data-domains` gate does not match the `file://` origin), so main
- * posts events directly to Umami's send API: the renderer's product events
- * arrive over `ANALYTICS_TRACK`, and the install event is sent from here.
- *
- * Install tracking is proxied by the first launch of a packaged build: one
- * event, then a marker file in `userData` to never send it again. Offline
- * first launches retry on the next launch.
+ * The renderer's Umami script never fires in Electron (its `data-domains` gate does not match
+ * `file://`), so main posts to Umami's send API. The install event is sent once, then a marker in
+ * `userData` stops it; offline first launches retry next launch.
  */
 
 const UMAMI_ENDPOINT = "https://cloud.umami.is/api/send";
-// Empty until plan.video has an Umami site of its own; nothing is sent while it is.
+// Nothing is sent while this is empty.
 const UMAMI_WEBSITE_ID = "";
 const HOSTNAME = "desktop.plan.video";
 const MARKER_FILE = "install-tracked";
 
-// Umami discards events whose User-Agent trips its bot filter, which both
-// Node's fetch default and Electron's own UA do — send a plain browser UA
-// that still attributes the right OS.
+// Umami's bot filter drops Node's and Electron's default User-Agents, so send a plain browser UA with the right OS.
 function userAgent(): string {
   const platform =
     process.platform === "darwin"
@@ -38,7 +31,7 @@ function userAgent(): string {
 
 export type AnalyticsEventData = Record<string, string | number | boolean>;
 
-/** Post one event to Umami. Resolves to whether Umami accepted it; never throws. */
+/** Never throws. */
 async function sendEvent(name: string, url: string, data: AnalyticsEventData): Promise<boolean> {
   if (!UMAMI_WEBSITE_ID) return false;
   try {
@@ -52,12 +45,11 @@ async function sendEvent(name: string, url: string, data: AnalyticsEventData): P
     });
     return response.ok;
   } catch {
-    // Offline or Umami unreachable.
     return false;
   }
 }
 
-/** A product event from the renderer. Dev builds stay out of the numbers. */
+/** Dev builds stay out of the numbers. */
 export async function trackEvent(name: string, data: AnalyticsEventData = {}): Promise<void> {
   if (!app.isPackaged) return;
   await sendEvent(name, "/desktop", {
@@ -75,7 +67,7 @@ export async function trackInstall(): Promise<void> {
     await access(marker);
     return;
   } catch {
-    // No marker yet — this is the first (tracked) launch.
+    // No marker yet: this is the first launch.
   }
 
   const sent = await sendEvent("desktop_install", "/desktop/install", {
@@ -83,6 +75,5 @@ export async function trackInstall(): Promise<void> {
     arch: process.arch,
     version: app.getVersion(),
   });
-  // Not sent — retried on the next launch.
   if (sent) await writeFile(marker, new Date().toISOString()).catch(() => {});
 }

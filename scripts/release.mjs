@@ -2,9 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Cuts a release: bumps the single global version in the root and all app
-// package.jsons, refreshes the lockfile, commits, and tags. Pushing the tag
-// is what triggers the Release workflow, so that stays a manual step.
+// Pushing the tag triggers the Release workflow, so that stays a manual step.
 // Usage: npm run release <patch|minor|major|x.y.z>
 
 import { execFileSync } from "node:child_process";

@@ -1,15 +1,7 @@
-// Posts to the member's own LinkedIn profile: the words, with the post's video,
-// its picture, or up to 20 of its pictures. Files are uploaded first, then
-// LinkedIn works on them, so a post with files is `processing` in between.
-// check only asks after the files; once they're ready, publish makes the post,
-// after the publisher has claimed the row, so it's made once only.
-//
-// One video or picture goes through the API plan.video has always posted
-// with. Several pictures need LinkedIn's versioned API, whose uploads can't be
-// asked after with this login, so those are given a minute before posting.
-//
-// A thread's follow-ups go as the member's comments on the post, in words
-// alone: their pictures and videos go to X and Bluesky only.
+// A post with files is `processing` until LinkedIn has them ready; publish makes the post only after
+// the publisher has claimed the row, so it's made once. Several pictures need LinkedIn's versioned API,
+// whose uploads can't be asked after with this login, so they're given a minute before posting.
+// Follow-ups go as comments, in words alone.
 
 import { COMMENT_LIMIT, assetState, clip, createComment, createImagesPost, createPost, register, registerImage } from "../../linkedin/handler.mjs";
 
@@ -19,7 +11,6 @@ import { captionOf } from "./text.mjs";
 const TEXT_LIMIT = 3000;
 const MAX_VIDEO_BYTES = 200 * 1024 * 1024;
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
-/** Pictures one post can carry. */
 const MAX_PICTURES = 20;
 const PROCESSING_MS = 60 * 60_000;
 /** Several pictures can't be asked after, so they're given this long after their upload before the post is made. */
@@ -40,7 +31,6 @@ async function makePost(session, text, media) {
   return { state: "sent", publishId: made.id, url: postUrl(made.id) };
 }
 
-/** Sends the file's bytes to the upload LinkedIn started for it. */
 async function put(session, media, file, uploadUrl) {
   const response = await fetch(uploadUrl, {
     method: "PUT",
@@ -54,7 +44,7 @@ async function put(session, media, file, uploadUrl) {
   if (response.status !== 200 && response.status !== 201) throw new PublishError("LinkedIn didn't take the file. Trying again soon.", { retry: true });
 }
 
-/** What a send uploaded: a post's pictures, or its one file, which the row keeps as `kind:asset`. */
+/** The row keeps a post's one file as `kind:asset`. */
 function uploaded(delivery) {
   if (delivery.publish_id.startsWith(PICTURES)) return { pictures: delivery.publish_id.slice(PICTURES.length).split(",") };
   const at = delivery.publish_id.indexOf(":");
@@ -64,7 +54,6 @@ function uploaded(delivery) {
 export const linkedin = {
   needsFile: false,
 
-  /** Uploads the post's video, or up to 20 of its pictures, for publish to post once they're ready. Words alone go at once. */
   async send({ post, session, files, media }) {
     const text = clip(captionOf(post, "linkedin").trim(), TEXT_LIMIT);
     const video = files.find((file) => file.kind === "video");
@@ -107,12 +96,11 @@ export const linkedin = {
     return { state: "processing", publishId: delivery.publish_id };
   },
 
-  /** Makes the post with the files, once check finds them ready. */
   async publish({ post, session, delivery }) {
     return makePost(session, clip(captionOf(post, "linkedin").trim(), TEXT_LIMIT), uploaded(delivery));
   },
 
-  /** Posts a follow-up of the post's thread, as a comment on the post. When LinkedIn's answer is lost, it may have made it anyway, so that's never tried again on its own. */
+  /** When LinkedIn's answer is lost it may have made the comment anyway, so that's never tried again on its own. */
   async reply({ session, text, root }) {
     const body = text.trim();
     // A comment takes words alone: a follow-up with only media has nothing for LinkedIn, and the thread carries on without it.

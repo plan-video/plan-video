@@ -1,11 +1,6 @@
-// TikTok logins never reach a browser. Anyone holding one could post to the
-// account straight through TikTok's API, and a browser that got one while
-// connecting an account for someone else's workspace would keep it after
-// leaving it. So the publisher swaps the code TikTok sends back for the tokens
-// itself and hands the browser a ticket: the login sealed with TOKEN_KEY and
-// bound to the person and workspace (ticketBinding in vault.mjs), which only
-// this service can open. The browser shows the ticket to login/save, as
-// youtube-logins.mjs does for YouTube.
+// TikTok logins never reach a browser: anyone holding one could post straight through TikTok's API, and
+// one got connecting for someone else's workspace would outlast leaving it. The publisher swaps the code
+// itself and hands back a ticket sealed and bound to person and workspace.
 
 import { redirectsFor, profileFor, tokenRequest } from "../tiktok/handler.mjs";
 
@@ -15,11 +10,7 @@ import { openTicket, sealTicket, sealer } from "./vault.mjs";
 export function createTikTokLogins({ key, env, now = () => Date.now(), token = tokenRequest, profile = profileFor }) {
   const box = sealer(key);
   return {
-    /**
-     * Swaps the code TikTok sent back for the account's login. Returns who the
-     * account is and a ticket for its login, never the tokens. `holder` is who
-     * the ticket is for.
-     */
+    /** Returns the account and a ticket for its login, never the tokens. */
     async exchange(holder, { code, redirectUri, codeVerifier }) {
       if (!env.clientKey || !env.clientSecret) throw new Refused(503, "TikTok isn't set up on the server yet.");
       if (!redirectsFor(env.publicUrl).has(redirectUri)) throw new Refused(400, "That TikTok redirect address isn't allowed.");
@@ -41,7 +32,7 @@ export function createTikTokLogins({ key, env, now = () => Date.now(), token = t
       };
     },
 
-    /** What a ticket holds, `{ session, nonce, until }`, when it was made for this holder and hasn't run out; otherwise null. */
+    /** Null unless made for this holder and not run out. */
     open(holder, ticket) {
       return openTicket(box, "tiktok", holder, ticket, now());
     },

@@ -2,11 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Stages the docs into apps/desktop/docs so electron-forge can ship them as
-// an app resource (Contents/Resources/docs). The app's MCP server sends
-// INSTRUCTIONS.md on connect along with this folder's path; agents read the
-// rest as plain files. The tree is copied as it is in the repo, because the
-// relative links between the pages assume that layout.
+// Copied as laid out in the repo: the relative links between the pages assume that layout.
 
 import { cpSync, mkdirSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";

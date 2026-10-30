@@ -2,12 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Registers the app's MCP server with the agents on this machine, one agent
-// at a time as the settings page asks: the fixed loopback URL for agents
-// that speak HTTP, the bundled `dapi mcp` proxy for the rest. No PATH
-// symlink and no admin prompt — that is `cli-install.ts`, for people who
-// type `planvideo` (or its `dapi` alias).
-
 import { app } from "electron";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -28,16 +22,10 @@ import {
 import type { AgentPath, AgentTarget, McpServerSpec } from "./mcp-config";
 import type { McpAgentStatus, McpApplyRequest, McpApplyResult, McpStatus } from "./main-channels";
 
-// The dev workflow links the workspace build into Homebrew's bin
-// (`npm run link` in apps/cli); that is the binary a dev build registers.
+// `npm run link` in apps/cli links the workspace build here; a dev build registers it.
 const DEV_BINARY = "/opt/homebrew/bin/dapi";
 
-/**
- * The bundled `dapi` binary, or null when none is available (an unstaged dev
- * build). On Windows it is the shim outside the install folder, the one path
- * that survives an update; a packaged app writes it on every launch, so it
- * counts as there even in the moment before that write lands.
- */
+/** On Windows, the shim outside the install folder (the one path that survives an update). */
 export function dapiBinary(): string | null {
   if (process.platform === "win32") {
     const shim = shimPath();
@@ -82,13 +70,7 @@ function writeConfig(target: AgentTarget, text: string): void {
   writeFileSync(path, text);
 }
 
-/**
- * Why this agent cannot be connected from this build, or null when it can.
- * Only the stdio agents have reasons: a build without the `planvideo` binary has
- * nothing for them to run, and a quarantined first launch runs from a
- * translocated read-only mount whose path won't survive the next launch —
- * registering it would dangle.
- */
+/** A quarantined first launch runs from a translocated read-only mount; registering that path would dangle. */
 function unavailableReason(target: AgentTarget, current: McpServerSpec): string | null {
   if (!needsBinary(target)) return null;
   if (current.command === "") return "Needs the planvideo command line tool, which this build does not include.";
@@ -110,17 +92,12 @@ function agentStatus(target: AgentTarget, current: McpServerSpec): McpAgentStatu
   };
 }
 
-/** Every agent we know, with whether it is on this machine and whether its config carries our entry. */
 export function mcpStatus(): McpStatus {
   const current = spec();
   return { url: current.url, agents: AGENT_TARGETS.map((target) => agentStatus(target, current)) };
 }
 
-/**
- * Writes our entry into the configs of `add` and takes it out of the configs
- * of `remove`, one file at a time, so one unreadable config does not stop
- * the rest. Other servers in the same file are left alone either way.
- */
+/** One file at a time, so one unreadable config does not stop the rest. */
 export function applyMcp(request: McpApplyRequest): McpApplyResult {
   const current = spec();
   const result: McpApplyResult = { added: [], removed: [], failures: [] };
@@ -154,12 +131,7 @@ export function applyMcp(request: McpApplyRequest): McpApplyResult {
   return result;
 }
 
-/**
- * Launch-time self-heal for the stdio agents: an entry that still runs the
- * proxy from a bundle that moved (or was translocated when it was written)
- * is rewritten to the binary this build has. Entries the user wrote by hand
- * for something else are left alone.
- */
+/** Rewrites stdio entries that run our proxy from a moved or translocated bundle; hand-written entries stay. */
 export function healMcpRegistrations(): void {
   if (!app.isPackaged) return;
   const current = spec();
@@ -176,7 +148,7 @@ export function healMcpRegistrations(): void {
     try {
       writeConfig(target, upsertServer(text, target.format, entry));
     } catch {
-      // best effort — the settings page remains as a manual fix
+      // best effort: the settings page remains as a manual fix
     }
   }
 }

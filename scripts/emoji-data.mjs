@@ -3,15 +3,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Writes apps/web/src/lib/emoji-data.ts, the caption's emoji picker list, from
-// Unicode's emoji-test.txt: every fully-qualified emoji in Unicode's order,
-// grouped, with its name for search and its five skin tones where it has them.
-//
 //   node scripts/emoji-data.mjs                     fetches emoji-test.txt for VERSION
 //   node scripts/emoji-data.mjs path/emoji-test.txt reads a copy already downloaded
-//
-// VERSION stays a step behind the newest: an emoji the reader's system can't
-// draw shows as an empty box, and Windows and older phones catch up slowly.
+// VERSION stays a step behind the newest: Windows and older phones draw new emoji as empty boxes.
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -62,8 +56,7 @@ for (const line of text.split("\n")) {
   if (!row || !group) continue;
   const [, emoji, name] = row;
 
-  // "waving hand: medium skin tone" or "man: light skin tone, red hair" is a tone
-  // of "waving hand" or "man: red hair". Mixed tones, like two people's, stay out.
+  // "man: light skin tone, red hair" is a tone of "man: red hair". Mixed tones (two people's) stay out.
   const cut = name.indexOf(": ");
   const parts = cut === -1 ? [] : name.slice(cut + 2).split(", ");
   const tones = parts.filter((part) => TONES.includes(part));

@@ -1,8 +1,6 @@
-// The logins of connected accounts. Each is sealed with AES-256-GCM under a
-// key only this service holds, bound to its account and connection so a row
-// can't be moved to another, and kept in social_tokens. This service is the
-// only one that refreshes them, so a network that hands out a new refresh
-// token each time never sees two copies racing.
+// Logins are sealed with AES-256-GCM under a key only this service holds, bound to their account and
+// connection so a row can't be moved to another. Only this service refreshes them, so a network that
+// hands out a new refresh token each time never sees two copies racing.
 
 import { createCipheriv, createDecipheriv, randomBytes, randomUUID } from "node:crypto";
 
@@ -44,15 +42,12 @@ export function sealer(base64Key) {
 export const tokenBinding = (userId, connectionId) => `${userId}:${connectionId}`;
 export const blueskyBinding = (userId, did) => `bluesky:${userId}:${did}`;
 
-/** How long a connect ticket attaches its login: the browser hands it to login/save as soon as it has it. */
+/** Short: the browser hands a ticket to login/save as soon as it has it. */
 export const TICKET_MS = 15 * 60_000;
 
 /**
- * Who a connect ticket is for: the person who connected the account and the
- * workspace they connected it in, as `{ person, owner, workspace }`. The
- * workspace is "" for the owner's own, any of which they can attach their
- * accounts to. Someone acting for an owner names which of the owner's it is,
- * so an admin taken out of one workspace can't attach its account in another.
+ * `{ person, owner, workspace }`; workspace "" for the owner's own. Someone acting for an owner names
+ * the workspace, so an admin taken out of one can't attach its account in another.
  */
 export const ticketBinding = (network, { person, owner, workspace = "" }) => `${network}-ticket:${person}:${owner}:${workspace}`;
 
@@ -61,7 +56,7 @@ export function sealTicket(box, network, holder, session, now) {
   return box.seal({ session, until: now + TICKET_MS, nonce: randomUUID() }, ticketBinding(network, holder));
 }
 
-/** What a ticket holds, `{ session, nonce, until }`, when it was made for this holder and hasn't run out; otherwise null. */
+/** Null unless made for this holder and not run out. */
 export function openTicket(box, network, holder, ticket, now) {
   try {
     const { session, until, nonce } = box.open(ticket, ticketBinding(network, holder));
@@ -74,10 +69,7 @@ export function openTicket(box, network, holder, ticket, now) {
 const str = (value, max = 8192) => (typeof value === "string" && value.length <= max ? value : "");
 const num = (value) => (typeof value === "number" && Number.isFinite(value) ? value : 0);
 
-/**
- * A login as a browser hands it over after connecting, cut down to what each
- * network's login holds. Null when it isn't one.
- */
+/** Cut down to what each network's login holds; null when it isn't one. */
 export function cleanSession(platform, value, { allowOAuth = false } = {}) {
   if (!value || typeof value !== "object") return null;
   if (platform === "tiktok") {
@@ -117,7 +109,6 @@ export function cleanSession(platform, value, { allowOAuth = false } = {}) {
   return null;
 }
 
-/** When a JWT runs out, in milliseconds, or 0 when it doesn't say. */
 function jwtExpiry(token) {
   try {
     const payload = JSON.parse(Buffer.from(token.split(".")[1] ?? "", "base64url").toString("utf8"));
@@ -205,10 +196,6 @@ async function refreshed(platform, session, env) {
   throw new PublishError("plan.video can't post to this network from the server yet.");
 }
 
-/**
- * The vault over a table. `db` reads and writes social_tokens; `env` holds
- * each network's client id and secret for refreshing.
- */
 export function createVault({ db, key, env }) {
   const box = sealer(key);
   const binding = tokenBinding;
@@ -235,9 +222,8 @@ export function createVault({ db, key, env }) {
 
   return {
     /**
-     * Keeps a login handed over by a browser. A login just made replaces the
-     * one kept; an older copy only fills a gap, since the one kept may have
-     * been refreshed since, and some networks accept only the newest.
+     * A login just made replaces the one kept; an older copy only fills a gap, since the one kept may
+     * have been refreshed since and some networks accept only the newest.
      */
     async put(userId, connectionId, platform, value, { replace = true, allowOAuth = false } = {}) {
       const session = cleanSession(platform, value, { allowOAuth });
@@ -257,7 +243,6 @@ export function createVault({ db, key, env }) {
 
     read,
 
-    /** The connected accounts with a login kept here. */
     async list(userId) {
       const rows = await db.select("social_tokens", { user_id: userId }, "connection_id,platform");
       return rows.map((row) => ({ connectionId: row.connection_id, platform: row.platform }));
@@ -267,7 +252,6 @@ export function createVault({ db, key, env }) {
       await db.delete("social_tokens", { user_id: userId, connection_id: connectionId });
     },
 
-    /** A login that works for at least a few more minutes, refreshed and saved first when it wouldn't. */
     async fresh(userId, connectionId) {
       const id = binding(userId, connectionId);
       const running = pending.get(id);

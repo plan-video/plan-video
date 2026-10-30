@@ -1,38 +1,25 @@
-// Paying for plans, through Stripe. Checkout starts a subscription, Stripe's
-// billing portal changes or ends it, and every change Stripe tells us about
-// is written onto user_data.access_level: 1 Free, 2 Creator, 3 Pro, 4 Agency,
-// which storage, X and the app read. The plan is always worked out afresh
-// from the customer's subscriptions in Stripe, so webhooks that arrive late,
-// twice or out of order still leave the right plan.
-//
-// Prices are found by lookup key (planvideo_<plan>_<billing>), which
-// scripts/setup-stripe.mjs gives them, so no price ids live in config.
-//
-// Agency includes 100 social accounts; more are a second line on the same
-// subscription (planvideo_accounts_<billing>, $1 a month each), and how many
-// is written onto user_data.extra_accounts, which the publisher counts against.
+// The plan is always worked out afresh from the customer's Stripe subscriptions and written
+// to user_data.access_level (1 Free … 4 Agency), so late, repeated or out-of-order webhooks
+// still leave the right plan. Prices are found by lookup key (planvideo_<plan>_<billing>, made
+// by scripts/setup-stripe.mjs); Agency's extra accounts are a second line, planvideo_accounts_<billing>.
 
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 const STRIPE_URL = "https://api.stripe.com/v1";
-/** The paid plans and the access level each gives. */
 export const LEVELS = { creator: 2, pro: 3, agency: 4 };
 export const BILLINGS = ["monthly", "yearly"];
-/** Subscriptions that keep their plan. past_due keeps it while Stripe retries the card. */
+/** past_due keeps the plan while Stripe retries the card. */
 const LIVE = new Set(["active", "trialing", "past_due"]);
 const JSON_MAX = 16 * 1024;
 const WEBHOOK_MAX = 1024 * 1024;
 const SIGNATURE_TOLERANCE = 5 * 60;
 
 export const lookupKey = (plan, billing) => `planvideo_${plan}_${billing}`;
-/** The price of one social account past the ones a plan includes, billed with the plan. */
 export const accountsKey = (billing) => `planvideo_accounts_${billing}`;
-/** The plan that sells more social accounts, how many it includes, and the most it goes to. */
 export const ACCOUNTS_PLAN = "agency";
 export const INCLUDED_ACCOUNTS = 100;
 export const MAX_ACCOUNTS = 1000;
 
-/** Extra accounts for a total asked for, or undefined when it isn't a number. */
 export function extrasFor(total) {
   if (typeof total !== "number" || !Number.isFinite(total)) return undefined;
   return Math.max(0, Math.min(MAX_ACCOUNTS, Math.trunc(total)) - INCLUDED_ACCOUNTS);
@@ -148,7 +135,7 @@ async function stripe(env, method, path, params = {}) {
   return payload;
 }
 
-/** PostgREST with the service role: user_data can only be written from here. */
+/** user_data can only be written with the service role, from here. */
 async function db(env, method, path, body, prefer = "") {
   let response;
   try {
@@ -174,12 +161,7 @@ async function db(env, method, path, body, prefer = "") {
   return text ? JSON.parse(text) : [];
 }
 
-/**
- * Whether a token was granted to an outside app (Claude's connector, say)
- * instead of signed in here. Those carry the OAuth client's `client_id` and
- * are only good at /mcp. One that can't be read isn't a token Supabase made,
- * and Supabase turns it away.
- */
+// OAuth-client tokens (Claude's connector, say) carry `client_id` and only work at /mcp.
 function grantedToApp(token) {
   try {
     return JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString("utf8"))?.client_id != null;
@@ -190,7 +172,6 @@ function grantedToApp(token) {
 
 const SESSIONS = new Map();
 
-/** The signed-in person: their id and email. */
 async function userFor(req, env) {
   const header = req.headers.authorization ?? "";
   const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
@@ -222,12 +203,10 @@ async function rowOf(env, userId) {
   return rows[0] ?? null;
 }
 
-/** The person's Stripe customer, or undefined when they've never had one (or it's gone from Stripe). */
 async function existingCustomer(env, userId) {
   return liveCustomer(env, (await rowOf(env, userId))?.stripe_customer_id);
 }
 
-/** The customer id, unless it's empty or gone from Stripe. */
 async function liveCustomer(env, id) {
   if (!id) return undefined;
   try {
@@ -241,8 +220,8 @@ async function liveCustomer(env, id) {
 }
 
 async function customerFor(env, user) {
-  // Read once, before making a customer: the guarded write below must compare
-  // against this, not against what another request may have written since.
+  // Read once, before making a customer: the guarded write below must compare against this,
+  // not against what another request may have written since.
   const row = await rowOf(env, user.id);
   const existing = await liveCustomer(env, row?.stripe_customer_id);
   if (existing) return existing;
@@ -251,7 +230,7 @@ async function customerFor(env, user) {
     email: user.email || undefined,
     metadata: { user_id: user.id },
   });
-  // Two requests at once (two tabs, say) each make a customer; the one written first is kept.
+  // Two requests at once (two tabs) each make a customer; the one written first is kept.
   // A missing row is made empty first, so both go through the same guarded write.
   if (!row) await db(env, "POST", "user_data?on_conflict=id", { id: user.id }, "resolution=ignore-duplicates");
   const previous = row?.stripe_customer_id;
@@ -266,7 +245,6 @@ async function customerFor(env, user) {
 
 let priceCache;
 
-/** The plans' prices in Stripe, by lookup key. */
 async function prices(env) {
   if (priceCache && priceCache.until > Date.now()) return priceCache.map;
   const keys = [...Object.keys(LEVELS).flatMap((plan) => BILLINGS.map((billing) => lookupKey(plan, billing))), ...BILLINGS.map(accountsKey)];
@@ -276,7 +254,6 @@ async function prices(env) {
   return map;
 }
 
-/** Which plan and billing a price is for, from its lookup key or its metadata. */
 export function planOfPrice(price) {
   const match = /^planvideo_(creator|pro|agency)_(monthly|yearly)$/.exec(price?.lookup_key ?? "");
   if (match) return { plan: match[1], billing: match[2] };
@@ -285,19 +262,16 @@ export function planOfPrice(price) {
   return { plan, billing: price?.recurring?.interval === "year" ? "yearly" : "monthly" };
 }
 
-/** Whether a price is for extra social accounts rather than a plan. */
 export function isAccountsPrice(price) {
   return /^planvideo_accounts_(monthly|yearly)$/.test(price?.lookup_key ?? "") || price?.metadata?.addon === "accounts";
 }
 
-/** A subscription's (or a schedule phase's) line for its plan, and for its extra accounts. */
 const planItem = (items) => items?.find((item) => planOfPrice(item.price));
 const accountsItem = (items) => items?.find((item) => isAccountsPrice(item.price));
 
-/** A subscription's period end in ms. Newer API versions keep it on the item. */
+/** Newer API versions keep the period end on the item. */
 const periodEnd = (sub) => (sub.items?.data?.[0]?.current_period_end ?? sub.current_period_end ?? 0) * 1000;
 
-/** The highest plan among the subscriptions that are still paid for, with its extra accounts, or null for Free. */
 export function bestSubscription(subscriptions) {
   let best = null;
   for (const sub of subscriptions) {
@@ -311,11 +285,7 @@ export function bestSubscription(subscriptions) {
   return best;
 }
 
-/**
- * Whether a switch waits for the renewal instead of being charged now: a lower
- * plan, or the same plan billed monthly instead of yearly. Everything else is
- * an upgrade, charged (with credit for the time left) straight away.
- */
+/** A lower plan, or the same plan monthly instead of yearly, waits for renewal; upgrades charge now. */
 export function waitsForRenewal(from, to) {
   if (LEVELS[to.plan] !== LEVELS[from.plan]) return LEVELS[to.plan] < LEVELS[from.plan];
   return from.billing === "yearly" && to.billing === "monthly";
@@ -323,7 +293,6 @@ export function waitsForRenewal(from, to) {
 
 const idOf = (value) => (value && typeof value === "object" ? value.id : value);
 
-/** The switch a subscription's schedule holds for its renewal, or null. Times in ms. */
 async function scheduledChange(env, sub) {
   const scheduleId = idOf(sub.schedule);
   if (!scheduleId) return null;
@@ -335,21 +304,15 @@ async function scheduledChange(env, sub) {
   return found ? { ...found, at: next.start_date * 1000 } : null;
 }
 
-/** Drops any switch waiting on the subscription; it carries on as it is. */
 async function releaseSchedule(env, sub) {
   const scheduleId = idOf(sub.schedule);
   if (scheduleId) await stripe(env, "POST", `/subscription_schedules/${encodeURIComponent(scheduleId)}/release`);
 }
 
-/**
- * Sets the subscription to move to `price` at its renewal: the current period
- * stays as it is and paid for, the next starts on the new price, nothing is
- * charged or credited now. Replaces any switch set before. `extras` carries
- * extra accounts over, on `extrasPrice`, when the next plan sells them.
- */
+// The current period stays as paid for, the next starts on `price`, nothing is charged or
+// credited now. Replaces any switch set before.
 async function scheduleSwitch(env, sub, price, extras = 0, extrasPrice) {
   await releaseSchedule(env, sub);
-  // Switching to a smaller plan means carrying on, so a pending end is dropped.
   if (sub.cancel_at || sub.cancel_at_period_end) await stripe(env, "POST", `/subscriptions/${sub.id}`, { cancel_at: "" });
   const schedule = await stripe(env, "POST", "/subscription_schedules", { from_subscription: sub.id });
   const current = schedule.phases[0];
@@ -389,10 +352,7 @@ async function subscriptionsOf(env, customer) {
   return list.data;
 }
 
-/**
- * Reads the customer's subscriptions from Stripe and writes the plan they pay
- * for onto user_data. Safe to run any number of times, in any order.
- */
+/** Safe to run any number of times, in any order. */
 export async function syncCustomer(env, customer, knownUserId) {
   const best = bestSubscription(await subscriptionsOf(env, customer));
   const level = best?.level ?? 1;
@@ -403,7 +363,6 @@ export async function syncCustomer(env, customer, knownUserId) {
     return level;
   }
 
-  // Not linked yet (or linked to a since-deleted customer): find the person through the customer.
   let userId = knownUserId;
   if (!userId) {
     const found = await stripe(env, "GET", `/customers/${encodeURIComponent(customer)}`).catch(() => null);
@@ -421,10 +380,7 @@ export async function syncCustomer(env, customer, knownUserId) {
   return level;
 }
 
-/**
- * Writes the extra accounts paid for. Apart from the plan, so that before the
- * extra_accounts column exists the plan is still written.
- */
+/** Separate from the plan, so the plan is still written before the extra_accounts column exists. */
 async function writeExtras(env, filter, extras) {
   await db(env, "PATCH", `user_data?${filter}`, { extra_accounts: extras }).catch(() => undefined);
 }
@@ -435,7 +391,6 @@ async function liveSubscription(env, customer) {
 
 let portalCache;
 
-/** The portal configuration setup-stripe.mjs made (plan switching on), or undefined for the account's default. */
 async function portalConfiguration(env) {
   if (portalCache && portalCache.until > Date.now()) return portalCache.id;
   const list = await stripe(env, "GET", "/billing_portal/configurations", { active: true, limit: 100 });
@@ -460,7 +415,7 @@ async function portalSession(env, customer, flow) {
   return { url: session.url };
 }
 
-/** Card declines and the like, which Stripe words for the person paying, are passed on as they are. */
+/** Card declines, worded by Stripe for the person paying, are passed on as they are. */
 async function charging(work) {
   try {
     return await work();
@@ -477,7 +432,6 @@ async function checkout(env, user, body) {
   const all = await prices(env);
   const price = all.get(lookupKey(plan, billing));
   if (!price) throw new Refused(503, "That plan can't be bought yet.");
-  // Accounts past the ones Agency includes, when it's bought: the stepper on the pricing page.
   const extras = plan === ACCOUNTS_PLAN ? extrasFor(body.accounts) ?? 0 : 0;
   const extrasPrice = all.get(accountsKey(billing));
   if (extras > 0 && !extrasPrice) throw new Refused(503, "Extra social accounts can't be bought yet.");
@@ -487,18 +441,14 @@ async function checkout(env, user, body) {
   if (current) {
     // By plan rather than price: someone on an older price of the same plan keeps it.
     if (current.plan === plan && current.billing === billing) throw new Refused(409, "You're on this plan already.");
-    // Staying on Agency keeps the extra accounts; billed the other way, they're billed that way too.
     const kept = plan === ACCOUNTS_PLAN ? current.extraAccounts : 0;
-    // A smaller plan waits for the renewal: what's paid for now runs out first.
     if (waitsForRenewal(current, { plan, billing })) {
       const at = await scheduleSwitch(env, current.sub, price, kept, extrasPrice);
       return { scheduled: { plan, billing, at } };
     }
-    // An upgrade replaces any switch waiting.
     await releaseSchedule(env, current.sub);
-    // Agency with extra accounts, to yearly: both lines move at once, since one subscription bills
-    // one way. Stripe's confirm page takes one line only, so it's charged here, as the Plans tab
-    // said it would be before asking.
+    // One subscription bills one way, so both lines move at once, and Stripe's confirm page takes
+    // one line only: charged here, as the Plans tab said before asking.
     const extrasLine = accountsItem(current.sub.items.data);
     if (extrasLine) {
       if (!extrasPrice) throw new Refused(503, "Extra social accounts can't be bought yet.");
@@ -515,7 +465,6 @@ async function checkout(env, user, body) {
       await syncCustomer(env, customer, user.id);
       return { updated: true };
     }
-    // Otherwise Stripe's own page shows what the upgrade costs today and confirms it.
     return portalSession(env, customer, {
       type: "subscription_update_confirm",
       subscription_update_confirm: {
@@ -551,7 +500,6 @@ async function portal(env, user, body) {
   if (flow === "cancel") {
     const current = await liveSubscription(env, customer);
     if (!current) throw new Refused(409, "You're on Free already.");
-    // Ending the plan replaces any smaller plan waiting for the renewal.
     await releaseSchedule(env, current.sub);
     return portalSession(env, customer, {
       type: "subscription_cancel",
@@ -568,7 +516,6 @@ function cardOf(method) {
   return card ? { brand: card.brand ?? "", last4: card.last4 ?? "", expMonth: card.exp_month, expYear: card.exp_year } : null;
 }
 
-/** The plan being paid for and the details on the invoices, for the Billing tab. */
 async function account(env, user) {
   const customerId = await existingCustomer(env, user.id);
   if (!customerId) return { summary: null, info: null };
@@ -584,7 +531,6 @@ async function account(env, user) {
     ? {
         plan: best.plan,
         billingPeriod: best.billing === "yearly" ? "year" : "month",
-        // The plan and its extra accounts together: what each bill is.
         amount: items.reduce((sum, item) => sum + (item.price.unit_amount ?? 0) * (item.quantity ?? 1), 0),
         currency: planItem(items).price.currency,
         extraAccounts: best.extraAccounts,
@@ -632,10 +578,6 @@ async function invoices(env, user) {
     }));
 }
 
-/**
- * Sets how many social accounts an Agency plan has, 100 included. More are
- * charged now for the rest of the period; fewer are credited on the next bill.
- */
 async function setAccounts(env, user, body) {
   const extras = extrasFor(body.accounts);
   if (extras === undefined) throw new Refused(400, "Say how many social accounts you need.");
@@ -663,7 +605,6 @@ async function setAccounts(env, user, body) {
   return { extraAccounts: extras };
 }
 
-/** Keeps the plan as it is: drops a switch waiting for the renewal, and a pending end. */
 async function keep(env, user) {
   const customer = await existingCustomer(env, user.id);
   const current = customer ? await liveSubscription(env, customer) : null;
@@ -673,7 +614,6 @@ async function keep(env, user) {
   return { kept: true };
 }
 
-/** Every page of a Stripe list. */
 async function listAll(env, path, params) {
   const found = [];
   let after;
@@ -685,13 +625,8 @@ async function listAll(env, path, params) {
   return found;
 }
 
-/**
- * Ends every subscription now, for an account being deleted (the publisher
- * calls this before it deletes one). Checkouts still open go first, so none
- * can start a plan afterwards; then every subscription that isn't over yet,
- * unpaid and paused ones too. Cancelling also stops Stripe collecting the
- * customer's open invoices, so nothing is charged later.
- */
+// Open checkouts are expired first so none can start a plan afterwards; then every subscription
+// not over yet, unpaid and paused too. Cancelling also stops Stripe collecting open invoices.
 async function endAll(env, user) {
   const customer = await existingCustomer(env, user.id);
   if (!customer) return { ended: 0 };
@@ -708,7 +643,6 @@ async function endAll(env, user) {
   return { ended: live.length };
 }
 
-/** Checks a Stripe-Signature header against the raw body. */
 export function verifySignature(payload, header, secret, now = Math.floor(Date.now() / 1000)) {
   if (!header || !secret) return false;
   let timestamp = 0;
@@ -768,7 +702,6 @@ export async function handleBilling(req, res, path, env) {
   throw new Refused(404, "Unknown billing route.");
 }
 
-/** Turns anything thrown while handling into an answer. */
 export function fail(res, error) {
   if (error instanceof Refused) json(res, error.status, { error: error.message });
   else {

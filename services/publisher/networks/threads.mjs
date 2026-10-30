@@ -1,15 +1,9 @@
-// Posts to a Threads profile: the words alone, with a picture or a video, or
-// with up to 20 of the post's pictures and videos as a carousel. Threads
-// pulls each file from a signed link to the publisher (photos.mjs). See
-// meta-containers.mjs for how a post is made.
-
 import { PublishError } from "../errors.mjs";
 import { API } from "../meta.mjs";
 import { clipText, containers } from "./meta-containers.mjs";
 import { captionOf } from "./text.mjs";
 
 const TEXT_LIMIT = 500;
-/** Items one carousel takes. */
 const MAX_ITEMS = 20;
 const MAX_VIDEO_BYTES = 1024 * 1024 * 1024;
 
@@ -30,7 +24,6 @@ const flow = containers({
   limitError: (error) => (error?.code === 9 || /limit/i.test(error?.message ?? "") ? Date.now() + 60 * 60_000 : null),
 });
 
-/** The post's link, when it has one, for a preview under the words. */
 const linkOf = (post) => (typeof post.link === "string" && /^https?:\/\/\S+$/i.test(post.link.trim()) ? post.link.trim() : "");
 
 export function createThreads({ photos }) {

@@ -1,12 +1,4 @@
-// Team members against a real Supabase: the tables, functions and policies of
-// migrations/20261014200000_team_members.sql, as an owner, an admin, a member
-// and an outsider would meet them. Runs against a local stack:
-//
-//   supabase start            (in a copy of this folder, with the migrations applied)
-//   node --test supabase/tests/team-members.test.mjs
-//
-// SUPABASE_URL, SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY point it at
-// another one. It makes its own users, with random addresses, and leaves them.
+// See helpers.mjs for how to run it. It makes its own users, with random addresses, and leaves them.
 
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -40,7 +32,6 @@ async function call(path, { token = SERVICE, method = "GET", body, prefer } = {}
   return { status: response.status, data };
 }
 
-/** Calls a function as `token`. Throws with Postgres's code when it refuses. */
 async function rpc(token, name, args = {}) {
   const { status, data } = await call(`/rest/v1/rpc/${name}`, { token, method: "POST", body: args });
   if (status >= 400) {
@@ -60,7 +51,7 @@ async function refuses(promise, code) {
 
 async function makeUser(name, { letIn = false } = {}) {
   const email = address(name);
-  // Let in from the waitlist, as the owner is: the others get in through the team, or not at all.
+  // Only the owner is on the waitlist: the others get in through the team, or not at all.
   if (letIn) {
     const invited = await call("/rest/v1/waitlist", { method: "POST", body: { email, invited_at: new Date().toISOString() } });
     assert.ok(invited.status < 300, JSON.stringify(invited.data));
@@ -106,7 +97,6 @@ async function ownerPayload(owner) {
   return data[0]?.payload;
 }
 
-/** Saves the owner's account the way their browser does: an upsert naming the revision it merged with. */
 async function saveOwner(owner, payload, base) {
   return call("/rest/v1/account_state?on_conflict=user_id", {
     token: owner.token,
@@ -142,7 +132,6 @@ before(async () => {
     },
   });
   assert.ok(saved.status < 300, JSON.stringify(saved.data));
-  // Posts live in their own table (posts.test.mjs covers who reaches them).
   for (const [workspace, data] of [
     [W1, { id: "post-1", title: "First", day: "2026-10-20", calendarId: "posts", status: "draft" }],
     [
@@ -264,9 +253,7 @@ describe("working in a shared workspace", () => {
     const payload = await ownerPayload(owner);
     assert.equal(payload.revision, saved.revision);
     assert.deepEqual(payload.slices[W1].groups.map((group) => group.id), ["group-1"]);
-    // A member can't change the accounts a workspace posts from.
     assert.deepEqual(payload.slices[W1].connections.map((row) => row.id), ["conn-1"]);
-    // The rest of the account is as it was.
     assert.deepEqual(payload.slices[W2].library.map((item) => item.id), ["lib-secret"]);
     assert.equal(payload.timeZone, "Europe/Amsterdam");
     assert.equal(payload.workspaces.list.length, 2);
@@ -292,7 +279,6 @@ describe("working in a shared workspace", () => {
     assert.deepEqual(after.slices[W1].library.map((item) => item.id), ["lib-mine"]);
     const { data: secret } = await call(`/rest/v1/posts?select=data&owner_id=eq.${owner.id}&id=eq.post-secret`);
     assert.equal(secret[0].data.title, "Secret");
-    // A copy with nothing to leave out says so.
     const clean = await rpc(member.token, "save_team_workspace", { owner: owner.id, workspace: W1, slice: after.slices[W1], base: after.revision });
     assert.equal(clean.same, true);
   });
@@ -305,7 +291,6 @@ describe("working in a shared workspace", () => {
     assert.equal(await allowed(member, ["lib-secret-poster"]), false);
     assert.equal(await allowed(outsider, ["brand-new-file"]), false);
     assert.equal(await allowed(member, ["brand-new-file"], W2), false);
-    // No browser reads another workspace's ids any more, not even its own workspace's foreign list.
     await refuses(rpc(member.token, "team_foreign_ids", { owner: owner.id, workspace: W1 }), "42501");
     await refuses(rpc(member.token, "team_plan", { owner: owner.id }), "42501");
     await refuses(rpc(member.token, "owner_has_workspace", { owner: owner.id, workspace: W2 }), "42501");
@@ -333,7 +318,6 @@ describe("working in a shared workspace", () => {
     const stored = await ownerPayload(owner);
     assert.equal(stored.revision, "r-owner");
     assert.equal("base" in stored, false);
-    // Older code that doesn't say what it merged with still saves.
     const older = await saveOwner(owner, { ...stored, revision: "r-old-code" });
     assert.ok(older.status < 300);
   });
@@ -345,7 +329,6 @@ describe("working in a shared workspace", () => {
     assert.deepEqual(none, []);
     const before = data[0].revision;
     const payload = await ownerPayload(owner);
-    // A change to another workspace doesn't touch this one's version.
     const other = {
       ...payload,
       revision: "r-other",
@@ -397,9 +380,7 @@ describe("working in a shared workspace", () => {
     assert.equal(made.status, 201, JSON.stringify(made.data));
     const preview = made.data[0].id;
     assert.equal((await share(member, W2, "post-secret")).status, 403);
-    // Not another workspace's post, even said to be in this one.
     assert.equal((await share(member, W1, "post-secret")).status, 403);
-    // Nor moved to the member's own account, or to another post.
     const moved = await call(`/rest/v1/post_previews?id=eq.${preview}`, { token: member.token, method: "PATCH", body: { owner_id: member.id } });
     assert.ok(moved.status >= 400, JSON.stringify(moved.data));
     const repointed = await call(`/rest/v1/post_previews?id=eq.${preview}`, { token: member.token, method: "PATCH", body: { post_id: "post-secret" } });
@@ -457,7 +438,6 @@ describe("roles and leaving", () => {
     const { [W1]: _gone, ...slices } = payload.slices;
     const without = { ...payload, revision: "r-deleted", workspaces: { active: W2, list: payload.workspaces.list.filter((row) => row.id !== W1) }, slices };
     await saveOwner(owner, without, payload.revision);
-    // Gone from the account: the membership stays but opens nothing.
     assert.equal((await rpc(member.token, "my_team")).workspaces[0].state, "gone");
     await refuses(rpc(member.token, "team_workspace", { owner: owner.id, workspace: W1 }), "42501");
     await rpc(owner.token, "forget_workspace_team", { workspace: W1 });

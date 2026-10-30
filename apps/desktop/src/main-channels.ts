@@ -2,13 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Wire-level channels — the only raw ipcRenderer/ipcMain channels in play for
-// the main↔renderer request/event protocol. Everything else multiplexes
-// through these via an envelope carrying the logical MAIN_CHANNELS name and
-// (for requests) a UUID for correlation.
-//
-// Tool calls from the MCP server use their own wire (DAPI_WIRE in
-// @plan.video/dapi), in the other direction: main asks, the renderer answers.
+// The only raw ipcRenderer/ipcMain channels: everything multiplexes through them in an envelope
+// carrying the MAIN_CHANNELS name (and a UUID for requests). MCP tool calls use DAPI_WIRE instead.
 import type { LogEntry, ScreenshotResult } from "@plan.video/dapi";
 import type { SourceEdit, WriteResult } from "./edit-types";
 import type { AgentId } from "./mcp-config";
@@ -21,11 +16,6 @@ export const MAIN_WIRE = {
 
 export type MainWireChannel = (typeof MAIN_WIRE)[keyof typeof MAIN_WIRE];
 
-// Logical channels. Two categories:
-//   • Renderer→Main requests (request + response)
-//   • Main→Renderer events   (push, no response)
-// Tool calls are not here: they arrive from main over DAPI_WIRE and are
-// answered by the renderer's handlers (apps/web/src/dapi).
 export const MAIN_CHANNELS = {
   // Renderer→Main requests
   APP_OPEN_EXTERNAL: "app:open-external",
@@ -79,29 +69,15 @@ export const MAIN_CHANNELS = {
   PROJECTS_CHANGED: "projects:changed",
 } as const;
 
-/**
- * A project folder, wherever it lives: a real npm package with a JSX entry.
- * Its package.json is the project record: `projectId` is what the project
- * is, `displayName` the human name, `main` the entry file.
- */
 export type ProjectInfo = {
-  /**
-   * package.json `projectId`: the project's identity, and the segment its URL
-   * carries. Empty for a folder that predates ids and has not been opened
-   * since — `PROJECTS_RESOLVE` is what gives one out.
-   */
+  /** Empty for a folder that predates ids and has not been opened since (`PROJECTS_RESOLVE` gives one). */
   id: string;
   /** Folder name. Renaming the project moves it, so it is not the identity. */
   name: string;
-  /** Human name from package.json `displayName` (falls back to the folder name). */
   displayName: string;
-  /** Absolute path of the project folder. */
   dir: string;
-  /** Entry file relative to `dir`: package.json `main`, else index.tsx/ts/jsx/js. */
   entry: string;
-  /** mtime of the entry file, ISO string. */
   modifiedAt: string;
-  /** birthtime of the folder, ISO string. */
   createdAt: string;
 };
 
@@ -111,36 +87,26 @@ export type CompileResult =
 export type { SourceEdit, WriteResult };
 export type { AgentId };
 
-// One agent the settings page lists: whether it is set up on this machine,
-// whether its config already carries the app's MCP entry, and — for the
-// agents that need the bundled `dapi` binary — why this build cannot
-// connect it (null when it can).
 export type McpAgentStatus = {
   id: AgentId;
   label: string;
   detected: boolean;
   connected: boolean;
-  /** Absolute path of the config file the entry goes into. */
   config: string;
   unavailable: string | null;
 };
 
-/** `url` is the HTTP endpoint any other agent can be pointed at by hand. */
 export type McpStatus = { url: string; agents: McpAgentStatus[] };
 
 export type McpApplyRequest = { add: AgentId[]; remove: AgentId[] };
 
-// Per agent: written, taken out, or left as it was with the reason.
 export type McpApplyResult = {
   added: AgentId[];
   removed: AgentId[];
   failures: { id: AgentId; error: string }[];
 };
 
-// Where the `planvideo` command stands. `managed` means what is there is a
-// symlink (the app's own, or the dev workflow's Homebrew link), which
-// "Uninstall" can remove; `available` that this build can create the app's
-// link (a dev build cannot: that is `npm run link` in apps/cli).
+// `managed`: a symlink "Uninstall" can remove. A dev build cannot create the app's link (`npm run link` in apps/cli).
 export type CliStatus = {
   installed: boolean;
   path: string | null;
@@ -148,15 +114,12 @@ export type CliStatus = {
   available: boolean;
 };
 
-// Outcome of linking the bundled planvideo CLI into PATH. "cancelled" means the
-// user dismissed the macOS admin prompt — not an error, not installed.
+// "cancelled": the user dismissed the macOS admin prompt; not an error.
 export type CliInstallResult =
   | { status: "installed" }
   | { status: "cancelled" }
   | { status: "error"; error: string };
 
-// Outcome of taking the symlink back out. "absent" means there was none to
-// remove; "cancelled" that the admin prompt was dismissed and it stays.
 export type CliUninstallResult =
   | { status: "removed" }
   | { status: "absent" }
@@ -165,8 +128,7 @@ export type CliUninstallResult =
 
 export type MainChannel = (typeof MAIN_CHANNELS)[keyof typeof MAIN_CHANNELS];
 
-// Events fed by a `planvideo://` deep link. Main routes each link to exactly
-// one of these by its host, so auth and checkout never consume each other's.
+// Main routes each link to exactly one of these by host, so auth and checkout never consume each other's.
 export type DeepLinkChannel =
   typeof MAIN_CHANNELS.AUTH_CALLBACK | typeof MAIN_CHANNELS.CHECKOUT_CALLBACK;
 
@@ -175,8 +137,7 @@ export type MainRequestMap = {
     request: { url: string };
     response: void;
   };
-  // A product event, posted to Umami by main (the renderer's script is inert
-  // in Electron).
+  // Posted to Umami by main: the renderer's script is inert in Electron.
   [MAIN_CHANNELS.ANALYTICS_TRACK]: {
     request: { event: string; data?: Record<string, string | number | boolean> };
     response: void;
@@ -212,7 +173,6 @@ export type MainRequestMap = {
     request: { id: string };
     response: void;
   };
-  // Reveals a file or folder in the OS file manager (Finder on macOS).
   [MAIN_CHANNELS.APP_SHOW_IN_FOLDER]: {
     request: { path: string };
     response: void;
@@ -230,8 +190,6 @@ export type MainRequestMap = {
     request: void;
     response: string | null;
   };
-  // Every project folder directly under `root`: what the app puts on its
-  // list when `root` is chosen as the projects root.
   [MAIN_CHANNELS.PROJECTS_SCAN]: {
     request: { root: string };
     response: ProjectInfo[];
@@ -252,7 +210,6 @@ export type MainRequestMap = {
     request: { root: string; displayName: string };
     response: ProjectInfo;
   };
-  // Renames the project: `displayName` in the record, and the folder with it.
   [MAIN_CHANNELS.PROJECTS_RENAME]: {
     request: { dir: string; displayName: string };
     response: ProjectInfo;
@@ -275,7 +232,6 @@ export type MainRequestMap = {
     request: { dir: string };
     response: void;
   };
-  // The asset manifest (`assets.yml`) as plain data; null when there is none.
   [MAIN_CHANNELS.PROJECTS_MANIFEST_READ]: {
     request: { dir: string };
     response: unknown;
@@ -284,9 +240,7 @@ export type MainRequestMap = {
     request: { dir: string; manifest: unknown };
     response: void;
   };
-  // The project's config: the `planvideo` field of its package.json, as
-  // parsed (null when absent). The renderer owns its shape; see
-  // `engine/project-config` in the web app.
+  // The renderer owns its shape; see `engine/project-config` in the web app.
   [MAIN_CHANNELS.PROJECTS_CONFIG_READ]: {
     request: { dir: string };
     response: unknown;
@@ -295,9 +249,7 @@ export type MainRequestMap = {
     request: { dir: string; config: unknown };
     response: void;
   };
-  // Project file system, for the asset library. `source` is project-relative
-  // or absolute; `path` is always project-relative. Writes stream through the
-  // FILE_WRITE_* channels (which create parent directories).
+  // `source` is project-relative or absolute; `path` is always project-relative.
   [MAIN_CHANNELS.PROJECTS_FS_LIST]: {
     request: { dir: string; source: string };
     response: FsEntry[];
@@ -314,15 +266,11 @@ export type MainRequestMap = {
     request: { dir: string; source: string };
     response: string | null;
   };
-  // Where the agent chat host listens (`ws://127.0.0.1:PORT/?token=…`); null
-  // while it is starting or restarting. The only desktop IPC the chat uses.
   [MAIN_CHANNELS.AGENT_CHAT_ENDPOINT]: {
     request: void;
     response: { url: string } | null;
   };
-  // The app's MCP server in the agents' configs (see mcp-install.ts), and
-  // the `planvideo` command on PATH (see cli-install.ts). The install/uninstall
-  // calls put the macOS admin prompt on screen.
+  // The install/uninstall calls put the macOS admin prompt on screen.
   [MAIN_CHANNELS.MCP_STATUS]: { request: void; response: McpStatus };
   [MAIN_CHANNELS.MCP_APPLY]: { request: McpApplyRequest; response: McpApplyResult };
   [MAIN_CHANNELS.CLI_STATUS]: { request: void; response: CliStatus };
@@ -335,7 +283,6 @@ export type FsEntry = {
   kind: "file" | "directory";
   size: number;
   mtime: number;
-  /** Set when the entry is a symlink; `kind` is what it points at. */
   link?: boolean;
 };
 export type FsStat = { size: number; mtime: number };
@@ -345,7 +292,6 @@ export type MainEventMap = {
   [MAIN_CHANNELS.AUTH_CALLBACK]: { url: string };
   [MAIN_CHANNELS.CHECKOUT_CALLBACK]: { url: string };
   [MAIN_CHANNELS.WINDOW_FULLSCREEN_CHANGE]: { fullscreen: boolean };
-  // A file inside a watched project folder changed (path relative to `dir`).
   [MAIN_CHANNELS.PROJECTS_CHANGED]: { dir: string; path: string };
 };
 export type MainEventChannel = keyof MainEventMap;

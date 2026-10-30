@@ -10,7 +10,6 @@ import { handleTranscribe, json, Refused, wavSeconds } from "./handler.mjs";
 const SUPABASE = "https://db.test";
 const RATE = 16000;
 
-/** A 16-bit mono WAV header for `seconds` of audio at 16 kHz. */
 function wavHeader(seconds) {
   const bytes = Math.round(seconds * RATE * 2);
   const head = Buffer.alloc(44);
@@ -30,15 +29,11 @@ function wavHeader(seconds) {
   return { head, bytes };
 }
 
-/** A signed-in token for `id`, shaped like Supabase's. */
 const tokenFor = (id) => `h.${Buffer.from(JSON.stringify({ sub: id })).toString("base64url")}.s`;
 const idOf = (token) => JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString("utf8")).sub;
 
-/**
- * Stands in for Supabase and ElevenLabs. The usage count adds and answers in
- * one step, as add_caption_seconds does. ElevenLabs reads the whole upload as
- * a stream, takes `delay` ms, and answers `status`.
- */
+// The usage count adds and answers in one step, as add_caption_seconds does. ElevenLabs reads
+// the whole upload as a stream, takes `delay` ms, and answers `status`.
 function fakes({ level = 1, delay = 30, status = () => 200 } = {}) {
   const usage = new Map();
   const state = { usage, heard: 0, running: 0, mostRunning: 0, uploaded: [] };
@@ -101,11 +96,8 @@ async function serve(env) {
   };
 }
 
-/**
- * Sends `seconds` of silence as a WAV, in 1 MB writes, and resolves with the
- * status and answer. Kept alive, as a browser's are: the server then reads
- * past the rest of an upload it refused instead of resetting the connection.
- */
+// Kept alive, as a browser's are: the server then reads past the rest of a refused upload
+// instead of resetting the connection.
 const agent = new Agent({ keepAlive: true });
 
 function send(url, token, seconds) {
@@ -178,7 +170,7 @@ test("a burst of clips sent at once can't each pass on the same old total", asyn
   const run = await setup({ delay: 200 });
   try {
     const token = tokenFor("burst");
-    // Free has 15 minutes. Ten 10-minute clips at once used to all be heard.
+    // Free has 15 minutes.
     const results = await Promise.all(Array.from({ length: 10 }, () => send(run.url, token, 600)));
     const heard = results.filter((result) => result.status === 200).length;
     assert.equal(heard, 1, JSON.stringify(results.map((result) => result.status)));

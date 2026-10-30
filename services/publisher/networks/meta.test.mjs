@@ -17,10 +17,7 @@ const IG = { accountId: "17841400000000001", accessToken: "ig-token" };
 const TH = { accountId: "555", accessToken: "th-token" };
 const FB = { accountId: "111", accessToken: "page-token" };
 
-/**
- * A fake Graph API: containers are made with ids c1, c2…, report the status
- * `statuses` gives them (FINISHED unless said), and publishing makes m1.
- */
+/** Containers get ids c1, c2…, report `statuses` (FINISHED unless said), and publishing makes m1. */
 function fakeGraph(t, { statuses = {}, published = { id: "m1" }, permalink = "https://www.instagram.com/p/abc/", extra = [] } = {}) {
   const asked = [];
   let made = 0;

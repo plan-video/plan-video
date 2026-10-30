@@ -1,8 +1,5 @@
-// LinkedIn sign-in and posting to a member's own profile, through the "Share
-// on LinkedIn" product (w_member_social). LinkedIn's API doesn't answer
-// browsers, so every call goes through here, and the client secret stays on
-// the server. Videos and pictures go to LinkedIn from the publisher, never
-// through here.
+// LinkedIn's API doesn't answer browsers, so every call goes through here and the client
+// secret stays on the server. Media go to LinkedIn from the publisher, never through here.
 
 const AUTH_URL = "https://www.linkedin.com/oauth/v2/authorization";
 const TOKEN_URL = "https://www.linkedin.com/oauth/v2/accessToken";
@@ -15,19 +12,14 @@ const IMAGES_URL = "https://api.linkedin.com/rest/images?action=initializeUpload
 const REST_POSTS_URL = "https://api.linkedin.com/rest/posts";
 /** The versioned API's month. LinkedIn keeps each one for a year. */
 const API_VERSION = "202609";
-// Who the member is, and posting as them. No email: plan.video has no use for it.
+// No email scope: plan.video has no use for it.
 const SCOPE = "openid profile w_member_social";
-/** The longest post LinkedIn takes, in characters. */
 const TEXT_LIMIT = 3000;
 const MAX_VIDEO_BYTES = 200 * 1024 * 1024;
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const JSON_MAX = 256 * 1024;
 
-/**
- * The redirect URIs saved on the LinkedIn app, exactly: the site's callback at
- * its own address and its www one (`site` is PUBLIC_URL, plan.video's by
- * default), and the dev server's.
- */
+/** The redirect URIs must match the ones saved on the app exactly. */
 export function redirectsFor(site = "https://plan.video") {
   const own = new URL(site);
   const www = new URL(site);
@@ -35,7 +27,6 @@ export function redirectsFor(site = "https://plan.video") {
   return new Set([`${own.origin}/linkedin/callback`, `${www.origin}/linkedin/callback`, "http://localhost:5173/linkedin/callback"]);
 }
 
-/** LinkedIn's sign-in page for a member, coming back to `redirectUri` (one of redirectsFor()) with `state`. */
 export function authorizeUrl(env, { redirectUri, state }) {
   const url = new URL(AUTH_URL);
   url.searchParams.set("response_type", "code");
@@ -67,12 +58,7 @@ function limit(name, max, seconds) {
   if (entry.count > max) throw new Refused(429, "Too many LinkedIn requests. Wait a few minutes and try again.");
 }
 
-/**
- * Whether a token was granted to an outside app (Claude's connector, say)
- * instead of signed in here. Those carry the OAuth client's `client_id` and
- * are only good at /mcp. One that can't be read isn't a token Supabase made,
- * and Supabase turns it away.
- */
+// OAuth-client tokens (Claude's connector, say) carry `client_id` and only work at /mcp.
 function grantedToApp(token) {
   try {
     return JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString("utf8"))?.client_id != null;
@@ -112,7 +98,7 @@ async function userFor(req, env) {
   return { id: user.id };
 }
 
-/** LinkedIn's own upload addresses. The member's token is only ever sent to these. */
+/** The member's token is only ever sent to these. */
 export function allowedUpload(value) {
   try {
     const url = new URL(value);
@@ -178,7 +164,6 @@ export async function tokenRequest(env, fields) {
   };
 }
 
-/** The member's id, name and picture, from Sign In with LinkedIn. */
 export async function memberFor(accessToken) {
   const result = await linkedin(USERINFO_URL, accessToken);
   if (result.error) return { error: result.error };
@@ -223,7 +208,6 @@ export async function register(accessToken, personId, kind) {
   return { uploadUrl, asset: value.asset };
 }
 
-/** Where LinkedIn is with an uploaded file: still working on it, ready to post, or turned down. */
 export async function assetState(accessToken, asset) {
   const id = asset.slice("urn:li:digitalmediaAsset:".length);
   const result = await linkedin(`https://api.linkedin.com/v2/assets/${encodeURIComponent(id)}`, accessToken);
@@ -255,10 +239,8 @@ export async function createPost(accessToken, personId, text, media) {
   return { id };
 }
 
-/** The longest comment LinkedIn takes, in characters. */
 export const COMMENT_LIMIT = 1250;
 
-/** A comment from the member on `target`, a post's urn, as a thread's follow-up. */
 export async function createComment(accessToken, personId, target, text) {
   const result = await linkedin(`https://api.linkedin.com/v2/socialActions/${encodeURIComponent(target)}/comments`, accessToken, {
     method: "POST",
@@ -269,7 +251,6 @@ export async function createComment(accessToken, personId, target, text) {
   return { id: typeof id === "string" ? id : String(id) };
 }
 
-/** Starts the upload of one picture for a post with several. The bytes go to `uploadUrl`. */
 export async function registerImage(accessToken, personId) {
   const result = await linkedin(IMAGES_URL, accessToken, {
     method: "POST",
@@ -285,11 +266,7 @@ export async function registerImage(accessToken, personId) {
 const RESERVED = /[\\|{}@[\]()<>#*_~]/g;
 const escapeLittle = (text) => text.replace(RESERVED, (char) => `\\${char}`);
 
-/**
- * Words as LinkedIn's versioned posts read them: its reserved characters are
- * escaped, so they show as typed instead of cutting the post short, and a
- * #word stays a hashtag.
- */
+/** LinkedIn's reserved characters are escaped, or they cut the post short; a #word stays a hashtag. */
 export function littleText(text) {
   let out = "";
   let from = 0;
@@ -301,7 +278,6 @@ export function littleText(text) {
   return out + escapeLittle(text.slice(from));
 }
 
-/** Makes a post with 2 to 20 pictures, uploaded with registerImage. */
 export async function createImagesPost(accessToken, personId, text, images) {
   const result = await linkedin(REST_POSTS_URL, accessToken, {
     method: "POST",
@@ -382,15 +358,15 @@ export async function handleLinkedIn(req, res, path, env) {
     return;
   }
 
-  // Swapping the code happens in the publisher (linkedin-logins.mjs), which keeps the login and
-  // gives the browser a ticket: no browser is handed LinkedIn's tokens, which last about 60 days.
+  // The code is swapped in the publisher (linkedin-logins.mjs), which keeps the login and gives
+  // the browser a ticket: no browser is handed LinkedIn's tokens.
   if (path === "/api/linkedin/exchange" || path === "/api/linkedin/refresh") {
     json(res, 410, { error: "Reload plan.video and connect LinkedIn again." });
     return;
   }
 
   if (path === "/api/linkedin/revoke") {
-    // Ends plan.video's access at LinkedIn. A token that's already gone is what was asked for.
+    // A token that's already gone is what was asked for.
     const token = text(body, "token");
     if (!token || token.length > 4096) {
       json(res, 400, { error: "There's no LinkedIn login to end." });

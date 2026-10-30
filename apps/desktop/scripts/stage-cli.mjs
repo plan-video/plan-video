@@ -2,19 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Stages the dapi CLI into apps/desktop/cli so electron-forge can ship it as
-// an app resource (Contents/Resources/cli). The staged layout:
-//   cli/dapi.js        bundled CLI (built by apps/cli), self-contained
-//   cli/bin/dapi       macOS shell wrapper: what Claude Desktop runs as
-//                      `dapi mcp` (registered by mcp-install.ts) and the file
-//                      that gets linked into PATH
-//   cli/bin/dapi.cmd   Windows wrapper, relative to the install folder. PATH
-//                      and the agents get a shim outside the install folder
-//                      instead (src/cli-windows.ts), since Squirrel moves the
-//                      app on every update; this one is for running the CLI
-//                      straight out of an install.
-// Each host stages its own wrapper; `--all` stages both, so a macOS host can
-// produce a Windows tree for inspection.
+// Ships as Contents/Resources/cli. PATH and agents on Windows use a shim outside the install folder
+// (src/cli-windows.ts), since Squirrel moves the app on every update. `--all` stages both wrappers.
 
 import { chmodSync, cpSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -29,9 +18,8 @@ mkdirSync(join(stageDir, "bin"), { recursive: true });
 
 cpSync(join(cliDir, "dist", "index.js"), join(stageDir, "dapi.js"));
 
-// The wrapper runs the CLI bundle on the app's own Electron binary in Node
-// mode, so users need no separate Node install. It resolves symlinks first
-// because both Homebrew and the in-app installer link it into PATH.
+// Runs the CLI on the app's own Electron binary in Node mode (no Node install needed). Resolves
+// symlinks first because Homebrew and the in-app installer both link it into PATH.
 const all = process.argv.includes("--all");
 
 const wrapper = `#!/bin/sh

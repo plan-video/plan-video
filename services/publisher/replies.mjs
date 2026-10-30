@@ -1,15 +1,6 @@
-// A post's thread: the follow-ups saved on it (`post.thread`, set in New
-// post) go out under it once it's sent, each its delay after the one before.
-// X and Bluesky post each as a reply to the one before, with the pictures or
-// video it carries; LinkedIn as a comment on the post, in words alone.
-// Networks without `reply` get the post alone.
-//
-// Each follow-up has a post_replies row before it's sent, the way
-// post_deliveries keeps the post itself, so none goes out twice. A row is made
-// only once the one before it went out, so a follow-up that fails stops the
-// ones after it. Its words are read from the post when it goes, so changes
-// made while it waits reach it, and one taken off the thread meanwhile isn't
-// sent.
+// X and Bluesky post follow-ups as replies with their media, LinkedIn as comments in words alone.
+// Each follow-up gets a post_replies row before it's sent, so none goes out twice; a row is made only once
+// the one before went out, so a failed follow-up stops the rest. Words are read from the post as it goes.
 
 import { PublishError } from "./errors.mjs";
 import { zoneOrUtc } from "./schedule.mjs";
@@ -18,12 +9,10 @@ import { zoneOrUtc } from "./schedule.mjs";
 export const MAX_REPLIES = 10;
 /** Files one follow-up can carry: 4 pictures, or a video. */
 const MAX_FILES = 4;
-/** Without its files in cloud storage this long after it came due, a follow-up fails instead of waiting for the upload. */
 const FILE_WAIT_MS = 30 * 60_000;
 const ID = /^[A-Za-z0-9_-]{1,100}$/;
 /** The longest wait New post offers is a day; anything saved past a week is held to it. */
 const MAX_DELAY_MS = 7 * 24 * 60 * 60_000;
-/** Waits before the 2nd, 3rd and 4th try of a follow-up that may work later. */
 const BACKOFF_MS = [2 * 60_000, 10 * 60_000, 30 * 60_000];
 const MAX_ATTEMPTS = BACKOFF_MS.length + 1;
 /** A follow-up still marked as going after this was cut off, by a restart. */
@@ -35,17 +24,13 @@ const NAMES = { bluesky: "Bluesky", linkedin: "LinkedIn", x: "X" };
 
 const delayOf = (minutes) => (typeof minutes === "number" && Number.isFinite(minutes) && minutes > 0 ? Math.min(minutes * 60_000, MAX_DELAY_MS) : 0);
 
-/**
- * A follow-up's files, by id. Only the post's own: `<post id>_<random>`, as
- * New post names them, so a thread can't name another post's files.
- */
+/** Only the post's own files (`<post id>_<random>`), so a thread can't name another post's files. */
 function filesOf(post, reply) {
   if (!Array.isArray(reply?.files)) return [];
   const own = (id) => typeof id === "string" && ID.test(id) && id.startsWith(`${post.id}_`);
   return [...new Set(reply.files.filter(own))].slice(0, MAX_FILES);
 }
 
-/** The follow-ups a post goes out with, in order: the ones with words or files, each with its wait in milliseconds. */
 export function threadOf(post) {
   const list = Array.isArray(post?.thread) ? post.thread : [];
   return list
@@ -54,18 +39,12 @@ export function threadOf(post) {
     .slice(0, MAX_REPLIES);
 }
 
-/**
- * `postIn(owner, post, workspace)` is the worker's: the post as the account
- * has it now. `memory` is its memory gate (pool.mjs), for follow-ups that
- * hold their files in memory. Without post_replies in the database yet,
- * nothing is sent and the posts go out alone.
- */
+/** Without post_replies in the database, nothing is sent and posts go out alone. */
 export function createReplies({ db, vault, networks, media, notices, postIn, memory, now = () => Date.now(), log = console }) {
   const iso = (time) => new Date(time).toISOString();
   let missingTable = false;
   let missingAt = 0;
 
-  /** Whether the database turned away post_replies because it isn't there yet. Said once in the log. */
   function noTable(error) {
     if (!/PGRST205|42P01/.test(String(error?.message))) return false;
     if (!missingTable) log.warn("[publisher] post_replies isn't in the database yet, so threads aren't sent. Apply 20261025120000_post_replies.sql.");
@@ -74,7 +53,6 @@ export function createReplies({ db, vault, networks, media, notices, postIn, mem
     return true;
   }
 
-  /** Makes the row of one follow-up, due `delay` from now. */
   async function queue(delivery, step, delay) {
     await db.insertNew(
       "post_replies",
@@ -96,7 +74,6 @@ export function createReplies({ db, vault, networks, media, notices, postIn, mem
     );
   }
 
-  /** Once a post is sent, its first follow-up waits for its time. `delivery` is its row, as sent. */
   async function start(delivery, post) {
     if (!networks[delivery.platform]?.reply || !delivery.publish_id) return;
     const [first] = threadOf(post);
@@ -198,7 +175,6 @@ export function createReplies({ db, vault, networks, media, notices, postIn, mem
     }
   }
 
-  /** Without the table, it's asked again every few minutes, in case it's been added since. */
   const away = () => missingTable && now() - missingAt < TABLE_CHECK_MS;
 
   /** Follow-ups cut off by a restart fail, as they may have gone out. The ones in `going` are still being sent. */
@@ -211,7 +187,6 @@ export function createReplies({ db, vault, networks, media, notices, postIn, mem
     }
   }
 
-  /** Up to `limit` follow-ups due now, oldest first, leaving out `skip`'s people and lanes (pool.mjs). */
   async function due(limit, skip) {
     if (away()) return [];
     try {

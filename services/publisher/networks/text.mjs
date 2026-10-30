@@ -1,6 +1,4 @@
-// The words a post goes out with on each network: the caption saved for that
-// network when there is one, then the post's shared caption. The title only
-// names the post on the calendar, often after its file, so it never goes out:
+// The title only names the post on the calendar, often after its file, so it never goes out:
 // a post with no caption goes out with none.
 
 export function captionOf(post, platform) {

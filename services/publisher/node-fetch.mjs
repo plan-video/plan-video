@@ -1,11 +1,7 @@
-// Keeps Node's own fetch working as Node made it. Loading @atproto's OAuth
-// client loads undici 8, which on load makes itself the dispatcher behind
-// Node's global fetch. Node 22's fetch hands it header values as bytes, and
-// undici 8 refuses a Content-Length that isn't text, so every upload that sets
-// one (YouTube, TikTok, LinkedIn) failed before it left the server.
-// Imported first, this takes Node's dispatcher before that happens; server.mjs
-// puts it back once everything has loaded. @atproto's own requests pass their
-// dispatcher explicitly, so they keep their guard.
+// Keeps Node's own fetch dispatcher. Loading @atproto's OAuth client loads undici 8, which makes itself
+// the global dispatcher and refuses the byte-valued Content-Length Node 22's fetch sends, so every upload
+// (YouTube, TikTok, LinkedIn) fails. Must be imported first; server.mjs puts the dispatcher back after
+// loading. @atproto's own requests pass their dispatcher explicitly, so they keep their SSRF guard.
 
 const KEY = Symbol.for("undici.globalDispatcher.1");
 

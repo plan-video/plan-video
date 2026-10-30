@@ -2,10 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Compiles the macOS corner-radius addon (src/native/corner_radius.m) into
-// dist/corner_radius.node. Node-API is ABI-stable, so a plain clang build
-// works across Electron versions; node_api symbols resolve from the Electron
-// binary at load time via -undefined dynamic_lookup.
+// Node-API is ABI-stable, so a plain clang build works across Electron versions; node_api symbols
+// resolve from the Electron binary at load time via -undefined dynamic_lookup.
 
 import { execFileSync } from 'node:child_process';
 import { mkdirSync } from 'node:fs';

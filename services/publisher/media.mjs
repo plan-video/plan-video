@@ -1,10 +1,6 @@
-// A post's files in cloud storage, read straight from the bucket. A waiting
-// post's files are under posts/, and move to sent/ once the post has gone out;
-// when both are there, the newer is the post's (see services/storage).
-//
-// A post lists the files it goes out with, in order, by id: `<post id>_<random>`,
-// or the post's own id for a post saved before posts could carry several. A
-// network can have files of its own instead.
+// A waiting post's files are under posts/ and move to sent/ once it's gone out; when both are there,
+// the newer is the post's (see services/storage). File ids are `<post id>_<random>`, or the post's own id
+// for a post saved before posts could carry several.
 
 import { DeleteObjectsCommand, GetObjectCommand, HeadObjectCommand, ListObjectsV2Command, S3Client } from "@aws-sdk/client-s3";
 
@@ -13,14 +9,9 @@ import { PublishError } from "./errors.mjs";
 const ID = /^[A-Za-z0-9_-]{1,100}$/;
 /** More than any network takes in one post. */
 const MAX_FILES = 35;
-/** Where an account's files are, each under its id: services/storage's purposes, and sent/. */
 const FOLDERS = ["media", "posts", "projects", "sent"];
 
-/**
- * The ids of the files a post goes out with on `platform`: that network's
- * own, else the post's. Null for a post saved before posts listed their
- * files, whose one file, if it has one, is under the post's own id.
- */
+/** A network's own files, else the post's. Null for a post saved before posts listed their files. */
 export function fileIdsOf(post, platform) {
   const own = post?.ownFiles?.[platform];
   const list = Array.isArray(own) ? own : post?.files;
@@ -29,11 +20,8 @@ export function fileIdsOf(post, platform) {
 }
 
 /**
- * The bucket's S3 address. R2_ENDPOINT names it outright (another
- * S3-compatible store, say); otherwise it is the account's R2 address in
- * R2_JURISDICTION: "eu" when unset, where plan.video's bucket is, "fedramp",
- * or "default" for a bucket made without one. services/storage reads the same
- * two settings from the same file.
+ * R2_ENDPOINT names any S3-compatible store outright; otherwise the account's R2 address in R2_JURISDICTION
+ * ("eu" when unset, "fedramp", or "default"). services/storage reads the same two settings from the same file.
  */
 export function r2Endpoint(env) {
   if (env.R2_ENDPOINT) return env.R2_ENDPOINT;
@@ -71,7 +59,6 @@ export function createMedia(env) {
   }
 
   return {
-    /** One of a post's files, by its id, or null when cloud storage doesn't have it. */
     async postFile(userId, id) {
       const [waiting, kept] = await Promise.all([head(`posts/${userId}/${id}`), head(`sent/${userId}/${id}`)]);
       const file = waiting && (!kept || waiting.at > kept.at) ? waiting : kept;
@@ -80,19 +67,18 @@ export function createMedia(env) {
       return { ...file, id, kind };
     },
 
-    /** Bytes `start` to `end`, both included, in memory. */
+    /** Both ends included. */
     async bytes(key, start, end) {
       const body = await get(key, [start, end]);
       return Buffer.from(await body.transformToByteArray());
     },
 
-    /** The whole file, or bytes `range[0]` to `range[1]` of it, as a web stream: for a request body, or an answer. */
     async stream(key, range) {
       const body = await get(key, range);
       return body.transformToWebStream();
     },
 
-    /** Deletes every file the account stores, for when the account is deleted. Throws when any may be left. */
+    /** Throws when any may be left. */
     async eraseUser(userId) {
       if (!ID.test(userId)) throw new Error("That isn't an account.");
       for (const folder of FOLDERS) {

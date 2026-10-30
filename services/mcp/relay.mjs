@@ -2,14 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Hands an agent's tool calls to the user's open plan.video tab and waits for
-// the answer. Every signed-in tab keeps a socket here, filed under the user
-// its own sign-in names; a call only ever goes to a tab of the user the
-// connector's token names, and to the one they used last.
+// A call only ever goes to a tab of the user the connector's token names, the one they used last.
 
 import { randomUUID } from "node:crypto";
 
-/** Why a call could not be answered, worded for the agent to pass on. */
 export class RelayError extends Error {}
 
 const DEFAULT_TIMEOUT_MS = 60_000;
@@ -22,7 +18,6 @@ const PUBLISH_TOOLS = new Set(["publish_post"]);
 /** One person rarely has more plan.video tabs open than this; past it the oldest goes. */
 const MAX_TABS_PER_USER = 8;
 
-/** What a call gets when the user has no tab open, naming the site to open (PUBLIC_URL in server.mjs). */
 export const noTab = (site = "https://plan.video") =>
   `plan.video isn't open. Ask the user to open ${site} in their browser, signed in, keep the tab open, and try again.`;
 export const NO_TAB = noTab();
@@ -45,7 +40,7 @@ export class Relay {
     this.#publishTimeoutMs = publishTimeoutMs;
   }
 
-  /** Files a signed-in tab under its user. `socket` needs send(string) and close(code, reason). */
+  /** `socket` needs send(string) and close(code, reason). */
   attach(userId, socket) {
     const tab = { userId, socket, lastActive: Date.now() };
     const tabs = this.#tabs.get(userId) ?? new Set();
@@ -59,7 +54,7 @@ export class Relay {
     return tab;
   }
 
-  /** The tab went away: whatever it was working on fails now rather than at its timeout. */
+  /** Whatever the tab was working on fails now rather than at its timeout. */
   detach(tab) {
     const tabs = this.#tabs.get(tab.userId);
     if (!tabs?.delete(tab)) return;
@@ -69,12 +64,11 @@ export class Relay {
     }
   }
 
-  /** The user is looking at this tab: it answers the next call. */
+  /** This tab answers the next call. */
   touch(tab) {
     tab.lastActive = Date.now();
   }
 
-  /** How many tabs are connected, for the log. */
   get size() {
     let count = 0;
     for (const tabs of this.#tabs.values()) count += tabs.size;
@@ -85,11 +79,6 @@ export class Relay {
     return this.#tabs.has(userId);
   }
 
-  /**
-   * Runs `tool` in the user's most recently used tab. Resolves to what the
-   * tab sent back ({ text, images }); rejects with a RelayError when there is
-   * no tab, the tab fails the call, or it takes too long.
-   */
   call(userId, tool, args) {
     const tabs = this.#tabs.get(userId);
     if (!tabs) return Promise.reject(new RelayError(this.#noTab));
@@ -111,7 +100,7 @@ export class Relay {
     });
   }
 
-  /** An answer from a tab. Ignored unless that tab was asked that call. */
+  /** Ignored unless that tab was asked that call. */
   receive(tab, message) {
     const call = this.#pending.get(message.id);
     if (!call || call.tab !== tab) return;

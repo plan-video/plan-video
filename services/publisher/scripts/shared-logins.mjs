@@ -1,23 +1,7 @@
-// Finds the TikTok and LinkedIn logins a workspace's admins or members could
-// have been given before tokens stayed on the server (2026-10-16), and with
-// --revoke ends them at the network so no copy of them still works:
-//
-// - admins got the owner's LinkedIn access token (about 60 days) from
-//   login/access, and whoever connected a TikTok or LinkedIn account got its
-//   tokens from the exchange, TikTok's refresh token lasting a year;
-// - members got the owner's TikTok access token, which TikTok ends after 24
-//   hours on its own.
-//
-// Revoking ends the login for plan.video too: the owner connects the account
-// again, and nobody else's copy works after that. Run it on the server:
-//
-//   cd /opt/plan-video-publisher/publisher
-//   sudo -u planvideo-publisher /opt/node-v22.22.1/bin/node scripts/shared-logins.mjs            # lists them
-//   sudo -u planvideo-publisher /opt/node-v22.22.1/bin/node scripts/shared-logins.mjs --revoke   # ends them
-//
-// Someone already taken out of a workspace leaves no row behind, so this only
-// sees the workspaces that have people in them now. --everyone lists, or with
-// --revoke ends, every TikTok and LinkedIn login instead.
+// Finds TikTok and LinkedIn logins a workspace's admins or members may hold copies of, and with --revoke
+// ends them at the network so no copy still works (the owner then connects again). Only sees workspaces
+// with people in them now; --everyone covers every TikTok and LinkedIn login. Run on the server as the
+// publisher's user: node scripts/shared-logins.mjs [--everyone] [--revoke]
 
 import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
@@ -38,11 +22,7 @@ async function every(db, table, columns) {
   }
 }
 
-/**
- * The logins at risk, each with why: `admin` when an admin of a workspace that
- * lists it is in it now, `member` when only members are (TikTok's 24-hour
- * token), `everyone` for the rest when asked for every login.
- */
+/** `admin`, `member` (TikTok's 24-hour token only), or `everyone` when asked for every login. */
 export async function sharedLogins(db, { everyone = false } = {}) {
   const logins = (await every(db, "social_tokens", "user_id,connection_id,platform")).filter((row) => NETWORKS.has(row.platform));
   const joined = (await every(db, "workspace_members", "owner_id,workspace_id,role,user_id")).filter((row) => row.user_id);

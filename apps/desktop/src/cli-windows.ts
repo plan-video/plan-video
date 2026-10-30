@@ -2,20 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The `planvideo` (and `dapi` alias) commands on Windows. Squirrel installs
-// every version into its own `app-<version>` folder, so nothing durable may
-// point at the wrapper the app ships in its resources. What goes on PATH
-// (and, for `dapi.cmd`, into the agents' MCP configs) is a pair of shims in a
-// folder that never moves:
-//   %LOCALAPPDATA%\plan.video\bin\dapi.cmd
-//   %LOCALAPPDATA%\plan.video\bin\planvideo.cmd
-// The app rewrites both on every packaged launch and from Squirrel's update
-// hook, so they always name the current executable. Installing the CLI is
-// then only a matter of putting that folder on the user's PATH, which needs
-// no administrator.
-//
-// Nothing here imports electron, so the Squirrel hooks can use it before the
-// app is ready and the tests can run it anywhere.
+// Squirrel installs each version into its own `app-<version>` folder, so PATH and agents' MCP configs
+// point at shims in a folder that never moves (%LOCALAPPDATA%\plan.video\bin\{dapi,planvideo}.cmd),
+// rewritten on every packaged launch and update. Adding it to the user PATH needs no administrator.
+// No electron imports: the Squirrel hooks run this before the app is ready.
 
 import { execFile } from "node:child_process";
 import { mkdir, rm } from "node:fs/promises";
@@ -24,7 +14,6 @@ import { win32 } from "node:path";
 
 import { writeFileAtomic } from "./atomic";
 
-/** The folder that holds the shim: the one entry we add to PATH. */
 export function shimDir(env: NodeJS.ProcessEnv = process.env): string {
   const local = env.LOCALAPPDATA || win32.join(homedir(), "AppData", "Local");
   return win32.join(local, "plan.video", "bin");
@@ -34,14 +23,11 @@ export function shimPath(env: NodeJS.ProcessEnv = process.env): string {
   return win32.join(shimDir(env), "dapi.cmd");
 }
 
-// `dapi.cmd` is the one `mcp-install.ts` registers with agents, so its name
-// and behavior above stay fixed. `planvideo.cmd` rides beside it purely so
-// the name on PATH matches the one in the docs; both run the same script.
+// `dapi.cmd` is the one `mcp-install.ts` registers with agents, so its name and behavior stay fixed.
 export function shimPaths(env: NodeJS.ProcessEnv = process.env): string[] {
   return ["dapi.cmd", "planvideo.cmd"].map((name) => win32.join(shimDir(env), name));
 }
 
-/** `dapi.js` as the packaged app stages it, next to `execPath`'s resources. */
 export function stagedScript(execPath: string): string {
   return win32.join(win32.dirname(execPath), "resources", "cli", "dapi.js");
 }
@@ -49,11 +35,6 @@ export function stagedScript(execPath: string): string {
 // A literal `%` would start a variable expansion inside a batch file.
 const batch = (path: string): string => path.replaceAll("%", "%%");
 
-/**
- * The shim's text: the CLI bundle on the app's own Electron binary in Node
- * mode, like the macOS wrapper, but with both paths spelled out because the
- * shim does not live beside them.
- */
 export function shimContent(execPath: string, script: string = stagedScript(execPath)): string {
   return [
     "@echo off",
@@ -64,7 +45,7 @@ export function shimContent(execPath: string, script: string = stagedScript(exec
   ].join("\r\n");
 }
 
-/** Points the shim at `execPath`. Safe to repeat; the write lands whole. */
+/** Safe to repeat; the write lands whole. */
 export async function writeShim(execPath: string = process.execPath, script?: string): Promise<void> {
   await mkdir(shimDir(), { recursive: true });
   const content = shimContent(execPath, script);
@@ -84,25 +65,19 @@ export function pathHas(path: string, dir: string): boolean {
   return entries(path).some((entry) => normalize(entry) === normalize(dir));
 }
 
-/** `path` with `dir` appended, or unchanged when it is already there. */
 export function pathWith(path: string, dir: string): string {
   return pathHas(path, dir) ? path : [...entries(path), dir].join(";");
 }
 
-/** `path` without any spelling of `dir`. */
 export function pathWithout(path: string, dir: string): string {
   return entries(path)
     .filter((entry) => normalize(entry) !== normalize(dir))
     .join(";");
 }
 
-// The user PATH lives in HKCU\Environment. It is read and written through the
-// registry rather than [Environment]::Get/SetEnvironmentVariable, which would
-// expand every %VARIABLE% in the entries that are already there and store the
-// result as a plain string. `setx` is out too: it truncates at 1024
-// characters. Removing a variable that does not exist is the cheap way to
-// make .NET broadcast WM_SETTINGCHANGE, so new terminals see the change.
-// The value travels through the environment so nothing needs quoting.
+// The user PATH is read and written via the HKCU\Environment registry key: [Environment]::Set...
+// would expand every existing %VARIABLE%, and `setx` truncates at 1024 characters. Removing a
+// nonexistent variable makes .NET broadcast WM_SETTINGCHANGE, so new terminals see the change.
 const READ_PATH = `
 $key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Environment')
 [Console]::Out.Write($key.GetValue('Path', '', 'DoNotExpandEnvironmentNames'))
@@ -133,7 +108,6 @@ export async function writeUserPath(path: string): Promise<void> {
   await powershell(WRITE_PATH, { DAPI_USER_PATH: path });
 }
 
-/** Whether the shim folder is on the user's PATH. */
 export async function shimOnPath(): Promise<boolean> {
   return pathHas(await readUserPath(), shimDir());
 }

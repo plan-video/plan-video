@@ -1,21 +1,7 @@
-// Client connect links. A workspace's owner or an admin makes a link and
-// sends it to a client, who opens plan.video/connect/<link> without a
-// plan.video account and signs in to their own social accounts there. Each
-// account they connect lands in that workspace, as if the owner had connected
-// it: its login sealed under the owner (vault.mjs), counted against the
-// owner's plan (accounts.mjs), and its row added to the workspace's
-// connections in the owner's account_state (connect_link_keep), which the
-// owner's open tabs merge in like any change made elsewhere.
-//
-// The client's browser starts each network's sign-in through here and hands
-// back what the network returned; the publisher swaps it for the login itself,
-// so no token reaches the client's browser either, and the ticket each
-// exchange makes is opened here at once.
-//
-// A link is its row's id with a MAC under a key drawn from TOKEN_KEY, so the
-// table holds nothing that opens it and the owner can copy it again. It lasts
-// LINK_DAYS, connects any number of accounts until then, and its maker turns
-// it off. Making a new one turns off the workspace's old one.
+// A client opens plan.video/connect/<link> without an account; each account they connect lands in the
+// workspace as if the owner had connected it: sealed under the owner, counted against the owner's plan.
+// The publisher swaps what the network returned for the login itself, so no token reaches the client.
+// A link is its row's id plus a MAC under a key from TOKEN_KEY, so the table holds nothing that opens it.
 
 import { createHmac, hkdfSync, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 
@@ -28,7 +14,6 @@ import { connectWithin } from "./accounts.mjs";
 import { PublishError, Refused } from "./errors.mjs";
 import { META_NAMES, configured, isMetaNetwork } from "./meta.mjs";
 
-/** How long a link connects accounts. */
 export const LINK_DAYS = 7;
 const DAY_MS = 24 * 60 * 60_000;
 
@@ -48,13 +33,12 @@ const IDENTITY = { tiktok: "openId", youtube: "channelId", linkedin: "personId",
 
 const GONE = "This link has run out or was turned off. Ask the person who sent it for a new one.";
 
-/** A name as the client is shown it: one line, trimmed, at most NAME_MAX characters. */
 const shortName = (value) =>
   typeof value === "string" ? [...value.replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, " ").trim()].slice(0, NAME_MAX).join("") : "";
 
 const cleanHandle = (value) => (typeof value === "string" ? value.trim().replace(/^@+/, "") : "");
 
-/** A Bluesky account's handle and picture, from Bluesky's public directory. The DID when it can't be read. */
+/** The DID when the handle can't be read. */
 async function blueskyProfile(did) {
   try {
     const response = await fetch(`https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor=${encodeURIComponent(did)}`, { signal: AbortSignal.timeout(5000) });
@@ -65,16 +49,11 @@ async function blueskyProfile(did) {
   }
 }
 
-/**
- * `vault`, `limits`, the networks' login makers (`youtube`, `tiktok`,
- * `linkedin`, `x`, `meta`, `bluesky`) and `env` are the ones api.mjs has.
- */
 export function createConnectLinks({ db, key, vault, limits, env, youtube, tiktok, linkedin, x, meta, bluesky, profile = blueskyProfile, now = () => Date.now() }) {
   const mac = hkdfSync("sha256", Buffer.from(key || "", "base64"), Buffer.alloc(0), "plan.video connect link", 32);
   const sign = (id) => createHmac("sha256", Buffer.from(mac)).update(id).digest().subarray(0, 16).toString("base64url");
   const linkFor = (id) => `${id}${sign(id)}`;
 
-  /** The link's id, when its MAC is right. */
   function idOf(link) {
     if (typeof link !== "string" || !LINK.test(link)) return null;
     const id = link.slice(0, 16);
@@ -85,7 +64,6 @@ export function createConnectLinks({ db, key, vault, limits, env, youtube, tikto
 
   const live = (row) => !!row && !row.revoked_at && Date.parse(row.expires_at) > now();
 
-  /** The open link a client's browser names, or a refusal. */
   async function opened(link) {
     const id = idOf(link);
     const row = id ? await db.selectOne("connect_links", { id }) : null;
@@ -93,13 +71,13 @@ export function createConnectLinks({ db, key, vault, limits, env, youtube, tikto
     return row;
   }
 
-  /** The owner's plan level, 1 (Free) when it can't be read. */
+  /** 1 (Free) when it can't be read. */
   async function levelOf(owner) {
     const row = await db.selectOne("user_data", { id: owner }, "access_level").catch(() => null);
     return typeof row?.access_level === "number" ? row.access_level : 1;
   }
 
-  /** The networks the server can sign in to now, for this owner: X only on paid plans, as in Connections. */
+  /** X only on paid plans, as in Connections. */
   async function networksFor(owner) {
     const ready = {
       x: !!(x && env.x?.clientId) && (await levelOf(owner)) > 1,
@@ -119,7 +97,6 @@ export function createConnectLinks({ db, key, vault, limits, env, youtube, tikto
     if (!(await networksFor(row.owner_id)).includes(network)) throw new Refused(403, `${NAMES[network]} can't be connected through this link.`);
   }
 
-  /** The workspace's connections as the owner's account keeps them, and whether the workspace is there. */
   async function workspaceOf(owner, workspace) {
     const row = await db.selectOne("account_state", { user_id: owner }, "payload");
     const listed = Array.isArray(row?.payload?.workspaces?.list) && row.payload.workspaces.list.some((item) => item?.id === workspace);
@@ -127,11 +104,7 @@ export function createConnectLinks({ db, key, vault, limits, env, youtube, tikto
     return { listed: listed && !!slice && typeof slice === "object", connections: Array.isArray(slice?.connections) ? slice.connections : [] };
   }
 
-  /**
-   * Keeps one account the client signed in to: its login in the vault, under
-   * the owner, and its row in the link's workspace. The same account
-   * connected there before keeps its row and takes the new login.
-   */
+  /** The same account connected there before keeps its row and takes the new login. */
   async function keep(row, platform, account) {
     const owner = row.owner_id;
     const identity = account.details[IDENTITY[platform]];
@@ -168,7 +141,6 @@ export function createConnectLinks({ db, key, vault, limits, env, youtube, tikto
     return { platform, handle, avatarUrl: connection.avatarUrl };
   }
 
-  /** Swaps what the network sent back for its accounts' logins, opened here: `{ handle, avatarUrl, session, details }` each. */
   async function signIn(network, holder, body) {
     const text = (name) => (typeof body[name] === "string" ? body[name].slice(0, 4000) : "");
     const code = { code: text("code"), redirectUri: text("redirectUri"), codeVerifier: text("codeVerifier") };
@@ -219,14 +191,12 @@ export function createConnectLinks({ db, key, vault, limits, env, youtube, tikto
     return [{ handle: found.handle, avatarUrl: found.avatarUrl, session: { did, oauth: true }, details: { did, pds: "", oauth: true, server: true } }];
   }
 
-  /** The workspace's live link, if it has one, as its maker sees it. */
   const shown = (row) => ({ link: linkFor(row.id), expiresAt: row.expires_at, connected: row.connected ?? 0 });
 
   async function liveFor(owner, workspace) {
     return (await db.select("connect_links", { owner_id: owner, workspace_id: workspace })).filter(live).sort((a, b) => b.created_at.localeCompare(a.created_at));
   }
 
-  /** Turns off the workspace's links, and forgets ones long past. */
   async function revoke(owner, workspace) {
     const at = now();
     for (const row of await db.select("connect_links", { owner_id: owner, workspace_id: workspace })) {
@@ -236,15 +206,13 @@ export function createConnectLinks({ db, key, vault, limits, env, youtube, tikto
   }
 
   return {
-    // --- For the person who sends the link: the owner or an admin, signed in.
+    // For the owner or an admin, signed in.
 
-    /** The workspace's live link, or null. */
     async current(owner, workspace) {
       const [row] = await liveFor(owner, workspace);
       return row ? shown(row) : null;
     },
 
-    /** A new link for the workspace, turning off the one before. `names` are what the client is shown. */
     async create({ owner, workspace, person, workspaceName, fromName }) {
       if (!(await workspaceOf(owner, workspace)).listed) throw new Refused(404, "That workspace isn't on plan.video yet. Wait a moment and try again.");
       await revoke(owner, workspace);
@@ -267,15 +235,13 @@ export function createConnectLinks({ db, key, vault, limits, env, youtube, tikto
 
     revoke,
 
-    // --- For the client, with the link alone.
+    // For the client, with the link alone.
 
-    /** What the client's page shows: whose workspace, who sent it, until when, and which networks. */
     async open(link) {
       const row = await opened(link);
       return { workspace: row.workspace_name, from: row.from_name, expiresAt: row.expires_at, networks: await networksFor(row.owner_id) };
     },
 
-    /** Where to send the client to sign in to a network. */
     async authorize(link, body) {
       const row = await opened(link);
       const network = typeof body.network === "string" ? body.network : "";
@@ -297,11 +263,7 @@ export function createConnectLinks({ db, key, vault, limits, env, youtube, tikto
       return { url: build(env[network], { redirectUri, state, codeChallenge }) };
     },
 
-    /**
-     * Finishes a network's sign-in the client came back from, and keeps each
-     * account it gave. Returns the ones kept, by name and picture; a Facebook
-     * login gives each Page shared, and one that can't be kept doesn't stop the rest.
-     */
+    /** A Facebook login gives each Page shared; one that can't be kept doesn't stop the rest. */
     async exchange(link, body) {
       const row = await opened(link);
       const network = typeof body.network === "string" ? body.network : "";

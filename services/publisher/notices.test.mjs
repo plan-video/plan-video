@@ -19,10 +19,6 @@ const scheduled = (post = {}, extra = {}) => ({
   ...extra,
 });
 
-/**
- * The worker and the notices over one database, with LinkedIn answering as
- * `send` says, and every email kept in `emails`.
- */
 function setup({ posts = [scheduled()], send, reply, logins = {}, outcome = () => "sent", recipients = { u1: { email: "ada@example.com", name: "Ada" } } } = {}) {
   let clock = T0;
   const db = fakeDb({ posts, recipients, accounts: { "u1:li1": { handle: "Ada Lovelace", platform: "linkedin" } } });
@@ -108,7 +104,6 @@ test("a failure fixed while someone has plan.video open isn't emailed", async ()
   let fail = true;
   const { db, worker, notices, emails, advance } = setup({ send: (ctx) => (fail ? refused(ctx) : { state: "sent", publishId: "li-id" }) });
   await worker.tick();
-  // They see it in the dashboard, fix the post and press Retry.
   fail = false;
   await worker.request("u1", "p1");
   await worker.tick();
@@ -131,7 +126,6 @@ test("Post now failing in front of the person who pressed it isn't emailed", asy
 test("a post paused or deleted before its time isn't emailed", async () => {
   const posts = [scheduled()];
   const { db, worker, notices, emails, advance } = setup({ posts });
-  // Planned, then paused before the send ran.
   await worker.plan();
   posts[0].post.paused = true;
   await worker.tick();

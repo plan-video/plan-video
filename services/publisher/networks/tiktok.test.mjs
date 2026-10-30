@@ -10,10 +10,7 @@ const post = (extra = {}) => ({ id: "p1", title: "Hi", platforms: ["tiktok"], ti
 const media = { bytes: async (_key, from, to) => Buffer.alloc(to - from + 1) };
 const photos = { link: (_user, id) => `https://plan.video/api/publisher/photo/${id}` };
 
-/**
- * Stands in for TikTok: `answers` maps an API path to what it says, or to "drop" for
- * a connection that never answers. Every call is kept, in order.
- */
+/** `answers` maps an API path to what TikTok says, or "drop" for a connection that never answers. */
 function fakeTikTok(answers) {
   const calls = [];
   const original = globalThis.fetch;
@@ -64,7 +61,6 @@ test("a lost answer to the last piece waits for TikTok rather than uploading the
     tiktok.restore();
   }
 
-  // The retry: TikTok has every byte and is processing it.
   const again = fakeTikTok({ "/v2/post/publish/status/fetch/": { status: "PROCESSING_UPLOAD", uploaded_bytes: VIDEO.size } });
   try {
     const result = await createTikTok().send({ post: post(), session: { accessToken: "a" }, files: [VIDEO], media, delivery, progress });

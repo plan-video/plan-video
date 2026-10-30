@@ -1,6 +1,3 @@
-// The networks' redirect addresses follow PUBLIC_URL, and stay plan.video's
-// own when it isn't set, as saved on plan.video's network apps.
-
 import assert from "node:assert/strict";
 import { test } from "node:test";
 

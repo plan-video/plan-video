@@ -1,21 +1,7 @@
-// What each plan allows, checked where posts go out, so someone who writes
-// their account straight to the database gets no more than the dashboard
-// gives them. These follow apps/web/src/lib/plans.ts:
-//
-//   - On Free, each account has at most 10 scheduled posts waiting at a time
-//     (overScheduledLimit in components/calendar/store.ts). The publisher
-//     remembers each post it sees waiting on an account, in
-//     publisher_waiting. One that comes in while its account already has 10
-//     waiting is over, and its runs fail instead of going out. Like the
-//     dashboard, a post already waiting stays allowed after a plan gets
-//     smaller, and Post now always works.
-//   - YouTube uploads all come out of one daily quota for the app, so each
-//     owner gets a share of it by plan, counted in publisher_uploads.
-//   - X bills plan.video for every post it makes: $0.015 for one, $0.20 for
-//     one with a link. So Free doesn't post to X, and each paid owner makes
-//     at most so many in any 30 days, far fewer of them with a link, and 50
-//     in a day. Each post X makes is counted in publisher_uploads as "x",
-//     and once more as "xlink" when it has a link.
+// Plan limits are checked here too, so someone writing their account straight to the database gets no
+// more than the dashboard gives. Numbers follow apps/web/src/lib/plans.ts. A post already waiting stays
+// allowed after a plan gets smaller, and Post now always works. YouTube uploads share one daily app quota,
+// and X bills plan.video for every post, so Free doesn't post to X and paid owners are capped.
 
 import { PublishError } from "./errors.mjs";
 import { dayAt, isDayKey, momentOf, shiftDay, zoneOrUtc } from "./schedule.mjs";
@@ -24,24 +10,16 @@ import { dayAt, isDayKey, momentOf, shiftDay, zoneOrUtc } from "./schedule.mjs";
 export const FREE_SCHEDULED_PER_ACCOUNT = 10;
 /** A post due sooner than this is going out, not waiting, as the dashboard counts it. */
 export const GOING_OUT_MS = 5 * 60_000;
-/** YouTube videos an owner can upload in a day, by access level: Free, Creator, Pro, Agency. YOUTUBE_UPLOADS_PER_DAY in publisher.env sets others. */
+/** By access level (Free, Creator, Pro, Agency); YOUTUBE_UPLOADS_PER_DAY in publisher.env overrides. */
 export const YOUTUBE_UPLOADS_BY_LEVEL = { 1: 3, 2: 10, 3: 20, 4: 40 };
-/**
- * Posts to X an owner can make in any 30 days, by access level, and how many
- * of those can have a link. At X's prices the most a month can cost is about
- * $4 on Creator, $11 on Pro and $19 on Agency. X_POSTS_PER_MONTH and
- * X_LINK_POSTS_PER_MONTH in publisher.env set others. apps/web/src/lib/plans.ts
- * sells the same numbers.
- */
+/** By access level; X_POSTS_PER_MONTH and X_LINK_POSTS_PER_MONTH in publisher.env override. Must match apps/web/src/lib/plans.ts. */
 export const X_POSTS_BY_LEVEL = { 1: 0, 2: 150, 3: 400, 4: 800 };
 export const X_LINK_POSTS_BY_LEVEL = { 1: 0, 2: 10, 3: 25, 4: 40 };
-/** Posts to X an owner can make in a day, whatever their plan. */
 export const X_POSTS_PER_DAY = 50;
 const DAY_MS = 24 * 60 * 60_000;
 const MONTH_MS = 30 * DAY_MS;
 /** The most any of the counts above can be: rows are counted by reading them, and PostgREST answers with up to 1000. */
 const MOST_COUNTED = 1000;
-/** Rows read at a time, under PostgREST's cap on rows per answer. */
 const PAGE = 500;
 
 export const OVER_SCHEDULED = `On the Free plan, each account can have ${FREE_SCHEDULED_PER_ACCOUNT} scheduled posts waiting at a time, so this one wasn't sent. Upgrade for unlimited posts, or post it now.`;
@@ -60,15 +38,12 @@ export function byLevel(text, defaults) {
   );
 }
 
-/** Uploads a day by level, from "3,10,20,40". */
 export const uploadsPerDay = (text) => byLevel(text, YOUTUBE_UPLOADS_BY_LEVEL);
 
-/** Whole days, at least 1, until the oldest of `rows` (oldest first) is older than `span`, so one more fits. */
 const daysUntilFree = (rows, span, at) => Math.max(1, Math.ceil((Date.parse(rows[0]?.at ?? "") + span - at) / DAY_MS) || 1);
 
 const inDays = (days) => (days === 1 ? "tomorrow" : `in ${days} days`);
 
-/** When a post first goes out, or null when it has no day and time the publisher reads. */
 export function startOf(post, accountZone) {
   const time = post?.allDay ? "00:00" : post?.start;
   // Strings first: test() reads an array like ["2026-10-27"] as its text, and momentOf would then throw.
@@ -77,7 +52,7 @@ export function startOf(post, accountZone) {
   return momentOf(post.day, time, zoneOrUtc(post.timeZone ?? accountZone));
 }
 
-/** Whether a post waits to go out: scheduled, not paused, and with a run still to come. A repeating post counts once. */
+/** A repeating post counts once. */
 export function isWaiting(post, accountZone, at) {
   if (post?.status !== "scheduled" || post.paused) return false;
   // Only a real day ends a series: the schedule ignores any other end, so the post would still go out forever.
@@ -86,12 +61,7 @@ export function isWaiting(post, accountZone, at) {
   return start !== null && start >= at + GOING_OUT_MS;
 }
 
-/**
- * Until when a post waits, if it's scheduled and not paused: a one-off until
- * it's about to go out, a series through its last day in its zone, or for
- * ever (null) while a series has no end. Waiting at a moment means at or
- * before this; it agrees with isWaiting.
- */
+/** Null while a series has no end. Waiting at a moment means at or before this; must agree with isWaiting. */
 export function waitingUntil(post, accountZone) {
   if (post?.recurrence) {
     if (!isDayKey(post.recurrenceEnd)) return null;
@@ -102,13 +72,12 @@ export function waitingUntil(post, accountZone) {
 }
 
 export function createPlanLimits({ db, now = () => Date.now(), log = console, youtube = YOUTUBE_UPLOADS_BY_LEVEL, x = { posts: X_POSTS_BY_LEVEL, links: X_LINK_POSTS_BY_LEVEL } }) {
-  /** publisher_waiting as the publisher last left it, by key, or null until it's read. Only the publisher writes it. */
+  /** Null until read. Only the publisher writes publisher_waiting. */
   let known = null;
   const keyOf = (row) => `${row.user_id}|${row.workspace_id}|${row.post_id}|${row.connection_id}`;
   const accountOf = (row) => `${row.user_id}|${row.workspace_id}|${row.connection_id}`;
   const postOf = (row) => `${row.user_id}|${row.workspace_id}|${row.post_id}`;
   const iso = (time) => (time === null ? null : new Date(time).toISOString());
-  /** A publisher_waiting row as kept here: its times as numbers, `seenAt` when it was first kept. */
   const keptRow = ({ until, seen_at: seen, ...row }) => ({ ...row, until: until ? Date.parse(until) : null, seenAt: seen ? Date.parse(seen) : 0 });
 
   async function readKnown() {
@@ -120,7 +89,7 @@ export function createPlanLimits({ db, now = () => Date.now(), log = console, yo
     }
   }
 
-  /** Each person's plan level. Someone with no plan row is on Free. */
+  /** Someone with no plan row is on Free. */
   async function levels(ids) {
     const found = new Map(ids.map((id) => [id, 1]));
     for (let index = 0; index < ids.length; index += 100) {
@@ -130,17 +99,9 @@ export function createPlanLimits({ db, now = () => Date.now(), log = console, yo
   }
 
   /**
-   * Takes in scheduled posts as they are now, as one entry per post and
-   * account it goes out from: `{ user_id, workspace_id, post_id,
-   * connection_id, waiting, until, start }`. One newly waiting on a Free
-   * account that already has 10 waiting is over. Anything no longer scheduled
-   * on its account is forgotten, so it's looked at afresh if it comes back.
-   *
-   * With `posts` (keys `user|workspace|post`), only those posts were looked
-   * at: the others are counted as they were last seen, waiting until their
-   * `until`. Without it, `entries` is every scheduled post there was when they
-   * were read, at `readAt`: a post kept since then, by a look that ran
-   * meanwhile, isn't taken as gone.
+   * One entry per post and account. A post newly waiting on a Free account that already has 10 is over.
+   * With `posts`, only those were looked at and the rest count as last seen. Without it, `entries` is every
+   * scheduled post as read at `readAt`, so a post kept since by a concurrent look isn't taken as gone.
    */
   /** What keeps `known` takes turns, so two at once can't both count 9 waiting and both let a 10th in. */
   let turn = Promise.resolve();
@@ -220,11 +181,7 @@ export function createPlanLimits({ db, now = () => Date.now(), log = console, yo
     }
   }
 
-  /**
-   * The owners who had posts over the Free limit and pay now: their posts
-   * aren't over any more, and the worker looks at them again so their runs go
-   * out after all. Asked every pass; costs nothing while nobody is over.
-   */
+  /** Owners over the Free limit who pay now, so the worker looks at their posts again. Free while nobody is over. */
   const upgraded = () => alone(upgradedNow);
 
   async function upgradedNow() {
@@ -246,15 +203,11 @@ export function createPlanLimits({ db, now = () => Date.now(), log = console, yo
     }
   }
 
-  /** Whether a post came in over its account's limit. */
   const over = (userId, workspaceId, postId, connectionId) => known?.get(keyOf({ user_id: userId, workspace_id: workspaceId, post_id: postId, connection_id: connectionId }))?.over === true;
 
   /**
-   * Whether the owner has a YouTube upload left today. Returns null when one
-   * may start, or when it waits: `{ most, until }`, the moment the oldest of
-   * their last day's uploads stops counting. Nothing is taken here: an
-   * upload counts once YouTube starts it (countUpload), so a try that fails
-   * before then costs nothing.
+   * Null when an upload may start, else `{ most, until }`. Nothing is taken here: an upload counts once
+   * YouTube starts it (countUpload), so a try that fails before then costs nothing.
    */
   async function uploadWait(userId, platform) {
     let most;
@@ -264,7 +217,7 @@ export function createPlanLimits({ db, now = () => Date.now(), log = console, yo
       recent = await db.uploadsSince(userId, platform, new Date(now() - DAY_MS).toISOString(), most);
     } catch (error) {
       if (!(error instanceof PublishError) || error.retry) throw error;
-      // A database without publisher_uploads yet: the upload goes, as it did before.
+      // A database without publisher_uploads: the upload goes uncounted.
       log.error("[publisher] couldn't count uploads", error.message);
       return null;
     }
@@ -272,17 +225,13 @@ export function createPlanLimits({ db, now = () => Date.now(), log = console, yo
     return null;
   }
 
-  /** Counts one of the owner's uploads for today, once YouTube has started it. */
   async function countUpload(userId, platform) {
     await db.insert("publisher_uploads", [{ user_id: userId, platform, at: new Date(now()).toISOString() }]);
   }
 
   /**
-   * Throws why the owner can't have X make a post now, `link` saying whether
-   * it has one: on Free, or past their plan's posts in 30 days, or links
-   * among them. Those fail the post. Past 50 today it waits instead: the
-   * error's `until` is when one frees up. A count that can't be read stops
-   * the post too, since X bills for it either way.
+   * On Free, or past the plan's 30-day posts or links, the post fails. Past 50 today it waits (`until`).
+   * A count that can't be read stops the post too, since X bills for it either way.
    */
   async function xAllowed(userId, link) {
     const level = (await levels([userId])).get(userId);
@@ -314,13 +263,12 @@ export function createPlanLimits({ db, now = () => Date.now(), log = console, yo
     }
   }
 
-  /** Counts a post X made for the owner, and once more when it has a link. */
   async function countX(userId, link) {
     const at = new Date(now()).toISOString();
     await db.insert("publisher_uploads", [{ user_id: userId, platform: "x", at }, ...(link ? [{ user_id: userId, platform: "xlink", at }] : [])]);
   }
 
-  /** Drops counted uploads that no longer count: YouTube's after two days, X's after 31. */
+  /** YouTube's uploads stop counting after two days, X's after 31. */
   async function prune() {
     await db.pruneUploads(new Date(now() - 2 * DAY_MS).toISOString(), ["youtube"]);
     await db.pruneUploads(new Date(now() - MONTH_MS - DAY_MS).toISOString(), ["x", "xlink"]);

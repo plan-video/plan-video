@@ -20,7 +20,6 @@ const ROLES = { [`${OWNER}:${SHARED}`]: "owner", [`${OWNER}:${PRIVATE}`]: "owner
 
 const session = { accessToken: "a", refreshToken: "r", expiresAt: Date.now() + 3_600_000, openId: "o", scope: "video.publish" };
 
-/** The owner's workspaces: one shared with an admin and a member, one only theirs. */
 function setup() {
   const db = fakeDb({
     posts: [
@@ -88,7 +87,6 @@ test("a member reaches their workspace's accounts and posts, and nothing else of
   assert.deepEqual(logins.connections.map((row) => row.connectionId), ["c-shared"]);
   assert.equal((await ask(MEMBER, "logins", { team: team(PRIVATE) })).status, 403);
 
-  // "Post now" works for the workspace's posts, not for the owner's others.
   db.posts[0].post.status = "scheduled";
   const sent = await ask(MEMBER, "send", { team: team(), postId: "p-shared" });
   assert.equal(sent.status, 200);
@@ -96,7 +94,6 @@ test("a member reaches their workspace's accounts and posts, and nothing else of
   assert.equal((await ask(MEMBER, "send", { team: team(), postId: "p-private" })).status, 400);
   assert.ok(db.tables.post_deliveries.every((row) => row.user_id === OWNER && row.post_id === "p-shared"));
 
-  // Without `team`, they're themselves: none of the owner's logins.
   assert.deepEqual((await ask(MEMBER, "logins", {})).connections, []);
 });
 
@@ -107,17 +104,14 @@ test("only the owner and admins connect and remove accounts, and only in their w
   assert.equal((await ask(MEMBER, "login/save", { team: team(), connectionId: "c-new", platform: "tiktok", session })).status, 403);
   assert.equal((await ask(MEMBER, "login/forget", { team: team(), connectionId: "c-shared" })).status, 403);
 
-  // An admin's new account is kept for the owner, where the publisher sends from.
   assert.equal((await ask(ADMIN, "login/save", { team: team(), connectionId: "c-new", platform: "tiktok", session })).status, 200);
   assert.ok(db.tables.social_tokens.some((row) => row.user_id === OWNER && row.connection_id === "c-new"));
   assert.ok(!db.tables.social_tokens.some((row) => row.user_id === ADMIN));
 
-  // Not an account of another of the owner's workspaces.
   assert.equal((await ask(ADMIN, "login/save", { team: team(), connectionId: "c-private", platform: "tiktok", session })).status, 403);
   assert.equal((await ask(ADMIN, "login/forget", { team: team(), connectionId: "c-private" })).status, 403);
   assert.ok(db.tables.social_tokens.some((row) => row.connection_id === "c-private"));
 
-  // One the admin's workspace has, or none has any more (just removed from the list), can go.
   const original = globalThis.fetch;
   globalThis.fetch = async () => new Response("{}", { status: 200 });
   try {
@@ -142,10 +136,8 @@ test("no browser gets a TikTok or LinkedIn token, and no admin or member gets an
       assert.equal(answer.accessJwt, undefined);
     }
   }
-  // Not for an account outside the workspace either, nor for someone not in it.
   assert.equal((await ask(ADMIN, "login/access", { team: team(), connectionId: "c-private" })).status, 403);
   assert.equal((await ask(OUTSIDER, "login/access", { team: team(), connectionId: "c-shared" })).status, 403);
-  // TikTok and LinkedIn tokens stay on the server, the owner's own included.
   for (const connectionId of ["c-shared", "c-linkedin"]) {
     const own = await ask(OWNER, "login/access", { connectionId });
     assert.equal(own.status, 403);
@@ -153,7 +145,6 @@ test("no browser gets a TikTok or LinkedIn token, and no admin or member gets an
   }
 });
 
-/** Fakes TikTok's and LinkedIn's APIs, and notes the token each call came with. */
 function fakeNetworks() {
   const calls = [];
   const original = globalThis.fetch;
@@ -170,7 +161,6 @@ function fakeNetworks() {
   return { calls, restore: () => (globalThis.fetch = original) };
 }
 
-/** No login in an answer: none of a login's fields, and none of the test logins' tokens. */
 function assertNoTokens(answer) {
   const text = JSON.stringify(answer);
   for (const key of ["accessToken", "refreshToken", "accessJwt", "refreshJwt"]) assert.ok(!text.includes(`"${key}"`), text);
@@ -198,11 +188,9 @@ test("TikTok's and LinkedIn's reads go through the publisher for anyone in the w
       assert.deepEqual(member, { status: 200, personId: "p", name: "Ada", avatarUrl: "https://media.licdn.com/a.jpg" });
       for (const answer of [profile, videos, creator, member]) assertNoTokens(answer);
     }
-    // Every call was made here, with the owner's logins.
     assert.equal(networks.calls.length, 12);
     assert.ok(networks.calls.every((call) => call.auth === "Bearer a" || call.auth === "Bearer li-access"));
 
-    // Not an account of another workspace, not someone outside it, not the wrong network.
     assert.equal((await ask(MEMBER, "tiktok/creator", { team: team(), connectionId: "c-private" })).status, 403);
     assert.equal((await ask(ADMIN, "tiktok/videos", { team: team(), connectionId: "c-private" })).status, 403);
     assert.equal((await ask(OUTSIDER, "tiktok/profile", { team: team(), connectionId: "c-shared" })).status, 403);

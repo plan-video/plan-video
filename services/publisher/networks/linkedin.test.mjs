@@ -51,7 +51,6 @@ test("several pictures upload through the Images API and go out as one post with
   assert.equal(started[0].headers["LinkedIn-Version"], "202609");
   assert.equal(calls.filter((call) => call.method === "PUT").length, 3);
 
-  // They can't be asked after, so they're given a minute from the upload, however soon the publisher looks.
   const delivery = { publish_id: sent.publishId, updated_at: new Date(Date.now() - 5_000).toISOString() };
   calls.length = 0;
   assert.deepEqual(await linkedin.check({ session, delivery }), { state: "processing", publishId: sent.publishId });

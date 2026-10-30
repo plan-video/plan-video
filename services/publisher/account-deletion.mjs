@@ -1,20 +1,7 @@
-// Deleting an account, all on the server, so none of it can be skipped: a
-// browser that called the database itself could delete the account and leave
-// its plan being charged, its files stored and its logins working.
-//
-// In order, each step before anything is lost for good:
-//
-//   1. the plan ends in Stripe (services/billing, with the person's own token),
-//      or nothing else happens
-//   2. the files in cloud storage and the profile photo are erased
-//   3. plan.video's access ends at each connected network: the logins kept
-//      here, older ones still in account_state, and "Sign in with Bluesky"
-//      sessions. A network that doesn't answer still loses the login, since
-//      it's deleted with the account.
-//   4. Supabase deletes the account, and every row of it with it: each table
-//      cascades from auth.users.
-//
-// A step that fails stops the rest, so trying again finishes the job.
+// All on the server, so no step can be skipped (a browser could otherwise delete the account and leave its
+// plan charged, files stored and logins working). In order, each before anything is lost for good: end the
+// plan in Stripe, erase stored files, end access at each network (a network that doesn't answer still loses
+// the login), then Supabase deletes the account, cascading from auth.users. A failed step stops the rest.
 
 import { Refused } from "./errors.mjs";
 import { cleanSession } from "./vault.mjs";
@@ -32,7 +19,7 @@ export function createAccountDeletion({ db, vault, media, bluesky, revoke, env, 
       signal: AbortSignal.timeout(20_000),
     }).catch(() => null);
 
-  /** Ends every subscription, unless the person never paid. Throws when Stripe couldn't be reached. */
+  /** Unless the person never paid. Throws when Stripe couldn't be reached. */
   async function endPlan(userId, token) {
     const row = await db.selectOne("user_data", { id: userId }, "stripe_customer_id");
     if (!row?.stripe_customer_id) return;
@@ -67,7 +54,7 @@ export function createAccountDeletion({ db, vault, media, bluesky, revoke, env, 
     }
   }
 
-  /** Logins browsers saved in account_state before they moved to the server, which the publisher hasn't taken in yet. */
+  /** Logins still in account_state that the publisher hasn't taken in yet. */
   async function olderLogins(userId, kept) {
     const row = await db.selectOne("account_state", { user_id: userId }, "payload");
     const found = [];
@@ -109,7 +96,6 @@ export function createAccountDeletion({ db, vault, media, bluesky, revoke, env, 
   }
 
   return {
-    /** Deletes the account of the person `token` signs in, whose id is `userId`. */
     async remove(userId, token) {
       if (running.has(userId)) throw new Refused(409, "Your account is already being deleted.");
       running.add(userId);

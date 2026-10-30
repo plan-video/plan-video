@@ -1,7 +1,4 @@
-// The publisher: sends scheduled posts at their time, keeps connected
-// accounts' logins, and answers the browser's "Post now". One process, behind
-// the site's reverse proxy at /api/publisher. It plans every 30 seconds and the
-// moment a run is due, and sends what's due every few seconds (worker.mjs).
+// node-fetch.mjs must stay the first import (see why there).
 
 import { keepNodeFetch } from "./node-fetch.mjs";
 
@@ -46,9 +43,7 @@ keepNodeFetch();
 
 const HOST = "127.0.0.1";
 const PORT = 8798;
-/** Planning reads every scheduled post: every half minute, and the moment a run it saw coming is due. */
 const PASS_MS = 30_000;
-/** Sending asks only for what's due: this often, and whenever a send ends. */
 const DISPATCH_MS = 5_000;
 /** A run is planned this long after its moment, so the clock is surely past it. */
 const WAKE_AFTER_MS = 250;
@@ -91,7 +86,6 @@ if (!supabaseUrl || !serviceKey || !own.TOKEN_KEY) {
   process.exit(1);
 }
 
-// The site logins come back to and links point at.
 const publicUrl = own.PUBLIC_URL || "https://plan.video";
 const networkEnv = {
   tiktok: { publicUrl, clientKey: tiktokEnv.TIKTOK_CLIENT_KEY || "", clientSecret: tiktokEnv.TIKTOK_CLIENT_SECRET || "", readVideos: tiktokEnv.TIKTOK_READ_VIDEOS === "true" },
@@ -114,14 +108,13 @@ const vault = createVault({ db, key: own.TOKEN_KEY, env: networkEnv });
 const media = createMedia(shared);
 // TikTok pulls a photo post's pictures from here. Its app has to have this domain verified.
 const photos = createPhotos({ key: own.TOKEN_KEY, publicUrl, media });
-// X joins once its app is set up on the server.
 const accountLimits = createAccountLimits(db);
 const planLimits = createPlanLimits({
   db,
   youtube: uploadsPerDay(own.YOUTUBE_UPLOADS_PER_DAY),
   x: { posts: byLevel(own.X_POSTS_PER_MONTH, X_POSTS_BY_LEVEL), links: byLevel(own.X_LINK_POSTS_PER_MONTH, X_LINK_POSTS_BY_LEVEL) },
 });
-// Instagram, Facebook and Threads join once their app is set up in meta.env.
+// Meta's networks join once their apps are set up in meta.env.
 const metaNetworks = { instagram: createInstagram({ photos }), facebook: createFacebook({ photos }), threads: createThreads({ photos }) };
 const networks = {
   youtube,
@@ -148,12 +141,9 @@ const support = createSupport({
 if (!own.SUPPORT_TO) console.warn("[publisher] SUPPORT_TO isn't set, so the support form asks people to email instead");
 const worker = createWorker({ db, vault, media, networks, plugs, accountLimits, planLimits, notices, sendFrom });
 
-// Whether the key opens the kept logins, and whether posts are going out (health.mjs).
 const health = createHealth({ db, key: own.TOKEN_KEY });
 let lastPass = Date.now();
-/** Planning and sending (loops.mjs), started once the key is checked. */
 let loops = null;
-/** Sending in a moment, for a "Post now" that shouldn't wait for the next look. */
 const kick = () => loops?.kick();
 
 // "Sign in with Bluesky" on the server, once its key is set. Without it, Bluesky connects with app passwords.
@@ -165,7 +155,6 @@ useBlueskyOAuth(blueskyOAuth);
 const nodeProblem = blueskyOAuth && blueskyNodeProblem();
 if (nodeProblem) console.error(`[publisher] ${nodeProblem}: ${process.execPath}`);
 
-// Deleting an account ends its plan through the billing service, beside this one.
 const deletion = createAccountDeletion({
   db,
   vault,
@@ -195,7 +184,6 @@ const api = createApi({
   limits: accountLimits,
   db,
   ...logins,
-  // Clients connect their own accounts to a workspace through a link from its owner or an admin.
   links: createConnectLinks({ db, key: own.TOKEN_KEY, vault, limits: accountLimits, env: networkEnv, bluesky: blueskyOAuth, ...logins }),
   mailer: createInviteMailer({ supabaseUrl, serviceKey, publicUrl, db }),
   users: createUsers({ supabaseUrl, anonKey: shared.SUPABASE_ANON_KEY || own.SUPABASE_ANON_KEY, requireInvite: (own.REQUIRE_INVITE || shared.REQUIRE_INVITE) !== "false" }),
@@ -297,14 +285,13 @@ server.listen(PORT, HOST, () => {
       });
     });
   }
-  // Every scheduled post once an hour, and a minute after starting: the Free plan's waiting posts counted afresh, any wrong next look put right (worker.sweep).
+  // Hourly and a minute after starting: Free's waiting posts recounted, any wrong next look put right.
   const sweep = () => (health.keyWrong() ? Promise.resolve(0) : worker.sweep()).catch((error) => console.error("[publisher] the hourly look failed", error instanceof Error ? error.message : error));
   setTimeout(sweep, 60_000);
   setInterval(sweep, 60 * 60_000);
   setInterval(checkHealth, 60_000);
   setInterval(adopt, 60 * 60_000);
   setInterval(() => planLimits.prune().catch((error) => console.error("[publisher] pruning uploads failed", error)), 6 * 60 * 60_000);
-  // What plan.video keeps from YouTube, checked with YouTube once a day (youtube-check.mjs).
   const youtubeCheck = createYouTubeCheck({ db, vault, env: networkEnv.youtube });
   const checkYouTube = () => youtubeCheck.run().catch((error) => console.error("[publisher] checking YouTube failed", error instanceof Error ? error.message : error));
   setTimeout(checkYouTube, 10 * 60_000);

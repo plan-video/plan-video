@@ -1,30 +1,7 @@
-// Sends scheduled posts at their time. Every tick it
-//
-//   1. plans: finds the runs of scheduled posts that came due and makes a
-//      post_deliveries row for each network and account, which is what keeps
-//      a post from going out twice;
-//   2. sends: works through the rows that are due, several at once in lanes
-//      (pool.mjs), and keeps how each went on its row: sent, failed, or tried
-//      again a little later;
-//   3. checks on uploads the network is still processing, often at first, and
-//      makes the post where the network needs the file ready first;
-//   4. sends the follow-ups of sent posts' threads as they come due
-//      (replies.mjs);
-//   5. runs plugs on sent posts at 6, 12 and 18 hours.
-//
-// Planning reads every scheduled post, so it runs every half minute and at
-// the moment a run it saw coming is due (pass, nextRun). Sending only asks for
-// the rows that are due, so it runs every few seconds, whenever a send ends,
-// and right after a pass or a "Post now" (dispatch).
-//
-// Posts stay in account_state, which only browsers write. The publisher reads
-// them and writes only its own rows; a browser marks a post as posted when it
-// sees every network sent.
-//
-// A send whose outcome is unknown, because the network's answer or the
-// service itself was cut off, is never tried again on its own: it fails with
-// a note to check the network, so a post can't go out twice. Making a post
-// once the network has its file ready is claimed the same way.
+// Posts live in account_state, which only browsers write; the publisher writes only its own rows.
+// A post_deliveries row per network and account keeps a post from going out twice.
+// A send whose outcome is unknown (answer or service cut off) is never retried on its own:
+// it fails with a note to check the network. Making a post once its file is ready is claimed the same way.
 
 import { connectWithin } from "./accounts.mjs";
 import { PublishError } from "./errors.mjs";
@@ -34,70 +11,50 @@ import { createMemoryGate, createPool } from "./pool.mjs";
 import { createReplies } from "./replies.mjs";
 import { dayAt, dueAtOf, nextRunAfter, runsBetween, zoneOrUtc } from "./schedule.mjs";
 
-/** A run that came due longer ago than this, while the publisher was down, isn't sent: it fails with LATE, so the post says why. */
+/** Runs that came due longer ago than this (publisher down) fail with LATE instead of sending. */
 export const GRACE_MS = 24 * 60 * 60_000;
 export const LATE = "This post's time passed over a day ago while plan.video couldn't send it, so it didn't go out. Post it now, or give it a new time.";
-/** A post saved as due "now" is still sent by the planner when its time was given a few moments after the minute it names. */
+/** Slack for a post saved as due "now" whose time was given a few moments after its minute. */
 const TIMED_SLACK_MS = 5 * 60_000;
-/** Waits before the 2nd, 3rd and 4th try of a send that may work later. */
 const BACKOFF_MS = [2 * 60_000, 10 * 60_000, 30 * 60_000];
 const MAX_ATTEMPTS = BACKOFF_MS.length + 1;
 const CHECK_EVERY_MS = 60_000;
-/** A network still not answering about an upload after this, the post fails. */
+/** An upload the network is still processing after this fails the post. */
 const CHECK_LIMIT_MS = 2 * 60 * 60_000;
-/** A send still marked as going after this was cut off, by a restart. */
+/** A send still marked as sending after this was cut off by a restart. */
 const STALE_SEND_MS = 30 * 60_000;
-/** Without its file in cloud storage after this, a post fails instead of waiting for the upload. */
 const FILE_WAIT_MS = 30 * 60_000;
 const PLUG_EVERY_MS = 6 * 60 * 60_000;
 const PLUG_CHECKS = 3;
-/** Due rows asked for at a time. */
 const LOOK = 50;
-/** Sends going at once, and how many of them one person's. */
 export const SENDS_AT_ONCE = 16;
 export const PER_USER = 4;
-/** Bytes the sends that hold files in memory may hold at once (pool.mjs), well inside the unit's 1 GB with pictures being made beside them (photos.mjs). */
+/** Kept well inside the unit's 1 GB, with photos.mjs making pictures beside the sends. */
 export const MEMORY_BUDGET = 256 * 1024 * 1024;
-/** A row comes back due straight away when, say, a Post now follows its failed send, but not more than this often a second: one stuck that way can't spin. */
+/** Cap on a row's immediate restarts a second, so one stuck row can't spin. */
 const STARTS_A_SECOND = 3;
-/** How far ahead a pass looks for the next look, to plan a run the moment it's due. */
 const AHEAD_MS = 2 * 60_000;
-/** Posts due a look asked for at a time, and pages of them looked through in one pass at most. */
 const DUE_PAGE = 200;
 const MAX_DUE_PAGES = 500;
-/** A post that couldn't be looked at is looked at again after this. */
 const RETRY_LOOK_MS = 60_000;
-/** How long a deleted post's marker is kept, for devices away that long to learn of it. */
+/** Kept this long so devices away that long still learn of the delete. */
 const DELETED_KEPT_MS = 90 * 24 * 60 * 60_000;
 
-/**
- * How soon to look again at an upload the network is still working on, or at
- * media still reaching storage, by how long it's been: often at first, as most
- * are ready in seconds, then once a minute.
- */
 export function lookAgainIn(waited) {
   return waited < 15_000 ? 5_000 : waited < 45_000 ? 10_000 : waited < 2 * 60_000 ? 20_000 : CHECK_EVERY_MS;
 }
-/** Rows asked for at a time from the paged functions, under PostgREST's cap of 1000 rows an answer. */
+/** Under PostgREST's cap of 1000 rows an answer. */
 export const PAGE = 500;
-/** Pages read in one pass at most (10 million rows), so no answer can keep a pass reading for ever. */
+/** Bounds a pass (10 million rows) so no answer can keep it reading for ever. */
 const MAX_PAGES = 20_000;
 
-/** Ids as post_deliveries takes them. Anything else in an account's posts is skipped, not sent. */
+/** Ids post_deliveries accepts; posts with other ids are skipped, not sent. */
 const ID = /^[A-Za-z0-9_-]{1,100}$/;
 
-/**
- * Whether a post from account state has the shape the planner reads. Anyone
- * can write their own account state, so a post with, say, its id saved as a
- * number or its networks as an object is skipped rather than read.
- */
+// Anyone can write their own account state, so malformed posts are skipped rather than read.
 const isPost = (post) => typeof post?.id === "string" && ID.test(post.id) && (post.platforms === undefined || Array.isArray(post.platforms));
 
-/**
- * The uuid right after `id`, so a page can start past every row of that
- * person. Postgres orders uuids by their bytes, which is the order of their
- * hex. Null for the last uuid, or for anything that isn't one.
- */
+/** Postgres orders uuids by their bytes, which is the order of their hex. Null past the last uuid or for non-uuids. */
 export function nextUuid(id) {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id ?? "")) return null;
   const next = BigInt(`0x${id.replaceAll("-", "")}`) + 1n;
@@ -108,18 +65,13 @@ export function nextUuid(id) {
 
 const NAMES = { tiktok: "TikTok", youtube: "YouTube", bluesky: "Bluesky", linkedin: "LinkedIn", x: "X", instagram: "Instagram", facebook: "Facebook", threads: "Threads" };
 
-/** The accounts a post names on a network, connected or not. */
 function namedOn(post, platform) {
   const raw = post.accounts?.[platform];
   return typeof raw === "string" ? [raw] : Array.isArray(raw) ? raw.filter((id) => typeof id === "string") : [];
 }
 
-/**
- * The accounts a post goes out from on a network: the connected ones it names.
- * Only a post that names none there goes out from the only one connected. One
- * whose accounts were all removed goes out from none, so it isn't sent from an
- * account nobody picked for it.
- */
+// Only a post naming no account here falls back to the one connected; a post whose named
+// accounts were all removed goes out from none, never from an account nobody picked.
 export function accountsFor(post, platform, connections) {
   const list = connections.filter((item) => item.platform === platform && ID.test(item.id ?? "")).map((item) => item.id);
   const chosen = namedOn(post, platform);
@@ -127,7 +79,6 @@ export function accountsFor(post, platform, connections) {
   return list.length === 1 ? list : [];
 }
 
-/** Why a post goes out from no account on a network. */
 function noAccount(post, platform, connections) {
   const name = NAMES[platform];
   if (!connections.some((item) => item.platform === platform)) return `Connect ${name} in Connections, then post it.`;
@@ -135,23 +86,14 @@ function noAccount(post, platform, connections) {
   return `Pick which ${name} account it goes out from, then post it.`;
 }
 
-/**
- * The earliest a post's runs count from: when the browser last gave it its
- * time or let it go out (`sendFrom`), less a little slack. 0 for posts saved
- * before that was kept.
- */
+/** When the browser last timed the post (`sendFrom`), less slack; 0 when it has none. */
 export function timedFrom(post) {
   const at = Date.parse(post?.sendFrom ?? "");
   return Number.isFinite(at) ? at - TIMED_SLACK_MS : 0;
 }
 
-/**
- * `accountLimits` (accounts.mjs) keeps logins taken from account state within
- * the plan's social accounts; `planLimits` (plans.mjs) holds Free's scheduled
- * posts and everyone's share of the YouTube quota. Without them, nothing is
- * limited. `notices` (notices.mjs) emails the owner about sends that failed;
- * without it, they show only in the dashboard.
- */
+// accountLimits, planLimits and notices are optional: without them nothing is limited and
+// failed sends show only in the dashboard.
 export function createWorker({
   db,
   vault,
@@ -169,12 +111,10 @@ export function createWorker({
   log = console,
 }) {
   const iso = (time) => new Date(time).toISOString();
-  // A lane let go: whatever waited for it can go.
   const pool = createPool({ size: sendsAtOnce, perUser, onFree: () => void dispatch() });
   const memory = createMemoryGate(memoryBudget);
   const replies = createReplies({ db, vault, networks, media, notices, postIn, memory, now, log });
 
-  /** The rows a post's runs need, for the runs given. */
   function rowsFor(userId, workspaceId, connections, post, runs, { requested = false, late = false } = {}) {
     if (!isPost(post) || typeof workspaceId !== "string" || !workspaceId || workspaceId.length > 100) return [];
     const rows = [];
@@ -191,7 +131,7 @@ export function createWorker({
           if (late) {
             rows.push({ ...base, connection_id: connectionId, state: "failed", error: LATE, next_at: iso(run.dueAt) });
           } else if (!requested && planLimits?.over(userId, workspaceId, post.id, connectionId)) {
-            // Post now goes, like the dashboard's; only the calendar's runs are held to the plan.
+            // Only scheduled runs are held to the plan; Post now always goes.
             rows.push({ ...base, connection_id: connectionId, state: "failed", error: OVER_SCHEDULED, next_at: iso(run.dueAt) });
           } else rows.push({ ...base, connection_id: connectionId, state: "queued", next_at: iso(now()) });
         }
@@ -200,11 +140,6 @@ export function createWorker({
     return rows;
   }
 
-  /**
-   * Each scheduled post and account it goes out from, and whether it's still
-   * to come, for the plan's limit. A post that can't be read is left out and
-   * noted in `skipped`, so it holds up nobody else's.
-   */
   function waitingEntries(found, at, skipped) {
     const entries = [];
     for (const item of found) {
@@ -226,11 +161,7 @@ export function createWorker({
     return entries;
   }
 
-  /**
-   * The people whose posts couldn't be read this pass, to say so once a pass
-   * instead of once a post: anyone can save anything in their own account
-   * state, and each pass would otherwise log every one of them.
-   */
+  // Logs unreadable posts once a person a pass: anyone can save anything in their own account state.
   function skipList() {
     const people = new Map();
     return {
@@ -243,16 +174,11 @@ export function createWorker({
     };
   }
 
-  /** When the soonest look the last pass left is due, if one is within AHEAD_MS. */
   let nextDue = null;
-  /** When this publisher first saw each post's `sendFrom`, by its own clock. */
   const firstSeen = new Map();
 
-  /**
-   * timedFrom, but never later than when the publisher first saw that value. `sendFrom` is
-   * the clock of the device that saved the post: one running fast would otherwise put it after
-   * the post's own time, and the run would never be planned, failed or mentioned.
-   */
+  // `sendFrom` is the saving device's clock; one running fast would put it after the post's own time
+  // and the run would never be planned, so it's capped at when this publisher first saw it.
   function timedFor(item, at) {
     const timed = timedFrom(item.post);
     if (!timed) return timed;
@@ -262,25 +188,15 @@ export function createWorker({
     return Math.min(timed, first - TIMED_SLACK_MS);
   }
 
-  /** Past a day, when a post was first seen no longer moves its runs: those before then are out of the window anyway. */
   function forgetFirstSeen(at) {
     for (const [key, first] of firstSeen) if (at - first > GRACE_MS + TIMED_SLACK_MS) firstSeen.delete(key);
   }
 
   const keyOf = (row) => `${row.user_id}|${row.post_id}|${row.occurrence}|${row.platform}|${row.connection_id}`;
 
-  /**
-   * Every row of a paged function, each page from after the last row of the
-   * one before. A database without it yet is asked the one-call function,
-   * which answers at most 1000 rows.
-   *
-   * `after` gives a row's key as the database orders it, or null when that
-   * can't be said exactly, as for a post whose id was saved as a number: the
-   * database orders it by its text, "1.0", but it arrives here as 1. The next
-   * page then starts past that person's rows instead, so the pages always
-   * move on: someone's odd account state costs only their own rows this
-   * pass, never everyone's.
-   */
+  // Falls back to the one-call function (max 1000 rows) on a database without the paged one.
+  // When `after` can't give a row's key exactly (a numeric post id the db orders as text "1.0"),
+  // the next page starts past that person's rows, so pages always move on.
   async function everyRow(paged, whole, after) {
     const rows = [];
     let last = null;
@@ -311,29 +227,16 @@ export function createWorker({
     }
   }
 
-  /** Whether a post goes out from plan.video at all: scheduled, not paused, on a network the publisher sends to. */
   const sendable = (post) => post.status === "scheduled" && !post.paused && (post.platforms ?? []).some((platform) => networks[platform]);
 
-  /**
-   * Looks at the posts due a look: the ones changed since the publisher last
-   * looked, and the ones whose next run has come (post_schedule). Each gets
-   * rows for its runs that came due, and its next look: its next run, or none.
-   * Each person's rows go in on their own, so one bad post holds up nobody
-   * else's. A run that failed before reaching the network, or whose post was
-   * moved later after failing, is tried again. A run that came due before its
-   * post was given its time, like one moved into the past or one that passed
-   * while a series was paused, isn't sent: only Post now sends it. A run that
-   * came due more than GRACE_MS ago without a row, while the publisher was
-   * down, gets a failed one instead, so it isn't dropped without a word. Each
-   * post's runs are looked through for that only once, from where its last
-   * look left off (planned_through). Returns the rows it made.
-   */
+  // A run due before its post was given its time (moved into the past, passed while paused) is sent
+  // only by Post now. A run older than GRACE_MS without a row (publisher down) gets a failed row, so
+  // it isn't dropped silently; each post is scanned for that once, from planned_through.
   async function plan() {
     const at = now();
     const from = Math.max(at - GRACE_MS, sendFrom);
     const looked = new Set();
     let made = 0;
-    // An owner whose posts were over the Free limit and who pays now: their posts are looked at again, so those runs go out.
     for (const owner of (await planLimits?.upgraded?.()) ?? []) await db.rpc("publisher_look_again", { owner });
     for (let pages = 0; pages < MAX_DUE_PAGES; pages++) {
       const due = (await db.rpc("publisher_due", { before: iso(at), size: DUE_PAGE })) ?? [];
@@ -350,10 +253,8 @@ export function createWorker({
     return made;
   }
 
-  /** One page of posts due a look: their runs' rows, then their next looks. */
   async function planPosts(due, at, from) {
     const skipped = skipList();
-    /** Each post as it's read, by `user|post`, and its next look. */
     const items = [];
     const entries = [];
     for (const row of due) {
@@ -366,10 +267,8 @@ export function createWorker({
     await planLimits?.review(entries, { posts: new Set(due.map((row) => `${row.user_id}|${row.workspace_id}|${row.post_id}`)) });
 
     const byUser = new Map();
-    /** The post each row that fails from the start is for, to say which in the email. */
     const failing = new Map();
     for (const { row, item, look } of items) {
-      // Deleted, or nothing the publisher can read: nothing to plan, and no next look.
       if (!row.post || !isPost(row.post)) {
         if (row.post) skipped.add(row.user_id, new Error("unreadable post"));
         continue;
@@ -393,7 +292,6 @@ export function createWorker({
         byUser.get(item.user_id).push(...rows);
       } catch (error) {
         skipped.add(item.user_id, error);
-        // Looked at again in a minute, its runs still to be looked through.
         Object.assign(look, { next_run_at: iso(at + RETRY_LOOK_MS), planned_through: row.planned_through ?? null });
       }
     }
@@ -411,7 +309,6 @@ export function createWorker({
         await retryClashes(userId, rows, new Set(inserted.map(keyOf)));
       } catch (error) {
         log.error("[publisher] planning failed for one account", userId, error instanceof Error ? error.message : error);
-        // Its posts are looked at again in a minute, as if this look hadn't happened.
         for (const { row, look } of items) {
           if (row.user_id === userId) Object.assign(look, { next_run_at: iso(at + RETRY_LOOK_MS), planned_through: row.planned_through ?? null });
         }
@@ -421,14 +318,8 @@ export function createWorker({
     return made;
   }
 
-  /**
-   * Once an hour, every scheduled post: the Free plan's waiting posts counted
-   * afresh, and any post whose next look would come after its next run (which
-   * nothing should leave, but a lost write could) is looked at at once. It
-   * runs beside planning, never holding it up: a waiting post kept after it
-   * began reading is left alone (`readAt`), and a next look is put right only
-   * over the version it read.
-   */
+  // Hourly: recounts Free's waiting posts and fixes any next look later than its next run (a lost write).
+  // Runs beside planning: skips waiting posts kept after `readAt`, fixes a look only over the version it read.
   async function sweep() {
     const at = now();
     const found = await everyRow("publisher_posts_after", "publisher_posts", (row) => {
@@ -468,7 +359,7 @@ export function createWorker({
       const row = clashing.get(keyOf(existing));
       if (!row) continue;
       const movedLater = row.occurrence === "once" && Date.parse(existing.due_at) < Date.parse(row.due_at) - 60_000;
-      // Stopped before it reached the network, by a pause or a move to drafts that's since been undone.
+      // Never reached the network (paused or moved to drafts, since undone), so it's safe to queue again.
       const neverTried = existing.attempts === 0;
       if (!movedLater && !neverTried) continue;
       await db.update("post_deliveries", { id: existing.id, state: "failed" }, {
@@ -484,12 +375,8 @@ export function createWorker({
     }
   }
 
-  /**
-   * A post as the account has it now, in the workspace its run is for when one
-   * is named: a post of the same id in another workspace never goes out in
-   * its place. A database from before publisher_post took a workspace is
-   * asked without one.
-   */
+  // A post of the same id in another workspace never goes out in its place.
+  // A database whose publisher_post takes no workspace is asked without one.
   async function postIn(owner, post, workspace) {
     if (workspace === undefined) return (await db.rpc("publisher_post", { owner, post })) ?? [];
     try {
@@ -501,23 +388,14 @@ export function createWorker({
     }
   }
 
-  /**
-   * The run of a repeating post that a Retry is for: its latest, the one the
-   * browser shows, while anything in it failed. Otherwise null, and Post now
-   * makes today's run.
-   */
   async function failedRun(userId, postId) {
     const rows = (await db.select("post_deliveries", { user_id: userId, post_id: postId }, "occurrence,state")).filter((row) => row.occurrence !== "once");
     const latest = rows.reduce((day, row) => (row.occurrence > day ? row.occurrence : day), "");
     return rows.some((row) => row.occurrence === latest && row.state === "failed") ? latest : null;
   }
 
-  /**
-   * Rows a "Post now" asks for: the post's networks, now. Returns the rows as
-   * they are after. `workspace`, for a team member, is the one workspace of
-   * the owner's they may post from. A repeating post whose latest run failed
-   * sends that run again, rather than using up today's.
-   */
+  // `workspace`, for a team member, is the one workspace of the owner's they may post from.
+  // A repeating post whose latest run failed sends that run again rather than using up today's.
   async function request(userId, postId, workspace) {
     const [found] = await postIn(userId, postId, workspace);
     if (!found?.post || (workspace !== undefined && found.workspace_id !== workspace)) throw new PublishError("This post isn't saved yet. Wait a moment and try again.");
@@ -545,7 +423,6 @@ export function createWorker({
     return db.select("post_deliveries", { user_id: userId, post_id: postId, occurrence }, "*");
   }
 
-  /** Whether the run the row is for should still go out, by the post as it is now. */
   function stillWanted(row, post, zone) {
     if (!post) return "The post was deleted before it went out.";
     if (post.paused) return "The post was paused before it went out.";
@@ -557,12 +434,8 @@ export function createWorker({
     return null;
   }
 
-  /**
-   * The row this run already has under another day. A repeating post's runs
-   * are keyed by their day in its zone, so a post saved in another zone after
-   * a run gives that run a new day at the same moment. A row that never got
-   * as far as a try doesn't count, so a run stopped by a pause still goes.
-   */
+  // Repeating runs are keyed by their day in the post's zone, so saving it in another zone gives a run a
+  // new day at the same moment. Rows never tried don't count, so a run stopped by a pause still goes.
   async function sameRun(row) {
     if (row.occurrence === "once" || row.requested) return null;
     const rows = await db.select(
@@ -577,7 +450,6 @@ export function createWorker({
     return db.update("post_deliveries", { id: row.id }, { ...values, updated_at: iso(now()) });
   }
 
-  /** `about` is the post as it was found, and its zone, for the email that says it failed. */
   async function failed(row, error, about = {}) {
     const message = error instanceof PublishError ? error.message : "Something went wrong on plan.video's side. Trying again soon.";
     const retry = !(error instanceof PublishError) || error.retry;
@@ -596,12 +468,8 @@ export function createWorker({
     row.publish_id = publishId;
   };
 
-  /**
-   * Like progress, and the first time the network starts the upload, counts
-   * it as one of the owner's for the day. Only then, so a try that fails
-   * before YouTube takes the upload doesn't use one up. A count that can't
-   * be kept is logged, rather than stop an upload YouTube already has.
-   */
+  // Counts against the owner's daily YouTube uploads only once the network takes the upload. A count
+  // that can't be kept is logged rather than stopping an upload YouTube already has.
   const counted = (row) => {
     const keep = progress(row);
     let first = true;
@@ -693,7 +561,6 @@ export function createWorker({
           return;
         }
       }
-      // A network that holds the files in memory waits while others hold too much.
       const release = await memory.hold(network.holds?.(files) ?? 0);
       try {
         result = await network.send({ post, session: login.session, files, media, delivery: claimed, progress: counts ? counted(claimed) : progress(claimed) });
@@ -714,7 +581,6 @@ export function createWorker({
     await record(claimed, result, post).catch((error) => log.error("[publisher] couldn't keep a finished send", claimed.id, error));
   }
 
-  /** Keeps how a send went. Once the post is out, its thread's first follow-up waits for its time. */
   async function record(row, result, post) {
     if (result.state === "processing") {
       await settle(row, { state: "processing", publish_id: result.publishId, error: null, next_at: iso(now() + lookAgainIn(0)) });
@@ -735,11 +601,7 @@ export function createWorker({
     }
   }
 
-  /**
-   * Once every network of a one-off post has it, the post is marked posted,
-   * so it no longer depends on a browser being open to say so. A failure
-   * here is only logged: the browser still marks it when it sees the sends.
-   */
+  // Best effort: the browser still marks it posted when it sees the sends.
   async function markPosted(row) {
     try {
       const runs = await db.select("post_deliveries", { user_id: row.user_id, post_id: row.post_id, occurrence: "once" }, "state");
@@ -776,10 +638,8 @@ export function createWorker({
         return;
       }
       if (result.state === "ready") {
-        // Claimed before the post is made, like a send: if the answer, keeping
-        // it, or the service is cut off, the row is left sending and later
-        // marked to be checked, instead of the next look making it again.
-        // updated_at stays when processing started.
+        // Claimed before the post is made, like a send: if anything is cut off, the row is left sending
+        // and later marked to be checked, instead of the next look making it again.
         [claimed] = await db.update("post_deliveries", { id: row.id, state: "processing", next_at: row.next_at }, { state: "sending" });
         if (!claimed) return;
         result = await network.publish({ post, session: login.session, delivery: claimed });
@@ -815,14 +675,9 @@ export function createWorker({
     }
   }
 
-  /**
-   * Logins still in account_state from before they moved to the server, kept
-   * here when the server has none for the connection yet, so those accounts'
-   * posts go out before their owner opens plan.video again. Anyone can write
-   * their own account_state, so a "Sign in with Bluesky" login, which only
-   * names an account, is never taken from there. A new account is taken
-   * only while the plan has room for it, as when it's connected.
-   */
+  // Logins left in account_state from before they moved to the server, so those posts still go out.
+  // Anyone can write their own account_state, so a "Sign in with Bluesky" login, which only names an
+  // account, is never taken from there. A new account is taken only while the plan has room for it.
   async function adopt() {
     const found = await everyRow("publisher_legacy_logins_after", "publisher_legacy_logins", (row) => ({
       after_user: row.user_id,
@@ -844,20 +699,17 @@ export function createWorker({
     return kept;
   }
 
-  /** Emails about a send cut off by a restart, which may have gone out. */
   async function cutOff(row) {
     if (!notices) return;
     const [found] = await postIn(row.user_id, row.post_id, row.workspace_id).catch(() => []);
     await notices.failed(row, { post: found?.post, zone: zoneOrUtc(found?.post?.timeZone ?? found?.time_zone), message: row.error });
   }
 
-  /** A row of a table, sent or looked at in its lane. */
   const sources = [
     { table: "post_deliveries", due: (at, skip) => db.due(["queued", "processing"], at, LOOK, skip), run: (row) => (row.state === "queued" ? sendOne(row) : checkOne(row)) },
     { table: "post_replies", due: (_at, skip) => replies.due(LOOK, skip), run: (row) => replies.sendOne(row) },
     ...(plugs ? [{ table: "plugs", due: (at, skip) => db.plugsDue(PLUG_CHECKS, at, LOOK, skip), run: (row) => plugOne(row) }] : []),
   ];
-  /** Each row's starts in the last second, by table and id. */
   const started = new Map();
   let stopped = false;
 
@@ -876,12 +728,10 @@ export function createWorker({
     return taken;
   }
 
-  /** Starts due rows in every free lane: the posts first, then follow-ups, then plugs. */
   async function fill() {
     const at = iso(now());
     for (const [key, recent] of started) if (now() - recent.at >= 1_000) started.delete(key);
     for (const source of sources) {
-      // Each round's look leaves out the lanes the one before filled, so it's done in a few.
       for (let round = 0; round < sendsAtOnce && pool.free > 0 && !stopped; round++) {
         let rows;
         try {
@@ -903,12 +753,8 @@ export function createWorker({
   let filling = null;
   let refill = false;
 
-  /**
-   * Starts what's due in the lanes that are free. Never two at once: one asked
-   * for while another runs runs again after it, so a lane freed meanwhile is
-   * filled. The last look and letting go happen in one step, so no ask falls
-   * between them.
-   */
+  // Never two fills at once: one asked for during another runs again after it, so a lane freed
+  // meanwhile is filled. The last look and letting go happen in one step, so no ask falls between.
   function dispatch() {
     if (filling) {
       refill = true;
@@ -931,7 +777,6 @@ export function createWorker({
   let passing = null;
   let passAgain = false;
 
-  /** Plans, then lets go of sends cut off by a restart. True only when it planned. */
   async function passOnce() {
     const planned = await plan().then(
       () => true,
@@ -948,12 +793,8 @@ export function createWorker({
     return planned;
   }
 
-  /**
-   * One planning pass, then what it made due is started. Passes don't overlap:
-   * one asked for during another runs once it ends, so a run due meanwhile
-   * isn't left for the next. True only when it planned, so health turns red
-   * when planning keeps failing, though the rows already planned still go.
-   */
+  // Passes don't overlap: one asked for during another runs once it ends. True only when it planned,
+  // so health turns red when planning keeps failing.
   function pass() {
     if (passing) {
       passAgain = true;
@@ -976,13 +817,9 @@ export function createWorker({
     return passing;
   }
 
-  /** Everything going, and anything it set off, done with. */
   const idle = () => pool.idle(() => filling ?? passing);
 
-  /**
-   * A pass, and every send it starts, to the end: what the tests run. The
-   * service runs pass and dispatch on their own timers instead.
-   */
+  // For tests; the service runs pass and dispatch on their own timers.
   async function tick() {
     const planned = await pass();
     await dispatch();
@@ -990,7 +827,6 @@ export function createWorker({
     return planned;
   }
 
-  /** Starts nothing more, and resolves once the sends going are done with, or after `ms`. */
   async function stop(ms) {
     stopped = true;
     let timer;

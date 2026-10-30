@@ -2,11 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The agent chat host as a utility process: forked from the ESM bundle
-// esbuild puts in dist/, configured over parentPort (never argv, which
-// every process can read), restarted with backoff when it dies. The
-// renderer asks for the endpoint over the existing IPC and talks to the
-// host over its own WebSocket from there.
+// Configured over parentPort, never argv (which every process can read).
 
 import { app, utilityProcess } from "electron";
 import { randomBytes } from "node:crypto";
@@ -72,7 +68,7 @@ function spawn(): void {
   });
 }
 
-/** Generates the token and forks the host. Call once, after `whenReady`. */
+/** Call once, after `whenReady`. */
 export function startAgentChat(next: AgentChatOptions): void {
   options = next;
   token = randomBytes(32).toString("base64url");
@@ -81,17 +77,15 @@ export function startAgentChat(next: AgentChatOptions): void {
   spawn();
 }
 
-/** Where the host is right now: null while it is (re)starting. */
 export function agentChatEndpoint(): { url: string } | null {
   return endpoint;
 }
 
-/** Best effort: a host that is down or restarting leaves the chats behind. They aren't trashed with the folder. */
+/** Best effort: a host that is down or restarting leaves the chats behind. */
 export function deleteProjectChats(projectId: string): void {
   if (projectId && endpoint) child?.postMessage({ type: "deleteProject", projectId });
 }
 
-/** Asks the host to stop (it kills its harness trees), then kills it after a grace period. */
 export function stopAgentChat(): void {
   stopped = true;
   if (restartTimer) clearTimeout(restartTimer);

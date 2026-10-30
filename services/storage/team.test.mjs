@@ -1,8 +1,3 @@
-// Working in a shared workspace: whose folder a request reaches, and what it
-// may do there. Runs without R2: nothing here gets as far as the bucket.
-//
-//   node --test services/storage/team.test.mjs
-
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, writeFileSync } from "node:fs";

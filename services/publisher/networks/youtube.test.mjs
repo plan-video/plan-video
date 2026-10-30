@@ -7,7 +7,6 @@ const VIDEO = { id: "p1", key: "posts/u1/p1", size: 100, type: "video/mp4", kind
 const UPLOAD = "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&upload_id=abc";
 const media = { bytes: async (_key, from, to) => Buffer.alloc(to - from + 1) };
 
-/** YouTube taking the upload and answering with the video as it kept it, at `privacy`. */
 async function upload(asked, kept) {
   const original = globalThis.fetch;
   globalThis.fetch = async (url, init = {}) => {

@@ -1,14 +1,11 @@
-// The email that tells someone they were asked into a workspace. Supabase
-// sends it, with the "Invite user" template (supabase/templates/invite.html),
-// to an address that has no account yet: its link makes the account and opens
-// the invite. Someone who already has an account finds the invite waiting the
-// next time they open plan.video, so nothing is sent to them.
+// Supabase sends the invite with the "Invite user" template (supabase/templates/invite.html), only to an
+// address with no account yet; someone with an account finds the invite waiting in plan.video.
 
 export function createInviteMailer({ supabaseUrl, serviceKey, publicUrl, db, fetch: send = fetch }) {
   const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json" };
 
   return {
-    /** True when Supabase sent it; false when the address already has an account, or the email couldn't go. */
+    /** False when the address already has an account, or the email couldn't go. */
     async invite({ id, owner_id: owner, workspace_id: workspace, email, invited_by: invitedBy }) {
       const [name, look] = await Promise.all([
         invitedBy ? db.rpc("person_name", { person: invitedBy }).catch(() => null) : null,

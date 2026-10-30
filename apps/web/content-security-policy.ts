@@ -7,10 +7,8 @@ import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import type { Plugin, ResolvedConfig } from "vite";
 
-/** Inline scripts, with their attributes and text. Ones with a src are fetched, and `'self'` covers them. */
 const SCRIPT = /<script\b([^>]*)>([\s\S]*?)<\/script>/g;
 
-/** Scripts that only carry data, which the browser never runs. */
 const DATA_TYPE = /\btype=["']?application\/(?:ld\+)?json/i;
 
 const origin = (url: string | undefined) => {
@@ -21,18 +19,11 @@ const origin = (url: string | undefined) => {
   }
 };
 
-/**
- * The page's policy. Scripts run from this site, the inline ones in its HTML
- * by hash, and the analytics a visitor accepts. Everything a script can be
- * pointed at elsewhere stays shut: no eval, no plugins, no other base URL.
- * Pictures, media and requests go wide, as posts, avatars and Bluesky's
- * servers live on hosts nobody can list.
- */
+// Images, media and requests go wide: posts, avatars and Bluesky's servers live on hosts nobody can list.
 function policy(hashes: string[], env: Record<string, string>): string {
   const directives: Record<string, (string | null)[]> = {
     "default-src": ["'self'"],
-    // ONNX Runtime's WebAssembly (background removal), the audio worklets the
-    // editor writes as blobs, Google Analytics and PostHog's own scripts.
+    // wasm for ONNX Runtime (background removal), blob: for the editor's audio worklets.
     "script-src": [
       "'self'",
       "'wasm-unsafe-eval'",
@@ -45,10 +36,8 @@ function policy(hashes: string[], env: Record<string, string>): string {
     "style-src": ["'self'", "'unsafe-inline'"],
     "img-src": ["'self'", "data:", "blob:", "https:"],
     "media-src": ["'self'", "data:", "blob:", "https:"],
-    // The editor's and the caption styles' typefaces.
     "font-src": ["'self'", "data:", "https://fonts.gstatic.com"],
-    // Supabase's realtime and the agent connector's socket (older Safari
-    // doesn't count a wss address of the site's own as 'self').
+    // Older Safari doesn't count the site's own wss address as 'self'.
     "connect-src": ["'self'", "https:", "wss:", "data:", "blob:"],
     "worker-src": ["'self'", "blob:"],
     "frame-src": ["'none'"],
@@ -70,13 +59,8 @@ function htmlFiles(dir: string): string[] {
   });
 }
 
-/**
- * After a website build, gives every HTML file a Content-Security-Policy in a
- * meta tag, with the hash of each of its inline scripts: those differ page to
- * page and build to build (the home page's carries the headline in each
- * language, lib/hero-shell.ts). It runs after prerender-pages has written its
- * pages. frame-ancestors can't be set from a meta tag: Caddy sends it.
- */
+// Inline script hashes differ per page and build, so this must run after prerender-pages.
+// frame-ancestors can't be set from a meta tag: the web server sends it.
 export function contentSecurityPolicyPlugin(env: Record<string, string>): Plugin {
   let config: ResolvedConfig;
   return {
@@ -96,7 +80,7 @@ export function contentSecurityPolicyPlugin(env: Record<string, string>): Plugin
             .filter(([, attributes]) => !/\bsrc=/i.test(attributes) && !DATA_TYPE.test(attributes))
             .map(([, , text]) => createHash("sha256").update(text, "utf8").digest("base64"));
           const meta = `<meta http-equiv="Content-Security-Policy" content="${policy(hashes, env)}" />`;
-          // Straight after the charset, which belongs in the first bytes, and before anything the policy covers.
+          // After the charset, which belongs in the first bytes, and before anything the policy covers.
           const charset = /<meta charset="[^"]*"\s*\/?>/i.exec(html);
           const head = charset ?? /<head>/i.exec(html);
           if (!head) throw new Error(`content-security-policy: ${file} has no <head>`);

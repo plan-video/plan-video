@@ -1,36 +1,20 @@
-// What /api/publisher/health checks beyond the loop finishing its passes, so
-// the monitor (services/monitor/watchdog.sh) hears when posts stop going out
-// even though the service runs:
-//
-// - the key: TOKEN_KEY opens none of the kept logins, as after a server is
-//   rebuilt with a new key. Sending stops then, so posts wait instead of all
-//   failing, until the right key is back.
-// - overdue: a queued or processing post is long past its next look, so the
-//   worker isn't getting to it.
-// - failing: in the last two hours several people's posts failed after being
-//   tried, and none went out, as when a network library broke every upload.
-//
+// Beyond passes finishing: a TOKEN_KEY that opens no kept login (sending stops so posts wait instead of all
+// failing), posts long past their next look, and several people's posts failing with none sent.
 // Checked once a minute, not on each request: health is open to anyone.
 
 import { blueskyBinding, sealer, tokenBinding } from "./vault.mjs";
 
-/** A post this far past its next look means sending is stuck. */
 export const OVERDUE_MS = 15 * 60_000;
-/** How far back failures and sends are counted. */
 export const FAILING_WINDOW_MS = 2 * 60 * 60_000;
-/** Failures, from at least FAILING_PEOPLE people, with no send between them. */
 export const FAILING_AT_LEAST = 5;
 export const FAILING_PEOPLE = 2;
-/** Rows of each table the key is tried on. */
 const SAMPLE = 5;
 
 const iso = (ms) => new Date(ms).toISOString();
 
 /**
- * Whether `key` opens the kept logins, tried on the oldest and newest of each
- * table: "wrong" when fewer than half of those open, as after a rebuild with a
- * new key (new logins sealed since then open, the older ones don't), "ok"
- * otherwise or when there are none yet, "unknown" when they couldn't be read.
+ * Tried on the oldest and newest of each table: "wrong" when fewer than half open, as after a rebuild with
+ * a new key (newer logins open, older don't); "ok" when there are none; "unknown" when they couldn't be read.
  */
 export async function keyOpensLogins(db, key) {
   const box = sealer(key);
@@ -58,7 +42,6 @@ export async function keyOpensLogins(db, key) {
   return tried && opened * 2 < tried ? "wrong" : "ok";
 }
 
-/** What's wrong with sending right now, as short sentences for the monitor. Empty when nothing is. */
 export async function deliveryProblems(db, at) {
   const problems = [];
   const overdue = await db.overdue(iso(at - OVERDUE_MS));

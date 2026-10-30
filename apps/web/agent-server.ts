@@ -9,11 +9,7 @@ import { handleCaptions } from "../../services/agent/captions.mjs";
 import { handleAgent, json, Refused } from "../../services/agent/handler.mjs";
 import { serverEnv } from "./server-env";
 
-/**
- * Dev-server routes `POST /api/agent` and `POST /api/agent/captions`. Reads `ANTHROPIC_API_KEY` from
- * `apps/web/server.env` on each request, so the key stays out of the client bundle.
- * Production runs the same handler as services/agent.
- */
+// ANTHROPIC_API_KEY stays in apps/web/server.env, out of the browser bundle.
 export function agentDevPlugin(envDir: string, mode: string): Plugin {
   return {
     name: "plan-agent",

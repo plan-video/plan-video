@@ -144,7 +144,6 @@ test("the channel's picture and numbers come through the publisher, with the ser
     assert.deepEqual(numbers.days, [{ date: "2026-10-14", views: 10, likes: 2, comments: 1 }]);
     assert.ok(seen.every((call) => call.auth === "Bearer ya29.access"));
     assert.equal((await ask(MEMBER, "youtube/analytics", { connectionId: "yt1", team, startDate: "nope", endDate: "2026-10-15" })).status, 400);
-    // Not listed in the member's workspace.
     assert.equal((await ask(MEMBER, "youtube/profile", { connectionId: "yt2", team })).status, 403);
   } finally {
     globalThis.fetch = original;

@@ -2,14 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Squirrel.Windows starts the app once for each install, update, and
-// uninstall, with a `--squirrel-*` flag as the only argument, and expects it
-// to do its housekeeping and exit. That is the moment the Start Menu
-// shortcut is created and removed (through Squirrel's own Update.exe, one
-// folder up from the versioned app folder), where the `planvideo`/`dapi`
-// shims are pointed at the new version and taken away again, and where the
-// agents' MCP entries are taken out of their configs so no agent is left
-// calling an app that is gone.
+// Squirrel.Windows launches the app with one `--squirrel-*` flag per install/update/uninstall and expects
+// it to do its housekeeping (shortcuts via Update.exe, shims, agents' MCP entries) and exit.
 // `--squirrel-firstrun` is the ordinary first launch and is not an event.
 
 import { app } from "electron";
@@ -22,14 +16,13 @@ import { applyMcp } from "./mcp-install";
 
 const EVENTS = new Set(["--squirrel-install", "--squirrel-updated", "--squirrel-uninstall", "--squirrel-obsolete"]);
 
-/** The `--squirrel-*` event this launch is, or null when it is a real launch. */
 export function squirrelEvent(argv: string[] = process.argv, platform: string = process.platform): string | null {
   if (platform !== "win32") return null;
   const flag = argv[1];
   return flag && EVENTS.has(flag) ? flag : null;
 }
 
-/** Runs Update.exe with `args` and quits once it is done. Quits at once if it cannot be started. */
+/** Quits at once if Update.exe cannot be started. */
 function updateExe(args: string[]): void {
   const exe = resolve(process.execPath, "..", "..", "Update.exe");
   let child;
@@ -43,11 +36,7 @@ function updateExe(args: string[]): void {
   child.on("close", () => app.quit());
 }
 
-/**
- * Handles a Squirrel event launch. Returns true when this launch was one —
- * the caller must then not open a window or start any service; the app
- * quits by itself once the housekeeping is done.
- */
+/** When true, the caller must not open a window or start any service; the app quits by itself. */
 export function handleSquirrelEvent(): boolean {
   const event = squirrelEvent();
   if (!event) return false;
@@ -72,7 +61,7 @@ export function handleSquirrelEvent(): boolean {
         .then(() => updateExe(["--removeShortcut", target]));
       break;
     default:
-      // --squirrel-obsolete: the version being replaced gets a last word; we have none.
+      // --squirrel-obsolete: nothing to do.
       app.quit();
   }
   return true;

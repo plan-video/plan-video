@@ -6,7 +6,6 @@ import { clientIp, composeReport, createSupport, parseReport } from "./support.m
 
 const REPORT = { kind: "bug", email: "Ada@Example.com", message: "The calendar won't open on Safari.\nIt stays blank.", page: "/dashboard", browser: "Safari 18", language: "en" };
 
-/** A request and a response the handler can write to, with what it wrote kept. */
 function exchange(body, { ip = "203.0.113.7", token = "", method = "POST" } = {}) {
   const req = { method, body, headers: { "x-forwarded-for": `10.0.0.1, ${ip}`, ...(token ? { authorization: `Bearer ${token}` } : {}) }, socket: {} };
   const res = {
@@ -63,7 +62,6 @@ test("a report is emailed to the inbox, answered by replying to the sender", asy
   assert.equal(emails[0].subject, "[Bug] The calendar won't open on Safari.");
   assert.match(emails[0].text, /It stays blank\./);
   assert.match(emails[0].text, /Account: Not signed in/);
-  // The network is only counted for limits, never emailed.
   assert.doesNotMatch(emails[0].text, /203\.0\.113\.7/);
 });
 

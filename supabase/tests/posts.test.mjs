@@ -1,8 +1,4 @@
-// Posts in their own table (migrations/20261026090000_posts.sql) against a
-// real Supabase: what an owner, an admin, a member, an outsider and an
-// outside AI agent's token can read and write, the versioned writes, the
-// deletion markers, thumbnails, Realtime, the publisher's functions, and what
-// the shared-workspace functions do with posts now. See helpers.mjs to run it.
+// See helpers.mjs for how to run it.
 
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -18,7 +14,6 @@ const W3 = randomUUID();
 
 let owner, admin, member, outsider;
 
-/** A post as the calendar keeps it. */
 function post(id, overrides = {}) {
   return {
     id,
@@ -43,7 +38,7 @@ function post(id, overrides = {}) {
 const insert = (person, ownerId, workspace, data, { id = data.id } = {}) =>
   call("/rest/v1/posts", { token: person.token, method: "POST", prefer: "return=representation", body: { owner_id: ownerId, id, workspace_id: workspace, data } });
 
-/** A write over the version read, as browsers make it. An empty answer means the post moved on. */
+// An empty answer means the post moved on past `version`.
 const update = (person, ownerId, id, version, values) =>
   call(`/rest/v1/posts?owner_id=eq.${ownerId}&id=eq.${id}&version=eq.${version}`, { token: person.token, method: "PATCH", prefer: "return=representation", body: values });
 
@@ -152,7 +147,6 @@ describe("an owner's posts", () => {
     const row = await one(owner.id, "clock");
     const deleted = await update(owner, owner.id, "clock", row.version, { deleted_at: "2001-01-01T00:00:00Z" });
     assert.ok(Math.abs(Date.parse(deleted.data[0].deleted_at) - Date.now()) < 60_000, deleted.data[0].deleted_at);
-    // Kept as it was by a later write that still names it deleted.
     const again = await update(owner, owner.id, "clock", deleted.data[0].version, { deleted_at: "2100-01-01T00:00:00Z" });
     assert.equal(again.data[0].deleted_at, deleted.data[0].deleted_at);
   });
@@ -306,7 +300,7 @@ describe("thumbnails", () => {
       body: { owner_id: owner.id, post_id: "own-1", thumbnail: "data:image/jpeg;base64,SAME" },
     });
     const row = await one(owner.id, "own-1");
-    // To the microsecond: two readings of the clock in one statement can share a millisecond.
+    // To the microsecond: two clock readings in one statement can share a millisecond.
     assert.equal(row.updated_at, saved.data[0].updated_at);
     assert.equal(row.thumbnail_at, saved.data[0].updated_at);
   });
@@ -365,7 +359,6 @@ describe("live changes", () => {
     for (const client of clients) await client.removeAllChannels();
   });
 
-  /** What `person` hears of the owner's posts. */
   async function listen(person) {
     const client = createClient(URL, ANON, { global: { headers: { Authorization: `Bearer ${person.token}` } }, auth: { persistSession: false, autoRefreshToken: false } });
     clients.push(client);
@@ -382,8 +375,7 @@ describe("live changes", () => {
 
   test("a change reaches the tabs that may see the post, and no others", async () => {
     const [toOwner, toMember, toOutsider] = await Promise.all([listen(owner), listen(member), listen(outsider)]);
-    // Realtime starts passing changes on a moment after it says it's subscribed, longer just after the database was reset:
-    // a probe in the shared workspace is written until both the owner and the member hear one.
+    // Realtime passes changes on only a moment after it says it's subscribed (longer after a reset): probe until both hear one.
     for (let probe = 0; probe < 60 && !(toOwner.some((row) => row.id?.startsWith("probe-")) && toMember.some((row) => row.id?.startsWith("probe-"))); probe++) {
       await insert(owner, owner.id, W1, post(`probe-${probe}`));
       await new Promise((resolve) => setTimeout(resolve, 500));
@@ -393,7 +385,7 @@ describe("live changes", () => {
     await insert(owner, owner.id, W2, post("live-private"));
     for (let waited = 0; waited < 10_000 && !(toOwner.length >= 2 && toMember.length >= 1); waited += 100) await new Promise((resolve) => setTimeout(resolve, 100));
     await new Promise((resolve) => setTimeout(resolve, 1000));
-    // Only what was written once all three listened: Realtime may still pass on a write made just before.
+    // Realtime may still pass on a write made just before everyone listened.
     const live = (heard) => heard.filter((row) => row.id?.startsWith("live-")).map((row) => row.id);
     assert.deepEqual(live(toOwner).sort(), ["live-private", "live-shared"]);
     assert.deepEqual(live(toMember), ["live-shared"]);
@@ -454,10 +446,8 @@ describe("the publisher", () => {
     assert.equal(Date.parse(scheduled.next_run_at), Date.parse(later));
     assert.equal(Date.parse(scheduled.planned_through), Date.parse("2026-10-26T00:00:00.000Z"));
     assert.notEqual(Date.parse((await schedule(owner.id, "private-1")).next_run_at), Date.parse(later));
-    // A browser's change makes it due a look again, at once.
     await update(owner, owner.id, "own-1", row.version, { data: post("own-1", { title: "Again" }) });
     assert.ok(Date.parse((await schedule(owner.id, "own-1")).next_run_at) <= Date.now() + 1000);
-    // Its thumbnail alone doesn't.
     await rpc(SERVICE, "publisher_schedule", { items: [{ user_id: owner.id, post_id: "own-1", version: row.version + 1, next_run_at: later, planned_through: null }] });
     await call("/rest/v1/post_thumbnails?on_conflict=owner_id,post_id", { token: owner.token, method: "POST", prefer: "resolution=merge-duplicates", body: { owner_id: owner.id, post_id: "own-1", thumbnail: "data:image/jpeg;base64,DDDD" } });
     assert.equal(Date.parse((await schedule(owner.id, "own-1")).next_run_at), Date.parse(later));
@@ -499,18 +489,16 @@ describe("the publisher", () => {
     assert.deepEqual(pages.map((row) => row.post.id).sort(), ["by-admin", "by-member", "series"]);
     const whole = (await rpc(SERVICE, "publisher_posts")).filter((row) => row.user_id === owner.id);
     assert.deepEqual(whole.map((row) => row.post.id).sort(), ["by-admin", "by-member", "series"]);
-    // With each its version and next look, for the hourly look to put right.
     const series = whole.find((row) => row.post.id === "series");
     assert.equal(series.version, (await one(owner.id, "series")).version);
     assert.equal(Date.parse(series.next_run_at), Date.parse((await schedule(owner.id, "series")).next_run_at));
-    // A repair that leaves out how far runs were looked through keeps it.
     await rpc(SERVICE, "publisher_schedule", { items: [{ user_id: owner.id, post_id: "series", version: series.version, next_run_at: "2030-01-01T00:00:00Z", planned_through: "2026-10-20T00:00:00Z" }] });
     await rpc(SERVICE, "publisher_schedule", { items: [{ user_id: owner.id, post_id: "series", version: series.version, next_run_at: "2030-01-02T00:00:00Z", planned_through: null }] });
     assert.equal(Date.parse((await schedule(owner.id, "series")).planned_through), Date.parse("2026-10-20T00:00:00Z"));
   });
 
   test("deletion markers past their time go, with nothing else", async () => {
-    // Backdated past the triggers, which keep a deletion's time as the database first gave it.
+    // Bypasses the triggers, which keep a deletion's first timestamp.
     sql(`set session_replication_role = replica; update public.posts set deleted_at = now() - interval '100 days' where owner_id = '${owner.id}' and id = 'live-shared'; set session_replication_role = origin;`);
     const pruned = await rpc(SERVICE, "publisher_prune_deleted", { before: new Date(Date.now() - 90 * 86_400_000).toISOString() });
     assert.ok(pruned >= 1);

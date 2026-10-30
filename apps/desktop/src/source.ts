@@ -2,33 +2,23 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The read direction of a project's JSX: a compile-time stamp recording where
-// every composition element came from, so the entity the renderer builds from
-// it knows its own origin.
-//
-// The numbering here and the one `./edit` walks with ts-morph must produce the
-// same sequence — two parsers, two libraries, one order. If they ever
-// disagreed, a drag would write to the wrong element; that invariant is why
-// these two modules are read together.
+// The numbering here and the ts-morph walk in `./edit` must produce the same element order;
+// if they ever disagreed, a drag would write to the wrong element.
 
 import { COMPOSITION_TAGS, ID_ATTR, INSPECT_TAG, INSPECT_TYPES, LOOP_ATTR, SOURCE_ATTR, formatSource, isCompositionTag, isLoopTag } from "@plan.video/jsx";
 
 import type { NodePath, PluginObj, types as t } from "@babel/core";
 import type { InspectDeclaration, InspectType } from "@plan.video/jsx";
 
-/** What babel hands a plugin factory. */
 type BabelApi = { types: typeof import("@babel/core").types };
 
-// Composition tags are authored in camelCase but must reach the renderer as
-// PascalCase components. Lowercase is reserved at runtime for real DOM nodes
-// inside <html>/<htmlPaint>.
+// Composition tags are authored camelCase but must reach the renderer PascalCase; lowercase is
+// reserved at runtime for real DOM nodes inside <html>/<htmlPaint>.
 const COMPOSITION_COMPONENTS = new Map<string, string>(
   COMPOSITION_TAGS.map((tag) => [tag, tag.charAt(0).toUpperCase() + tag.slice(1)]),
 );
 
-// These composition names also exist in SVG. An SVG fragment is DOM content
-// only while it has an SVG container in the same JSX tree; elsewhere the tag
-// keeps its composition meaning.
+// These names also exist in SVG: DOM content only inside an SVG container in the same JSX tree.
 const AMBIGUOUS_SVG_TAGS: ReadonlySet<string> = new Set(["rect", "text", "image"]);
 const SVG_CONTAINERS: ReadonlySet<string> = new Set([
   "svg", "g", "defs", "symbol", "marker", "mask", "clipPath", "pattern",
@@ -55,18 +45,13 @@ function isSvgCollision(path: NodePath<t.JSXElement>, name: string, types: typeo
   return AMBIGUOUS_SVG_TAGS.has(name) && hasSvgAncestor(path, types);
 }
 
-/**
- * Rewrites authored composition intrinsics to aliased PascalCase imports
- * before babel-preset-solid consumes the JSX tree. Aliases prevent a user
- * binding named e.g. `Rect` from capturing an authored `<rect>`.
- */
+/** Aliased imports, so a user binding named e.g. `Rect` cannot capture an authored `<rect>`. */
 export function canonicalizeTagsPlugin({ types }: BabelApi): PluginObj {
   return {
     name: "jsx-canonical-composition-tags",
     visitor: {
-      // Babel merges plugin and preset visitors. Rewriting the complete tree
-      // on Program enter ensures Solid cannot consume a parent before this
-      // pass reaches its descendants.
+      // Babel merges plugin and preset visitors; rewriting the whole tree on Program enter keeps
+      // Solid from consuming a parent before this pass reaches its descendants.
       Program(program) {
         const aliases = new Map<string, string>();
 
@@ -119,27 +104,14 @@ export function canonicalizeTagsPlugin({ types }: BabelApi): PluginObj {
   };
 }
 
-// ---------------------------------------------------------------------------
-// @inspect variables
-
-/** What the compiled module imports `__inspect` from. */
 const INSPECT_MODULE = "@plan.video/jsx";
 
-/**
- * An `@inspect` tag at the start of a comment line. Anchored there — the way a
- * JSDoc tag is written — so prose mentioning the tag mid-sentence is not read
- * as an annotation.
- */
+/** Anchored at a comment line's start, so prose mentioning the tag mid-sentence is not an annotation. */
 const INSPECT_ANNOTATION = new RegExp(`(?:^|\\n)\\s*\\*?\\s*@${INSPECT_TAG}\\b([^\\n]*)`);
 
 const INSPECT_PAIR = /(\w+)=(?:"([^"]*)"|(\S+))/g;
 
-/**
- * TS nodes that hold a value expression: `x as T`, `x satisfies T`, `x!`,
- * `f<T>`. A reference under one of these is read at runtime; anything else
- * TS-flavored above a reference is a type position, which mentions the name
- * without reading the value.
- */
+/** TS nodes that read their value at runtime; any other TS node above a reference is a type position. */
 const TS_VALUE_NODES: ReadonlySet<string> = new Set([
   "TSAsExpression", "TSSatisfiesExpression", "TSNonNullExpression", "TSInstantiationExpression",
 ]);
@@ -151,11 +123,7 @@ type ParsedInspect = Pick<InspectDeclaration, "type" | "path" | "min" | "max" | 
 
 const isInspectType = (value: string): value is InspectType => (INSPECT_TYPES as readonly string[]).includes(value);
 
-/**
- * The annotation in `comments`, parsed, or undefined when none of them carry
- * one. Throws (a plain Error the caller turns into a code frame) on an
- * annotation that does not spell a control.
- */
+/** Throws a plain Error (the caller turns it into a code frame) on an annotation that is not a control. */
 function parseInspectComments(comments: readonly t.Comment[] | null | undefined): ParsedInspect | undefined {
   const match = comments?.map((comment) => INSPECT_ANNOTATION.exec(comment.value)).find((found) => found !== null);
   if (!match) return undefined;
@@ -218,7 +186,6 @@ function parseInspectComments(comments: readonly t.Comment[] | null | undefined)
   return parsed;
 }
 
-/** The literal an `@inspect` initializer must be for its type, or undefined. */
 function inspectInitializer(node: t.Expression | null | undefined, type: InspectType): t.Expression | undefined {
   if (!node) return undefined;
   if (type === "number") {
@@ -230,7 +197,6 @@ function inspectInitializer(node: t.Expression | null | undefined, type: Inspect
   return node.type === "StringLiteral" ? node : undefined;
 }
 
-/** What the initializer of each type must literally be, for the error message. */
 const INSPECT_LITERALS: Record<InspectType, string> = {
   number: "number",
   boolean: "true/false",
@@ -240,24 +206,12 @@ const INSPECT_LITERALS: Record<InspectType, string> = {
   select: "string",
 };
 
-/**
- * Turns `@inspect`-annotated top-level consts into signals: the declaration's
- * initializer becomes an `__inspect(declaration, literal)` call — which the
- * editor implements as a signal it also hands its inspector — and every
- * reference to the variable becomes a call of the accessor. Reads inside the
- * JSX stay reactive (Solid's transform wraps them); a value derived at module
- * top level is computed once, like any module-level expression.
- *
- * The variable is addressed by file and name, so the source is not written to;
- * the write direction lives in `./edit`, which overwrites the initializer the
- * second argument came from.
- */
+/** `__inspect(declaration, literal)` is a signal the editor also hands its inspector. Never writes the source. */
 export function inspectPlugin({ types }: BabelApi, { file }: { file: string }): PluginObj {
   return {
     name: "jsx-inspect-variables",
     visitor: {
-      // On Program enter, like the other passes: everything is rewritten
-      // before Solid's transform consumes the JSX the references sit in.
+      // On Program enter, so it runs before Solid's transform consumes the JSX.
       Program(program) {
         const helper = program.scope.generateUidIdentifier("inspect");
         let used = false;
@@ -266,9 +220,7 @@ export function inspectPlugin({ types }: BabelApi, { file }: { file: string }): 
           VariableDeclaration(path) {
             let annotation: ParsedInspect | undefined;
             try {
-              // On an exported declaration the comment sits on the export
-              // statement; read it there too, so the export is refused rather
-              // than the annotation silently ignored.
+              // On an exported declaration the comment sits on the export, so the export is refused rather than ignored.
               annotation = parseInspectComments(path.node.leadingComments)
                 ?? (path.parentPath.isExportNamedDeclaration()
                   ? parseInspectComments(path.parentPath.node.leadingComments)
@@ -302,19 +254,16 @@ export function inspectPlugin({ types }: BabelApi, { file }: { file: string }): 
                 `an @${INSPECT_TAG} ${annotation.type} must be initialized with a ${INSPECT_LITERALS[annotation.type]} literal — it is what the editor writes back to`,
               );
             }
-            // A select must start on one of its own choices, or the control
-            // would show a value it cannot offer.
+            // A select must start on one of its own choices.
             if (annotation.type === "select" && initial.type === "StringLiteral" && !annotation.options!.includes(initial.value)) {
               throw path.buildCodeFrameError(
                 `an @${INSPECT_TAG} select is initialized with "${initial.value}", which is not one of its options (${annotation.options!.join(", ")})`,
               );
             }
 
-            // Every read becomes a call of the accessor. The reference lists
-            // are per binding, so a shadowing local elsewhere keeps its own.
+            // Reference lists are per binding, so a shadowing local keeps its own.
             const binding = program.scope.getBinding(name);
             for (const reference of binding?.referencePaths ?? []) {
-              // A type position mentions the name without reading the value.
               if (inTypePosition(reference)) continue;
               if (reference.parentPath?.isExportSpecifier()) {
                 throw reference.buildCodeFrameError(
@@ -351,25 +300,14 @@ const jsxTagName = (element: t.JSXElement): string | undefined => {
   return name.type === "JSXIdentifier" ? name.name : undefined;
 };
 
-/**
- * Stamps every composition element with the location of its JSX source, so
- * entities on the canvas can be traced back to the code that produced them.
- * An element in the body of a `<For>`/`<Index>` is also stamped with the
- * location of that loop (see LOOP_ATTR).
- */
 export function sourcePlugin({ types }: BabelApi, { file }: { file: string }): PluginObj {
   return {
     name: "jsx-source-location",
     visitor: {
-      // Stamped up front: Solid's transform replaces whole JSX trees, so by the
-      // time a nested element would be visited normally it no longer exists.
+      // Up front: Solid's transform replaces whole JSX trees, so nested elements would be gone by visit time.
       Program(program) {
-        // Components and DOM tags are counted but not stamped: a position means
-        // "the nth element in this file", and skipping some would make that
-        // depend on which ones are composition elements today.
+        // Components and DOM tags are counted but not stamped, so positions don't depend on which tags are composition ones.
         let index = 0;
-        // Loops are addressed by their position too, since nothing else names
-        // them; visited before what they contain, so it is known by then.
         const positions = new WeakMap<t.JSXElement, number>();
 
         program.traverse({
@@ -390,9 +328,7 @@ export function sourcePlugin({ types }: BabelApi, { file }: { file: string }): P
             );
             const loopPosition = loop ? positions.get(loop.node as t.JSXElement) : undefined;
 
-            // An element that names itself keeps that name; the position is the
-            // fallback for elements nothing has had to write to yet. The id is
-            // removed on the way through, so it never reaches a host as a prop.
+            // The id is removed on the way through, so it never reaches a host as a prop.
             let locator: string | number = position;
             opening.attributes = opening.attributes.filter((attribute) => {
               if (

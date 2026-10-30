@@ -6,9 +6,7 @@ import { app, Menu } from "electron";
 import type { MenuItemConstructorOptions } from "electron";
 
 export function setupAppMenu() {
-  // The app submenu is a macOS convention. Elsewhere the same role menus sit
-  // behind Alt (the window hides the bar) and exist for their accelerators:
-  // reload, devtools, zoom, quit.
+  // Off macOS the role menus sit behind Alt and exist for their accelerators.
   const template: MenuItemConstructorOptions[] = []
 
   if (process.platform === "darwin") {

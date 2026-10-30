@@ -1,14 +1,11 @@
-// YouTube's sign-in page, and the calls the publisher makes with a channel's
-// login. The client secret stays on the server, and so do YouTube's tokens: the
-// publisher swaps the code Google sends back for them and keeps them
-// (services/publisher/youtube-logins.mjs), so no browser can upload around
-// plan.video's share of YouTube's daily quota.
+// The client secret and YouTube's tokens stay on the server: the publisher keeps the login
+// (services/publisher/youtube-logins.mjs), so no browser can upload around plan.video's
+// share of YouTube's daily quota.
 
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const UPLOAD_URL = "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status";
 const JSON_MAX = 1024 * 1024;
-// Upload, read the channel's name and videos, and read its views, likes and comments.
 const SCOPE = [
   "https://www.googleapis.com/auth/youtube.upload",
   "https://www.googleapis.com/auth/youtube.readonly",
@@ -16,14 +13,10 @@ const SCOPE = [
 ].join(" ");
 const REVOKE_URL = "https://oauth2.googleapis.com/revoke";
 const REPORTS_URL = "https://youtubeanalytics.googleapis.com/v2/reports";
-/** The most days one analytics request covers, which is the analytics page's two years and a little more. */
+/** Covers the analytics page's two years and a little more. */
 const ANALYTICS_DAYS = 800;
 
-/**
- * The redirect URIs saved on the YouTube app, exactly: the site's callback at
- * its own address and its www one (`site` is PUBLIC_URL, plan.video's by
- * default), and the dev server's.
- */
+/** The redirect URIs must match the ones saved on the app exactly. */
 export function redirectsFor(site = "https://plan.video") {
   const own = new URL(site);
   const www = new URL(site);
@@ -31,7 +24,6 @@ export function redirectsFor(site = "https://plan.video") {
   return new Set([`${own.origin}/youtube/callback`, `${www.origin}/youtube/callback`, "http://localhost:5173/youtube/callback"]);
 }
 
-/** Google's consent page for a channel, coming back to `redirectUri` (one of redirectsFor()) with `state`. */
 export function authorizeUrl(env, { redirectUri, state, codeChallenge }) {
   const url = new URL(AUTH_URL);
   url.searchParams.set("client_id", env.clientId);
@@ -68,12 +60,7 @@ function limit(name, max, seconds) {
   if (entry.count > max) throw new Refused(429, "Too many YouTube requests. Wait a few minutes and try again.");
 }
 
-/**
- * Whether a token was granted to an outside app (Claude's connector, say)
- * instead of signed in here. Those carry the OAuth client's `client_id` and
- * are only good at /mcp. One that can't be read isn't a token Supabase made,
- * and Supabase turns it away.
- */
+// OAuth-client tokens (Claude's connector, say) carry `client_id` and only work at /mcp.
 function grantedToApp(token) {
   try {
     return JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString("utf8"))?.client_id != null;
@@ -188,7 +175,6 @@ export async function tokenRequest(env, fields) {
   };
 }
 
-/** The channel a login is for: its id, handle and picture. */
 export async function channelFor(accessToken) {
   const response = await fetch("https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true", {
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -223,10 +209,6 @@ function count(value) {
   return Number.isFinite(value) && value > 0 ? Math.round(value) : 0;
 }
 
-/**
- * The channel's views, likes and comments for each day from `startDate` to `endDate`,
- * and its most watched videos over those days with their titles and upload times.
- */
 export async function analyticsFor(accessToken, startDate, endDate, videoId) {
   const report = (fields) => {
     const url = new URL(REPORTS_URL);
@@ -237,7 +219,6 @@ export async function analyticsFor(accessToken, startDate, endDate, videoId) {
     for (const [key, value] of Object.entries(fields)) url.searchParams.set(key, value);
     return googleGet(url, accessToken);
   };
-  // One video's days, for its own page, or the whole channel's days and its top videos.
   const [byDay, byVideo] = await Promise.all([
     report({ dimensions: "day", sort: "day", ...(videoId ? { filters: `video==${videoId}` } : {}) }),
     videoId ? { payload: { rows: [] } } : report({ dimensions: "video", sort: "-views", maxResults: "200" }),
@@ -249,8 +230,8 @@ export async function analyticsFor(accessToken, startDate, endDate, videoId) {
     .filter((row) => Array.isArray(row) && typeof row[0] === "string")
     .map(([date, views, likes, comments]) => ({ date, views: count(views), likes: count(likes), comments: count(comments) }));
 
-  // The report only names videos that drew views, a day or two late, so the newest uploads are added too,
-  // with the live totals YouTube shows on each video.
+  // The report only names videos that drew views, a day or two late, so the newest uploads are
+  // added too, with the live totals YouTube shows on each video.
   const stats = new Map(
     (byVideo.payload?.rows ?? [])
       .filter((row) => Array.isArray(row) && typeof row[0] === "string")
@@ -274,8 +255,8 @@ export async function analyticsFor(accessToken, startDate, endDate, videoId) {
     const title = typeof snippet.title === "string" && snippet.title.trim() ? snippet.title.trim() : "Untitled video";
     const thumbnail = snippet.thumbnails?.medium?.url || snippet.thumbnails?.default?.url;
     const cover = typeof thumbnail === "string" && thumbnail.startsWith("https://i.ytimg.com/") ? thumbnail : "";
-    // The live count where YouTube gives one: it's current, where the report runs days behind.
-    // Likes and comments are left out of it when the channel hides or turns them off.
+    // The live count is current where the report runs days behind. Likes and comments are left
+    // out when the channel hides or turns them off.
     const reported = stats.get(id) ?? { views: 0, likes: 0, comments: 0 };
     const now = (key, field) => (live?.[field] !== undefined ? Math.max(count(Number(live[field])), reported[key]) : reported[key]);
     return [{ id, title, postedAt, cover, views: now("views", "viewCount"), likes: now("likes", "likeCount"), comments: now("comments", "commentCount") }];
@@ -283,7 +264,7 @@ export async function analyticsFor(accessToken, startDate, endDate, videoId) {
   return { days, videos };
 }
 
-/** The channel's newest uploads, newest first. Empty when YouTube won't say, so the numbers still load. */
+/** Empty when YouTube won't say, so the numbers still load. */
 async function recentUploads(accessToken) {
   const channel = await googleGet("https://www.googleapis.com/youtube/v3/channels?part=contentDetails&mine=true", accessToken);
   const playlistId = channel.payload?.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
@@ -312,7 +293,6 @@ function isDay(value) {
   return /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(`${value}T00:00:00Z`));
 }
 
-/** Why analytics can't be asked for these days and video, or null when they can. */
 export function analyticsProblem(startDate, endDate, videoId) {
   const length = (Date.parse(endDate) - Date.parse(startDate)) / 86_400_000;
   if (!isDay(startDate) || !isDay(endDate) || length < 0 || length > ANALYTICS_DAYS) return "Pick a range of days for YouTube's numbers.";
@@ -414,7 +394,7 @@ export async function handleYouTube(req, res, path, env) {
   }
 
   if (path === "/api/youtube/revoke") {
-    // Ends plan.video's access to the channel at Google. A refresh token ends the whole grant.
+    // A refresh token ends the whole grant.
     const token = text(body, "token");
     if (!token || token.length > 4096) {
       json(res, 400, { error: "There's no YouTube login to end." });

@@ -1,23 +1,15 @@
-// Starting X sign-in, and ending it, with OAuth 2.0 (PKCE, confidential
-// client). The client secret stays on the server. X bills plan.video for every
-// post, so only paid plans can connect, and X's tokens never reach a browser:
-// anyone holding one could post through plan.video's X app around their plan's
-// limits. The publisher swaps the code X sends back for the login itself
-// (x/exchange in services/publisher), keeps it, and does all the posting.
+// X bills plan.video for every post, so only paid plans can connect, and X's tokens never
+// reach a browser: anyone holding one could post around their plan's limits. The publisher
+// swaps the code (x/exchange in services/publisher), keeps the login and does all the posting.
 
 const AUTH_URL = "https://x.com/i/oauth2/authorize";
 const TOKEN_URL = "https://api.x.com/2/oauth2/token";
 const REVOKE_URL = "https://api.x.com/2/oauth2/revoke";
 const ME_URL = "https://api.x.com/2/users/me?user.fields=profile_image_url";
-// Posting with pictures and video, and staying connected so scheduled posts go out later.
 const SCOPE = "tweet.read tweet.write users.read media.write offline.access";
 const JSON_MAX = 256 * 1024;
 
-/**
- * The redirect URIs saved on the X app, exactly: the site's callback at
- * its own address and its www one (`site` is PUBLIC_URL, plan.video's by
- * default), and the dev server's.
- */
+/** The redirect URIs must match the ones saved on the app exactly. */
 export function redirectsFor(site = "https://plan.video") {
   const own = new URL(site);
   const www = new URL(site);
@@ -25,7 +17,6 @@ export function redirectsFor(site = "https://plan.video") {
   return new Set([`${own.origin}/x/callback`, `${www.origin}/x/callback`, "http://127.0.0.1:5173/x/callback"]);
 }
 
-/** X's consent page for an account, coming back to `redirectUri` (one of redirectsFor()) with `state`. */
 export function authorizeUrl(env, { redirectUri, state, codeChallenge }) {
   const url = new URL(AUTH_URL);
   url.searchParams.set("response_type", "code");
@@ -59,12 +50,7 @@ function limit(name, max, seconds, message = "Too many X requests. Wait a few mi
   if (entry.count > max) throw new Refused(429, message);
 }
 
-/**
- * Whether a token was granted to an outside app (Claude's connector, say)
- * instead of signed in here. Those carry the OAuth client's `client_id` and
- * are only good at /mcp. One that can't be read isn't a token Supabase made,
- * and Supabase turns it away.
- */
+// OAuth-client tokens (Claude's connector, say) carry `client_id` and only work at /mcp.
 function grantedToApp(token) {
   try {
     return JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString("utf8"))?.client_id != null;
@@ -81,7 +67,6 @@ async function supabaseCall(env, path, token, init = {}) {
   });
 }
 
-/** The signed-in person, and whether they're on a paid plan. */
 async function userFor(req, env) {
   const header = req.headers.authorization ?? "";
   const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
@@ -152,7 +137,6 @@ function basic(env) {
   return `Basic ${Buffer.from(`${encodeURIComponent(env.clientId)}:${encodeURIComponent(env.clientSecret)}`).toString("base64")}`;
 }
 
-/** Asks X for tokens: the login for a code, or a fresh one. */
 export async function tokenRequest(env, fields) {
   const response = await fetch(TOKEN_URL, {
     method: "POST",
@@ -171,7 +155,6 @@ export async function tokenRequest(env, fields) {
   };
 }
 
-/** The member's id, @handle and picture. */
 export async function memberFor(accessToken) {
   const result = await x(ME_URL, accessToken);
   if (result.error) return { error: result.error };
@@ -255,7 +238,7 @@ export async function handleX(req, res, path, env) {
   }
 
   if (path === "/api/x/revoke") {
-    // Ends plan.video's access at X. A token that's already gone is what was asked for.
+    // A token that's already gone is what was asked for.
     const token = text(body, "token");
     if (!token || token.length > 4096) {
       json(res, 400, { error: "There's no X login to end." });

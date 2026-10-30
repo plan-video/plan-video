@@ -26,16 +26,11 @@ import { canonicalizeTagsPlugin, inspectPlugin, sourcePlugin } from "./source";
 import type { CompileResult, FsEntry, FsStat, ProjectInfo, SourceEdit, WriteResult } from "./main-channels";
 import type { SourceContext } from "./edit";
 
-/** Entry points looked up in a project folder, in order of preference. */
 export const ENTRY_FILES = ["index.tsx", "index.ts", "index.jsx", "index.js"];
 
-/** The module compiled project code imports its JSX runtime from. */
 const RUNTIME_MODULE = "@plan.video/jsx";
 
-/**
- * Imports left for the renderer to resolve against its own module instances
- * (one solid-js reactive graph, one JSX host).
- */
+/** Left for the renderer to resolve, so there is one solid-js reactive graph and one JSX host. */
 const EXTERNAL = ["solid-js", "solid-js/*", RUNTIME_MODULE];
 
 const BUILD_OPTIONS: BuildOptions = {
@@ -48,10 +43,8 @@ const BUILD_OPTIONS: BuildOptions = {
   logLevel: "silent",
 };
 
-// esbuild and babel are kept external to the main bundle (esbuild ships a
-// native binary). In development they resolve from the workspace; a packaged
-// app has no node_modules of its own, so they load from the staged runtime at
-// Contents/Resources/runtime/node_modules (see scripts/stage-runtime.mjs).
+// esbuild (native binary) and babel stay out of the main bundle. A packaged app has no
+// node_modules, so they load from Contents/Resources/runtime/node_modules (scripts/stage-runtime.mjs).
 let stagedRequire: NodeJS.Require | undefined;
 
 function load<T>(name: string): T {
@@ -87,32 +80,17 @@ async function readPackage(dir: string): Promise<PackageJson | null> {
 async function writePackage(dir: string, pkg: PackageJson): Promise<void> {
   const path = join(dir, "package.json");
   const text = JSON.stringify(pkg, null, 2) + "\n";
-  // The record is read by the app, by the watcher and by whatever else has the
-  // folder open, so it is claimed and replaced whole (see `noteContent`).
+  // Other readers have the folder open too, so the record is claimed and replaced whole.
   noteContent(path, text);
   await writeFileAtomic(path, text);
 }
 
-// ---------------------------------------------------------------------------
-// Identity
+// Folder and displayName both get renamed, so the record carries an id nothing renames; app URLs
+// and the editor key on it. Top level because `writeConfig` replaces `planvideo` whole.
 
-// A project is named twice: `displayName` is what the user calls it and the
-// folder is what the disk calls it, and renaming moves both. Neither can be
-// the project's identity, so the record carries an id that nothing renames —
-// it is what the app's URLs point at, and what the editor keys the open world
-// by. Top level rather than inside `planvideo`, which `writeConfig` replaces
-// whole. A `nanoid()`: 21 url-safe characters, so it takes no encoding to be
-// a path segment.
-
-/** The id a record carries, or "" for a folder that predates them. */
 const recordedId = (pkg: PackageJson | null): string =>
   typeof pkg?.projectId === "string" ? pkg.projectId.trim() : "";
 
-/**
- * The project's id, minting and recording one when the folder has none: a
- * folder made before ids existed, or by hand, gets one the first time the app
- * opens it (see `resolveProject`).
- */
 async function ensureProjectId(dir: string): Promise<string> {
   const pkg = await readPackage(dir);
   const existing = recordedId(pkg);
@@ -123,7 +101,6 @@ async function ensureProjectId(dir: string): Promise<string> {
   return id;
 }
 
-/** package.json `main` when it names a JSX/TS/JS file that exists, else the default lookup. */
 async function findEntry(dir: string, pkg?: PackageJson | null): Promise<string | undefined> {
   const main = (pkg ?? (await readPackage(dir)))?.main;
   if (typeof main === "string" && /\.[jt]sx?$/.test(main) && (await exists(join(dir, main)))) {
@@ -158,16 +135,9 @@ async function describe(dir: string): Promise<ProjectInfo | null> {
 export const getProject = (dir: string): Promise<ProjectInfo | null> => describe(dir);
 
 /**
- * The folder projects go in when the user has not picked one. `~/Movies` on
- * macOS, `Videos` elsewhere — chosen because it is the one media folder the
- * sync services leave alone: iCloud's "Desktop & Documents Folders" covers
- * only those two, and OneDrive's Known Folder Move only Desktop, Documents,
- * and Pictures. It also needs no macOS permission prompt, which Documents and
- * Desktop do. Created on demand, so a user who never makes a project never
- * gets the folder.
- *
- * Null when it turns out to be synced after all and the user would rather
- * pick somewhere else — the caller falls back to `pickRoot`.
+ * `~/Movies` (macOS) or `Videos`: the one media folder iCloud and OneDrive Known Folder Move
+ * leave unsynced, and it needs no macOS permission prompt. Null when it is synced after all
+ * and the user would rather pick somewhere else.
  */
 export async function defaultRoot(window: BrowserWindow | null): Promise<string | null> {
   const dir = join(app.getPath("videos"), "plan.video");
@@ -183,8 +153,6 @@ export async function pickRoot(window: BrowserWindow | null): Promise<string | n
     properties: ["openDirectory", "createDirectory"],
   };
 
-  // Declining a synced folder reopens the picker rather than dropping the
-  // user back to the dashboard: they came here to choose one.
   while (true) {
     const { canceled, filePaths } = window
       ? await dialog.showOpenDialog(window, options)
@@ -196,11 +164,6 @@ export async function pickRoot(window: BrowserWindow | null): Promise<string | n
   }
 }
 
-/**
- * A folder to open as a single project, wherever it lives. Unlike `pickRoot`
- * this leaves the projects root alone, and it does not vet the location: the
- * folder goes through `initProject`, which asks about a synced one there.
- */
 export async function pickFolder(window: BrowserWindow | null): Promise<string | null> {
   const options: Electron.OpenDialogOptions = {
     title: "Choose project folder",
@@ -214,16 +177,9 @@ export async function pickFolder(window: BrowserWindow | null): Promise<string |
   return canceled ? null : filePaths[0] ?? null;
 }
 
-/**
- * The attribute macOS puts on a folder that a sync service owns. This is what
- * finding a synced folder comes down to: a synced Desktop or Documents is an
- * ordinary directory in the ordinary place — not a symlink, not a mount, and
- * not distinguishable by its path from an unsynced one. The attribute names
- * the service, so it identifies as well as detects.
- */
+/** macOS marks a sync-owned folder only with this attribute; a synced Desktop looks like any folder. */
 const FILE_PROVIDER_ATTR = "com.apple.file-provider-domain-id";
 
-/** Domain ids worth naming; any other service syncs under a generic name. */
 const FILE_PROVIDERS: Array<[prefix: string, label: string]> = [
   ["com.apple.CloudDocs", "iCloud Drive"],
   ["com.google.drivefs", "Google Drive"],
@@ -232,11 +188,7 @@ const FILE_PROVIDERS: Array<[prefix: string, label: string]> = [
   ["com.box", "Box"],
 ];
 
-/**
- * `path` with its symlinks resolved. The folder itself need not exist — what
- * gets resolved is the deepest ancestor that does, which is what lets this
- * answer for a root that is about to be created.
- */
+/** Resolves the deepest existing ancestor, so it works for a root not yet created. */
 async function resolveDeepest(path: string): Promise<string> {
   let head = resolve(path);
   const tail: string[] = [];
@@ -253,7 +205,6 @@ async function resolveDeepest(path: string): Promise<string> {
   }
 }
 
-/** `path` and every parent up to the root, deepest first, that exists. */
 async function existingAncestors(path: string): Promise<string[]> {
   const found: string[] = [];
   let head = resolve(path);
@@ -267,12 +218,8 @@ async function existingAncestors(path: string): Promise<string[]> {
 }
 
 /**
- * The File Provider domains owning any of `paths`. The attribute sits on the
- * folder the service manages and is not inherited by what is inside it, so
- * the whole ancestor chain is asked at once — a folder deep in a synced
- * Desktop carries nothing itself. Anything that goes wrong is an absence: no
- * attribute, no permission to look, and no `xattr` all read the same, which
- * costs a warning rather than access to the folder.
+ * The attribute is not inherited, so the whole ancestor chain is asked. Any failure (no
+ * attribute, no permission, no `xattr`) reads as "not synced".
  */
 async function fileProviderDomains(paths: string[]): Promise<string[]> {
   if (process.platform !== "darwin" || !paths.length) return [];
@@ -297,33 +244,23 @@ async function fileProviderDomains(paths: string[]): Promise<string[]> {
   return domains;
 }
 
-/**
- * Whether macOS is syncing the home Desktop and Documents folders. Those two
- * are both the common case and the awkward one: reading their attribute needs
- * a permission the app may not have been granted, and the read fails silently
- * without it. iCloud's own copies of the folders answer the same question,
- * and looking at those needs no permission at all.
- */
+/** The home Desktop/Documents attribute needs a permission the app may lack (the read fails silently); iCloud's copies don't. */
 async function desktopAndDocumentsSynced(): Promise<boolean> {
   const cloud = join(app.getPath("home"), "Library", "Mobile Documents", "com~apple~CloudDocs");
   return (await exists(join(cloud, "Desktop"))) || (await exists(join(cloud, "Documents")));
 }
 
-/** The sync service `path` sits under, or null when it is on plain local disk. */
 export async function cloudSyncKind(path: string): Promise<string | null> {
   const real = await resolveDeepest(path);
   const home = app.getPath("home");
 
-  // iCloud Drive itself, and the per-app containers beside it: the one synced
-  // thing macOS leaves unmarked, so the only one that goes by path.
+  // iCloud Drive and its per-app containers are left unmarked, so they go by path.
   const mobile = await resolveDeepest(join(home, "Library", "Mobile Documents"));
   if (real === mobile || real.startsWith(mobile + sep)) return "iCloud Drive";
 
-  // Windows has no File Provider to ask; everything below is macOS.
+  // Windows has no File Provider.
   if (process.platform === "win32") return windowsCloudSyncKind(real, home);
 
-  // The home Desktop and Documents, before the attribute is asked for: it is
-  // the one the app is most likely to be unable to read.
   const under = async (name: "desktop" | "documents") => {
     const root = await resolveDeepest(app.getPath(name));
     return real === root || real.startsWith(root + sep);
@@ -332,8 +269,6 @@ export async function cloudSyncKind(path: string): Promise<string | null> {
     return "iCloud Drive";
   }
 
-  // Everything else: every service with a folder under `Library/CloudStorage`,
-  // and anything else macOS hands to a File Provider.
   for (const domain of await fileProviderDomains(await existingAncestors(real))) {
     const known = FILE_PROVIDERS.find(([prefix]) => domain.startsWith(prefix));
     return known ? known[1] : "a cloud sync service";
@@ -341,12 +276,7 @@ export async function cloudSyncKind(path: string): Promise<string | null> {
   return null;
 }
 
-/**
- * Whether to go ahead with `path`: true when nothing syncs it, and when the
- * user has been told what syncing does to a project and wants it anyway.
- * Headless runs are never asked — there is nobody to ask — and proceed with
- * the warning in the log.
- */
+/** Headless runs are never asked and proceed with a warning in the log. */
 async function confirmCloudLocation(
   window: BrowserWindow | null,
   path: string,
@@ -380,7 +310,6 @@ async function confirmCloudLocation(
   return response === 1;
 }
 
-/** Direct child folders of `root` that could hold a project, in a stable order. */
 async function childDirs(root: string): Promise<string[]> {
   const entries = await readdir(root, { withFileTypes: true });
   return entries
@@ -390,22 +319,11 @@ async function childDirs(root: string): Promise<string[]> {
     .map((name) => join(root, name));
 }
 
-/**
- * Every direct child folder of `root` that holds an entry file. The one
- * search of the disk for projects there is: the app runs it when a projects
- * root is chosen, to put the projects already in it on its list. Reads only.
- */
 export async function scanProjects(root: string): Promise<ProjectInfo[]> {
   const projects = await Promise.all((await childDirs(root)).map(describe));
   return projects.filter((project): project is ProjectInfo => project !== null);
 }
 
-/**
- * The project in `dir`, left holding an id — this is where a folder that
- * predates ids, or was made by hand, gets one — so the caller can send the
- * app to that id's URL. What the app calls when it opens a project; null
- * when `dir` holds none.
- */
 export async function resolveProject(dir: string): Promise<ProjectInfo | null> {
   const project = await describe(dir);
   if (!project || project.id) return project;
@@ -413,10 +331,6 @@ export async function resolveProject(dir: string): Promise<ProjectInfo | null> {
   return describe(dir);
 }
 
-// ---------------------------------------------------------------------------
-// Scaffold
-
-/** Folder-safe project name: "Quiet Harbor" -> "quiet-harbor". */
 function folderName(name: string): string {
   return (
     name
@@ -427,7 +341,6 @@ function folderName(name: string): string {
   );
 }
 
-/** `base`, or `base-2`, `base-3`... when the folder is taken. */
 async function freeFolder(root: string, base: string): Promise<string> {
   let name = base;
   for (let i = 2; await exists(join(root, name)); i++) name = `${base}-${i}`;
@@ -444,17 +357,9 @@ function packageName(name: string): string {
   return cleaned || "plan-video-project";
 }
 
-// Types only: the editor supplies the runtime when it mounts the project.
 const JSX_VERSION = "latest";
 const SOLID_VERSION = "^1.9.10";
 
-/**
- * The planvideo surface as npm scripts: the CLI is how a project is inspected and
- * cut, so its commands belong in the record of the project they act on —
- * `npm run` prints the menu, `npm run <name> -- <args>` runs one. Named after
- * the command rather than its path (`grab`, not `media:grab`): the `media`
- * subcommands have no top-level namesakes to collide with.
- */
 const SCRIPTS: Record<string, string> = {
   open: "planvideo open .",
   context: "planvideo context",
@@ -503,7 +408,6 @@ const TSCONFIG = `{
 }
 `;
 
-/** What a project folder produces but should not check in: installs, derived data (thumbnails, waveforms), and the app-owned folder. */
 const GITIGNORE = `node_modules/
 cache/
 .planvideo/
@@ -518,19 +422,8 @@ const STARTER = `export default function Project() {
 }
 `;
 
-/**
- * The library a fresh project starts with: empty, but written, so the file the
- * app keeps its assets in is part of the folder from the first open rather
- * than appearing at the first import.
- */
 const EMPTY_MANIFEST = { version: 1, folders: [], assets: [] };
 
-/**
- * The project's own README: what the folder holds, how the composition is
- * written, and what can be run against it. Written once like the rest of the
- * scaffold, so from then on it is the author's file to say what this project
- * is.
- */
 const readme = (displayName: string): string => `# ${displayName}
 
 A plan.video project: a video composition authored as code. The folder is
@@ -645,14 +538,7 @@ All of them talk to the running app, except \`fonts\`.
 - [Examples](https://github.com/plan-video/plan-video/tree/main/docs/examples): runnable compositions to read
 `;
 
-// ---------------------------------------------------------------------------
-// The app-owned folder
-
-/**
- * The project-relative folder the app owns outright, ignored by git and by
- * the project watcher. Earlier versions copied the authoring docs into it;
- * the docs now live in the app's MCP server.
- */
+/** Ignored by git and by the project watcher. */
 const APP_DIR = ".planvideo";
 
 async function writeIfMissing(dir: string, name: string, content: string): Promise<void> {
@@ -662,7 +548,6 @@ async function writeIfMissing(dir: string, name: string, content: string): Promi
   await writeFileAtomic(path, content);
 }
 
-/** Adds the record fields to a package.json that predates them; leaves everything else alone. */
 async function ensurePackage(dir: string, name: string, displayName: string, entry: string): Promise<void> {
   const pkg = await readPackage(dir);
   if (!pkg) {
@@ -673,8 +558,7 @@ async function ensurePackage(dir: string, name: string, displayName: string, ent
   if (!recordedId(next)) next.projectId = nanoid();
   if (typeof next.displayName !== "string") next.displayName = displayName;
   if (typeof next.main !== "string") next.main = entry;
-  // The commands are a menu rather than a record: a project that keeps its own
-  // scripts is left with them, one with none is given the planvideo surface.
+  // A project that has its own scripts keeps them.
   if (typeof next.scripts !== "object" || next.scripts === null) next.scripts = { ...SCRIPTS };
   if (
     next.projectId !== pkg.projectId ||
@@ -686,14 +570,8 @@ async function ensurePackage(dir: string, name: string, displayName: string, ent
   }
 }
 
-/**
- * Turns `dir` into a starter TypeScript project: files the project owns are
- * written once, so opening an up-to-date project writes nothing. Types come
- * from @plan.video/jsx (jsxImportSource), installed by the project.
- */
 export async function scaffold(dir: string, displayName = basename(dir)): Promise<void> {
   const entry = await ensureRecord(dir, displayName);
-  // JavaScript projects are left alone.
   if (!entry) return;
   await writeIfMissing(dir, "tsconfig.json", TSCONFIG);
   await writeIfMissing(dir, ".gitignore", GITIGNORE);
@@ -704,12 +582,6 @@ export async function scaffold(dir: string, displayName = basename(dir)): Promis
   }
 }
 
-/**
- * The part of the scaffold every project needs: an entry file, and the
- * package.json record (`projectId`, `displayName`, `main`) the app remembers
- * the folder by. Nothing a folder already has is touched. Returns the entry,
- * or undefined for a JavaScript project, which is left entirely alone.
- */
 async function ensureRecord(dir: string, displayName = basename(dir)): Promise<string | undefined> {
   let entry = await findEntry(dir);
   if (entry && !/\.tsx?$/.test(entry)) return undefined;
@@ -721,16 +593,7 @@ async function ensureRecord(dir: string, displayName = basename(dir)): Promise<s
   return entry;
 }
 
-/**
- * Makes `dir` openable as a project, writing as little as that takes: the
- * folder if it does not exist, an `index.tsx` holding an empty stage when
- * nothing in it can be an entry, and the package.json record the app
- * remembers the folder by. Nothing else — no tsconfig, README, or
- * .gitignore, which come with a project created from the dashboard (see
- * `scaffold`); a folder opened from anywhere on disk stays the user's. A
- * folder that is already a project comes back untouched. How
- * `planvideo open <path>` opens a folder.
- */
+/** Writes as little as it takes; tsconfig, README and .gitignore come only with `scaffold`. */
 export async function initProject(window: BrowserWindow | null, dir: string): Promise<ProjectInfo> {
   if (!isAbsolute(dir)) {
     throw new Error(`The project folder must be an absolute path (got "${dir}").`);
@@ -750,11 +613,6 @@ export async function initProject(window: BrowserWindow | null, dir: string): Pr
   return project;
 }
 
-/**
- * Creates a fresh project folder under `root`, named after `displayName`. A
- * taken name is numbered rather than refused: the folder is a label, the id
- * inside it is the project.
- */
 export async function createProject(root: string, displayName: string): Promise<ProjectInfo> {
   const dir = join(root, await freeFolder(root, folderName(displayName)));
   await mkdir(dir, { recursive: true });
@@ -764,13 +622,6 @@ export async function createProject(root: string, displayName: string): Promise<
   return project;
 }
 
-/**
- * Renames the project: the human name in the record, and the folder with it,
- * so what the user sees in Finder keeps matching what they see in the app.
- * This is the only thing here that moves a folder — nothing syncs the two
- * behind the user's back — and it costs the project neither its identity nor
- * its links, both of which are the id.
- */
 export async function renameProject(dir: string, displayName: string): Promise<ProjectInfo> {
   const pkg = (await readPackage(dir)) ?? packageJson(basename(dir), displayName);
   const name = displayName.trim() || basename(dir);
@@ -781,26 +632,18 @@ export async function renameProject(dir: string, displayName: string): Promise<P
   return project;
 }
 
-/**
- * Moves the project folder to match `displayName`; answers where it ended up.
- * Best effort by design: the folder can be locked, open elsewhere, or on a
- * volume that will not have it, and none of that should cost the user the
- * name they just typed.
- */
+/** Best effort: a locked, open or uncooperative folder must not cost the user the new name. */
 async function renameFolder(dir: string, displayName: string): Promise<string> {
   const root = dirname(dir);
   const base = folderName(displayName);
   const current = basename(dir);
-  // Already named after it, numbered suffix and all: moving `my-clip-2` to
-  // `my-clip` (or to `my-clip-3`) shuffles folders that are equally right.
+  // Already named after it (numbered suffix and all): leave it.
   if (current === base || (current.startsWith(`${base}-`) && /^\d+$/.test(current.slice(base.length + 1)))) {
     return dir;
   }
 
   try {
     const target = join(root, await freeFolder(root, base));
-    // The watcher holds the old path, and the renderer re-watches the new one
-    // as soon as it hears where the project went.
     unwatchProject(dir);
     await rename(dir, target);
     return target;
@@ -809,7 +652,6 @@ async function renameFolder(dir: string, displayName: string): Promise<string> {
   }
 }
 
-/** Copies the folder next to itself as `<name>-copy` (numbered when taken). */
 export async function duplicateProject(dir: string): Promise<ProjectInfo> {
   const source = await describe(dir);
   if (!source) throw new Error("Not a project folder.");
@@ -818,10 +660,7 @@ export async function duplicateProject(dir: string): Promise<ProjectInfo> {
   const target = join(root, await freeFolder(root, `${source.name}-copy`));
 
   await cp(dir, target, { recursive: true, errorOnExist: true, force: false });
-  // The record came along with everything else, id included, and two folders
-  // answering to one id is the thing the id exists to prevent. The folder is
-  // already named for the copy, so the record is written here rather than
-  // through `renameProject` (which would move it again).
+  // The copy carries the original's id; give it its own. Written here, not via `renameProject`, which would move it.
   const pkg = await readPackage(target);
   await writePackage(target, {
     ...(pkg ?? packageJson(basename(target), source.displayName)),
@@ -833,7 +672,6 @@ export async function duplicateProject(dir: string): Promise<ProjectInfo> {
   return project;
 }
 
-/** Moves the folder to the trash; resolves with the id it had ("" for none), for what is kept outside it. */
 export async function deleteProject(dir: string): Promise<string> {
   const id = recordedId(await readPackage(dir));
   unwatchProject(dir);
@@ -841,13 +679,9 @@ export async function deleteProject(dir: string): Promise<string> {
   return id;
 }
 
-// ---------------------------------------------------------------------------
-// Compile
-
 type Babel = typeof import("@babel/core");
 type Esbuild = typeof import("esbuild");
 
-/** A preset however its package exposes it (CJS `module.exports` or an ESM default). */
 function preset(name: string): unknown {
   const loaded = load<{ default?: unknown }>(name);
   return loaded.default ?? loaded;
@@ -864,9 +698,6 @@ const babelOptions = (file: string, filename: string, projectPlugins: PluginItem
   ],
 });
 
-/**
- * Plugins contributed by the project's own babel config (`babel.config.js` or `.babelrc` at the root).
- */
 async function projectBabelPlugins(root: string, entry: string): Promise<PluginItem[]> {
   const { loadPartialConfigAsync } = load<Babel>("@babel/core");
   const partial = await loadPartialConfigAsync({ root, filename: join(root, entry), babelrc: true });
@@ -877,7 +708,6 @@ async function projectBabelPlugins(root: string, entry: string): Promise<PluginI
   return partial.options.plugins ?? [];
 }
 
-/** Runs project sources (not node_modules) through Solid's universal JSX transform. */
 function solidLoader(root: string, projectPlugins: PluginItem[]): Plugin {
   const { transformAsync } = load<Babel>("@babel/core");
   return {
@@ -889,8 +719,7 @@ function solidLoader(root: string, projectPlugins: PluginItem[]): Plugin {
           return undefined;
         }
         const source = await readFile(args.path, "utf8");
-        // The project-relative name is half of every element's id, so it is
-        // spelled the one way both directions of ./source spell it.
+        // The relative name is half of every element's id, so spell it the way ./source does.
         const result = await transformAsync(source, babelOptions(name.split(sep).join("/"), args.path, projectPlugins));
         return { contents: result?.code ?? "", loader: "js" };
       });
@@ -898,7 +727,6 @@ function solidLoader(root: string, projectPlugins: PluginItem[]): Plugin {
   };
 }
 
-/** The `./edit` context for a project folder, wired to what the watcher knows. */
 const sourceContext = (dir: string): SourceContext => ({
   dir,
   onWrite: (file, text) => noteContent(join(dir, file), text),
@@ -908,19 +736,14 @@ export async function compileProject(dir: string): Promise<CompileResult> {
   const entry = await findEntry(dir);
   if (!entry) return { ok: false, error: noEntryError() };
 
-  // Fills in the package.json record for folders that predate it; the rest
-  // of the scaffold is the dashboard's (see `initProject`).
   await ensureRecord(dir);
 
-  // Names every element before it is numbered, so the ids this compile hands
-  // the canvas are durable ones. A fully keyed project is not written to.
+  // Keys every element before compiling so the canvas gets durable ids.
   await stampProject(sourceContext(dir));
 
   // esbuild resolves symlinks, so the loader has to match on real paths.
   const root = await realpath(dir);
 
-  // A config that fails to evaluate (or names a plugin that isn't installed)
-  // is the project's error, reported like any other compile failure.
   let projectPlugins: PluginItem[];
   try {
     projectPlugins = await projectBabelPlugins(root, entry);
@@ -942,16 +765,7 @@ export async function compileProject(dir: string): Promise<CompileResult> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Write
-
-/**
- * Writes values the editor arrived at back into the JSX that produced them.
- * Deliberately not a compile: the canvas already shows these values, so this
- * is the file catching up with the scene rather than the other way round, and
- * the watcher is told what the file will hold so that it keeps quiet about it
- * (see `noteContent`).
- */
+/** Not a compile: the canvas already shows these values; the watcher is told what the file will hold. */
 export async function writeProject(dir: string, edits: SourceEdit[]): Promise<WriteResult> {
   try {
     return await applyEdits(sourceContext(dir), edits);
@@ -960,16 +774,9 @@ export async function writeProject(dir: string, edits: SourceEdit[]): Promise<Wr
   }
 }
 
-// ---------------------------------------------------------------------------
-// Assets
-
-/** The asset manifest's file name. */
 export const MANIFEST_FILE = "assets.yml";
 
-/**
- * A `source` of the asset library as an absolute path: absolute already, or
- * relative to the project. Refuses to leave the project for a relative one.
- */
+/** Refuses a relative source that leaves the project. */
 function sourcePath(dir: string, source: string): string {
   if (isAbsolute(source)) return source;
   const path = resolve(dir, source);
@@ -977,7 +784,6 @@ function sourcePath(dir: string, source: string): string {
   return path;
 }
 
-/** The manifest as plain data, or null when the project has none. */
 export async function readManifest(dir: string): Promise<unknown> {
   let text: string;
   try {
@@ -989,11 +795,7 @@ export async function readManifest(dir: string): Promise<unknown> {
   return parseYaml(text) ?? null;
 }
 
-/**
- * Writes the manifest as YAML. Atomic (temp file + rename), so a crash
- * mid-write leaves the old manifest and no reader ever sees half of one, and
- * claimed first so the watcher does not hand it back as a change.
- */
+/** Atomic (temp + rename), and claimed first so the watcher does not report it as a change. */
 export async function writeManifest(dir: string, manifest: unknown): Promise<void> {
   const path = join(dir, MANIFEST_FILE);
   const text = `# plan.video asset library. Edited by the app; hand edits are read on the next load.
@@ -1002,25 +804,16 @@ ${stringifyYaml(manifest, { lineWidth: 0 })}`;
   await writeFileAtomic(path, text);
 }
 
-// ---------------------------------------------------------------------------
-// Config
-
-/** The package.json field the project's config lives under. */
 const CONFIG_FIELD = "planvideo";
-/** The field's name before the app was renamed: still read, and dropped on the next write. */
+/** Older projects' field name: still read, dropped on the next write. */
 const LEGACY_CONFIG_FIELD = "diffusion";
 
-/** The project's config (package.json `planvideo`), or null when there is none. */
 export async function readConfig(dir: string): Promise<unknown> {
   const pkg = await readPackage(dir);
   return pkg?.[CONFIG_FIELD] ?? pkg?.[LEGACY_CONFIG_FIELD] ?? null;
 }
 
-/**
- * Replaces the project's config in its package.json (removes the field for
- * null), leaving the rest of the record alone. The watcher is told to keep
- * quiet about it, like the manifest: the app already shows these values.
- */
+/** Null removes the field. Claimed first so the watcher stays quiet. */
 export async function writeConfig(dir: string, config: unknown): Promise<void> {
   const pkg = (await readPackage(dir)) ?? packageJson(basename(dir), basename(dir));
   const next: PackageJson = { ...pkg };
@@ -1030,7 +823,6 @@ export async function writeConfig(dir: string, config: unknown): Promise<void> {
   await writePackage(dir, next);
 }
 
-/** Entries of a directory; [] when it is missing or not a directory. */
 export async function listEntries(dir: string, source: string): Promise<FsEntry[]> {
   const path = sourcePath(dir, source);
   let names: import("node:fs").Dirent[];
@@ -1040,8 +832,7 @@ export async function listEntries(dir: string, source: string): Promise<FsEntry[
     return [];
   }
   const entries = await Promise.all(names.map(async (entry): Promise<FsEntry | null> => {
-    // Symlinks count as whatever they point at, so media linked into `assets/`
-    // is listed like a file that sits there. A broken link stats away to null.
+    // Symlinks count as their target, so linked media is listed; a broken link is null.
     if (!entry.isFile() && !entry.isDirectory() && !entry.isSymbolicLink()) return null;
     try {
       const info = await stat(join(path, entry.name));
@@ -1051,8 +842,7 @@ export async function listEntries(dir: string, source: string): Promise<FsEntry[
         kind: info.isDirectory() ? "directory" : "file",
         size: info.size,
         mtime: info.mtimeMs,
-        // What a link points at may be anywhere, including somewhere the
-        // caller is already inside; `realPathEntry` is how it finds out.
+        // A link may point back into a folder the caller is already inside (see `realPathEntry`).
         ...(entry.isSymbolicLink() ? { link: true } : {}),
       };
     } catch {
@@ -1062,7 +852,6 @@ export async function listEntries(dir: string, source: string): Promise<FsEntry[
   return entries.filter((entry): entry is FsEntry => entry !== null);
 }
 
-/** Size and mtime of a file, or null when it does not exist. */
 export async function statEntry(dir: string, source: string): Promise<FsStat | null> {
   try {
     const info = await stat(sourcePath(dir, source));
@@ -1072,11 +861,7 @@ export async function statEntry(dir: string, source: string): Promise<FsStat | n
   }
 }
 
-/**
- * Where `source` really is, symlinks resolved; null when it does not exist.
- * What a scan of `assets/` asks to tell a link that doubles back — one
- * pointing at a folder the scan is already inside — from an ordinary one.
- */
+/** Lets a scan of `assets/` spot a link that doubles back into a folder it is already inside. */
 export async function realPathEntry(dir: string, source: string): Promise<string | null> {
   try {
     return await realpath(sourcePath(dir, source));
@@ -1086,14 +871,8 @@ export async function realPathEntry(dir: string, source: string): Promise<string
 }
 
 /**
- * Removes a file or directory inside the project; missing is fine.
- *
- * A symlink is removed as itself: the link goes and the media it points at
- * stays, which is what makes taking a linked asset out of the library cost
- * nothing. What lies *behind* a link is not the project's to delete, though —
- * the files inside a linked folder are the user's originals, and `rm` would
- * follow the link and take them off the disk for good. So anything whose real
- * place is outside the project is refused.
+ * Missing is fine. A symlink is removed as itself; anything whose real place is outside the
+ * project is refused, since `rm` would follow a linked folder and delete the user's originals.
  */
 export async function removeEntry(dir: string, path: string): Promise<void> {
   if (isAbsolute(path)) throw new Error("Only project files can be removed");
@@ -1103,11 +882,10 @@ export async function removeEntry(dir: string, path: string): Promise<void> {
   let real: string;
   try {
     root = await realpath(dir);
-    // The link itself, not what it resolves to: only the folders above it are
-    // followed, so a link inside the project stays inside it.
+    // Resolve only the parent folders, so a link inside the project counts as inside it.
     real = join(await realpath(dirname(target)), basename(target));
   } catch {
-    return; // Nothing holding it, so nothing to remove.
+    return;
   }
   const rel = relative(root, real);
   if (!rel || rel.startsWith("..") || isAbsolute(rel)) {
@@ -1118,44 +896,23 @@ export async function removeEntry(dir: string, path: string): Promise<void> {
   await rm(target, { recursive: true, force: true });
 }
 
-// ---------------------------------------------------------------------------
-// Watch
-
 const watchers = new Map<string, FSWatcher>();
 
 /**
- * What the app believes is on disk, by absolute path: a digest of the content
- * of every file it has written, and of every change it has already been told
- * about. The watcher stays on — anything else may be editing these files, and
- * should still reach the canvas — but the app's own writes must not come back
- * as a change, or every key stamp and every dragged rect would cost a
- * recompile and a remount of the scene the user is looking at.
- *
- * Identity rather than timing, which is what makes this exact. A change is the
- * app's own when the bytes on disk are the bytes it meant to put there, however
- * long the event takes to arrive: an outside edit is never swallowed for
- * landing too soon after one of ours, and one of ours never gets through for
- * landing too late. A write that changes nothing — a formatter saving back what
- * it was given, a checkout of the blob already there — costs nothing either.
+ * Digest of what the app believes is on disk, so its own writes don't come back as changes
+ * (each would cost a recompile and remount) while outside edits always do. Content
+ * identity, not timing, makes this exact.
  */
 const known = new Map<string, string>();
 
-/** Digests for what has no content: a file that is not there, and a folder. */
 const ABSENT = "";
 const FOLDER = "folder";
 
-/**
- * Above this a file is fingerprinted by size and mtime rather than by content:
- * the library holds whole videos, and re-reading one to answer an event would
- * cost more than the reload it saves. A rename carries both across untouched,
- * so a fingerprint taken from a temp file still answers for the file it
- * becomes (see `noteRenamed`).
- */
+/** Above this, fingerprint by size + mtime: re-reading whole videos costs more than a reload. A rename keeps both. */
 const DIGEST_MAX = 8 * 1024 * 1024;
 
 const digest = (content: Buffer | string): string => createHash("sha1").update(content).digest("hex");
 
-/** What `path` holds now: a digest of its content, or `ABSENT` / `FOLDER`. */
 async function digestOf(path: string): Promise<string> {
   try {
     const info = await stat(path);
@@ -1168,12 +925,8 @@ async function digestOf(path: string): Promise<string> {
 }
 
 /**
- * Claims the content a write is about to put at `path` — or, for null, that it
- * is about to take what is there away. Before the write rather than after: the
- * event can arrive the instant the bytes land, and it is answered by comparing
- * them against this. A write that fails halfway leaves the claim wrong, which
- * the next event corrects by reporting a change nobody made — the safe way
- * round, and self-correcting either way.
+ * Claim before the write: the event can arrive the instant the bytes land. A failed write
+ * leaves a wrong claim, which the next event corrects by reporting a change (the safe side).
  */
 export function noteContent(path: string, text: string | null): void {
   if (text === null) known.set(path, ABSENT);
@@ -1181,16 +934,7 @@ export function noteContent(path: string, text: string | null): void {
   else known.set(path, digest(text));
 }
 
-/**
- * Claims the content of the temp file `temp` as what will be found at `as`.
- *
- * The one write whose content the app never holds in one piece is a streamed
- * one — an asset encoded straight to disk. It lands in a temp file, which the
- * watcher ignores, and is renamed into place once it is whole; claiming it
- * from the temp just before that rename is what leaves no window at all. A
- * rename changes neither the bytes nor the mtime, so what is claimed here is
- * exactly what an event will find at `as`.
- */
+/** For streamed writes: claimed from the temp just before the rename, which keeps bytes and mtime. */
 export async function noteRenamed(temp: string, as: string): Promise<void> {
   known.set(as, await digestOf(temp));
 }
@@ -1198,10 +942,8 @@ export async function noteRenamed(temp: string, as: string): Promise<void> {
 export function watchProject(window: BrowserWindow | null, dir: string): void {
   if (watchers.has(dir)) return;
 
-  // Events are answered one at a time: answering one means reading the file
-  // back, and two reads in flight could settle out of order, leaving `known`
-  // holding the older of two contents — and with it a change that would then
-  // never be reported.
+  // One event at a time: two reads in flight could settle out of order and leave `known`
+  // holding the older content, hiding a real change.
   let queue: Promise<void> = Promise.resolve();
 
   const watcher = watch(dir, { recursive: true }, (_event, filename) => {
@@ -1209,9 +951,8 @@ export function watchProject(window: BrowserWindow | null, dir: string): void {
     // Project-relative and `/`-separated; installs churn node_modules constantly.
     const path = filename.split(sep).join("/");
     if (path.startsWith("node_modules/") || path === "node_modules") return;
-    // The app's folder: a docs refresh writes the whole tree in one burst.
+    // A docs refresh writes the whole app folder in one burst.
     if (path.startsWith(`${APP_DIR}/`) || path === APP_DIR) return;
-    // Half a file by definition, and renamed away the moment it is whole.
     if (isTempPath(path)) return;
 
     const file = join(dir, filename);
@@ -1231,8 +972,6 @@ export function watchProject(window: BrowserWindow | null, dir: string): void {
 export function unwatchProject(dir: string): void {
   watchers.get(dir)?.close();
   watchers.delete(dir);
-  // What the folder holds while nobody is watching is not the app's to
-  // remember: the next watch starts from a fresh load of the project anyway.
   const prefix = dir.endsWith(sep) ? dir : dir + sep;
   for (const path of known.keys()) if (path.startsWith(prefix)) known.delete(path);
 }

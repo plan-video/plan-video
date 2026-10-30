@@ -2,20 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The hosted connector: an MCP server agents (Claude, Codex, Cursor and the
-// like) reach over the internet, whose tools run in the user's open
-// plan.video tab. Three doors, all behind the site's reverse proxy on
-// plan.video:
-//
-//   /mcp                                     an agent, with a token Supabase's
-//                                            OAuth server granted it
-//   /.well-known/oauth-protected-resource    where the agent learns who
-//                                            grants those tokens (Supabase Auth)
-//   /api/mcp/tab                             a WebSocket from each plan.video
-//                                            tab, signed in as its user
-//
-// Stateless: each MCP request gets a fresh server and transport, so nothing
-// about the agent's side outlives a request. The only state is the open tabs.
+// Agents reach /mcp with a token from Supabase's OAuth server; the tools run in the user's
+// open plan.video tab over /api/mcp/tab. Stateless: each MCP request gets a fresh server and
+// transport, so the only state is the open tabs.
 
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
@@ -42,7 +31,6 @@ const BODY_MAX = 512 * KiB;
 const TAB_MESSAGE_MAX = 24 * MiB;
 /** All a tab may send before its hello is accepted: the hello, a sign-in token in JSON. */
 const HELLO_MAX = 16 * KiB;
-/** Sockets still to say hello, in all and from one address. */
 const MAX_UNVERIFIED = 500;
 const MAX_UNVERIFIED_PER_IP = 20;
 const MAX_TABS = 5000;
@@ -62,7 +50,6 @@ function loadEnv(path) {
   return env;
 }
 
-/** The site's www twin, which serves the same app: https://www.plan.video for https://plan.video. */
 function wwwOf(site) {
   const url = new URL(site);
   if (!url.hostname.startsWith("www.")) url.hostname = `www.${url.hostname}`;
@@ -74,26 +61,23 @@ for (const key of ["SUPABASE_URL", "SUPABASE_ANON_KEY"]) {
   if (!env[key]) throw new Error(`Missing ${key} in ${ENV_PATH}`);
 }
 const PUBLIC_URL = (env.PUBLIC_URL || "https://plan.video").replace(/\/$/, "");
-/** Pages that may open a tab socket: the site, and the dev server when testing. */
 const ORIGINS = new Set((env.ALLOWED_ORIGINS || [PUBLIC_URL, wwwOf(PUBLIC_URL)].join(",")).split(",").map((origin) => origin.trim()));
 const RESOURCE = `${PUBLIC_URL}${MCP_PATH}`;
 const METADATA_URL = `${PUBLIC_URL}/.well-known/oauth-protected-resource${MCP_PATH}`;
 
 const { version } = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8"));
 const catalog = JSON.parse(readFileSync(new URL("./catalog.json", import.meta.url), "utf8"));
-// The instructions send the agent's user to plan.video; a copy hosted elsewhere sends them to its own site.
+// A copy hosted elsewhere sends the agent's user to its own site.
 catalog.instructions = catalog.instructions.replaceAll("https://plan.video", PUBLIC_URL);
 const TOOL_NAMES = new Set(catalog.tools.map((tool) => tool.name));
 
 const auth = createAuth({ supabaseUrl: env.SUPABASE_URL, supabaseAnonKey: env.SUPABASE_ANON_KEY });
 const relay = new Relay({ site: PUBLIC_URL });
 
-// ---------------------------------------------------------------------------
-// Rate limits, kept in memory: a restart only forgives a few minutes.
+// Rate limits live in memory: a restart only forgives a few minutes.
 
 const windows = new Map();
 
-/** False once `name` has been seen more than `max` times in `seconds`. */
 function allow(name, max, seconds) {
   const now = Date.now();
   const entry = windows.get(name);
@@ -110,14 +94,11 @@ setInterval(() => {
   for (const [name, entry] of windows) if (entry.reset <= now) windows.delete(name);
 }, 60_000).unref();
 
-/** The client's address as the reverse proxy saw it: the last hop it appended. */
+/** The last X-Forwarded-For hop, the one the reverse proxy appended. */
 function clientIp(req) {
   const forwarded = String(req.headers["x-forwarded-for"] ?? "").split(",").map((part) => part.trim()).filter(Boolean);
   return forwarded.at(-1) ?? req.socket.remoteAddress ?? "unknown";
 }
-
-// ---------------------------------------------------------------------------
-// HTTP helpers
 
 function json(res, status, body, headers = {}) {
   res.writeHead(status, { "Content-Type": "application/json", "Cache-Control": "no-store", ...headers });
@@ -142,7 +123,7 @@ function readBody(req) {
   });
 }
 
-/** Tells the agent where to sign in, per the MCP authorization spec. */
+/** Per the MCP authorization spec. */
 function unauthorized(res, description) {
   json(
     res,
@@ -152,12 +133,8 @@ function unauthorized(res, description) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// MCP
-
 const toolError = (text) => ({ content: [{ type: "text", text }], isError: true });
 
-/** What a tab sent back, as MCP content: its text, and the frames it rendered. */
 function toContent(output) {
   const images = output.images
     .filter((image) => image && image.mediaType === "image/png" && typeof image.data === "string")
@@ -219,31 +196,20 @@ async function handleMcp(req, res) {
   await transport.handleRequest(req, res, body);
 }
 
-// ---------------------------------------------------------------------------
-// plan.video tabs
-
 const tabs = new WebSocketServer({ noServer: true, maxPayload: TAB_MESSAGE_MAX });
 
-/** Client address → how many of its sockets are still to say hello. */
 const unverified = new Map();
 let unverifiedTotal = 0;
 
-/**
- * One plan.video tab. It proves who it is with its first message, `{ type:
- * "hello", token }`, and is told `{ type: "ready" }`. After that it is sent
- * `{ type: "call", id, tool, args }`, answers `{ type: "result", id, ok, text,
- * images }` or `{ type: "result", id, ok: false, error }`, and says
- * `{ type: "active" }` when the user comes back to it.
- */
+// The first message must be `{ type: "hello", token }`; then `call` / `result` messages
+// by id, and `{ type: "active" }` when the user comes back to the tab.
 function onTab(ws, socket, ip) {
   let tab = null;
   let greeting = false;
   let alive = true;
 
-  // Until its hello is accepted the socket could be anyone's, so it may send
-  // only a hello's worth of bytes: past that it is cut off, before ws buffers
-  // the rest of a frame. (Big frames from sockets that never sign in would
-  // otherwise fill the process, and every user's tabs would drop with it.)
+  // Until its hello is accepted the socket could be anyone's: past a hello's worth of bytes it
+  // is cut off before ws buffers the rest, or big frames from unsigned sockets fill the process.
   let waiting = true;
   let received = 0;
   const count = (chunk) => {
@@ -318,8 +284,6 @@ function onTab(ws, socket, ip) {
 function refuseUpgrade(socket, status, text) {
   socket.end(`HTTP/1.1 ${status} ${text}\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`);
 }
-
-// ---------------------------------------------------------------------------
 
 const server = createServer((req, res) => {
   const path = (req.url || "").split("?")[0];

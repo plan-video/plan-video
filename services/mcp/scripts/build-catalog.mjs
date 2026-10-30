@@ -2,22 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Writes catalog.json: the tools the connector lists, its instructions, and
-// the authoring reference, taken from the sources the app itself runs so the
-// connector and the app cannot drift apart:
-//
-//   - the posting tools, as the dashboard agent has them
-//     (packages/dapi/src/tools/posts.ts, analytics.ts and library.ts), which
-//     every signed-in tab answers;
-//   - while agentic editing is on (AGENTIC_EDITING in
-//     apps/web/src/ai-editor/connector.ts), the editor AI's tools, its
-//     instructions and the authoring reference
-//     (apps/web/src/ai-editor/definitions.ts and prompt.ts).
-//
-// Run it after changing any of those, and commit the result: the server only
-// reads the JSON, so deploying needs no build.
-//
-//   node services/mcp/scripts/build-catalog.mjs
+// catalog.json is built from the sources the app runs (packages/dapi/src/tools/*, and while
+// AGENTIC_EDITING is on, apps/web/src/ai-editor/*) so the connector and app can't drift. Run
+// after changing them and commit the result: the server only reads the JSON.
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
@@ -51,7 +38,7 @@ const DESTRUCTIVE = new Set(["delete_elements", "delete_post", "publish_post"]);
 /** Tools that reach past plan.video: publishing posts on the networks. */
 const OPEN_WORLD = new Set(["publish_post"]);
 
-/** In the order an agent meets them: what's connected, the rules, the numbers, the files, then the calendar. */
+/** In the order an agent meets them. */
 const POSTING = ["social_accounts", "social_schema", "tiktok_creator", "analytics", "list_media", "schedule_post", "copy_post", "list_posts", "update_post", "delete_post", "publish_post"];
 
 /** On the website, media comes from the person's library, not a path on their machine. */
@@ -71,7 +58,7 @@ How to work:
 - When several posts are asked for, spread them sensibly over the days and times given, and don't put two on one channel at the same time.
 - After you schedule or change posts, say briefly what you did: where each goes, when, and its caption if it's short.`;
 
-/** Loads `entry` (a module's source) with esbuild, so TypeScript and `?raw` imports work under plain Node. */
+/** esbuild, so TypeScript and `?raw` imports work under plain Node. */
 async function load(contents, resolveDir) {
   // The prompt pulls its docs in with Vite's `?raw`; here they load as text.
   const raw = {

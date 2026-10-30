@@ -1,15 +1,7 @@
-// Pictures for TikTok photo posts. TikTok takes photos only by pulling them
-// from links on a domain verified for the app, so the publisher hands it links
-// to itself, under /api/publisher/photo/, which serve a post's picture from
-// cloud storage the way TikTok takes it: an upright JPEG, 1080p at most.
-// Instagram, Threads and Facebook pull pictures the same way, and Instagram
-// and Threads pull videos too, from /api/publisher/video/, as they are.
-// Instagram's feed turns down a picture taller than 4:5 or wider than 1.91:1,
-// so its links, under /api/publisher/photo/feed/, crop one into that range.
-//
-// A link names the account and the file, stops working after two hours (a
-// video's after a day, as Instagram may fetch it again while it works on it),
-// and is signed with the server's key, so nobody can make one for another file.
+// TikTok takes photos only by pulling them from links on a domain verified for the app, so the publisher
+// serves them under /api/publisher/photo/; Meta's networks pull pictures and videos the same way.
+// Instagram's feed turns down pictures outside 4:5 to 1.91:1, so /photo/feed/ crops into that range.
+// Links are signed with the server's key and run out, so nobody can make one for another file.
 
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { Readable } from "node:stream";
@@ -60,14 +52,10 @@ const FEED_TALLEST = 0.801;
 const FEED_WIDEST = 1.9;
 /** The widest picture Instagram keeps. */
 const FEED_WIDTH = 1440;
-/**
- * The longest side a feed picture is shrunk to before it's cut. Shrinking to a
- * long side takes memory by its length, and this still leaves a 1440-wide cut
- * of a panorama up to 10:1.
- */
+/** Shrinking to a long side takes memory by its length; this still leaves a 1440-wide cut of a 10:1 panorama. */
 const FEED_LONGEST = 7680;
 
-/** The middle of a `width` by `height` picture that's in Instagram's feed range. The Instagram app cuts one that's out of range from its middle too. */
+/** The Instagram app cuts an out-of-range picture from its middle too. */
 function feedCrop(width, height) {
   const ratio = width / height;
   return ratio < FEED_TALLEST
@@ -77,7 +65,6 @@ function feedCrop(width, height) {
       : { width, height };
 }
 
-/** A picture as Instagram's feed takes it: upright, a JPEG, and cut from the middle to 4:5 to 1.91:1. */
 export async function forFeed(bytes) {
   if (!(await loadSharp())) return null;
   const meta = await sharp(bytes, LIMITS).metadata();
@@ -124,7 +111,6 @@ export function createPhotos({ key, publicUrl, media, now = () => Date.now() }) 
   const signFeed = (userId, fileId, until) => createHmac("sha256", secret).update(`feed/${userId}/${fileId}/${until}`).digest("base64url");
   const FEED_PATH = `${PHOTO_PATH}feed/`;
 
-  /** The account and file a link is for, while it lasts and its signature holds. */
   function read(path, prefix = PHOTO_PATH, signer = sign, ending = /\.jpg$/) {
     const parts = path.slice(prefix.length).replace(ending, "").split("/");
     if (parts.length !== 4) return null;
@@ -141,25 +127,22 @@ export function createPhotos({ key, publicUrl, media, now = () => Date.now() }) 
   };
 
   return {
-    /** A link TikTok can pull the picture from for the next two hours. */
     link(userId, fileId) {
       const until = String(now() + LINK_MS);
       return `${publicUrl}${PHOTO_PATH}${userId}/${fileId}/${until}/${sign(userId, fileId, until)}.jpg`;
     },
 
-    /** The same, with the picture cut to a shape Instagram's feed takes. */
     feedLink(userId, fileId) {
       const until = String(now() + LINK_MS);
       return `${publicUrl}${FEED_PATH}${userId}/${fileId}/${until}/${signFeed(userId, fileId, until)}.jpg`;
     },
 
-    /** A link a network can pull the video from, as it is, for the next day. */
     videoLink(userId, fileId) {
       const until = String(now() + VIDEO_LINK_MS);
       return `${publicUrl}${VIDEO_PATH}${userId}/${fileId}/${until}/${signVideo(userId, fileId, until)}.mp4`;
     },
 
-    /** Answers a link made by `videoLink`, whole or a range of it. Anything else, or a link that ran out, isn't found. */
+    /** Anything not made by `videoLink`, or run out, isn't found. */
     async serveVideo(req, res, path) {
       const target = req.method === "GET" || req.method === "HEAD" ? read(path, VIDEO_PATH, signVideo, /\.mp4$/) : null;
       const file = target ? await media.postFile(target.userId, target.fileId) : null;
@@ -198,7 +181,7 @@ export function createPhotos({ key, publicUrl, media, now = () => Date.now() }) 
       body.pipe(res);
     },
 
-    /** Answers a link made by `link` or `feedLink`. Anything else, or a link that ran out, isn't found. */
+    /** Anything not made by `link` or `feedLink`, or run out, isn't found. */
     async serve(req, res, path) {
       const feed = path.startsWith(FEED_PATH);
       const target = req.method === "GET" || req.method === "HEAD" ? (feed ? read(path, FEED_PATH, signFeed) : read(path)) : null;

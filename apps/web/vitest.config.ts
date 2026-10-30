@@ -1,6 +1,4 @@
-// Tests of the web app's own logic, run in Node: `npm test` in apps/web.
-// Only plain modules are tested this way (no components, no browser APIs);
-// what they need from the browser is given to them.
+// Runs in Node: only plain modules (no components, no browser APIs).
 
 import { resolve } from "node:path";
 import { defineConfig } from "vitest/config";

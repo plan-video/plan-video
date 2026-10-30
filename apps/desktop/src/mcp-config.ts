@@ -2,31 +2,16 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// How the app's MCP server is written into each agent's config, as pure
-// text transforms: no file system, no Electron, so the merge rules are
-// testable. `mcp-install.ts` decides which files and does the I/O.
+// Pure text transforms (no fs, no Electron), so the merge rules are testable; mcp-install.ts does the I/O.
 
-/**
- * The two ways to reach the app. Agents that speak Streamable HTTP get the
- * URL, which is the same on every machine; the rest get the bundled `dapi`
- * binary in stdio proxy mode. On Windows that binary is a `.cmd`, which
- * nothing can spawn without a shell, so the command is `cmd` and the shim's
- * path rides in `args`.
- */
+/** On Windows the `dapi` binary is a `.cmd`, which cannot spawn without a shell, so the command is `cmd`. */
 export type McpServerSpec = { url: string; command: string; args: string[] };
 
-/**
- * The key our entry lives under in every agent's server map, and so the
- * namespace an agent shows us under: `mcp__planvideo__<tool>` and
- * `/planvideo:<prompt>`. The same word as our URL scheme and the CLI's
- * primary name (`dapi` still works there too, as an alias).
- */
+/** Also the namespace agents show us under (`mcp__planvideo__<tool>`), so don't rename it. */
 export const SERVER_NAME = "planvideo";
 
-/** One agent's config entry: what its file format spells a server as. */
 export type ServerEntry = Record<string, string | string[] | boolean>;
 
-/** The stable id an agent is addressed by over IPC and in the UI. */
 export type AgentId =
   | "claude-code"
   | "claude-desktop"
@@ -38,27 +23,18 @@ export type AgentId =
   | "windsurf"
   | "opencode";
 
-/** How a config file spells its server map: JSON under `mcpServers` (or VS Code's `servers`, or OpenCode's `mcp`), or Codex's TOML tables. */
 export type ConfigFormat = "mcpServers" | "servers" | "mcp" | "toml";
 
-/**
- * A path under one of the two per-user roots. `appData` is where desktop apps
- * keep their files (Electron's `appData`: ~/Library/Application Support on
- * macOS, %APPDATA% on Windows), which keeps this table the same on every
- * platform; `mcp-install.ts` knows where the roots are.
- */
+/** `appData` is Electron's (~/Library/Application Support, %APPDATA%), so this table is the same on every platform. */
 export type AgentPath = { root: "home" | "appData"; path: string };
 
 export type AgentTarget = {
   id: AgentId;
-  /** Human name, for the UI. */
   label: string;
   /** Path whose presence means the agent is set up on this machine. */
   marker: AgentPath;
-  /** Path of the config file our entry goes into. */
   config: AgentPath;
   format: ConfigFormat;
-  /** The entry for this agent: which transport it gets, under the keys its format uses. */
   entry(spec: McpServerSpec): ServerEntry;
 };
 
@@ -68,13 +44,8 @@ const stdio = (spec: McpServerSpec): ServerEntry => ({ command: spec.command, ar
 const home = (path: string): AgentPath => ({ root: "home", path });
 const appData = (path: string): AgentPath => ({ root: "appData", path });
 
-// Agents whose MCP config we know how to write, in the order the UI lists
-// them. Claude Code's user scope is the top-level `mcpServers` of
-// ~/.claude.json, the same file `claude mcp add --scope user` edits. VS Code
-// keeps its user-level servers under `servers` in the profile's mcp.json.
-// Antigravity shares one config across its IDE and CLI, and only accepts
-// `serverUrl`. Claude Desktop's file takes stdio commands only, so it gets
-// the proxy.
+// Claude Code's user scope is ~/.claude.json's top-level `mcpServers` (as `claude mcp add --scope user`);
+// VS Code uses `servers`; Antigravity only accepts `serverUrl`; Claude Desktop takes stdio only.
 export const AGENT_TARGETS: readonly AgentTarget[] = [
   { id: "claude-code", label: "Claude Code", marker: home(".claude"), config: home(".claude.json"), format: "mcpServers", entry: http("url", { type: "http" }) },
   {
@@ -107,32 +78,20 @@ export function agentTarget(id: AgentId): AgentTarget {
   return target;
 }
 
-/** Whether the agent runs our entry over stdio, and so needs the `dapi` binary. */
 export function needsBinary(target: AgentTarget): boolean {
   return "command" in target.entry({ url: "http://x", command: "x", args: [] });
 }
 
-/**
- * The config with our entry set, leaving everything else as it was. `text`
- * is the file's current content, or null when there is none yet. Throws
- * when the file cannot be parsed: a config we cannot read is not one we
- * should overwrite.
- */
+/** Throws when the file cannot be parsed: a config we cannot read is not one we should overwrite. */
 export function upsertServer(text: string | null, format: ConfigFormat, entry: ServerEntry): string {
   return format === "toml" ? upsertToml(text, entry) : upsertJson(text, format, entry);
 }
 
-/**
- * The config with our entry taken out, everything else untouched; null when
- * the file has no entry of ours (or cannot be parsed), so there is nothing
- * to write back. Other servers and unrelated keys stay as they were.
- */
 export function removeServer(text: string | null, format: ConfigFormat): string | null {
   if (readServer(text, format) === null) return null;
   return format === "toml" ? removeToml(text as string) : removeJson(text as string, format);
 }
 
-/** Where our entry currently points, whatever keys the agent spells it with; null when there is none. */
 export type Registered = { url?: string; command?: string; args?: string[] };
 
 export function readServer(text: string | null, format: ConfigFormat): Registered | null {
@@ -150,23 +109,16 @@ export function readServer(text: string | null, format: ConfigFormat): Registere
   };
 }
 
-// What a path to our proxy has in it: the app's name inside a macOS bundle
-// (or the translocated mount a quarantined bundle ran from), the Squirrel
-// package id in the Windows shim folder.
+// Our proxy's path: the app inside a macOS bundle (or its translocated mount), or the Windows Squirrel shim folder.
 const OUR_PATHS = ["plan.video", "/AppTranslocation/", "\\plan.video\\"];
 
-/**
- * Whether a stdio entry runs our proxy — from wherever the app was when the
- * entry was written — rather than something the user put under our name by
- * hand. The path is the command itself, or on Windows an argument to `cmd`.
- */
+/** Tells our proxy apart from something the user put under our name by hand. */
 export function runsOurProxy(registered: Registered): boolean {
   return [registered.command ?? "", ...(registered.args ?? [])].some((part) =>
     OUR_PATHS.some((marker) => part.includes(marker)),
   );
 }
 
-/** Whether a stdio entry already is what `entry` would write. */
 export function sameCommand(registered: Registered, entry: ServerEntry): boolean {
   const args = Array.isArray(entry.args) ? entry.args : [];
   return (
@@ -175,8 +127,6 @@ export function sameCommand(registered: Registered, entry: ServerEntry): boolean
     (registered.args ?? []).every((arg, index) => arg === args[index])
   );
 }
-
-// --- JSON ------------------------------------------------------------------
 
 type JsonFormat = Exclude<ConfigFormat, "toml">;
 type JsonConfig = Record<string, unknown>;
@@ -221,10 +171,7 @@ function readJson(text: string, root: JsonFormat): Record<string, unknown> | nul
   return typeof entry === "object" && entry !== null ? (entry as Record<string, unknown>) : null;
 }
 
-// --- TOML (Codex) ----------------------------------------------------------
-
-// Our table, from its header up to the next table header or the end. A
-// header line is `[...]` at column 0; indented or commented ones are not.
+// A header line is `[...]` at column 0; indented or commented ones are not.
 const TOML_TABLE = new RegExp(String.raw`^\[mcp_servers\.${SERVER_NAME}\][^\n]*\n(?:(?!\[)[^\n]*\n?)*`, "m");
 
 function tomlString(value: string): string {
@@ -249,8 +196,7 @@ function upsertToml(text: string | null, entry: ServerEntry): string {
   return `${current}${separator}${table}`;
 }
 
-// Drops our table, then the blank lines it used to sit between so the file
-// does not end in (or contain) a growing gap after a connect/disconnect cycle.
+// Also drops the blank lines around it, so connect/disconnect cycles don't grow a gap.
 function removeToml(text: string): string {
   const rest = text.replace(TOML_TABLE, "").replace(/\n{3,}/g, "\n\n").trimEnd();
   return rest === "" ? "" : `${rest}\n`;

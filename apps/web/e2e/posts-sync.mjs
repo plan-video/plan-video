@@ -1,6 +1,4 @@
-// Posts in step between two devices of one person, and a tab that never
-// opens the dashboard, through the posts table (lib/post-sync.ts). See
-// helpers.mjs for how to run it.
+// See helpers.mjs for how to run it.
 
 import { assert, launch, openDashboard, person, post, postIn, rest, serverPost, sleep, step, inStore, SITE, until } from "./helpers.mjs";
 

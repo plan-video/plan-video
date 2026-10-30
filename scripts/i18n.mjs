@@ -3,12 +3,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The website's translations (apps/web/src/lib/i18n.ts). Finds every English
-// string the app shows through t(), msg() and rich(), and checks each
-// language's words in apps/web/src/locales/<code>.json against them. With
-// plan.video's website there (apps/web/site, a repository of its own), its
-// strings too: those only the site shows live in apps/web/site/locales.
-//
 //   node scripts/i18n.mjs                 how far along each language is; fails on a broken translation
 //   node scripts/i18n.mjs sync            drops words the app no longer uses, in the order the app has them
 //   node scripts/i18n.mjs missing fr      fr's untranslated strings, as JSON: [{ id, text, where }]
@@ -32,9 +26,6 @@ const HAS_SITE = existsSync(SITE_SRC);
 const I18N = join(SRC, "lib/i18n.ts");
 const CONTEXT = "\u0004";
 
-// ---------------------------------------------------------------------------
-// Finding the strings
-
 function sourceFiles(dir, out = []) {
   // The app's files first, in order, then the site's: the order the words are kept in.
   if (!dir) return (HAS_SITE ? [SRC, SITE_SRC] : [SRC]).flatMap((root) => sourceFiles(root, []).sort());
@@ -47,13 +38,11 @@ function sourceFiles(dir, out = []) {
   return out;
 }
 
-/** A source file's place as the reports name it: from apps/web/src, the site's as ../site/src/…. */
 const isSiteFile = (rel) => rel.startsWith("../site/");
 
 const parse = (file) =>
   ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true, file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
 
-/** The names t, msg and rich go by in a file that imports them from lib/i18n. */
 function i18nNames(source) {
   const names = new Map();
   for (const statement of source.statements) {
@@ -74,7 +63,6 @@ function i18nNames(source) {
 const isFunction = (node) =>
   ts.isFunctionLike(node) || ts.isClassStaticBlockDeclaration(node);
 
-/** Every string `node` can be: a literal, either side of a ?:, a { message, context }. */
 function keysOf(node, problems, where) {
   if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) return [node.text];
   if (ts.isParenthesizedExpression(node) || ts.isAsExpression(node) || ts.isSatisfiesExpression?.(node)) return keysOf(node.expression, problems, where);
@@ -97,7 +85,6 @@ function keysOf(node, problems, where) {
   return []; // A variable: its words were marked where they were written.
 }
 
-/** Every key, in the order the app has them, with the files that use it. */
 function extract() {
   const keys = new Map();
   const problems = [];
@@ -131,10 +118,6 @@ function extract() {
   return { keys, problems, warnings };
 }
 
-// ---------------------------------------------------------------------------
-// Checking a translation against its English
-
-/** A message's arguments and tags, or a reason it can't be read. */
 function shape(message) {
   const args = new Set();
   const tags = [];
@@ -199,7 +182,6 @@ function shape(message) {
   return { args: [...args].sort().join(","), tags: tags.sort().join(",") };
 }
 
-/** Why `translation` can't stand in for `source`, if it can't. */
 function problemWith(source, translation) {
   if (typeof translation !== "string" || !translation.trim()) return "empty";
   const english = source.includes(CONTEXT) ? source.slice(source.indexOf(CONTEXT) + 1) : source;
@@ -220,9 +202,6 @@ function problemWith(source, translation) {
   return undefined;
 }
 
-// ---------------------------------------------------------------------------
-// The languages
-
 function languages() {
   const text = readFileSync(I18N, "utf8");
   const block = text.slice(text.indexOf("export const LANGUAGES"));
@@ -232,15 +211,10 @@ function languages() {
 const localePath = (code) => join(LOCALES, `${code}.json`);
 const siteLocalePath = (code) => join(SITE_LOCALES, `${code}.json`);
 const readJson = (path) => (existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) : {});
-/** The language's words, the site's with them where the site is there. */
 const readLocale = (code) => ({ ...readJson(localePath(code)), ...(HAS_SITE ? readJson(siteLocalePath(code)) : {}) });
 const idOf = (key) => createHash("sha1").update(key).digest("base64url").slice(0, 8);
 
-/**
- * Writes the language's words in the order the app has them, without any it
- * no longer uses: those only the site shows into the site's file, the rest
- * into the app's.
- */
+// Words only the site shows go into the site's file, the rest into the app's.
 function writeLocale(code, words, keys) {
   const app = {};
   const site = {};
@@ -256,7 +230,7 @@ function writeLocale(code, words, keys) {
   }
 }
 
-/** Holds `<code>.json` for one writer at a time; a lock left over two minutes is taken as abandoned. */
+// A lock left over two minutes is taken as abandoned.
 async function lockLocale(code) {
   const path = `${localePath(code)}.lock`;
   for (let tries = 0; ; tries++) {
@@ -277,9 +251,6 @@ function requireLanguage(code) {
     process.exit(1);
   }
 }
-
-// ---------------------------------------------------------------------------
-// Commands
 
 const [command = "check", ...rest] = process.argv.slice(2);
 
@@ -360,7 +331,6 @@ if (command === "check" || command === "sync") {
 } else if (command === "unwrapped") {
   const roots = rest.length ? rest.map((path) => resolve(SRC, path)) : HAS_SITE ? [SRC, SITE_SRC] : [SRC];
   const SHOWN = new Set(["title", "aria-label", "placeholder", "alt", "label", "description", "aria-description", "aria-valuetext", "aria-roledescription", "hint", "heading", "text", "tooltip", "subtitle", "caption", "message", "emptyText", "pendingLabel", "unavailableLabel", "confirmLabel", "cancelLabel", "actionLabel"]);
-  // Names that read the same in every language.
   const BRANDS = /^(plan\.video|plan|video|TikTok|YouTube|Instagram|X|LinkedIn|Bluesky|Threads|Facebook|Pinterest|Discord|Claude|Claude Code|Claude Desktop|Codex|Cursor|Gemini|Gemini CLI|ChatGPT|OpenAI|Anthropic|MCP|VS Code|Copilot|Windsurf|Zed|Valorant|CS2|Supabase|Stripe|Google|GitHub|Apple|Windows|macOS|Chrome|Safari|Firefox|MP4|WebM|MOV|GIF|PNG|JPG|JPEG|SVG|WAV|MP3|4K|HD|FPS|fps|px|ms|AI|API|URL|ID|OK|hello@plan\.video)$/;
   const looksLikeWords = (text) => {
     const trimmed = text.replace(/\s+/g, " ").trim();

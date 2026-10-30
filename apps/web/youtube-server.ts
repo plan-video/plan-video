@@ -8,10 +8,7 @@ import type { Plugin } from "vite";
 import { handleYouTube, json, Refused } from "../../services/youtube/handler.mjs";
 import { serverEnv } from "./server-env";
 
-/**
- * Dev-server routes under `/api/youtube`. The client secret stays in
- * `apps/web/server.env` and never enters the browser bundle.
- */
+// The client secret stays in apps/web/server.env, out of the browser bundle.
 export function youtubeDevPlugin(envDir: string, mode: string): Plugin {
   return {
     name: "plan-youtube",

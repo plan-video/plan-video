@@ -1,10 +1,3 @@
-// How much an account may store: links signed at once can't all pass the
-// same check, a link counts from when it's signed until it's long dead, and
-// only a post that went out puts files under the larger sent/ ceiling. Runs
-// without R2 or Supabase: both are played here.
-//
-//   node --test services/storage/quota.test.mjs
-
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, writeFileSync } from "node:fs";
@@ -33,9 +26,7 @@ const MiB = 1024 * 1024;
 const GB = 1000 ** 3;
 const HOUR = 60 * 60 * 1000;
 
-// ---------------------------------------------------------------------------
-// The bucket, in memory. Every call waits a moment, so calls made together
-// interleave the way they do against R2.
+// Every bucket call waits a moment, so calls made together interleave the way they do against R2.
 
 /** key → { size, at } */
 const bucket = new Map();
@@ -67,14 +58,9 @@ s3.send = async (command) => {
   throw new Error(`No fake for ${command.constructor.name}`);
 };
 
-/** The browser sending a file of `size`, the size its link signed, to the link's key. */
 const land = (signed, size) => bucket.set(signed.key, { size, at: Date.now() });
 
-/** Puts a file in the bucket as if uploaded long ago. */
 const stored = (key, size) => bucket.set(key, { size, at: Date.now() - 30 * 24 * HOUR });
-
-// ---------------------------------------------------------------------------
-// Supabase: who each token is, and which posts the publisher sent.
 
 /** `${owner}/${post}` of posts with a delivery in `sent`. */
 const delivered = new Set();
@@ -115,7 +101,7 @@ after(() => {
 
 const req = (token = "owner-token") => ({ headers: { authorization: `Bearer ${token}` } });
 let users = 0;
-/** A fresh account, so one test's files and holds don't reach another's. */
+/** So one test's files and holds don't reach another's. */
 const someone = (plan = "free") => ({ id: `user-${++users}`, plan });
 const video = (user, id, size, extra = {}) => upload(user, { purpose: "posts", id, contentType: "video/mp4", size, ...extra }, req());
 const status = (promise) => promise.then(() => 200, (error) => (error instanceof Refused ? error.status : Promise.reject(error)));
@@ -129,8 +115,6 @@ function later(ms) {
   Date.now = () => now() + ms;
   return () => (Date.now = now);
 }
-
-// ---------------------------------------------------------------------------
 
 test("the link signs the file's size, so R2 takes no other size than the one held", async () => {
   const signed = await video(someone(), "clip", 1234);
@@ -157,7 +141,6 @@ test("a carousel that fits goes through whole, all at once", async () => {
   );
   assert.equal(pictures.length, 10);
   assert.equal((await usage(user)).used, 5 * GB - 100 * MiB + 80 * MiB);
-  // The next one past the plan is turned away.
   assert.equal(await status(video(user, "post2", 30 * MiB)), 413);
 });
 

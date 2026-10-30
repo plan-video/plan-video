@@ -1,16 +1,7 @@
-// "Sign in with Bluesky", held on the server so the publisher can post for the
-// account at any hour. plan.video is a confidential OAuth client: its metadata
-// and public key are served from /api/publisher/bluesky/client.json, and its
-// private key stays here. Sessions are sealed in bluesky_sessions, one per
-// person and Bluesky account: two people who connect the same Bluesky account
-// each sign in and keep a session of their own, so one signing in again or
-// disconnecting never ends the other's.
-//
-// A browser never gets the session. When it comes back from Bluesky, the
-// server finishes the sign-in and hands back a short ticket naming the person,
-// the workspace and the Bluesky account; the browser shows that ticket once to
-// attach the account to one of its connections, so nobody can attach an
-// account they didn't sign in to, nor in a workspace they didn't sign in for.
+// plan.video is a confidential OAuth client: metadata and public key at /api/publisher/bluesky/client.json,
+// private key here. One sealed session per person and Bluesky account, so one reconnecting never ends another's.
+// A browser never gets the session, only a short ticket naming person, workspace and account, shown once
+// to attach it, so nobody can attach an account they didn't sign in to, nor in another workspace.
 
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
@@ -23,10 +14,8 @@ import { TICKET_MS, blueskyBinding, sealer } from "./vault.mjs";
 const SCOPE = "atproto transition:generic";
 
 /**
- * Why this Node can't run "Sign in with Bluesky", or null if it can. The
- * library's SSRF guard needs the undici version Node reports, and distro builds
- * (the server's /usr/bin/node) leave it out, so every sign-in and Bluesky post
- * would fail while the rest of the publisher looks fine.
+ * The library's SSRF guard needs the undici version Node reports, and distro builds leave it out,
+ * so every sign-in and Bluesky post would fail while the rest of the publisher looks fine.
  */
 export function blueskyNodeProblem(versions = process.versions) {
   const [major = 0, minor = 0, patch = 0] = (versions.undici || "").split(".").map(Number);
@@ -43,25 +32,14 @@ export async function createBlueskyOAuth({ db, sealKey, privateJwk, publicUrl })
   const states = new Map();
   const binding = blueskyBinding;
 
-  // The address a sign-in resolves to comes from the user: the handle they
-  // type, or a server URL. @atproto guards handle resolution (the same way
-  // pds-fetch.mjs guards app-password calls), but not its own OAuth metadata,
-  // PAR, token and revoke requests, which otherwise go through plain fetch;
-  // without this, a "handle" like http://127.0.0.1:8798 or https://10.0.0.1
-  // would send the publisher to the other services on this box (SSRF). So every
-  // request this client makes is wrapped too: https on the usual port and a
-  // public (unicast) address, checked as it connects so DNS can't swap one in.
-  // It calls whatever fetch is in place, so tests can stand in for the network.
-  // allowImplicitRedirect lets the client's own requests (which follow
-  // redirects) through; each hop is still checked, so a redirect to a private
-  // address is refused like a direct one.
+  // Sign-in addresses come from the user. @atproto guards handle resolution but not its own OAuth metadata,
+  // PAR, token and revoke requests, so a "handle" pointing at a loopback address could reach the other services
+  // on this box (SSRF). Every request is wrapped: https, usual port, public address checked as it connects
+  // so DNS can't swap one in; each redirect hop is checked too.
   const safeFetch = safeFetchWrap({ fetch: (input, init) => globalThis.fetch(input, init), ssrfProtection: true, allowImplicitRedirect: true });
 
-  /**
-   * plan.video's client, over one person's sign-ins and sessions. The library
-   * keeps one session per Bluesky account in the store it's given, and ends the
-   * one there before keeping a new one, so each person gets a store of their own.
-   */
+  // The library keeps one session per Bluesky account in its store and ends the one there before keeping
+  // a new one, so each person gets a store of their own.
   const clientFor = (userId) =>
     new NodeOAuthClient({
       fetch: safeFetch,
@@ -84,8 +62,7 @@ export async function createBlueskyOAuth({ db, sealKey, privateJwk, publicUrl })
       },
       keyset,
       requestLock: requestLocalLock,
-      // Sign-ins in progress, each finished only by the person who started it.
-      // A restart in the middle of one means starting it again.
+      // Each finished only by the person who started it; a restart in the middle means starting again.
       stateStore: {
         async set(key, value) {
           const now = Date.now();
@@ -124,7 +101,6 @@ export async function createBlueskyOAuth({ db, sealKey, privateJwk, publicUrl })
     metadata: () => clientMetadata,
     jwks: () => jwks,
 
-    /** Where to send the person to approve plan.video on their Bluesky server. */
     async authorize(userId, handle) {
       const nonce = randomBytes(8).toString("hex");
       const url = await clientFor(userId).authorize(handle || "https://bsky.social", { scope: SCOPE, state: `${userId}:${nonce}` }).catch((error) => {
@@ -133,11 +109,7 @@ export async function createBlueskyOAuth({ db, sealKey, privateJwk, publicUrl })
       return url.toString();
     },
 
-    /**
-     * Finishes the sign-in Bluesky sent back, for the person who started it.
-     * Returns the account and a ticket to attach it, for `holder`: the person
-     * and workspace, as ticketBinding in vault.mjs has them.
-     */
+    /** Returns the account and a ticket to attach it for `holder` (ticketBinding in vault.mjs). */
     async callback(holder, query) {
       const userId = holder.owner;
       const params = new URLSearchParams(query);
@@ -155,10 +127,7 @@ export async function createBlueskyOAuth({ db, sealKey, privateJwk, publicUrl })
       return { did: session.did, ticket: `${until}.${nonce}.${mac(holder, session.did, until, nonce)}` };
     },
 
-    /**
-     * When the ticket says this holder signed in to this Bluesky account a few
-     * minutes ago at most, its `{ nonce, until }` so login/save takes it once; otherwise null.
-     */
+    /** `{ nonce, until }` when the ticket says this holder signed in to this account minutes ago at most, so login/save takes it once. */
     openTicket(holder, did, ticket) {
       const [until, nonce, given, extra] = String(ticket ?? "").split(".");
       if (!/^\d{1,15}$/.test(until ?? "") || !/^[0-9a-f]{24}$/.test(nonce ?? "") || !given || extra !== undefined || Number(until) <= Date.now()) return null;
@@ -167,7 +136,6 @@ export async function createBlueskyOAuth({ db, sealKey, privateJwk, publicUrl })
       return wanted.length === got.length && timingSafeEqual(wanted, got) ? { nonce, until: Number(until) } : null;
     },
 
-    /** Sends XRPC calls with the person's session for the account, refreshing it first when it has to. */
     async sender(userId, did) {
       const session = await clientFor(userId).restore(did).catch(() => {
         throw new PublishError("Bluesky login expired. Sign in with Bluesky again in Connections.", { expired: true });
@@ -175,7 +143,7 @@ export async function createBlueskyOAuth({ db, sealKey, privateJwk, publicUrl })
       return (method, init) => session.fetchHandler(`/xrpc/${method}`, init);
     },
 
-    /** Ends the person's session for the account, at Bluesky and here. Anyone else's for the same account stays. */
+    /** Anyone else's session for the same account stays. */
     async revoke(userId, did) {
       await clientFor(userId).revoke(did).catch(() => undefined);
     },

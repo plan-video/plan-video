@@ -41,8 +41,7 @@ const config: ForgeConfig = {
       !path.startsWith('/dist/') &&
       path !== '/web' &&
       !path.startsWith('/web/'),
-    // Staged by scripts/stage-{cli,runtime,docs}.mjs; end up at
-    // Contents/Resources/{cli,runtime,docs}.
+    // Staged by scripts/stage-{cli,runtime,docs}.mjs.
     extraResource: ['./cli', './runtime', './docs'],
     osxSign: process.env.SKIP_SIGN ? undefined : {},
     osxNotarize:
@@ -71,7 +70,7 @@ const config: ForgeConfig = {
     new MakerDMG({
       name: `Plan-Video-${process.arch}`,
       icon: './assets/icon.icns',
-      // Dark, on-brand window; @2x sibling is picked up automatically for retina.
+      // The @2x sibling is picked up automatically for retina.
       background: './assets/dmg-background.png',
       iconSize: 120,
       additionalDMGOptions: {

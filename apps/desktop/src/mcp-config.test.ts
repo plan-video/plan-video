@@ -53,7 +53,6 @@ describe("json configs", () => {
     const text = upsertServer(null, "servers", { type: "http", url: spec.url });
     expect(JSON.parse(text)).toEqual({ servers: { planvideo: { type: "http", url: spec.url } } });
     expect(readServer(text, "servers")).toEqual({ url: spec.url });
-    // The same file read under the other root key has nothing of ours.
     expect(readServer(text, "mcpServers")).toBeNull();
   });
 

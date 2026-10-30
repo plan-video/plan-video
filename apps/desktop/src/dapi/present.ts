@@ -11,20 +11,16 @@ import { randomUUID } from "node:crypto";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { TimecodedImage, ToolArgs, ToolName, ToolOutput, ToolResult } from "@plan.video/dapi";
 
-/** A file the tool wrote, kept in memory only long enough to decide whether to inline it. */
 export type WrittenImage = { path: string; png: Uint8Array };
 
 export type Presented = { output: unknown; images: WrittenImage[] };
 
-/** More than this, or any image larger than INLINE_MAX_BYTES, and the caller gets paths only. */
 const INLINE_MAX_IMAGES = 4;
 const INLINE_MAX_BYTES = 1 << 20;
 
 const APP_SLUG = "plan-video";
 
-/**
- * The temp dir with its real spelling. On Windows `%TEMP%` is often set with short names
- */
+/** On Windows `%TEMP%` is often set with short (8.3) names, so resolve its real spelling. */
 function tempDir(): string {
   const dir = tmpdir();
   try {
@@ -53,9 +49,6 @@ export async function present(name: ToolName, args: unknown, result: unknown): P
   }
 }
 
-// Frames and contact sheets arrive in the same shape: each image is stamped
-// with its timecode (`08s10f`, or `0f-08s10f` for a sheet), which is the
-// filename too.
 async function presentImages(images: TimecodedImage[], output: string | undefined, kind: string): Promise<Presented> {
   const dir = output ?? (await mkdtemp(join(tempDir(), `dapi-${kind}-`)));
   await mkdir(dir, { recursive: true });
@@ -70,11 +63,7 @@ async function presentImages(images: TimecodedImage[], output: string | undefine
   return { output: { images: refs }, images: written };
 }
 
-/**
- * Where a single-file tool writes: `output` when given, a fresh name under
- * the temp dir otherwise. An `output` that names an existing directory gets
- * the fresh name inside it rather than an EISDIR from writeFile.
- */
+/** An `output` that is an existing directory gets the fresh name inside it rather than EISDIR. */
 async function singleFilePath(output: string | undefined, name: string): Promise<string> {
   if (output === undefined) return join(tempDir(), name);
   const existing = await stat(output).catch(() => null);
@@ -121,7 +110,6 @@ function screenshotFilename(taken: Date, attempt: number): string {
   return `${APP_SLUG}_${date}_${time}${attempt > 1 ? `-${attempt}` : ""}.png`;
 }
 
-/** The MCP result: the output as text and structured content, plus the images when they are few and small. */
 export function toCallToolResult({ output, images }: Presented): CallToolResult {
   const content: CallToolResult["content"] = [{ type: "text", text: JSON.stringify(output) }];
   const inline = images.length <= INLINE_MAX_IMAGES && images.every((image) => image.png.byteLength <= INLINE_MAX_BYTES);
@@ -133,7 +121,6 @@ export function toCallToolResult({ output, images }: Presented): CallToolResult 
   return { content, structuredContent: output as Record<string, unknown> };
 }
 
-/** A failure the agent reads as a sentence, not a protocol error. */
 export function toErrorResult(error: unknown): CallToolResult {
   return { isError: true, content: [{ type: "text", text: (error as Error).message }] };
 }

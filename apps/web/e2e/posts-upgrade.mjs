@@ -1,7 +1,4 @@
-// A browser that has the old site's posts database (version 2, posts kept
-// in the account record's copy) opens the new site: its database is upgraded
-// in place, its changes go up, the server's newer ones come down, and nothing
-// else is written. See helpers.mjs for how to run it.
+// See helpers.mjs for how to run it.
 
 import { assert, launch, openDashboard, person, post, postIn, rest, serverPost, SITE, slice, step, until } from "./helpers.mjs";
 
@@ -10,7 +7,7 @@ await rest("/rest/v1/account_state", { method: "POST", token: me.session.access_
 const { device, finish } = await launch();
 
 const old = (id, extra = {}) => post(id, { createdAt: "2026-10-20T08:00:00.000Z", ...extra });
-// The server's copies, as the one-time copy made them; one was edited since, on the new site.
+// As the one-time copy made them; one was edited since on the new site.
 for (const id of ["same", "changed", "edited-elsewhere"]) await rest("/rest/v1/posts", { method: "POST", body: { owner_id: me.id, id, workspace_id: "default", data: old(id) } });
 await rest(`/rest/v1/posts?owner_id=eq.${me.id}&id=eq.edited-elsewhere`, { method: "PATCH", body: { data: old("edited-elsewhere", { title: "Newer on the server" }) } });
 
@@ -19,7 +16,7 @@ await step("a browser with the old site's posts database and fingerprints opens 
   await D.page.goto(`${SITE}/tools`, { waitUntil: "load" });
   await D.page.evaluate(async ([uid, posts]) => {
     const sync = await import("/src/lib/account-sync.ts");
-    // What the old site kept: its posts database at version 2, and what the account's copy last had.
+    // The old site's state: posts database version 2 and the account copy's fingerprints.
     localStorage.setItem(`plan.video.workspaces.${uid}`, JSON.stringify({ active: "default", list: [{ id: "default", name: "Mine", color: "sky", createdAt: "2026-10-01T00:00:00.000Z", members: [] }] }));
     const known = Object.fromEntries(posts.filter((post) => post.id !== "new").map((post) => [post.id, sync.legacyFingerprint(post.id === "changed" ? { ...post, title: "changed" } : post)]));
     localStorage.setItem(`plan.video.account-known.${uid}`, JSON.stringify({ default: { events: known } }));

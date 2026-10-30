@@ -7,5 +7,4 @@ import { report } from "./report";
 
 import type { MainHandlers } from "../handler";
 
-/** Every tool main answers itself, keyed by its catalog name. */
 export const mainHandlers: MainHandlers = { logs, report };

@@ -1,30 +1,23 @@
-// Posts to a Facebook Page: the words alone (with the post's link, if it has
-// one), a picture, up to 10 pictures together, a video, or one picture or
-// video as a Story. Facebook pulls each file from a signed link to the
-// publisher (photos.mjs). Its posts are made in one go, so nothing is left
-// `processing`: Facebook works on a video after the post is made.
+// Facebook pulls each file from a signed link to the publisher (photos.mjs). Posts are made in one go, so
+// nothing is left `processing`: Facebook works on a video after the post is made.
 
 import { PublishError } from "../errors.mjs";
 import { API, GRAPH_VERSION, metaFetch, publishError } from "../meta.mjs";
 import { captionOf } from "./text.mjs";
 
-/** Pictures one post takes. */
 const MAX_PICTURES = 10;
 const MAX_PICTURE_BYTES = 10 * 1024 * 1024;
-/** Videos are uploaded through Facebook's own address for them. */
 const VIDEO_API = `https://graph-video.facebook.com/${GRAPH_VERSION}`;
 
-/** The post's link, when it has one, for a preview under the words. */
 const linkOf = (post) => (typeof post.link === "string" && /^https?:\/\/\S+$/i.test(post.link.trim()) ? post.link.trim() : "");
 
-/** Where a post or video is, once made: Facebook's own address when it gives one. */
 async function urlOf(session, id, fallback) {
   const found = await metaFetch(`${API.facebook}/${id}?fields=permalink_url`, { token: session.accessToken });
   const url = found.ok && typeof found.data?.permalink_url === "string" ? found.data.permalink_url : fallback;
   return url.startsWith("/") ? `https://www.facebook.com${url}` : url;
 }
 
-/** Makes something on the Page. A lost answer may have made it anyway, so that's never tried again on its own. */
+/** A lost answer may have made it anyway, so that's never tried again on its own. */
 async function make(session, url, fields, what, { json = false } = {}) {
   const made = await metaFetch(url, { method: "POST", token: session.accessToken, ...(json ? { json: fields } : { form: fields }), timeout: 600_000 });
   if (made.error?.lost) throw new PublishError("Facebook didn't confirm the post. Check the Page, and post it again if it isn't there.");
@@ -32,7 +25,6 @@ async function make(session, url, fields, what, { json = false } = {}) {
   return made.data;
 }
 
-/** Hands Facebook a video for a Story through its upload address, from the link it pulls the file from. */
 async function storyVideo(session, link) {
   const page = session.accountId;
   const started = await metaFetch(`${API.facebook}/${page}/video_stories`, { method: "POST", token: session.accessToken, form: { upload_phase: "start" } });

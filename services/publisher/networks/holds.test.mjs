@@ -1,5 +1,3 @@
-// What each network says a send holds in memory, for the worker's memory gate (pool.mjs).
-
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -19,10 +17,8 @@ const picture = (id, size) => ({ id, key: `posts/u1/${id}`, size, type: "image/j
 test("Bluesky holds each file it sends whole, and more for a picture it shrinks", () => {
   assert.equal(bluesky.holds([]), 0);
   assert.equal(bluesky.holds([video(90 * MB)]), 180 * MB);
-  // A video goes alone, whatever pictures are beside it.
   assert.equal(bluesky.holds([picture("a", 2 * MB), video(10 * MB)]), 20 * MB);
   assert.equal(bluesky.holds([picture("a", 500_000), picture("b", 3 * MB)]), 1_000_000 + 18 * MB);
-  // Only the 4 pictures Bluesky takes.
   assert.equal(bluesky.holds(["a", "b", "c", "d", "e"].map((id) => picture(id, 100))), 800);
 });
 
@@ -34,7 +30,6 @@ test("TikTok holds a video's biggest piece; pictures it pulls itself", () => {
   assert.equal(tiktok.holds([video(40 * MB)]), 80 * MB);
   // Over that, 10 MB pieces, the last taking what's left over.
   assert.equal(tiktok.holds([video(105 * MB)]), 30 * MB);
-  // A video TikTok wouldn't take holds nothing: the send fails first.
   assert.equal(tiktok.holds([video(10_000 * MB)]), 0);
 });
 

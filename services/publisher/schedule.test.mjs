@@ -106,6 +106,5 @@ test("a post's next run: none for a post with no time, one past, or a series tha
   assert.equal(nextRunAfter({ day: ["2026-10-12"], start: "13:00", recurrence: null }, "UTC", after), null);
   assert.equal(nextRunAfter({ day: "2026-10-01", start: "09:00", recurrence: "every:1:day", recurrenceEnd: "2026-10-11" }, "UTC", after), null);
   assert.equal(nextRunAfter({ day: "2026-10-01", start: "09:00", recurrence: "every:1:day", recurrenceEnd: "2026-10-13" }, "UTC", after), at("2026-10-13T09:00:00Z"));
-  // A series every 99 months has its next run years ahead, and still has one.
   assert.equal(nextRunAfter({ day: "2026-10-01", start: "09:00", recurrence: "every:99:month" }, "UTC", after), at("2035-01-01T09:00:00Z"));
 });

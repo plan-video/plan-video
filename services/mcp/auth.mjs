@@ -2,17 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Who is asking. Supabase answers for a token (so a signed-out or deleted
-// user is refused within a minute), and the token's own claims say what
-// issued it: a connector's token carries the `client_id` of the OAuth client
-// it was granted to; the editor's own sign-in does not. Each door here
-// accepts only its own kind, so neither can stand in for the other.
-//
-// A connector's token names nobody to the rest of Supabase (the access token
-// hook in supabase/migrations/20261015180000_connector_tokens.sql), so
-// Supabase Auth, the tables and the other services all turn it away. Only
-// connector_identity, asked with the token itself, says whose it is, and only
-// while the session it was granted in still exists.
+// A connector's token carries the OAuth client's `client_id`; the editor's sign-in does not. Each
+// door accepts only its own kind. Connector tokens name nobody to the rest of Supabase (see the
+// connector_tokens migration's access token hook); only connector_identity, asked with the
+// token itself, says whose it is, and only while its session exists.
 
 const CACHE_MS = 60_000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -22,7 +15,7 @@ export function bearer(header) {
   return value && value.length <= 4096 ? value : null;
 }
 
-/** The payload of a JWT, unchecked: it only picks which of Supabase's checks to ask. */
+/** Unchecked: it only picks which of Supabase's checks to ask. */
 function claims(token) {
   try {
     return JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString("utf8"));
@@ -40,7 +33,6 @@ export function createAuth({ supabaseUrl, supabaseAnonKey, fetch: fetchImpl = fe
     for (const [token, entry] of cache) if (entry.until <= now) cache.delete(token);
   }, CACHE_MS).unref();
 
-  /** The user and OAuth client behind a token, or null when Supabase doesn't know it. */
   async function identify(token) {
     const cached = cache.get(token);
     if (cached && cached.until > Date.now()) return cached;
@@ -78,12 +70,10 @@ export function createAuth({ supabaseUrl, supabaseAnonKey, fetch: fetchImpl = fe
   }
 
   return {
-    /** A token Claude (or another OAuth client) was granted. */
     async connector(token) {
       const who = token ? await identify(token) : null;
       return who?.clientId ? who : null;
     },
-    /** The editor tab's own sign-in. */
     async editor(token) {
       const who = token ? await identify(token) : null;
       return who && who.clientId === null ? who : null;

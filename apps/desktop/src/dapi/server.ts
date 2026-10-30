@@ -13,31 +13,16 @@ import { serveCatalog } from "./tools-session";
 import type { LogEntry } from "@plan.video/dapi";
 import type { MainContext, MainToolName } from "./handler";
 
-/**
- * The name the server introduces itself with, and so the namespace an agent
- * shows the tools under: `mcp__planvideo__<tool>`. The same word as our URL
- * scheme and the CLI's primary name (`dapi` still works there too, as an
- * alias).
- */
+/** Also the namespace agents show the tools under (`mcp__planvideo__<tool>`), so don't rename it. */
 const SERVER_NAME = "planvideo";
 
 export type DapiServerDeps = {
   version: string;
-  /** The app's console buffer, for `logs` and `report`. */
   logs(): LogEntry[];
-  /** Called once, on the first connection: an agent is driving, so the UI may step back. */
   onFirstConnection(): void;
-  /** The staged docs: INSTRUCTIONS.md, their path, and the skill headers, all for every session. Null when not staged. */
   docsDir: string | null;
 };
 
-/**
- * The app's MCP server: Streamable HTTP on a fixed loopback port, the URL
- * agents register and the `planvideo` CLI calls. Each client gets its own MCP
- * session over one catalog. Main-process tools run here; renderer tools are
- * forwarded over IPC and their results presented (files written, small
- * images inlined) before they go back out.
- */
 export class DapiServer {
   private readonly deps: DapiServerDeps;
   private readonly renderer = new RendererCalls();
@@ -61,15 +46,13 @@ export class DapiServer {
     });
   }
 
-  /** The URL agents register. */
   get url(): string {
     return this.http.url;
   }
 
   start(): void {
     this.renderer.start();
-    // A taken port is the one way this fails. The app is still usable
-    // without agents, so it is logged, not fatal; `mcpUrl()` says so.
+    // A taken port is the one way this fails; the app works without agents, so it is logged, not fatal.
     this.httpReady = this.http.start().then(
       () => true,
       (error: Error) => {
@@ -79,7 +62,6 @@ export class DapiServer {
     );
   }
 
-  /** The HTTP URL once it is being served; null when the port could not be bound. */
   async mcpUrl(): Promise<string | null> {
     return (await this.httpReady) ? this.url : null;
   }
@@ -88,11 +70,9 @@ export class DapiServer {
     this.http.stop();
   }
 
-  /** One MCP server over the whole catalog. The docs and skills are plain files; the instructions say where. */
   private createSession(): McpServer {
     this.instructionsText ??= instructions(this.deps.docsDir);
-    // `name` is the machine identity, and matches the key we write into agent
-    // configs; `title` is what a client shows a person.
+    // `name` must match the key we write into agent configs; `title` is what a client shows a person.
     const session = new McpServer({ name: SERVER_NAME, title: "plan.video", version: this.deps.version }, { instructions: this.instructionsText });
     serveCatalog(session, (tool, args, signal) =>
       tool.environment === "main" ?
@@ -104,8 +84,7 @@ export class DapiServer {
 
   private runInMain(name: MainToolName, args: unknown, signal: AbortSignal): Promise<unknown> {
     const ctx: MainContext = { signal, logs: this.deps.logs, version: this.deps.version };
-    // Each handler takes its own parsed args; the map's union type cannot
-    // express that pairing, so the call site widens.
+    // The map's union type cannot pair each handler with its args, so the call site widens.
     return (mainHandlers[name] as (args: unknown, ctx: MainContext) => Promise<unknown>)(args, ctx);
   }
 }

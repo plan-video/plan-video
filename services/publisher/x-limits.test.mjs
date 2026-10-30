@@ -16,7 +16,6 @@ function setup(level = 2) {
   const users = [{ id: "u1", access_level: level }];
   const db = fakeDb({ users });
   const limits = createPlanLimits({ db, now: () => clock, log: { error() {} } });
-  /** Puts `count` posts X made, `ago` before now, with links when `link`. */
   const made = (count, ago, link = false) => {
     const at = new Date(clock - ago).toISOString();
     for (let index = 0; index < count; index++) {
@@ -68,7 +67,6 @@ test("Creator posts up to 150 times in 30 days, and the post fails past that", a
   assert.equal(error.retry, false);
   assert.equal(error.until, null);
   assert.match(error.message, /150 times in 30 days.*in 10 days/);
-  // Once the oldest are past 30 days, there's room again.
   advance(10 * DAY + HOUR);
   await limits.xAllowed("u1", false);
 });
@@ -81,7 +79,6 @@ test("links have their own, much smaller limit", async () => {
   const error = await refusal(limits.xAllowed("u1", true));
   assert.equal(error.retry, false);
   assert.match(error.message, /10 X posts with a link in 30 days.*Take the link out.*in 28 days/);
-  // A post without a link still goes.
   await limits.xAllowed("u1", false);
 });
 
@@ -89,7 +86,6 @@ test("each plan gets more, and the numbers can be set in publisher.env", async (
   assert.deepEqual(X_POSTS_BY_LEVEL, { 1: 0, 2: 150, 3: 400, 4: 800 });
   assert.deepEqual(X_LINK_POSTS_BY_LEVEL, { 1: 0, 2: 10, 3: 25, 4: 40 });
   assert.deepEqual(byLevel("0,100", X_POSTS_BY_LEVEL), { 1: 0, 2: 100, 3: 400, 4: 800 });
-  // Counted by reading rows, so no limit goes past what one read can hold.
   assert.deepEqual(byLevel(",,,5000", X_POSTS_BY_LEVEL), { 1: 0, 2: 150, 3: 400, 4: 1000 });
 
   const { db, made } = setup(3);
@@ -132,7 +128,6 @@ test("X's counts are kept 31 days, YouTube's two", async () => {
   assert.deepEqual(db.tables.publisher_uploads.map((row) => row.platform).sort(), ["x", "xlink"]);
 });
 
-/** createX with X's API answering every post with `id`, and what it was asked. */
 function realX(t, context) {
   const asked = [];
   t.mock.method(globalThis, "fetch", async (url, init = {}) => {

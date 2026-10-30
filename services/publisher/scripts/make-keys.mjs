@@ -1,19 +1,7 @@
-// Prints the publisher's own secrets as publisher.env lines: the key that
-// seals logins, and the "Sign in with Bluesky" client's private key. Run it on
-// the server, once, and append its output to /etc/plan-video/publisher.env:
-//
-//   node scripts/make-keys.mjs >> /etc/plan-video/publisher.env
-//
-// Changing TOKEN_KEY later makes every kept login unreadable, so every account
-// would have to connect again. Changing the Bluesky key ends every Bluesky sign-in.
-// So it refuses when publisher.env already holds either: a second run appended
-// to it would quietly win, as the last line does. It also refuses when the
-// database already keeps logins, as on a server rebuilt for the same database:
-// those were sealed with the key in the backup, which goes back in instead.
-// publisher.env needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY first for that
-// check; `--new-database` skips it, only for a database that has never kept a
-// login. Keep a copy of both keys off the server, and prove the copy with
-// scripts/check-keys.mjs.
+// Prints TOKEN_KEY and the Bluesky client key as lines to append to /etc/plan-video/publisher.env, once.
+// Changing TOKEN_KEY makes every kept login unreadable; changing the Bluesky key ends every Bluesky sign-in.
+// So it refuses when publisher.env holds either, or the database already keeps logins (restore the backed-up
+// key instead; `--new-database` skips that check). Keep both keys off the server; check-keys.mjs proves the copy.
 
 import { randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -72,8 +60,5 @@ if (!process.argv.includes("--new-database")) {
 console.log(`TOKEN_KEY=${randomBytes(32).toString("base64")}`);
 console.log(`BLUESKY_OAUTH_JWK=${await makeBlueskyKey()}`);
 console.log(`SEND_FROM=${new Date().toISOString()}`);
-// The site's address, for login callbacks and the links in emails: PUBLIC_URL
-// from the environment when given (`PUBLIC_URL=https://example.com node
-// scripts/make-keys.mjs`), else plan.video's. One publisher.env already has
-// stays as it is.
+// PUBLIC_URL from the environment when given, else plan.video's; one publisher.env already has stays.
 if (!own.PUBLIC_URL) console.log(`PUBLIC_URL=${process.env.PUBLIC_URL || "https://plan.video"}`);

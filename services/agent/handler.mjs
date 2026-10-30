@@ -2,61 +2,35 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The dashboard's agent chat, server side. The Anthropic key, the prompt and
-// the tools stay here; the browser sends the conversation and a sign-in token,
-// and gets one model step back as it streams. The tools run in the browser,
-// against the calendar on screen, so the browser loops: one request per step.
-//
-// The reply is newline-delimited JSON:
-//   {"type":"text","text":"..."}           words as they're written
-//   {"type":"tool","name":"schedule_post"} a tool call has begun
-//   {"type":"done","content":[...],"stop_reason":"...","sig":"..."}  the whole step
-//   {"type":"error","error":"..."}
-//
-// The browser keeps the conversation, so it could write the model's side
-// itself. Each step it gets back is signed for that person, and a step that
-// comes back without a matching signature is refused: the model's side is
-// only ever what the model wrote. Steps are also capped by what they cost,
-// per person by plan and for the whole site, and the counts outlive a restart.
+// The Anthropic key, prompt and tools stay here; the tools run in the browser, which loops
+// one request per model step. Replies are NDJSON lines typed text | tool | done | error.
+// Each step is signed for that person and unsigned ones are refused, so the model's side is
+// only ever what the model wrote. Spend is capped per person and site; counts outlive a restart.
 
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { readFileSync, renameSync, writeFileSync } from "node:fs";
 import { isIP } from "node:net";
 import Anthropic from "@anthropic-ai/sdk";
 
-/** The cheapest model: picking channels, writing captions and times needs no more. */
 const MODEL = "claude-haiku-5-5";
-/** Room for a week of posts in one step, with the thinking before it. */
 const MAX_TOKENS = 16000;
-/**
- * About 85k tokens: with the prompt and tools, a chat stays under the 100k
- * tokens past which Haiku 5.5 costs five times as much. Longer chats start anew.
- */
+/** Keeps a chat under the 100k tokens past which Haiku 5.5 costs five times as much. */
 const MAX_BODY_BYTES = 300 * 1024;
 const MAX_MESSAGES = 400;
 
 const TOOLS = JSON.parse(readFileSync(new URL("./tools.json", import.meta.url), "utf8"));
 const TOOL_NAMES = new Set(TOOLS.map((tool) => tool.name));
 
-/**
- * Spend is counted in input-token equivalents, weighted the way the API
- * bills: cache writes 1.25 times an input token, cache reads a tenth, output
- * five times. An ordinary day of scheduling uses a few hundred thousand.
- *
- * Each person's day goes by their plan, as a share of a base that is
- * Creator's: Free gets a quarter of it, Pro twice and Agency four times.
- */
+// Spend is in input-token equivalents, weighted as the API bills: cache writes 1.25x, cache
+// reads 0.1x, output 5x. Plans are shares of Creator's day: Free 1/4, Pro 2x, Agency 4x.
 const DEFAULT_PERSON_BUDGET = 4_000_000;
 const PLAN_SHARES = { 1: 0.25, 2: 1, 3: 2, 4: 4 };
 const DEFAULT_SITE_BUDGET = 200_000_000;
-/** The share of the site's day Free accounts can use between them, so they never use up what paying ones need. */
+/** Free accounts share this part of the site's day, so they never use up what paying ones need. */
 const DEFAULT_FREE_SHARE = 0.5;
-/** What Free accounts on one network can spend in a day, the agent and caption tools together: one Creator's day. */
+/** Free accounts on one network share one Creator's day, agent and caption tools together. */
 const DEFAULT_NETWORK_BUDGET = DEFAULT_PERSON_BUDGET;
-/**
- * The plan a team member's spend is sized by. Teams come with Pro and Agency,
- * and a member can't read the owner's plan, so it's Pro's.
- */
+/** A member can't read the owner's plan; teams come with Pro and Agency, so Pro's. */
 const TEAM_LEVEL = 3;
 const DAY_SECONDS = 86_400;
 
@@ -76,7 +50,6 @@ Each of their messages starts with a <context> block: the date and time now in t
 
 Write plainly and keep replies short. Use a markdown list for several posts.`;
 
-/** What the agent says when one of its day's budgets is spent. */
 const AGENT_LIMITS = {
   person: "You've reached today's limit for the agent. It's back tomorrow.",
   team: "Your team has reached today's limit for the agent. It's back tomorrow.",
@@ -96,11 +69,10 @@ export class Refused extends Error {
   }
 }
 
-/** Where the counts are kept between restarts, when the server has somewhere to write. */
 let stateFile = null;
 let writing = null;
 
-/** Reads the counts a previous run left. Call once, before serving. */
+/** Call once, before serving. */
 export function loadLimits(path) {
   stateFile = path || null;
   if (!stateFile) return;
@@ -115,7 +87,6 @@ export function loadLimits(path) {
   }
 }
 
-/** Writes the counts now, leaving out windows that are over. */
 export function saveLimits() {
   if (!stateFile) return;
   const now = Date.now();
@@ -128,7 +99,6 @@ export function saveLimits() {
   }
 }
 
-/** Writes the counts a few seconds after they change, not on every request. */
 function keepLimits() {
   if (!stateFile || writing) return;
   writing = setTimeout(() => {
@@ -138,7 +108,6 @@ function keepLimits() {
   writing.unref?.();
 }
 
-/** The count in a window, starting a new window once the last one is over. */
 function windowFor(name, seconds) {
   const now = Date.now();
   let entry = windows.get(name);
@@ -156,16 +125,12 @@ export function limit(name, max, seconds, message) {
   if (entry.count > max) throw new Refused(429, message);
 }
 
-/** Refuses once a budget is spent. */
 export function checkBudget(name, max, message) {
   if (windowFor(name, DAY_SECONDS).count >= max) throw new Refused(429, message);
 }
 
-/**
- * Refuses once a budget is spent, and otherwise holds `most`, the most a call
- * can cost, against it until `settle`. What a call costs is only known after
- * it: without the hold, requests sent at once all pass on the same old count.
- */
+// A call's cost is only known after it, so `most` is held until `settle`: without the hold,
+// requests sent at once all pass on the same old count.
 export function hold(name, max, most, message) {
   const entry = windowFor(name, DAY_SECONDS);
   if (entry.count >= max) throw new Refused(429, message);
@@ -174,7 +139,6 @@ export function hold(name, max, most, message) {
   return { name, entry, most };
 }
 
-/** Swaps a hold for what the call actually cost. */
 export function settle(held, used) {
   if (windows.get(held.name) === held.entry) {
     held.entry.count = Math.max(0, held.entry.count - held.most + used);
@@ -186,16 +150,12 @@ export function settle(held, used) {
   }
 }
 
-/** The most one call can cost: every byte sent as a token, the prompt and tools, and a full reply. */
 export function mostCost(bodyBytes, maxTokens) {
   return bodyBytes + 20_000 + 5 * maxTokens;
 }
 
-/**
- * A day's budget for each plan level, 1 (Free) to 4 (Agency), from one number,
- * Creator's, that the others are shares of, or from all four as
- * "Free,Creator,Pro,Agency". Anything missing or unreadable keeps its default.
- */
+// One number (Creator's, the others are shares of it) or all four as "Free,Creator,Pro,Agency".
+// Anything missing or unreadable keeps its default.
 export function budgetsByLevel(value, base = DEFAULT_PERSON_BUDGET) {
   const parts = String(value ?? "").split(",").map((part) => Number.parseInt(part.trim(), 10));
   const one = parts.length === 1 && parts[0] > 0 ? parts[0] : base;
@@ -207,11 +167,8 @@ export function budgetsByLevel(value, base = DEFAULT_PERSON_BUDGET) {
   );
 }
 
-/**
- * The client's address as Caddy saw it: the last X-Forwarded-For hop, the one
- * it appended, since anything before it is whatever the client sent. An IPv6
- * address counts by its /64, which one connection usually has to itself.
- */
+// The last X-Forwarded-For hop is the one Caddy appended; anything before it is client-sent.
+// IPv6 counts by its /64, which one connection usually has to itself.
 export function clientIp(req) {
   const forwarded = String(req.headers["x-forwarded-for"] ?? "").split(",").map((part) => part.trim()).filter(Boolean);
   let ip = (forwarded.at(-1) ?? req.socket?.remoteAddress ?? "").split("%")[0];
@@ -224,14 +181,9 @@ export function clientIp(req) {
   return `${groups.slice(0, 4).map((group) => Number.parseInt(group, 16).toString(16)).join(":")}::/64`;
 }
 
-/**
- * The day's budgets a call counts against: its payer's by plan, and the whole
- * site's. A team member on Free spends from the owner's day, so invites don't
- * each bring a fresh day of their own. Free accounts also count against a
- * share of the site's day, so together they can never stop paying ones, and
- * against their network's, so many Free accounts from one place get no more
- * than one paid one. The network is kept as a keyed hash, not its address.
- */
+// A Free team member spends from the owner's day, so invites don't each bring a fresh day.
+// Free accounts also share part of the site's day and their network's, so many Free accounts
+// from one place get no more than one paid one. The network is kept as a keyed hash.
 export function budgetsFor(tool, user, req, env) {
   const team = typeof user.team === "string";
   const level = team ? TEAM_LEVEL : Math.min(4, Math.max(1, Math.trunc(Number(user.level)) || 1));
@@ -255,12 +207,10 @@ export function budgetsFor(tool, user, req, env) {
   return budgets;
 }
 
-/** Refuses once any of the budgets is spent. */
 export function checkBudgets(budgets) {
   for (const budget of budgets) checkBudget(budget.name, budget.max, budget.message);
 }
 
-/** Holds `most` against every one of the budgets, or against none when one is spent. */
 export function holdBudgets(budgets, most) {
   const held = [];
   try {
@@ -272,12 +222,10 @@ export function holdBudgets(budgets, most) {
   return held;
 }
 
-/** Swaps every hold for what the call actually cost. */
 export function settleBudgets(held, used) {
   for (const one of held) settle(one, used);
 }
 
-/** What a step cost, in input-token equivalents. */
 export function cost(usage) {
   return (
     (usage.input_tokens ?? 0) +
@@ -287,9 +235,7 @@ export function cost(usage) {
   );
 }
 
-// --- signed steps -----------------------------------------------------------
-
-/** JSON with its keys in order, so a step stored and read back signs the same. */
+/** Keys in order, so a step stored and read back signs the same. */
 function canonical(value) {
   if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
   if (value && typeof value === "object") {
@@ -317,12 +263,7 @@ function signedBy(env, userId, content, sig) {
   return expected.length === given.length && timingSafeEqual(expected, given);
 }
 
-/**
- * Whether a token was granted to an outside app (Claude's connector, say)
- * instead of signed in here. Those carry the OAuth client's `client_id` and
- * are only good at /mcp. One that can't be read isn't a token Supabase made,
- * and Supabase turns it away.
- */
+// OAuth-client tokens (Claude's connector, say) carry `client_id` and only work at /mcp.
 function grantedToApp(token) {
   try {
     return JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString("utf8"))?.client_id != null;
@@ -364,7 +305,7 @@ export async function userFor(req, env) {
   return known;
 }
 
-/** The person's plan level, 1 (Free) to 4 (Agency). One that can't be read counts as Free, so an outage never grants more. */
+/** An unreadable plan counts as Free, so an outage never grants more. */
 async function levelOf(env, userId, token) {
   const res = await supabaseCall(env, `/rest/v1/user_data?select=access_level&id=eq.${encodeURIComponent(userId)}`, token).catch(() => null);
   if (!res?.ok) return 1;
@@ -372,12 +313,8 @@ async function levelOf(env, userId, token) {
   return Math.min(4, Math.max(1, Math.trunc(Number(Array.isArray(rows) ? rows[0]?.access_level : 0)) || 1));
 }
 
-/**
- * The owner of a team the person has joined, while the owner's plan includes
- * one, or null. They use the Assistant there on the owner's plan. An invite
- * not yet accepted doesn't count: nobody's spend goes on someone else's day
- * without them saying yes.
- */
+// An invite not yet accepted doesn't count: nobody's spend goes on someone else's day
+// without them saying yes.
 async function teamOwnerOf(env, userId, token) {
   const res = await supabaseCall(env, "/rest/v1/rpc/my_team", token, { method: "POST", body: "{}" }).catch(() => null);
   if (!res?.ok) return null;
@@ -390,7 +327,7 @@ async function teamOwnerOf(env, userId, token) {
 
 const unreadable = () => new Refused(400, "That conversation can't be read. Start a new chat.");
 
-/** The person's side: words, and the text each tool gave back. Nothing else is passed on. */
+/** Words and tool results only: nothing else is passed on. */
 function personBlock(block) {
   if (block?.type === "text" && typeof block.text === "string" && block.text) return { type: "text", text: block.text };
   if (block?.type === "tool_result" && typeof block.tool_use_id === "string" && typeof block.content === "string") {
@@ -399,7 +336,7 @@ function personBlock(block) {
   throw unreadable();
 }
 
-/** The model's side: only the kinds of block it writes, and only our tools. */
+/** Only the block kinds the model writes, and only our tools. */
 function modelBlock(block) {
   if (block?.type === "text" && typeof block.text === "string") return { type: "text", text: block.text };
   if (block?.type === "tool_use" && typeof block.id === "string" && TOOL_NAMES.has(block.name) && block.input && typeof block.input === "object") {
@@ -412,7 +349,6 @@ function modelBlock(block) {
   throw unreadable();
 }
 
-/** The conversation as the browser sent it, checked, with the model's steps verified as its own. */
 function cleanMessages(value, env, userId) {
   if (!Array.isArray(value) || value.length === 0 || value.length > MAX_MESSAGES) throw new Refused(400, "Start a new chat.");
   return value.map((message, index) => {
@@ -428,11 +364,8 @@ function cleanMessages(value, env, userId) {
   });
 }
 
-/**
- * The conversation without the model's earlier reasoning. A thinking block is
- * only accepted while the prompt and tools before it are unchanged, so a chat
- * begun before a deploy that changed them goes on without its old reasoning.
- */
+// A thinking block is only accepted while the prompt and tools before it are unchanged, so
+// old reasoning is dropped for chats begun before a deploy that changed them.
 function withoutThinking(messages) {
   return messages.map((message) =>
     message.role === "assistant"
@@ -482,10 +415,8 @@ export async function handleAgent(req, res, env) {
   }
 
   const user = await userFor(req, env);
-  // A turn is a step per tool round; a busy afternoon of scheduling stays well under these.
   limit(`agent:${user.id}`, 150, 600, "That's a lot of messages at once. Wait a few minutes and try again.");
   limit(`agent-day:${user.id}`, 300, DAY_SECONDS, "You've reached today's limit for the agent. It's back tomorrow.");
-  // What one person, or a script signed in as them, can spend in a day, and what everyone together can.
   const budgets = budgetsFor({ name: "agent", personBudget: env.personBudget, messages: AGENT_LIMITS }, user, req, env);
   checkBudgets(budgets);
 
@@ -517,7 +448,7 @@ export async function handleAgent(req, res, env) {
   });
 
   let streamed = false;
-  /** What the step has used so far, from the stream, so a step stopped halfway still counts. */
+  /** Taken from the stream, so a step stopped halfway still counts. */
   let usage = {};
   const step = async (history) => {
     usage = {};
@@ -525,10 +456,8 @@ export async function handleAgent(req, res, env) {
       {
         model: MODEL,
         max_tokens: MAX_TOKENS,
-        // Thinks only as much as a step needs, and not at all on the simple ones.
         thinking: { type: "adaptive" },
         output_config: { effort: "low" },
-        // The prompt, the tools and the conversation so far are the same on every step.
         cache_control: { type: "ephemeral" },
         system: SYSTEM,
         tools: TOOLS,

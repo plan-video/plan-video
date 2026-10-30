@@ -1,5 +1,4 @@
-// Speech-to-text for Auto-Captions. The ElevenLabs key stays on the server.
-// The browser sends a sign-in token and the audio, and gets word timings back.
+// The ElevenLabs key stays on the server.
 
 import { createWriteStream, openAsBlob } from "node:fs";
 import { mkdtemp, open, rm } from "node:fs/promises";
@@ -11,39 +10,25 @@ import { pipeline } from "node:stream/promises";
 const SCRIBE = "https://api.elevenlabs.io/v1/speech-to-text";
 const MAX_AUDIO_BYTES = 100 * 1024 * 1024;
 
-/** A pause this long starts a new caption line. Shorter gaps stay one phrase. */
 const PAUSE_SECONDS = 0.45;
 
 const HOUR = 3600;
-/**
- * Hours of audio a month, by user_data.access_level: Free, then Creator,
- * Pro and Agency. Free gets a quarter of an hour, enough to try it. ElevenLabs charges about $0.22 an hour, so even a
- * full allowance leaves most of each plan's price. A clip longer than what's
- * left is refused, so no plan runs over.
- */
+/** Hours of audio a month, by user_data.access_level. A clip longer than what's left is refused, so no plan runs over. */
 const MONTHLY_HOURS = { 1: 0.25, 2: 10, 3: 20, 4: 40 };
 const allowanceFor = (level) => (MONTHLY_HOURS[level] ?? MONTHLY_HOURS[level > 4 ? 4 : 1]) * HOUR;
 
-/**
- * Transcriptions running at once, per person and for the whole server. The
- * editor sends a scene's clips together, so more wait their turn. Each holds
- * up to 100 MB of audio on disk while ElevenLabs works on it: 1.2 GB at most.
- */
+// Per person and server-wide. Each holds up to 100 MB of audio on disk while ElevenLabs
+// works on it: 1.2 GB at most.
 const PERSON_SLOTS = 3;
 const SERVER_SLOTS = 12;
 const QUEUE_MAX = 40;
-/** Enough of a WAV to find its format and the start of its samples. */
 const HEADER_BYTES = 64 * 1024;
 
 const sessions = new Map();
 const windows = new Map();
-/** Each person's clip being checked and counted, so the next one waits for it. */
 const counting = new Map();
-/**
- * Seconds counted this month that ElevenLabs never transcribed, because it
- * refused the audio or couldn't be reached. They go back to the person here:
- * caption_usage only ever adds.
- */
+// Seconds counted that ElevenLabs never transcribed (refused or unreachable) go back here:
+// caption_usage only ever adds.
 const unheard = new Map();
 
 export class Refused extends Error {
@@ -60,7 +45,6 @@ class Slots {
     this.waiting = [];
   }
 
-  /** Waits for a free slot. Refuses when too many are already waiting. */
   async take() {
     if (this.busy < this.size) {
       this.busy += 1;
@@ -84,7 +68,6 @@ class Slots {
 const server = new Slots(SERVER_SLOTS);
 const people = new Map();
 
-/** Holds one of the person's slots and one of the server's while `work` runs. */
 async function inTurn(userId, work) {
   let mine = people.get(userId);
   if (!mine) {
@@ -108,7 +91,7 @@ async function inTurn(userId, work) {
   }
 }
 
-/** The line is full. The editor waits a few seconds and sends the clip again. */
+/** The editor waits a few seconds and sends the clip again. */
 class Busy extends Refused {}
 
 function limit(name, max, seconds) {
@@ -122,12 +105,7 @@ function limit(name, max, seconds) {
   if (entry.count > max) throw new Refused(429, "Too many captions at once. Wait a few minutes and try again.");
 }
 
-/**
- * Whether a token was granted to an outside app (Claude's connector, say)
- * instead of signed in here. Those carry the OAuth client's `client_id` and
- * are only good at /mcp. One that can't be read isn't a token Supabase made,
- * and Supabase turns it away.
- */
+// OAuth-client tokens (Claude's connector, say) carry `client_id` and only work at /mcp.
 function grantedToApp(token) {
   try {
     return JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString("utf8"))?.client_id != null;
@@ -168,7 +146,7 @@ async function userFor(req, env) {
   return known;
 }
 
-/** The user's access level. A row that can't be read counts as Free, so an outage never grants hours. */
+/** An unreadable row counts as Free, so an outage never grants hours. */
 async function levelOf(env, userId, token) {
   const res = await supabaseCall(env, `/rest/v1/user_data?select=access_level&id=eq.${userId}`, token).catch(() => null);
   if (!res?.ok) return 1;
@@ -176,7 +154,7 @@ async function levelOf(env, userId, token) {
   return Number(row?.access_level) || 1;
 }
 
-/** The first of this month in UTC, as caption_usage keys it. */
+/** UTC, as caption_usage keys it. */
 function thisMonth() {
   const now = new Date();
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString().slice(0, 10);
@@ -184,7 +162,7 @@ function thisMonth() {
 
 const unheardKey = (user) => `${user.id}:${thisMonth()}`;
 
-/** Seconds captioned so far this month. Refuses when the count can't be read, since every caption costs. */
+/** Refuses when the count can't be read, since every caption costs. */
 async function usedSeconds(env, user) {
   const res = await supabaseCall(env, `/rest/v1/caption_usage?select=seconds&user_id=eq.${user.id}&month=eq.${thisMonth()}`, user.token).catch(() => null);
   if (!res?.ok) throw new Refused(503, "Captions aren't available right now. Try again in a moment.");
@@ -192,12 +170,8 @@ async function usedSeconds(env, user) {
   return (Number(row?.seconds) || 0) - (unheard.get(unheardKey(user)) ?? 0);
 }
 
-/**
- * Runs `work` for one of the person's clips at a time. Checking what's left
- * and counting a clip then can't interleave with another clip's: checked
- * first and counted after, a burst of clips sent at once all passed on the
- * same old total.
- */
+// One clip per person at a time, so checking what's left and counting a clip can't
+// interleave: a burst of clips would otherwise all pass on the same old total.
 async function oneAtATime(userId, work) {
   const previous = counting.get(userId) ?? Promise.resolve();
   let release;
@@ -213,7 +187,6 @@ async function oneAtATime(userId, work) {
   }
 }
 
-/** Adds `amount` seconds to this month's count and returns what was used before it. */
 async function countSeconds(env, user, amount) {
   const res = await supabaseCall(env, "/rest/v1/rpc/add_caption_seconds", user.token, {
     method: "POST",
@@ -227,14 +200,12 @@ async function countSeconds(env, user, amount) {
   return total - amount - (unheard.get(unheardKey(user)) ?? 0);
 }
 
-/** Gives back seconds that were counted but never transcribed. */
 function giveBack(user, amount) {
   const key = unheardKey(user);
   if (unheard.size > 5000) unheard.clear();
   unheard.set(key, (unheard.get(key) ?? 0) + amount);
 }
 
-/** A clip's length or what's left, as "1 minute", "40 minutes" or "3 hours". */
 function span(seconds, round) {
   const minutes = round(seconds / 60);
   if (minutes < 1) return "less than a minute";
@@ -242,25 +213,20 @@ function span(seconds, round) {
   return `${round(minutes / 60)} hours`;
 }
 
-/** "15 minutes", "1 hour", "10 hours". */
 function hours(seconds) {
   if (seconds < HOUR) return `${Math.round(seconds / 60)} minutes`;
   const value = seconds / HOUR;
   return `${value} hour${value === 1 ? "" : "s"}`;
 }
 
-/** When this month's hours come back: the first of next month, as "1 November". */
 function resetDay() {
   const now = new Date();
   const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
   return next.toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "UTC" });
 }
 
-/**
- * How long a WAV runs, from its format and data chunks. The editor only sends
- * 16-bit PCM mono, so anything else is refused rather than measured. `audio`
- * can be the start of the file, with `total` its whole length in bytes.
- */
+// The editor only sends 16-bit PCM mono, so anything else is refused rather than measured.
+// `audio` can be the start of the file, with `total` its whole length in bytes.
 export function wavSeconds(audio, total = audio.length) {
   if (audio.length < 44 || audio.toString("ascii", 0, 4) !== "RIFF" || audio.toString("ascii", 8, 12) !== "WAVE") return null;
   let byteRate = 0;
@@ -304,7 +270,7 @@ export async function handleTranscribe(req, res, env) {
     await inTurn(user.id, () => transcribe(req, res, env, user));
   } catch (error) {
     if (!(error instanceof Busy)) throw error;
-    // Nothing was counted. `retryAfter` tells the editor to send it again on its own.
+    // Nothing was counted; `retryAfter` makes the editor resend on its own.
     json(res, 503, { error: error.message, retryAfter: 5 });
   }
 }
@@ -422,7 +388,6 @@ function errorOf(payload) {
   return typeof detail?.message === "string" ? detail.message : undefined;
 }
 
-/** Writes the request body to `file`, refusing past `max` bytes. Resolves with its size. */
 async function saveBody(req, file, max) {
   let size = 0;
   const cap = new Transform({
@@ -442,7 +407,6 @@ async function saveBody(req, file, max) {
   return size;
 }
 
-/** The first `bytes` of a file, or all of a shorter one. */
 async function readHead(file, bytes) {
   const handle = await open(file, "r");
   try {

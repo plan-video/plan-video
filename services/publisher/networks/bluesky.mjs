@@ -1,9 +1,3 @@
-// Posts to Bluesky: the words, with the post's video or up to 4 of its
-// pictures, and links and hashtags marked so Bluesky shows them as links. A
-// thread's follow-ups go as replies, each under the one before. Also the
-// two plugs, reposting a post and replying under it. Follows
-// apps/web/src/lib/bluesky.ts, which posted from the browser.
-
 import { PublishError } from "../errors.mjs";
 import { isBlueskyServer, pdsFetch } from "../pds-fetch.mjs";
 import { captionOf, graphemes } from "./text.mjs";
@@ -11,7 +5,6 @@ import { captionOf, graphemes } from "./text.mjs";
 export const BLUESKY_TEXT_LIMIT = 300;
 const MAX_IMAGE_BYTES = 1_000_000;
 const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
-/** Pictures one post can carry. */
 const MAX_PICTURES = 4;
 const APPVIEW = "https://public.api.bsky.app";
 
@@ -27,12 +20,10 @@ function explain(problem, fallback, ownWords = true) {
 
 let oauth = null;
 
-/** The server's "Sign in with Bluesky" client, for accounts that connected that way. */
 export function useBlueskyOAuth(client) {
   oauth = client;
 }
 
-/** How to reach the account's server: with its owner's "Sign in with Bluesky" session, or its app-password tokens. */
 async function transport(session) {
   if (session.oauth) {
     if (!oauth) throw new PublishError("Sign in with Bluesky isn't set up on the server yet.", { retry: true });
@@ -45,7 +36,6 @@ async function transport(session) {
   };
 }
 
-/** Sends one XRPC call with the account's login, and reads its answer. */
 export async function sender(session) {
   const send = await transport(session);
   // Another server's own words could be anything it was sent to, so only Bluesky's are shown.
@@ -117,9 +107,7 @@ const postUrl = (uri) => {
   return `https://bsky.app/profile/${did}/post/${rkey}`;
 };
 
-/** Uploads the files, a video or up to 4 pictures, and says how the post shows them. Undefined for none. */
 async function embedOf(send, media, chosen) {
-  /** Uploads one file, and says how big it shows. */
   const upload = async (file) => {
     // In memory, up to 100 MB, since a "Sign in with Bluesky" session may have to send it twice.
     const bytes = await media.bytes(file.key, 0, file.size - 1);
@@ -149,18 +137,13 @@ async function embedOf(send, media, chosen) {
 export const bluesky = {
   needsFile: false,
 
-  /**
-   * About the memory a send with these files holds (pool.mjs): each file is
-   * read whole, and sent as a copy; a picture over 1 MB is shrunk by sharp,
-   * which takes a few times its bytes.
-   */
+  /** Memory (pool.mjs): each file read whole and sent as a copy; sharp shrinking a picture over 1 MB takes a few times its bytes. */
   holds(files) {
     const video = files.find((file) => file.kind === "video");
     const chosen = video ? [video] : files.filter((file) => file.kind === "image").slice(0, MAX_PICTURES);
     return chosen.reduce((sum, file) => sum + (file.size || 0) * (file.kind === "image" && file.size > MAX_IMAGE_BYTES ? 6 : 2), 0);
   },
 
-  /** Posts the words with the post's video, or up to 4 of its pictures. */
   async send({ post, session, files, media }) {
     const text = captionOf(post, "bluesky").trim();
     const video = files.find((file) => file.kind === "video");
@@ -193,13 +176,9 @@ export const bluesky = {
     return { state: "sent", publishId: reply.uri, url: postUrl(reply.uri) };
   },
 
-  /** A follow-up's pictures or video go with it. */
   replyMedia: true,
 
-  /**
-   * Posts a follow-up of the post's thread, as a reply to the one before,
-   * with its video or up to 4 pictures. `root` and `parent` are their at:// addresses.
-   */
+  /** `root` and `parent` are at:// addresses. */
   async reply({ session, text, root, parent, files = [], media }) {
     const body = text.trim();
     if (graphemes(body) > BLUESKY_TEXT_LIMIT) throw new PublishError(`A follow-up on Bluesky can be ${BLUESKY_TEXT_LIMIT} characters. Shorten it in the post's thread.`);
@@ -208,7 +187,7 @@ export const bluesky = {
     if (!body && !chosen.length) throw new PublishError("This follow-up has nothing Bluesky can post.");
     if (video && video.size > MAX_VIDEO_BYTES) throw new PublishError("Bluesky takes videos up to 100 MB.");
     const send = await sender(session);
-    /** The version Bluesky has of a post of the account's, which a reply names along with its address. */
+    /** A reply names the post's version (cid) along with its address. */
     const ref = async (uri) => {
       const [, , repo, collection, rkey] = uri.split("/");
       if (!repo || collection !== "app.bsky.feed.post" || !rkey) throw new PublishError("Bluesky didn't say where the post before this follow-up is.");
@@ -246,10 +225,6 @@ export const bluesky = {
   },
 };
 
-// ---------------------------------------------------------------------------
-// Plugs
-
-/** The post's version and likes as Bluesky's public view has them, or null once it's deleted. */
 export async function postNow(uri) {
   const response = await fetch(`${APPVIEW}/xrpc/app.bsky.feed.getPosts?uris=${encodeURIComponent(uri)}`, { signal: AbortSignal.timeout(15_000) }).catch(() => null);
   if (!response?.ok) throw new PublishError("Couldn't reach Bluesky.", { retry: true });
@@ -262,7 +237,7 @@ async function recentRecords(send, did, collection) {
   return (reply.records ?? []).map((record) => record.value);
 }
 
-/** Reposts the post, unless the account already has. Says whether it reposted now. */
+/** Unless the account already reposted it; says whether it reposted now. */
 export async function repost(session, post) {
   const send = await sender(session);
   const reposts = await recentRecords(send, session.did, "app.bsky.feed.repost");
@@ -279,7 +254,7 @@ export async function repost(session, post) {
   return true;
 }
 
-/** Replies under the post, unless the account already replied there. Says whether it replied now. */
+/** Unless the account already replied there; says whether it replied now. */
 export async function reply(session, post, text) {
   const body = text.trim();
   if (!body || graphemes(body) > BLUESKY_TEXT_LIMIT) throw new PublishError(`A plug's reply can be ${BLUESKY_TEXT_LIMIT} characters.`);

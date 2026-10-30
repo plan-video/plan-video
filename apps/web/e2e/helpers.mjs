@@ -1,14 +1,8 @@
-// What the end-to-end checks share. They drive the real dashboard in Chrome
-// against a local Supabase, through the app's own modules, with every call to
-// /api blocked so nothing reaches production:
-//
+// Every /api call is blocked so nothing reaches production. To run:
 //   supabase start                      (at the repo root, with the migrations applied)
 //   node apps/web/e2e/serve.mjs &       (this checkout's dev server on 5391, on the local Supabase)
 //   PLAYWRIGHT=/path/to/playwright-core/index.mjs node apps/web/e2e/posts-sync.mjs
-//
-// Playwright isn't a dependency of the repo: install playwright-core anywhere
-// (npm i playwright-core@1.49.1 in a folder of its own) and point PLAYWRIGHT at
-// it, or have it in node_modules. Chrome must be installed.
+// Playwright isn't a dependency: npm i playwright-core@1.49.1 anywhere and point PLAYWRIGHT at it. Needs Chrome.
 
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -28,7 +22,6 @@ export const SITE = process.env.SITE || "http://127.0.0.1:5391";
 
 export const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** Asks `check` until it gives something, or gives up after `ms`. */
 export async function until(what, check, ms = 15_000) {
   const start = Date.now();
   let last;
@@ -40,7 +33,6 @@ export async function until(what, check, ms = 15_000) {
   throw new Error(`timed out: ${what} (last: ${JSON.stringify(last)?.slice(0, 300)})`);
 }
 
-/** A call to the local Supabase, as `token` (the service's by default). */
 export async function rest(path, { method = "GET", body, token = SERVICE } = {}) {
   const response = await fetch(`${SUPA}${path}`, {
     method,
@@ -51,10 +43,9 @@ export async function rest(path, { method = "GET", body, token = SERVICE } = {})
   return text ? JSON.parse(text) : null;
 }
 
-/** Someone signed in, on plan `level` when given. */
 export async function person(name, level) {
   const email = `${name}-${randomUUID().slice(0, 8)}@posts.test`;
-  // Let in from the waitlist first, as everyone is while the app is invite-only.
+  // The app is invite-only, so the waitlist lets them in first.
   await rest("/rest/v1/waitlist", { method: "POST", body: { email, invited_at: new Date().toISOString() } });
   const made = await rest("/auth/v1/admin/users", { method: "POST", body: { email, password: "e2e-password", email_confirm: true } });
   const session = await fetch(`${SUPA}/auth/v1/token?grant_type=password`, {
@@ -67,7 +58,6 @@ export async function person(name, level) {
   return { id: made.id, email, session };
 }
 
-/** A workspace's lists, without posts. */
 export const slice = () => ({
   connections: [],
   groups: [],
@@ -82,7 +72,6 @@ export const slice = () => ({
   library: [],
 });
 
-/** A post as the calendar keeps it. */
 export const post = (id, extra = {}) => ({
   id,
   title: id,
@@ -106,7 +95,6 @@ export async function launch() {
   const browser = await chromium.launch({ channel: "chrome", headless: true });
   const errors = [];
 
-  /** A browser profile signed in as `who`: one device. */
   async function device(name, who) {
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
     await context.addInitScript(
@@ -121,17 +109,13 @@ export async function launch() {
     const page = await context.newPage();
     page.on("pageerror", (error) => errors.push(`${name}: ${error.message}`));
     page.on("console", (message) => {
-      // Offline steps make the syncs say they can't reach the server, which they should.
+      // Offline steps are meant to make the syncs report they can't reach the server.
       if (message.type() === "error" && !/503|blocked in the test|Failed to load resource|Failed to fetch/.test(message.text())) errors.push(`${name} console: ${message.text().slice(0, 300)}`);
     });
     return { name, context, page };
   }
 
-  /**
-   * A dev server prepares its dependencies as pages first ask for them, and
-   * reloads the page each time it does: a throwaway visit to the dashboard
-   * first, so the checks don't lose a step to a reload.
-   */
+  // The dev server reloads the page as it prepares dependencies: a throwaway visit keeps checks from losing a step.
   async function warmUp() {
     const visitor = await device("warm-up", await person("warm-up"));
     await openDashboard(visitor);
@@ -151,16 +135,12 @@ export async function launch() {
   return { browser, device, finish };
 }
 
-/**
- * Runs `fn(store, posts, value)` in the page, with the calendar store and
- * lib/post-sync.ts as the app itself loaded them: the dev server may give an
- * edited module a timestamp, and another address would be another copy.
- */
+// Imports the modules at the address the app loaded them from: the dev server may timestamp an edited
+// module, and another address would be another copy.
 export const inStore = (dev, fn, arg) =>
   dev.page.evaluate(
     async ([source, value]) => {
       const address = async (from, name) => (await (await fetch(from)).text()).match(new RegExp(`from "(/src/[^"]*${name}[^"]*)"`))?.[1];
-      // Looked up once, while online.
       window.__pvModules ??= {
         store: (await address("/src/lib/post-sync.ts", "calendar/store")) ?? "/src/components/calendar/store.ts",
         posts: (await address("/src/lib/sync-start.ts", "post-sync")) ?? "/src/lib/post-sync.ts",
@@ -177,7 +157,7 @@ export const serverPost = async (owner, id) => (await rest(`/rest/v1/posts?selec
 
 export async function openDashboard(dev) {
   await dev.page.goto(`${SITE}/dashboard`, { waitUntil: "load" });
-  // A dev server's first visit prepares its dependencies and reloads the page once: asked again after it.
+  // The dev server's first visit reloads the page once.
   await until(`${dev.name} calendar`, () =>
     inStore(dev, async (store) => (await store.hydrateCalendar(), store.loaded())).catch(async (error) => {
       if (!/Execution context was destroyed|dynamically imported module|navigation/i.test(String(error?.message))) throw error;

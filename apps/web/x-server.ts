@@ -8,10 +8,7 @@ import type { Plugin } from "vite";
 import { handleX, json, Refused } from "../../services/x/handler.mjs";
 import { serverEnv } from "./server-env";
 
-/**
- * Dev-server routes under `/api/x/`. The client secret stays in
- * `apps/web/server.env` and never enters the browser bundle.
- */
+// The client secret stays in apps/web/server.env, out of the browser bundle.
 export function xDevPlugin(envDir: string, mode: string): Plugin {
   return {
     name: "plan-x",

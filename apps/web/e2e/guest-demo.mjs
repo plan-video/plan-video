@@ -1,5 +1,4 @@
-// The demo (/try) opens with its demo posts and no errors: it writes posts
-// through the same store, and never syncs. See helpers.mjs for how to run it.
+// See helpers.mjs for how to run it.
 
 import { assert, launch, SITE } from "./helpers.mjs";
 

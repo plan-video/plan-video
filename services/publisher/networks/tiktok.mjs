@@ -1,30 +1,19 @@
-// Sends a post to TikTok, straight to the profile or to the creator's inbox as
-// a draft: its video, in the pieces TikTok asks for, or up to 35 of its
-// pictures as a photo post. TikTok processes either after it has them, so a
-// sent post is `processing` until TikTok says it's up.
-//
-// The browser used to re-encode the video with the cover as its first frame,
-// since TikTok shows the first frame whatever cover time it's sent. The server
-// has no encoder, so TikTok gets the cover time alone.
-//
-// TikTok only takes pictures by pulling them from a link on a domain verified
-// for the app, so a photo post hands it links to the publisher (photos.mjs).
+// TikTok processes a post after it has it, so a sent post is `processing` until TikTok says it's up.
+// TikTok shows a video's first frame whatever cover time it's sent, and the server has no encoder, so
+// it gets the cover time alone. Photos must be pulled from links on a domain verified for the app (photos.mjs).
 
 import { chunkPlan, postInfoFor, tiktok as call } from "../../tiktok/handler.mjs";
 
 import { PublishError } from "../errors.mjs";
 import { captionOf } from "./text.mjs";
 
-/** How long TikTok gets to process an upload before the post is marked as failed. */
 const PROCESSING_MS = 2 * 60 * 60_000;
-/** Pictures one photo post can carry. */
 const MAX_PHOTOS = 35;
 /** A photo post's caption, in UTF-16 code units as TikTok counts them. */
 const PHOTO_CAPTION_LIMIT = 4000;
 
 const allows = (scope, name) => String(scope ?? "").split(/[,\s]+/).includes(name);
 
-/** The text cut to `max` UTF-16 code units, without splitting a character. */
 function clipUnits(text, max) {
   let out = "";
   for (const char of text) {
@@ -34,10 +23,7 @@ function clipUnits(text, max) {
   return out;
 }
 
-/**
- * What TikTok says of a post it was sent: its `status`, FAILED when it turned it down,
- * and for an upload, `uploaded_bytes`. A failed lookup throws to try again later.
- */
+/** A failed lookup throws, to try again later. */
 async function statusOf(accessToken, publishId) {
   const result = await call(accessToken, "POST", "/v2/post/publish/status/fetch/", { publish_id: publishId });
   if (result.error) throw new PublishError(result.error, { retry: true });
@@ -59,7 +45,6 @@ function cutShort(known, file) {
   return known?.status === "PROCESSING_UPLOAD" && known.uploaded_bytes !== undefined && known.uploaded_bytes !== null && Number.isFinite(got) && got < file.size;
 }
 
-/** Uploads the video, to the profile or the inbox. */
 async function sendVideo({ post, session, file, media, progress }) {
   const inbox = post.tiktok?.inbox === true;
   const plan = chunkPlan(file.size);
@@ -112,7 +97,6 @@ async function sendVideo({ post, session, file, media, progress }) {
   return { state: "processing", publishId };
 }
 
-/** Starts a photo post from links TikTok pulls the pictures from, to the profile or the inbox. */
 async function sendPhotos({ post, session, pictures, delivery, photos }) {
   if (!photos) throw new PublishError("TikTok photo posts aren't switched on for plan.video yet. Post a video, or leave TikTok off this post.");
   const inbox = post.tiktok?.inbox === true;
@@ -158,7 +142,7 @@ async function sendPhotos({ post, session, pictures, delivery, photos }) {
   return { state: "processing", publishId };
 }
 
-/** `photos` makes the links photo posts are pulled from. Without it, TikTok takes videos only. */
+/** Without `photos`, TikTok takes videos only. */
 export function createTikTok({ photos } = {}) {
   return {
     needsFile: true,
@@ -185,7 +169,6 @@ export function createTikTok({ photos } = {}) {
       return sendPhotos({ post, session, pictures, delivery, photos });
     },
 
-    /** Where TikTok is with the post: still `processing`, or `sent` once it's on the profile or in the inbox. */
     async check({ post, session, delivery }) {
       const inbox = post?.tiktok?.inbox === true;
       const now = await status(session.accessToken, delivery.publish_id);

@@ -1,17 +1,7 @@
-// Connector tokens against a real Supabase: what a token Claude (or any OAuth
-// client) was granted can still do once migrations/20261015180000_connector_tokens.sql
-// is applied and its access token hook is on. Runs against a local stack:
-//
-//   supabase start            (in a copy of this folder, with the migrations
-//                              applied and, in its config.toml:
-//                              [auth.hook.custom_access_token]
-//                              enabled = true
-//                              uri = "pg-functions://postgres/public/connector_access_token")
-//   node --test supabase/tests/connector-tokens.test.mjs
-//
-// It registers a client the way Claude does, consents as a fresh user and
-// swaps the code for tokens, then tries them on Supabase Auth, the database,
-// Storage, every service that takes a sign-in, and the connector itself.
+// Run as helpers.mjs says, with the access token hook on in the stack's config.toml:
+//   [auth.hook.custom_access_token]
+//   enabled = true
+//   uri = "pg-functions://postgres/public/connector_access_token"
 
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
@@ -30,7 +20,7 @@ const ANON =
 const SERVICE =
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU";
-// The local stack's shared secret, to make a token like those issued before the hook.
+// The local stack's default secret, to forge a token like those issued before the hook.
 const JWT_SECRET = process.env.SUPABASE_JWT_SECRET || "super-secret-jwt-token-with-at-least-32-characters-long";
 const SERVICES = fileURLToPath(new URL("../../services/", import.meta.url));
 const PASSWORD = "connector-test-password";
@@ -58,10 +48,8 @@ async function call(path, { token, method = "GET", body, form, headers = {} } = 
 
 const claimsOf = (token) => JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString("utf8"));
 
-/** A confirmed user with a password, signed in. */
 async function makeUser() {
   const email = `connector-${randomUUID().slice(0, 8)}@connector.test`;
-  // Let in from the waitlist first, as everyone is while the app is invite-only.
   const invited = await call("/rest/v1/waitlist", { token: SERVICE, method: "POST", body: { email, invited_at: new Date().toISOString() } });
   assert.ok(invited.status < 300, JSON.stringify(invited.data));
   const made = await call("/auth/v1/admin/users", { token: SERVICE, method: "POST", body: { email, password: PASSWORD, email_confirm: true } });
@@ -71,7 +59,6 @@ async function makeUser() {
   return { id: made.data.id, email, session: signedIn.data.access_token };
 }
 
-/** What Claude does: register, send the person to consent, swap the code. */
 async function connect(user) {
   const registered = await call("/auth/v1/oauth/clients/register", {
     method: "POST",
@@ -85,7 +72,7 @@ async function connect(user) {
   const authorize = await call(`/auth/v1/oauth/authorize?${query}`);
   const authorizationId = new URL(authorize.location, URL_).searchParams.get("authorization_id");
   assert.ok(authorizationId, `no consent step: ${authorize.status}`);
-  // The consent page reads the request first, which ties it to the person.
+  // Reading the request first is what ties it to the person.
   await call(`/auth/v1/oauth/authorizations/${authorizationId}`, { token: user.session });
   const consent = await call(`/auth/v1/oauth/authorizations/${authorizationId}/consent`, { token: user.session, method: "POST", body: { action: "approve" } });
   const code = new URL(consent.data.redirect_url).searchParams.get("code");
@@ -94,7 +81,7 @@ async function connect(user) {
   return { clientId, token: tokens.data.access_token, refresh: tokens.data.refresh_token };
 }
 
-/** A connector token as Supabase issued them before the hook: the person in `sub`. */
+// Before the hook, Supabase put the person in `sub`.
 function tokenFromBefore(token) {
   const claims = claimsOf(token);
   const { plan_user: person, ...rest } = claims;
@@ -103,7 +90,6 @@ function tokenFromBefore(token) {
   return `${unsigned}.${createHmac("sha256", JWT_SECRET).update(unsigned).digest("base64url")}`;
 }
 
-/** One request through a service's handler: the status it answers with. */
 async function through(handle, token) {
   const req = Readable.from([Buffer.from("{}")]);
   Object.assign(req, { method: "POST", url: "/", headers: { authorization: `Bearer ${token}`, "content-type": "application/json", "content-length": "2" }, socket: { remoteAddress: "127.0.0.1" } });
@@ -279,13 +265,11 @@ describe("a connector's token", () => {
     assert.equal((await auth.editor(user.session))?.userId, user.id);
     assert.equal(await auth.connector(user.session), null);
 
-    // A refreshed token is made the same way.
     const refreshed = await call("/auth/v1/oauth/token", { method: "POST", form: { grant_type: "refresh_token", refresh_token: connector.refresh, client_id: connector.clientId } });
     assert.equal(refreshed.status, 200, JSON.stringify(refreshed.data));
     assert.equal(claimsOf(refreshed.data.access_token).sub, "00000000-0000-0000-0000-000000000000");
     assert.equal((await createAuth({ supabaseUrl: URL_, supabaseAnonKey: ANON }).connector(refreshed.data.access_token))?.userId, user.id);
 
-    // Removing the connector ends its session.
     const grants = await call("/auth/v1/user/oauth/grants", { token: user.session });
     assert.equal(grants.status, 200, JSON.stringify(grants.data));
     const removed = await call(`/auth/v1/user/oauth/grants?client_id=${connector.clientId}`, { token: user.session, method: "DELETE" });

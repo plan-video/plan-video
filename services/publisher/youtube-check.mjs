@@ -1,28 +1,7 @@
-// Once a day, what plan.video keeps from YouTube is checked with YouTube, so
-// none of it is kept past what YouTube's API policies allow (III.E.4): data
-// from a channel is refreshed or deleted within 30 days, and goes within 7 of
-// the person taking plan.video's access away. Each run:
-//
-//   1. renews every channel's login, which asks Google whether the person
-//      still lets plan.video in. One Google says was taken away (invalid_grant)
-//      is dropped, and with it what plan.video kept of that channel: its
-//      videos' ids and links on post_deliveries, and its name and picture on
-//      the account, which become "YouTube" and none.
-//   2. looks up every video posted to a channel; one YouTube no longer has
-//      loses its id and link on post_deliveries.
-//   3. reads the channel's name and picture again, and puts them on the
-//      account when they changed.
-//   4. drops the videos' ids and links of a channel disconnected since.
-//   5. deletes Assistant chats holding YouTube's numbers 30 days after their
-//      last message, as the dashboard does (apps/web/src/lib/agent-chat.ts).
-//
-// Posts keep no copy of a video's id: since they moved to their own table
-// (supabase/migrations/20261026090000_posts.sql), how a post went out is only
-// on post_deliveries, which browsers read for showing.
-//
-// Anything that fails in a way that may pass (no answer, YouTube's daily
-// quota, a 5xx, the account saved meanwhile) deletes nothing: the next day's
-// run tries again. Calls are one at a time, a little apart, 50 videos a call.
+// Daily, so nothing kept from YouTube outlives its API policies (III.E.4): channel data is refreshed or
+// deleted within 30 days, and within 7 of the person taking plan.video's access away (invalid_grant).
+// Anything that may pass (no answer, daily quota, a 5xx, the account saved meanwhile) deletes nothing:
+// the next day's run tries again.
 
 import { randomUUID } from "node:crypto";
 
@@ -41,7 +20,6 @@ const PAGE = 500;
 const CHAT_PAGE = 20;
 /** Between channels, to go easy on YouTube's quota. */
 const PAUSE_MS = 500;
-/** What a row keeps of a video YouTube no longer has, or of a channel no longer connected. */
 const CLEARED = { publish_id: null, url: null, error: null };
 const VIDEO_ID = /^[A-Za-z0-9_-]{6,20}$/;
 
@@ -51,7 +29,6 @@ const CHANNEL_MS = 2 * 60_000;
 const iso = (ms) => new Date(ms).toISOString();
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** The promise, or a failure once `ms` pass without it settling. */
 function within(promise, ms, what) {
   let timer;
   const late = new Promise((_, reject) => {
@@ -60,10 +37,9 @@ function within(promise, ms, what) {
   return Promise.race([promise, late]).finally(() => clearTimeout(timer));
 }
 
-/** Whether a row still holds anything from YouTube, and is done going out. */
 const holds = (row) => (row.state === "sent" || row.state === "failed") && (row.publish_id != null || row.url != null || row.error != null);
 
-/** Clears the rows named, as long as each is still done going out. Returns how many it cleared. */
+/** Only rows still done going out are cleared. */
 async function clearRows(db, ids, at) {
   let cleared = 0;
   for (let index = 0; index < ids.length; index += 100) {
@@ -74,17 +50,15 @@ async function clearRows(db, ids, at) {
 }
 
 /**
- * Drops what plan.video kept from YouTube on one channel's rows: their videos'
- * ids, links and what YouTube said. The rows stay, so a post still shows it
- * went out. Rows still going out are left alone; they fail without the login,
- * and the daily run clears them after. Returns how many it cleared.
+ * The rows stay, so a post still shows it went out. Rows still going out are left alone; they fail
+ * without the login, and the daily run clears them after.
  */
 export async function clearYouTubeConnection(db, userId, connectionId, at = iso(Date.now())) {
   const rows = await db.select("post_deliveries", { user_id: userId, connection_id: connectionId, platform: "youtube" }, "id,state,publish_id,url,error");
   return clearRows(db, rows.filter(holds).map((row) => row.id), at);
 }
 
-/** The ids of those YouTube still has. Throws when YouTube didn't say, which deletes nothing. */
+/** Throws when YouTube didn't say, which deletes nothing. */
 async function videosKept(accessToken, ids) {
   const url = new URL("https://www.googleapis.com/youtube/v3/videos");
   url.searchParams.set("part", "id");
@@ -97,10 +71,7 @@ async function videosKept(accessToken, ids) {
   return new Set(payload.items.map((item) => item?.id).filter((id) => typeof id === "string"));
 }
 
-/**
- * Whether an Assistant chat holds what the Analytics tool returned for YouTube.
- * The same rule as the dashboard's chatHoldsYouTube (apps/web/src/lib/agent-chat.ts).
- */
+/** Same rule as the dashboard's chatHoldsYouTube (apps/web/src/lib/agent-chat.ts). */
 export function chatHoldsYouTube(messages) {
   if (!Array.isArray(messages)) return false;
   const analytics = new Set();
@@ -114,16 +85,12 @@ export function chatHoldsYouTube(messages) {
   return false;
 }
 
-/** A channel's name as the dashboard keeps it when the channel is connected (connectYouTube). */
+/** Must match how the dashboard names a channel when connecting it (connectYouTube). */
 const handleOf = (name) => (typeof name === "string" ? name.trim().replace(/^@+/, "") : "") || "YouTube";
 
 /**
- * Changes the items of one list (`connections`) in each of the
- * owner's workspaces, and saves the account only if nobody saved it since it
- * was read: the browsers merge a newer copy in as they do one a team member
- * saved. `change` returns an item as it should be, or null to leave it. Says
- * "same" when nothing changed, "saved", or "busy" when the account kept being
- * saved meanwhile.
+ * Saves the account only if nobody saved it since it was read (browsers merge a newer copy in).
+ * `change` returns the new item or null to leave it. Says "same", "saved", or "busy" when it kept being saved.
  */
 async function changeItems(db, userId, list, change, now) {
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -153,11 +120,9 @@ async function changeItems(db, userId, list, change, now) {
   return "busy";
 }
 
-/** Changes one connected YouTube account wherever the owner's workspaces list it (see changeItems). */
 const changeAccount = (db, userId, connectionId, change, now) =>
   changeItems(db, userId, "connections", (row) => (row.id === connectionId && row.platform === "youtube" ? change(row) : null), now);
 
-/** The channel's name and picture, as YouTube has them now. */
 const named = (channel) => (row) => {
   // A row for another channel, as after reconnecting, isn't this login's to rename.
   if (row.youtube?.channelId && row.youtube.channelId !== channel.channelId) return null;
@@ -168,7 +133,6 @@ const named = (channel) => (row) => {
   return { ...rest, handle, ...(avatar ? { avatarUrl: avatar } : {}) };
 };
 
-/** Neither name nor picture, for a channel whose access was taken away. */
 const unnamed = (row) => {
   if (row.handle === "YouTube" && !("avatarUrl" in row)) return null;
   const { avatarUrl: _old, ...rest } = row;
@@ -178,7 +142,6 @@ const unnamed = (row) => {
 export function createYouTubeCheck({ db, vault, env, channel = channelFor, now = () => Date.now(), pause = PAUSE_MS, log = console }) {
   let running = false;
 
-  /** Every finished YouTube row still holding something, by owner and channel. */
   async function heldRows() {
     const held = new Map();
     let after = "";
@@ -193,7 +156,6 @@ export function createYouTubeCheck({ db, vault, env, channel = channelFor, now =
     }
   }
 
-  /** One channel with its login kept here. */
   async function checkChannel(token, rows, counts) {
     const { user_id: userId, connection_id: connectionId } = token;
     const found = await vault.read(userId, connectionId);
@@ -238,7 +200,6 @@ export function createYouTubeCheck({ db, vault, env, channel = channelFor, now =
     if (saved === "busy") throw new Error("the account kept changing");
   }
 
-  /** Deletes the Assistant chats holding YouTube's numbers whose last message is 30 days old. */
   async function pruneChats() {
     const before = iso(now() - YOUTUBE_CHAT_DAYS * DAY_MS);
     let deleted = 0;
@@ -297,7 +258,6 @@ export function createYouTubeCheck({ db, vault, env, channel = channelFor, now =
   }
 
   return {
-    /** One check, unless one is still running. Resolves to its counts, or null when it didn't run. */
     async run() {
       if (running) return null;
       running = true;

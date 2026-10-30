@@ -71,7 +71,7 @@ test("make-keys refuses when publisher.env already has its keys", () => {
   assert.equal(readFileSync(env, "utf8"), `SUPABASE_URL=https://x\nTOKEN_KEY=${KEY}\n`);
 });
 
-/** A database answering only "is anything kept in this table", with `rows` per table; "down" fails every call. */
+/** `rows` per table; "down" fails every call. */
 function fakePostgrest(rows) {
   const server = createServer((req, res) => {
     if (rows === "down") {
@@ -84,7 +84,6 @@ function fakePostgrest(rows) {
   return new Promise((resolve) => server.listen(0, "127.0.0.1", () => resolve({ url: `http://127.0.0.1:${server.address().port}`, close: () => server.close() })));
 }
 
-/** make-keys run against a publisher.env holding `lines`. */
 function makeKeys(lines, args = []) {
   const dir = mkdtempSync(join(tmpdir(), "publisher-keys-"));
   const env = join(dir, "publisher.env");

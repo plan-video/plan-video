@@ -2,14 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// One command to develop the desktop app from source. It:
-//   1. builds the CLI, so a linked `dapi` (see `npm run link` in apps/cli) runs the
-//      latest code and the app's headless server matches it;
-//   2. starts the web dev server (Vite on :5173), first reclaiming the port
-//      from a Vite left behind by an earlier run that did not come down;
-//   3. waits for that server, then launches Electron, which loads it.
-// Ctrl-C tears the whole tree down.
-
 import { spawn, execFileSync } from "node:child_process";
 import { get } from "node:http";
 import { join } from "node:path";
@@ -25,18 +17,14 @@ const children = [];
 let shuttingDown = false;
 
 function run(name, bin, args, cwd) {
-  // Spawn the tool binary directly rather than via `npm run`, so the teardown
-  // SIGTERM isn't dressed up as a "Lifecycle script failed" error by an npm
-  // wrapper. Own process group (detached) so we can signal the tool *and* its
-  // children (esbuild, electron) in one shot on teardown. Windows has neither
-  // groups nor spawnable `.cmd` shims: the shim runs through a shell, stays in
-  // this console, and `taskkill /T` takes the tree down instead.
+  // Not via `npm run`, which reports the teardown SIGTERM as a failed lifecycle script. Detached so
+  // teardown can signal the whole process group. Windows has neither groups nor spawnable `.cmd`
+  // shims: the shim runs through a shell and `taskkill /T` takes the tree down instead.
   const child = WINDOWS
     ? spawn(`"${join(BIN, `${bin}.cmd`)}"`, args, { cwd, stdio: "inherit", shell: true })
     : spawn(join(BIN, bin), args, { cwd, stdio: "inherit", detached: true });
   child.on("exit", (code) => {
     if (shuttingDown) return;
-    // A child dying on its own (e.g. Vite crashed) should bring the rest down.
     console.error(`\n[dev:desktop] ${name} exited (${code}); shutting down.`);
     shutdown(code ?? 1);
   });
@@ -44,7 +32,6 @@ function run(name, bin, args, cwd) {
   return child;
 }
 
-/** Stops a process and everything under it. */
 function killTree(pid, signal = "SIGTERM") {
   try {
     if (WINDOWS) execFileSync("taskkill", ["/pid", String(pid), "/T", "/F"], { stdio: "ignore" });
@@ -62,16 +49,14 @@ function shutdown(code) {
   process.exit(code);
 }
 
-// Resolves once the dev server answers. Probes over HTTP against the same URL
-// Electron loads, so we follow its host resolution (Vite binds localhost as
-// IPv6 ::1) rather than guessing an address family.
+// Probes the URL Electron loads, so it follows the same host resolution (Vite binds localhost as ::1).
 function waitForServer(url, timeoutMs = 30000) {
   const deadline = Date.now() + timeoutMs;
   return new Promise((resolve, reject) => {
     const tryOnce = () => {
       const req = get(url, (res) => {
         res.destroy();
-        resolve(); // Any response means the server is up.
+        resolve();
       });
       req.once("error", () => {
         req.destroy();
@@ -90,7 +75,6 @@ for (const signal of ["SIGINT", "SIGTERM"]) {
   process.on(signal, () => shutdown(0));
 }
 
-/** PIDs listening on a TCP port (lsof, or netstat on Windows); [] when none or unknown. */
 function listeners(port) {
   if (WINDOWS) {
     try {
@@ -116,7 +100,6 @@ function listeners(port) {
   }
 }
 
-/** The command line of a process, or "" when it is gone. */
 function commandOf(pid) {
   if (WINDOWS) {
     try {
@@ -133,19 +116,14 @@ function commandOf(pid) {
   }
 }
 
-/** Whether a command line is a Vite started from this checkout. Windows paths compare without case. */
+// Windows paths compare without case.
 function isOurVite(command) {
   const root = ROOT.replace(/[\\/]$/, "");
   const [haystack, needle] = WINDOWS ? [command.toLowerCase(), root.toLowerCase()] : [command, root];
   return haystack.includes("vite") && haystack.includes(needle);
 }
 
-/**
- * Frees the dev port. A Vite left over from an earlier run of this repo
- * (Ctrl-C'd terminal, crashed Electron, a detached child) is killed and the
- * port awaited; anything else on the port is not ours to touch, so we say
- * what it is and stop.
- */
+// Only a stale Vite from this checkout is killed; anything else on the port is not ours to touch.
 async function reclaimPort(port) {
   const pids = listeners(port);
   if (!pids.length) return;
@@ -169,17 +147,14 @@ async function reclaimPort(port) {
   }
 }
 
-// 1. Build the CLI (blocking) so `dapi` and the app agree on the latest code.
+// Built first so a linked `dapi` and the app's headless server run the same code.
 console.log("[dev:desktop] building CLI…");
 npm(["run", "build", "--workspace=@plan.video/cli"]);
 
-// 2. Start the web dev server, on a port that is free.
 await reclaimPort(DEV_PORT);
 console.log("[dev:desktop] starting web dev server…");
 run("web", "vite", [], join(ROOT, "apps", "web"));
 
-// 3. Once it is up, build the desktop app (blocking, mirrors its `dev`
-// script) and launch Electron, which loads :5173.
 try {
   await waitForServer(DEV_URL);
 } catch (err) {

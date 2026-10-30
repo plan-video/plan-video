@@ -1,9 +1,3 @@
-// The publisher looks at a post only when it changed or its next run has come
-// (post_schedule), instead of reading every post every pass: its next look,
-// its runs missed while it was down, the Free plan's waiting posts counted a
-// post at a time, the hourly look that puts a wrong next look right, and a
-// one-off post marked posted once every network has it.
-
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -15,7 +9,6 @@ import { GRACE_MS, LATE, createWorker } from "./worker.mjs";
 const T0 = Date.parse("2026-10-12T16:00:00Z");
 const HOUR = 60 * 60_000;
 
-/** A post on X account x1, `hours` from T0. */
 const post = (id, hours, extra = {}) => {
   const at = new Date(T0 + hours * HOUR);
   return {
@@ -77,7 +70,6 @@ test("a post is read when it's new, then not again until its run comes", async (
   await context.worker.tick();
   assert.deepEqual(context.read, ["later"]);
   assert.deepEqual(context.sent, ["x:later"]);
-  // Marked posted, which is a change: looked at once more, and then it has nothing left.
   assert.equal(context.posts[0].post.status, "posted");
   await context.worker.tick();
   assert.equal(context.db.look("u1", "later").next_run_at, null);
@@ -118,7 +110,6 @@ test("an edited post is looked at again at once, and its next look follows the e
   await context.worker.tick();
   assert.deepEqual(context.read, ["moved"]);
   assert.equal(context.db.look("u1", "moved").next_run_at, "2026-10-12T18:30:00.000Z");
-  // Moved to now: it goes in the same pass.
   Object.assign(context.posts[0].post, { start: "16:00", sendFrom: new Date(T0).toISOString() });
   await context.worker.tick();
   assert.deepEqual(context.sent, ["x:moved"]);
@@ -141,7 +132,6 @@ test("a post changed while the publisher looked at it keeps its next look at onc
   await context.worker.plan();
   assert.equal(context.db.look("u1", "busy").next_run_at, new Date(0).toISOString(), "still due at once");
   assert.equal(reads, 1);
-  // The next pass isn't woken straight away for it.
   assert.ok(context.worker.nextRun() >= context.now() + 1000);
 });
 
@@ -156,7 +146,6 @@ test("a full page of posts all changed while the publisher looked at them doesn'
     return rpc(name, args);
   };
   await context.worker.plan();
-  // The second page is the same posts again: the pass leaves them for the next one.
   assert.equal(reads, 2);
 });
 
@@ -193,7 +182,6 @@ test("runs missed while the publisher was down fail with a reason once, from whe
     ["2026-10-13", "failed", true],
     ["2026-10-14", "sent", false],
   ]);
-  // A later look doesn't say so again.
   context.advance(GRACE_MS);
   await context.worker.tick();
   assert.equal(context.db.tables.post_deliveries.filter((row) => row.error === LATE).length, 2);
@@ -207,7 +195,6 @@ test("the Free plan's 10 waiting posts are counted though only the new one is re
   await context.worker.tick();
   assert.deepEqual(context.read, ["eleventh"]);
   context.setClock(T0 + 30 * HOUR);
-  // Its turn comes after the others went out, but it came in over the limit.
   for (let hour = 5; hour <= 30; hour++) {
     context.setClock(T0 + hour * HOUR);
     await context.worker.tick();
@@ -270,7 +257,6 @@ test("a one-off post is marked posted once every network has it; not while one h
 test("the hourly look puts right a post whose next look would come after its next run", async () => {
   const context = setup({ posts: [post("lost", 2), post("fine", 3)] });
   await context.worker.tick();
-  // A lost write left it looked at too late.
   await context.db.rpc("publisher_schedule", { items: [{ user_id: "u1", post_id: "lost", version: context.db.look("u1", "lost").version, next_run_at: new Date(T0 + 9 * HOUR).toISOString(), planned_through: null }] });
   assert.equal(await context.worker.sweep(), 1);
   assert.ok(context.errors.some(([message]) => /next look came after/.test(message)));
@@ -284,14 +270,12 @@ test("the hourly look puts right a post whose next look would come after its nex
 });
 
 test("a post that can't be looked at is tried again in a minute, and holds up nobody else", async () => {
-  // Its workspace's accounts saved as something that isn't a list.
   const odd = { ...post("odd", 0), connections: { x1: "x" } };
   const context = setup({ posts: [odd, post("fine", 0)] });
   await context.worker.tick();
   assert.deepEqual(context.sent, ["x:fine"]);
   assert.equal(context.db.look("u1", "odd").next_run_at, new Date(T0 + 60_000).toISOString());
   assert.ok(context.errors.some(([message]) => /skipped posts that can't be read/.test(message)));
-  // Put right, it goes out at its next look.
   odd.connections = [{ id: "x1", platform: "x" }];
   context.advance(60_000);
   await context.worker.tick();
@@ -314,7 +298,6 @@ test("the hourly look runs beside a pass without undoing it, so a post over the 
   await new Promise((resolve) => setImmediate(resolve));
   context.posts.push(post("eleventh", 30));
   const planning = context.worker.pass();
-  // The pass gets its chance to run before the hourly look finishes from what it read earlier.
   await new Promise((resolve) => setTimeout(resolve, 50));
   release();
   await Promise.all([sweeping, planning]);
@@ -332,10 +315,8 @@ test("a waiting post moved later keeps its place for as long as it now waits", a
   // p0 at 5 hours; the other nine wait for a day or more.
   const context = setup({ posts: [post("p0", 5), ...Array.from({ length: 9 }, (_, index) => post(`p${index + 1}`, 24 + index))] });
   await context.worker.tick();
-  // p0 moves from 5 hours on to 40: it waits past the time it said before.
   Object.assign(context.posts[0].post, { start: new Date(T0 + 40 * HOUR).toISOString().slice(11, 16), day: new Date(T0 + 40 * HOUR).toISOString().slice(0, 10) });
   await context.worker.tick();
-  // At 8 hours, past p0's old time, an eleventh arrives: p0 still waits, so there's no room.
   context.setClock(T0 + 8 * HOUR);
   await context.worker.tick();
   context.posts.push(post("eleventh", 30));

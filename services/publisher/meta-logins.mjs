@@ -1,19 +1,13 @@
-// Instagram, Facebook Page and Threads logins never reach a browser. The
-// publisher starts the login, swaps the code Meta sends back for the login
-// itself, and hands the browser a ticket per account: its login sealed with
-// TOKEN_KEY and bound to the network, person and workspace (ticketBinding in
-// vault.mjs), which only this service can open. The browser shows the ticket
-// to login/save to attach the account to a connection, as x-logins.mjs does
-// for X.
+// Instagram, Facebook Page and Threads logins never reach a browser: the publisher swaps Meta's code itself
+// and hands back a ticket per account, sealed and bound to network, person and workspace (vault.mjs).
 
 import { Refused } from "./errors.mjs";
 import { META_NAMES, META_NETWORKS, authorizeUrl, configured, exchangeCode, redirectFor } from "./meta.mjs";
 import { openTicket, sealTicket, sealer } from "./vault.mjs";
 
-/** Facebook Pages one login connects. */
 const MAX_PAGES = 50;
 
-/** `publicUrl` is the site the logins come back to, PUBLIC_URL in publisher.env. */
+/** PUBLIC_URL in publisher.env. */
 export function createMetaLogins({ key, env, publicUrl = "https://plan.video", now = () => Date.now(), exchange = exchangeCode }) {
   const box = sealer(key);
   const site = publicUrl.replace(/\/+$/, "");
@@ -29,7 +23,6 @@ export function createMetaLogins({ key, env, publicUrl = "https://plan.video", n
   }
 
   return {
-    /** The login dialog to send the person to. */
     authorize(network, { redirectUri, state }) {
       ready(network);
       allowed(network, redirectUri);
@@ -37,11 +30,7 @@ export function createMetaLogins({ key, env, publicUrl = "https://plan.video", n
       return { url: authorizeUrl(network, env, { redirectUri, state }) };
     },
 
-    /**
-     * Swaps the code Meta sent back for the login. Returns each account it
-     * reaches, who it is and a ticket for its login, never the tokens.
-     * `holder` is who the tickets are for.
-     */
+    /** Returns each account it reaches with a ticket for its login, never the tokens. */
     async exchange(holder, network, { code, redirectUri }) {
       ready(network);
       allowed(network, redirectUri);
@@ -64,7 +53,7 @@ export function createMetaLogins({ key, env, publicUrl = "https://plan.video", n
       };
     },
 
-    /** What a ticket holds, `{ session, nonce, until }`, when it was made for this holder and network and hasn't run out; otherwise null. */
+    /** Null unless made for this holder and network and not run out. */
     open(holder, network, ticket) {
       return openTicket(box, network, holder, ticket, now());
     },

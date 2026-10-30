@@ -24,12 +24,10 @@ function appError(e: unknown): never {
   fail((e as Error).message);
 }
 
-/** The tool's description, verbatim. */
 function describe(name: ToolName): string {
   return toolByName(name).description;
 }
 
-/** An input field's description, verbatim, for the option that maps onto it. */
 function field(name: ToolName, key: string): string {
   const tool: GenericTool = toolByName(name);
   const schema = tool.input.shape[key];
@@ -37,12 +35,7 @@ function field(name: ToolName, key: string): string {
   return schema.description ?? "";
 }
 
-/**
- * Checks the input against the tool's schema, calls the tool, and prints
- * what the app returns — its structured content, as one JSON object, the
- * same thing an agent receives. Strings stay strings: times like "45f" are
- * parsed by the schema on both sides.
- */
+/** Strings stay strings: times like "45f" are parsed by the schema on both sides. */
 async function run<N extends ToolName>(name: N, input: ToolInput<N>): Promise<void> {
   if (!servedTools.some((tool) => tool.name === name)) fail(NOT_YET);
   const parsed = toolByName(name).input.safeParse(input);
@@ -51,15 +44,9 @@ async function run<N extends ToolName>(name: N, input: ToolInput<N>): Promise<vo
   console.log(JSON.stringify(output));
 }
 
-// Numbers are converted so the schema can check them as numbers; an empty or
-// non-numeric string becomes NaN, which the schema rejects with its own message.
+// An empty or non-numeric string becomes NaN, which the schema rejects with its own message.
 const numeric = (value: string): number => (value.trim() === "" ? NaN : Number(value));
 
-/**
- * A local file (or frames folder) that exists is sent as its absolute path;
- * anything else — a URL, or a library path (`b-roll/clip.mp4`) — is passed
- * through for the app to resolve. Library paths need an open project.
- */
 function assetPath(ref: string): string {
   const abs = resolve(ref);
   if (existsSync(abs)) return abs;
@@ -67,10 +54,8 @@ function assetPath(ref: string): string {
   return ref;
 }
 
-/** What a command the app does not serve yet says, while agentic editing is off. */
 const NOT_YET = `Editing from agents and the CLI is not available yet. Schedule and publish posts with \`planvideo post\`.`;
 
-/** The commands that work on projects and media, hidden from help while agentic editing is off. */
 const EDITING_COMMANDS = new Set(["open", "context", "capture", "export", "check", "media", "models", "voices", "screenshot", "fonts"]);
 
 const program = new Command();
@@ -446,7 +431,5 @@ post
   .option("--agreed", field("publish_post", "agreed"))
   .action((id: string, opts: { agreed?: boolean }) => run("publish_post", { id, ...(opts.agreed ? { agreed: true } : {}) }));
 
-// Explicit argv convention: the packaged wrapper runs this bundle on
-// Electron in ELECTRON_RUN_AS_NODE mode, where commander would otherwise
-// detect Electron and drop the script path from argv.
+// Electron in ELECTRON_RUN_AS_NODE mode would make commander drop the script path from argv.
 program.parse(process.argv, { from: "node" });

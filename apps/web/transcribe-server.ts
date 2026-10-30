@@ -8,11 +8,7 @@ import type { Plugin } from "vite";
 import { handleTranscribe, json, Refused } from "../../services/transcribe/handler.mjs";
 import { serverEnv } from "./server-env";
 
-/**
- * Dev-server route `POST /api/transcribe`. Reads `ELEVENLABS_API_KEY` from
- * `apps/web/server.env` on each request, so the secret stays out of the client bundle.
- * Production runs the same handler as services/transcribe.
- */
+// ELEVENLABS_API_KEY stays in apps/web/server.env, out of the browser bundle.
 export function transcribeDevPlugin(envDir: string, mode: string): Plugin {
   return {
     name: "plan-transcribe",

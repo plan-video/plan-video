@@ -4,7 +4,6 @@ import test from "node:test";
 import { without } from "./db.mjs";
 import { createMemoryGate, createPool, laneOf } from "./pool.mjs";
 
-/** A send that ends when told to. */
 function gate() {
   let open;
   const promise = new Promise((resolve) => (open = resolve));
@@ -17,9 +16,7 @@ test("a lane runs one thing at a time, and another lane runs beside it", async (
   const pool = createPool({ size: 8, perUser: 8 });
   const first = gate();
   assert.equal(pool.take("t", row("a", "u1", "x"), () => first.promise), true);
-  // The same account is the same lane, whichever row.
   assert.equal(pool.take("t", row("b", "u1", "x"), () => null), false);
-  // Another account of theirs on the same network is a lane of its own.
   assert.equal(pool.take("t", row("c", "u1", "x", "x2"), () => null), true);
   assert.equal(pool.take("t", row("d", "u2", "x"), () => null), true);
   first.open();
@@ -62,7 +59,6 @@ test("a row already going isn't taken again, even in a free lane", async () => {
   pool.take("post_deliveries", row("a", "u1", "x"), () => hold.promise);
   assert.deepEqual(pool.goingIn("post_deliveries"), ["a"]);
   assert.equal(pool.canTake("post_deliveries", { ...row("a", "u1", "x"), connection_id: "moved" }), false);
-  // Another table's row of the same id is another row.
   assert.equal(pool.canTake("post_replies", { ...row("a", "u2", "x") }), true);
   hold.open();
   await pool.idle();
@@ -118,7 +114,6 @@ test("the memory gate holds at most its budget, first come first served", async 
   const second = memory.hold(60).then((release) => (order.push("second"), release));
   const third = memory.hold(10).then((release) => (order.push("third"), release));
   await new Promise((resolve) => setTimeout(resolve, 5));
-  // The third would fit, but waits its turn behind the second.
   assert.deepEqual(order, []);
   first();
   const releaseSecond = await second;
@@ -172,6 +167,5 @@ test("a look for due rows leaves out the people at their share and the lanes goi
     without({ users: [u1], lanes: [{ user_id: u2, platform: "youtube" }, { user_id: u2, platform: "x", connection_id: "x_1-a" }] }),
     `&user_id=not.in.(${u1})&and=(not.and(user_id.eq.${u2},platform.eq.youtube),not.and(user_id.eq.${u2},platform.eq.x,connection_id.eq.x_1-a))`,
   );
-  // Anything that could end the filter early is left out of it; the pool still won't take those rows.
   assert.equal(without({ users: ["a,b", "c)"], lanes: [{ user_id: u1, platform: "x", connection_id: "a,b" }, { user_id: "x)", platform: "x" }] }), "");
 });

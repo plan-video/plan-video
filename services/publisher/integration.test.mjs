@@ -1,7 +1,4 @@
-// The publisher's planning against a real Supabase: db.mjs, the worker and
-// the plan limits over the posts table and its functions, with stand-in
-// networks. Runs only when a local stack answers (supabase start, with the
-// migrations applied); skipped otherwise.
+// Runs only against a local Supabase stack (supabase start, migrations applied); skipped otherwise.
 
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -33,7 +30,6 @@ async function call(path, { token = SERVICE, method = "GET", body, prefer } = {}
   return { status: response.status, data: text ? JSON.parse(text) : null };
 }
 
-/** A post as the calendar keeps it, `minutes` from now in UTC, saved just now. */
 function post(id, minutes, extra = {}) {
   const at = new Date(Math.floor(Date.now() / 60_000) * 60_000 + minutes * 60_000);
   return {
@@ -110,7 +106,6 @@ describe("the publisher on a real database", { skip: !reachable && "no local Sup
     assert.equal((await deliveries("now"))[0].state, "sent");
     assert.equal((await row("now")).data.status, "posted");
     assert.equal(Date.parse((await look("later")).next_run_at), Date.parse(`${post("later", 30).day}T${post("later", 30).start}:00Z`));
-    // Marked posted is a change: one more look, then none.
     await worker.tick();
     assert.equal((await look("now")).next_run_at, null);
     assert.ok((await look("now")).planned_through);
@@ -158,7 +153,6 @@ describe("the publisher on a real database", { skip: !reachable && "no local Sup
     // It reads every person's posts in this database; only this one's are judged here.
     await worker.sweep();
     assert.equal((await look("series")).next_run_at, right);
-    // A lost write: the series' next look moved past its next run.
     const current = await row("series");
     await db.rpc("publisher_schedule", { items: [{ user_id: person.id, post_id: "series", version: current.version, next_run_at: "2031-01-01T00:00:00Z", planned_through: null }] });
     assert.ok((await worker.sweep()) >= 1);

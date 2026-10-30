@@ -11,7 +11,6 @@ const ME = "0f0f0f0f-0000-4000-8000-000000000001";
 const OTHER = "0f0f0f0f-0000-4000-8000-000000000002";
 const session = { accessToken: "a", refreshToken: "r", expiresAt: Date.now() + 3_600_000, openId: "o", scope: "video.publish" };
 
-/** An account with a paid plan, two logins kept, one older login still in account_state, a Bluesky sign-in and a profile photo. */
 async function setup({ customer = "cus_1", answers = {} } = {}) {
   const db = fakeDb();
   db.tables.user_data = [{ id: ME, stripe_customer_id: customer }, { id: OTHER, stripe_customer_id: "cus_2" }];
@@ -64,7 +63,6 @@ test("ends the plan first, then erases files and photo, ends every login, and de
     `DELETE /auth/v1/admin/users/${ME}`,
   ]);
   assert.deepEqual(revoked.sort(), ["bluesky " + ME + " did:plc:me", "tiktok r", "x xr", "youtube old-r"].sort());
-  // Their logins are gone; someone else's stay.
   assert.deepEqual(db.tables.social_tokens.map((row) => row.user_id), [OTHER]);
 });
 

@@ -2,29 +2,24 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Where the sync services keep their folders on Windows. macOS marks a synced
-// folder with a File Provider attribute that can simply be asked for; Windows
-// has nothing like it, so each service is found the way it announces itself:
-// OneDrive through its environment variables, Dropbox through the info.json
-// it writes for exactly this purpose, Google Drive through the streaming
-// drive it mounts, iCloud through its fixed folder.
+// Windows has no File Provider attribute, so each service is found as it announces itself: OneDrive
+// by env vars, Dropbox by its info.json, Google Drive by its streaming drive, iCloud by its fixed folder.
 
 import { access, readFile } from "node:fs/promises";
 import { win32 } from "node:path";
 
-/** A folder a service syncs, and the service's name as the warning spells it. */
 export type SyncRoot = [dir: string, label: string];
 
 const exists = (path: string): Promise<boolean> => access(path).then(() => true, () => false);
 
-/** Whether `path` is `root` or inside it, the way Windows compares paths: without case. */
+/** Without case, the way Windows compares paths. */
 export function isUnder(path: string, root: string): boolean {
   const child = win32.resolve(path).toLowerCase();
   const parent = win32.resolve(root).toLowerCase().replace(/\\+$/, "");
   return child === parent || child.startsWith(parent + "\\");
 }
 
-/** The folders named in Dropbox's info.json: one per linked account, personal and business. */
+/** One folder per linked Dropbox account, personal and business. */
 export function dropboxRoots(infoJson: string): string[] {
   try {
     const info: unknown = JSON.parse(infoJson);
@@ -37,7 +32,6 @@ export function dropboxRoots(infoJson: string): string[] {
   }
 }
 
-/** Every sync root that can be named without looking at the path in question. */
 export async function windowsSyncRoots(home: string, env: NodeJS.ProcessEnv = process.env): Promise<SyncRoot[]> {
   const roots: SyncRoot[] = [[win32.join(home, "iCloudDrive"), "iCloud Drive"]];
 
@@ -68,19 +62,13 @@ function driveFsInstalled(env: NodeJS.ProcessEnv): Promise<boolean> {
   return env.LOCALAPPDATA ? exists(win32.join(env.LOCALAPPDATA, "Google", "DriveFS")) : Promise.resolve(false);
 }
 
-/**
- * Whether `path` is on Google Drive's streaming drive: a drive letter of its
- * own (G: unless the user moved it) whose root holds `My Drive`. The letter is
- * only in the client's database, so the drive is recognised by that shape,
- * and only on a machine that has the client.
- */
+/** The streaming drive letter is only in the client's database, so it is recognised by a root holding `My Drive`. */
 export async function onGoogleDriveStream(path: string, env: NodeJS.ProcessEnv = process.env): Promise<boolean> {
   const root = win32.parse(win32.resolve(path)).root;
   if (!/^[a-z]:\\$/i.test(root)) return false;
   return (await driveFsInstalled(env)) && (await exists(win32.join(root, "My Drive")));
 }
 
-/** The service syncing `path` on Windows, or null. */
 export async function windowsCloudSyncKind(path: string, home: string, env: NodeJS.ProcessEnv = process.env): Promise<string | null> {
   for (const [dir, label] of await windowsSyncRoots(home, env)) {
     if (isUnder(path, dir)) return label;

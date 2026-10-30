@@ -11,10 +11,8 @@ import { cleanSession, createVault } from "./vault.mjs";
 const KEY = Buffer.alloc(32, 9).toString("base64");
 const OWNER = "0f0f0f0f-0000-4000-8000-000000000001";
 const MEMBER = "0f0f0f0f-0000-4000-8000-000000000003";
-// Today, not a fixed day: the vault goes by the real clock when it hands out a
-// login (vault.fresh), and a login renewed over a week before that is renewed
-// again, at Meta. With a fixed day this test reached graph.instagram.com, and
-// failed, from a week after it.
+// Today, not a fixed day: the vault renews a login over a week old at Meta by the real clock, so a fixed
+// day would reach graph.instagram.com a week later.
 const T0 = Date.now();
 const DAY = 24 * 60 * 60_000;
 const ENV = {
@@ -24,7 +22,6 @@ const ENV = {
 };
 const redirect = (network) => `https://plan.video/${network}/callback`;
 
-/** Answers fetches from a list of [match, body, status], in any order, and keeps what was asked. */
 function fakeMeta(t, routes) {
   const asked = [];
   t.mock.method(globalThis, "fetch", async (url, init = {}) => {
@@ -142,15 +139,12 @@ test("a ticket attaches its login, only for the person and network it was made f
   assert.equal(meta.open({ person: OWNER, owner: OWNER }, "instagram", account.ticket).session.accessToken, "ig-long");
   assert.equal(meta.open({ person: MEMBER, owner: MEMBER }, "instagram", account.ticket), null);
   assert.equal(meta.open({ person: OWNER, owner: OWNER }, "threads", account.ticket), null);
-  // As another network, the ticket doesn't open.
   assert.equal((await ask(OWNER, "login/save", { connectionId: "ig1", platform: "threads", session: { ticket: account.ticket } })).status, 403);
-  // Nor without one.
   assert.equal((await ask(OWNER, "login/save", { connectionId: "ig1", platform: "instagram", session: { accountId: "1", accessToken: "forged" } })).status, 403);
   assert.equal((await ask(OWNER, "login/save", { connectionId: "ig1", platform: "instagram", session: { ticket: account.ticket } })).status, 200);
   const kept = await vault.read(OWNER, "ig1");
   assert.equal(kept.platform, "instagram");
   assert.equal(kept.session.accessToken, "ig-long");
-  // And no browser is handed the token afterwards.
   assert.equal((await ask(OWNER, "login/access", { connectionId: "ig1" })).status, 403);
 });
 

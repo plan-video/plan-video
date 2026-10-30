@@ -67,7 +67,6 @@ test("login/save refuses a new account past the limit, and still takes a reconne
   const third = await save(ids[2]);
   assert.equal(third.status, 403);
   assert.match(third.error, /connects 2 social accounts/);
-  // Logging in again to an account already connected is always fine.
   assert.equal((await save(ids[0])).status, 200);
   assert.equal(db.tables.social_tokens.length, 2);
 });

@@ -28,7 +28,6 @@ function clip(entry: LogEntry): LogEntry {
   return over > 0 ? { ...entry, message: `${entry.message.slice(0, LOG_MESSAGE_MAX)}… (${over} more chars)` } : entry;
 }
 
-/** One log entry as a line: local time, level, message, source. */
 export function formatLogEntry(entry: LogEntry): string {
   const pad = (n: number, w = 2) => String(n).padStart(w, "0");
   const d = new Date(entry.ts);

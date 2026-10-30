@@ -9,7 +9,7 @@ const SUPABASE = "https://db.test";
 const tokenFor = (id) => `h.${Buffer.from(JSON.stringify({ sub: id })).toString("base64url")}.s`;
 const idOf = (token) => JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString("utf8")).sub;
 
-/** Stands in for Supabase and the Anthropic API: each call takes `delay` ms and costs `inputTokens`. */
+/** Each call takes `delay` ms and costs `inputTokens`. */
 function fakes({ delay = 100, inputTokens = 50_000, fail = false } = {}) {
   const state = { calls: 0 };
   const real = globalThis.fetch;

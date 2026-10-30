@@ -8,10 +8,7 @@ import type { Plugin } from "vite";
 import { handleLinkedIn, json, Refused } from "../../services/linkedin/handler.mjs";
 import { serverEnv } from "./server-env";
 
-/**
- * Dev-server routes under `/api/linkedin`. The client secret stays in
- * `apps/web/server.env` and never enters the browser bundle.
- */
+// The client secret stays in apps/web/server.env, out of the browser bundle.
 export function linkedinDevPlugin(envDir: string, mode: string): Plugin {
   return {
     name: "plan-linkedin",

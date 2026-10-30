@@ -19,7 +19,6 @@ function setup(now = () => Date.parse("2026-10-19T12:00:00Z")) {
   return { photos: createPhotos({ key: KEY, publicUrl: "https://plan.video", media, now }), asked };
 }
 
-/** Serves a request, and says what was answered. */
 async function fetchVideo(photos, path, { method = "GET", range } = {}) {
   const { PassThrough } = await import("node:stream");
   const res = new PassThrough();
@@ -64,7 +63,6 @@ test("a video link is refused when it's for another file, a picture, forged, or 
   const link = pathOf(photos.videoLink("u1", "clip"));
   assert.equal((await fetchVideo(photos, link.replace("/clip/", "/other/"))).status, 404);
   assert.equal((await fetchVideo(photos, pathOf(photos.videoLink("u1", "pic")))).status, 404);
-  // A picture's link doesn't open as a video's.
   const picture = pathOf(photos.link("u1", "clip")).replace("/photo/", "/video/").replace(/\.jpg$/, ".mp4");
   assert.equal((await fetchVideo(photos, picture)).status, 404);
   assert.equal((await fetchVideo(photos, link.replace(/\/[^/]+\.mp4$/, "/forged.mp4"))).status, 404);

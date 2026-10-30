@@ -1,14 +1,5 @@
-// Meta's three networks: Instagram (professional accounts, through Instagram's
-// own login, so no Facebook Page is needed), Facebook Pages (Facebook Login
-// for Business) and Threads. Each has its own app id and secret, in
-// /etc/plan-video/meta.env, its own host, and the same Graph API shape: a
-// JSON answer, or `{ error: { message, code, error_subcode } }`.
-//
-// This file holds what connecting, posting and reading numbers share: the
-// sign-in links, swapping a code for a login, renewing it, and calling the
-// API with one. The networks' posting is in networks/instagram.mjs,
-// networks/facebook.mjs and networks/threads.mjs, and their numbers in
-// meta-analytics.mjs.
+// Instagram, Facebook Pages and Threads each have their own app id and secret in /etc/plan-video/meta.env,
+// their own host, and the same Graph API shape: JSON, or `{ error: { message, code, error_subcode } }`.
 
 import { PublishError } from "./errors.mjs";
 
@@ -19,7 +10,6 @@ export const META_NETWORKS = ["instagram", "facebook", "threads"];
 
 export const META_NAMES = { instagram: "Instagram", facebook: "Facebook", threads: "Threads" };
 
-/** Where each network's API is, with its version. */
 export const API = {
   instagram: `https://graph.instagram.com/${GRAPH_VERSION}`,
   facebook: `https://graph.facebook.com/${GRAPH_VERSION}`,
@@ -33,10 +23,7 @@ export const SCOPES = {
   threads: ["threads_basic", "threads_content_publish", "threads_manage_insights"],
 };
 
-/**
- * The address a network's login comes back to, on the site at `publicUrl`
- * (PUBLIC_URL in publisher.env): saved on the Meta app, exactly.
- */
+/** PUBLIC_URL in publisher.env; must match the redirect saved on the Meta app exactly. */
 export const redirectFor = (publicUrl, network) => `${publicUrl}/${network}/callback`;
 
 /** Instagram's and Threads' logins last 60 days and are renewed once this old, while they're used. */
@@ -49,10 +36,8 @@ const BUSY = new Set([4, 17, 32, 613, 80001, 80002, 80006]);
 
 export const isMetaNetwork = (value) => META_NETWORKS.includes(value);
 
-/** Whether the app's id and secret for the network are on the server. */
 export const configured = (network, env) => !!(env?.[network]?.appId && env?.[network]?.appSecret);
 
-/** The login dialog's address. Facebook's asks which Pages to share. */
 export function authorizeUrl(network, env, { redirectUri, state }) {
   const app = env[network];
   if (network === "instagram") {
@@ -83,11 +68,7 @@ export function authorizeUrl(network, env, { redirectUri, state }) {
   })}`;
 }
 
-/**
- * Calls one of Meta's APIs. Resolves to `{ ok, status, data, error }`, where
- * `error` is Meta's `{ message, code, subcode }`, or `{ lost: true }` when
- * there was no answer. Never throws.
- */
+/** Resolves to `{ ok, status, data, error }`, `error` being `{ lost: true }` with no answer. Never throws. */
 export async function metaFetch(url, { method = "GET", token, form, json, headers = {}, timeout = 30_000 } = {}) {
   const init = { method, headers: { ...headers }, signal: AbortSignal.timeout(timeout) };
   // In the address, which every one of the three takes, rather than a header Threads may not.
@@ -119,14 +100,9 @@ export async function metaFetch(url, { method = "GET", token, form, json, header
 /** Whether an answer means the login no longer works: it ran out, its password changed, or the app was removed. */
 export const loginGone = (error) => error?.code === 190 || error?.code === 102;
 
-/** Whether an answer means Meta wants plan.video to slow down. */
 export const tooBusy = (error) => BUSY.has(error?.code);
 
-/**
- * A failed answer as the error a post fails with: a login that's gone asks
- * for a reconnect, being too busy or no answer is tried again, and anything
- * else says what Meta said.
- */
+/** A gone login asks for a reconnect; too busy or no answer is tried again. */
 export function publishError(network, error, what) {
   const name = META_NAMES[network];
   if (error?.lost) return new PublishError(`Couldn't reach ${name}. Trying again soon.`, { retry: true });
@@ -136,19 +112,14 @@ export function publishError(network, error, what) {
   return new PublishError(`${name} didn't ${what}${said}`);
 }
 
-/** The account a login came back with, each shaped the same: who it is, and its session for the vault. */
 function account(network, { accountId, handle, avatarUrl, session }) {
   return { network, accountId: String(accountId), handle: handle || META_NAMES[network], avatarUrl: avatarUrl || "", session: { accountId: String(accountId), ...session } };
 }
 
-/** Instagram answers the code swap with `{ data: [...] }` now and sent the fields alone before. */
+/** Instagram's code swap may answer `{ data: [...] }` or the fields alone. */
 const firstOf = (data) => (Array.isArray(data?.data) ? data.data[0] : data) ?? {};
 
-/**
- * Swaps the code a login came back with for the accounts it reaches: one
- * Instagram or Threads account, or each Facebook Page shared. Each has a
- * session the vault keeps. Throws `Error` with words to show when it can't.
- */
+/** Throws `Error` with words to show when it can't. */
 export async function exchangeCode(network, env, { code, redirectUri, now = Date.now() }) {
   const app = env[network];
   const name = META_NAMES[network];
@@ -220,10 +191,7 @@ export async function exchangeCode(network, env, { code, redirectUri, now = Date
     );
 }
 
-/**
- * The login renewed, when it's an Instagram or Threads one that's been in use
- * a week; null when it's fine as it is. A Page's login doesn't run out.
- */
+/** Renews Instagram and Threads logins in use a week; null when fine. A Page's login doesn't run out. */
 export async function renewed(network, session, env, now = Date.now()) {
   const name = META_NAMES[network];
   if (network === "facebook") return null;

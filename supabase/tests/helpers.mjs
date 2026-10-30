@@ -1,11 +1,6 @@
-// What the database tests share: calls to a local Supabase as a person or as
-// the service, people made with random addresses, and SQL run as postgres.
-//
 //   supabase start            (in a copy of this folder, with the migrations applied)
 //   node --test supabase/tests/<file>.test.mjs
-//
-// SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY and DATABASE_URL
-// point them at another one.
+// SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY and DATABASE_URL point them at another stack.
 
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -24,7 +19,6 @@ const run = randomUUID().slice(0, 8);
 export const address = (name) => `${name}-${run}@posts.test`;
 const PASSWORD = "posts-test-password";
 
-/** A call to the API as `token` (the service's by default). Returns the status and the parsed answer. */
 export async function call(path, { token = SERVICE, method = "GET", body, prefer } = {}) {
   const response = await fetch(`${URL}${path}`, {
     method,
@@ -41,7 +35,6 @@ export async function call(path, { token = SERVICE, method = "GET", body, prefer
   return { status: response.status, data };
 }
 
-/** Calls a function as `token`. Throws with Postgres's code when it refuses. */
 export async function rpc(token, name, args = {}) {
   const { status, data } = await call(`/rest/v1/rpc/${name}`, { token, method: "POST", body: args });
   if (status >= 400) {
@@ -59,7 +52,6 @@ export async function refuses(promise, code) {
   });
 }
 
-/** Lets an address in from the waitlist, as an invite does. */
 export async function letIn(email) {
   const { status, data } = await call("/rest/v1/waitlist?on_conflict=email", {
     method: "POST",
@@ -69,10 +61,6 @@ export async function letIn(email) {
   assert.ok(status < 300, JSON.stringify(data));
 }
 
-/**
- * Someone signed in, with an address of their own: let in from the waitlist
- * first, as everyone is while the app is invite-only, unless `letIn` is false.
- */
 export async function makeUser(name, { letIn: invited = true } = {}) {
   const email = address(name);
   if (invited) await letIn(email);
@@ -92,7 +80,6 @@ export async function setLevel(userId, level) {
   assert.ok(status < 300);
 }
 
-/** A workspace's lists in the account, without posts. */
 export function slice(overrides = {}) {
   return {
     connections: [],
@@ -110,7 +97,6 @@ export function slice(overrides = {}) {
   };
 }
 
-/** Saves an owner's account the way their browser does: an upsert naming the revision it merged with. */
 export async function saveOwner(owner, payload, base) {
   return call("/rest/v1/account_state?on_conflict=user_id", {
     token: owner.token,

@@ -1,5 +1,3 @@
-// An in-memory stand-in for db.mjs, for the tests.
-
 const UNIQUE = {
   post_deliveries: ["user_id", "post_id", "occurrence", "platform", "connection_id"],
   social_tokens: ["user_id", "connection_id"],
@@ -17,10 +15,8 @@ export function fakeDb({ posts = [], users = [], recipients = {}, accounts = {} 
   const copy = (row) => structuredClone(row);
   const defaults = { attempts: 0, requested: false, error: null, publish_id: null, url: null, plug_checks: 0, plugs_done: [] };
   /**
-   * The posts table's own columns, and post_schedule, as the database's
-   * triggers keep them: a post new or changed since it was last seen (the
-   * tests change posts in place) gets a new version and is due a look at
-   * once; one gone from `posts` is due a look as deleted.
+   * Like the database's triggers: a post new or changed since last seen (tests change posts in place) gets
+   * a new version and is due a look at once; one gone from `posts` is due a look as deleted.
    */
   const rowsOf = new Map();
   const EARLY = new Date(0).toISOString();
@@ -51,7 +47,6 @@ export function fakeDb({ posts = [], users = [], recipients = {}, accounts = {} 
   return {
     tables,
     posts,
-    /** Makes the next update fail, as a dropped connection would. */
     failNextUpdate: false,
     /** Like a database from before the paged functions. */
     withoutPages: false,
@@ -107,11 +102,8 @@ export function fakeDb({ posts = [], users = [], recipients = {}, accounts = {} 
     async delete(table, filter) {
       tables[table] = tables[table].filter((row) => !matches(row, filter));
     },
-    /** Every look for due rows, with what it left out. */
     looks: [],
-    /** Every list of next looks the publisher kept. */
     schedules: [],
-    /** A post's look as the database has it: its version, next look and how far its runs were looked through. */
     look(userId, postId) {
       seen();
       const row = rowsOf.get(`${userId}|${postId}`);

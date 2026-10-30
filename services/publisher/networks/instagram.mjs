@@ -1,8 +1,5 @@
-// Posts to an Instagram professional account: a picture, a video as a Reel,
-// up to 10 of the post's pictures and videos as a carousel, or one picture or
-// video as a Story. Instagram pulls each file from a signed link to the
-// publisher (photos.mjs): pictures as JPEGs, which is all it takes, and
-// videos as they are. See meta-containers.mjs for how a post is made.
+// Instagram pulls each file from a signed link to the publisher (photos.mjs): pictures as JPEGs, which is
+// all it takes, and videos as they are. See meta-containers.mjs for how a post is made.
 
 import { PublishError } from "../errors.mjs";
 import { API } from "../meta.mjs";
@@ -10,7 +7,6 @@ import { clipText, containers } from "./meta-containers.mjs";
 import { captionOf } from "./text.mjs";
 
 const CAPTION_LIMIT = 2200;
-/** Items one carousel takes. */
 const MAX_ITEMS = 10;
 const MAX_COLLABORATORS = 3;
 const MAX_REEL_BYTES = 300 * 1024 * 1024;
@@ -35,7 +31,7 @@ const flow = containers({
   limitError: (error) => (error?.code === 9 || OVER_LIMIT.has(error?.subcode) ? Date.now() + 60 * 60_000 : null),
 });
 
-/** The people tagged as collaborators, by username: up to three. */
+/** Up to three, by username. */
 function collaboratorsOf(post) {
   const named = Array.isArray(post.instagram?.collaborators) ? post.instagram.collaborators : [];
   const clean = named.map((name) => (typeof name === "string" ? name.trim().replace(/^@+/, "") : "")).filter((name) => /^[\w.]{1,30}$/.test(name));
@@ -45,11 +41,10 @@ function collaboratorsOf(post) {
 export function createInstagram({ photos }) {
   if (!photos) throw new Error("Instagram pulls a post's files from the publisher's links.");
 
-  /** The link Instagram pulls a file from. A feed picture is cut to a shape the feed takes; a Story's stays whole. */
+  /** A feed picture is cut to a shape the feed takes; a Story's stays whole. */
   const linkOf = (delivery, file, { story = false } = {}) =>
     file.kind === "video" ? photos.videoLink(delivery.user_id, file.id) : story ? photos.link(delivery.user_id, file.id) : photos.feedLink(delivery.user_id, file.id);
 
-  /** What the post goes out with, besides its files. */
   function details(post) {
     const caption = clipText(captionOf(post, "instagram").trim(), CAPTION_LIMIT);
     const collaborators = collaboratorsOf(post);

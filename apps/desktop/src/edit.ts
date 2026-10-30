@@ -40,27 +40,17 @@ import type {
   WriteResult,
 } from "./edit-types";
 
-/** The opening half of a JSX element — where its attributes live. */
 type JsxTag = JsxOpeningElement | JsxSelfClosingElement;
 
 const SOURCE_FILE = /\.[jt]sx?$/;
 
 const absolute = (dir: string, file: string): string => join(dir, ...file.split("/"));
 
-// ---------------------------------------------------------------------------
-// The numbering
-
-/**
- * Every JSX element in document order — the same sequence `./source` numbers,
- * so the nth entry here is the element the nth position refers to. Walked
- * rather than collected: `getDescendants` would wrap every token in the file
- * to find the handful that are elements.
- */
+/** Same order `./source` numbers. Walked, not `getDescendants`, which wraps every token. */
 function tags(sourceFile: SourceFile): JsxTag[] {
   return tagsIn(sourceFile);
 }
 
-/** The JSX elements at and under `node`, in document order. */
 function tagsIn(node: Node): JsxTag[] {
   const found: JsxTag[] = [];
   const visit = (candidate: Node): void => {
@@ -80,10 +70,7 @@ const attributeOf = (tag: JsxTag, name: string): JsxAttribute | undefined =>
 const idOf = (tag: JsxTag): string | undefined =>
   attributeOf(tag, ID_ATTR)?.getInitializer()?.asKind(SyntaxKind.StringLiteral)?.getLiteralValue();
 
-/**
- * Ids live in text, which can be copied, so two elements can end up claiming
- * one. An ambiguous id resolves to nothing and the write is reported instead.
- */
+/** Ids can be copied, so an ambiguous id resolves to nothing and the write is reported instead. */
 function findTag(sourceFile: SourceFile, locator: number | string): JsxTag | undefined {
   const all = tags(sourceFile);
   if (typeof locator === "number") return all[locator];
@@ -98,10 +85,6 @@ const idsIn = (sourceFile: SourceFile): Set<string> =>
 const ID_LENGTH = 6;
 const ID_SPACE = 36 ** ID_LENGTH;
 
-/**
- * Ids only need to be unique within their file, so a fresh one is simply
- * drawn until it misses everything already taken.
- */
 function idAllocator(taken: Set<string>): () => string {
   return () => {
     while (true) {
@@ -113,14 +96,10 @@ function idAllocator(taken: Set<string>): () => string {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Values
-
 const round = (value: number): number => Math.round(value * 100) / 100;
 
 const IDENTIFIER = /^[A-Za-z_$][\w$]*$/;
 
-/** A prop value as the JavaScript that would have produced it. */
 function literalText(value: PropValue | SerializedAssetRef): string {
   if (isSerializedAssetRef(value)) return declarationText(value);
   if (typeof value === "string") return JSON.stringify(value);
@@ -134,36 +113,20 @@ function literalText(value: PropValue | SerializedAssetRef): string {
   return entries.length ? `{ ${entries.join(", ")} }` : "{}";
 }
 
-/**
- * What a quoted JSX attribute cannot carry as itself: the quote that would end
- * it, the `&` that would start an entity, and the control characters that have
- * no spelling there — an attribute string is raw text, not JavaScript, so a
- * backslash escapes nothing.
- */
+/** An attribute string is raw text, not JavaScript: a backslash escapes nothing. */
 const UNQUOTABLE = /["&\p{Cc}\u2028\u2029]/u;
 
-/**
- * A prop value as it appears after `=` in a JSX attribute. Strings are written
- * the way they are read — `fill="#ff0000"` — and fall back to an expression,
- * where JavaScript's escapes are available again, when they cannot be.
- */
 const initializerText = (value: PropValue): string =>
   typeof value === "string" && !UNQUOTABLE.test(value)
     ? `"${value}"`
     : `{${literalText(value)}}`;
 
-/**
- * A declaration's wire form as the call that reproduces it: `generate.<type>`
- * over its options, or `transform.<type>` over its input, with declared
- * inputs spelled as the nested calls they are.
- */
 function declarationText(ref: SerializedAssetRef): string {
   const { type, ...options } = ref.$asset;
   if (isTransformType(type)) return `transform.${type}(${literalText((options as { input: EditValue }).input)})`;
   return `generate.${type}(${literalText(options as Record<string, PropValue>)})`;
 }
 
-/** The namespaces a declaration is spelled with: what its file has to import. */
 function declarationImports(ref: SerializedAssetRef, names = new Set<string>()): Set<string> {
   const { type, ...options } = ref.$asset;
   names.add(isTransformType(type) ? "transform" : "generate");
@@ -175,13 +138,7 @@ function declarationImports(ref: SerializedAssetRef, names = new Set<string>()):
   return names;
 }
 
-/**
- * Writes a prop onto a tag as one would write it: `muted`, not `muted={true}`,
- * and no attribute at all rather than `muted={false}`, since absence is what a
- * boolean prop's false reads as. A declaration is spelled as the call that
- * reproduces it — the caller makes sure its namespaces are imported (see
- * `ensureDeclarationImports`).
- */
+/** Boolean false is written as no attribute. The caller imports the declaration's namespaces. */
 function setProp(tag: JsxTag, name: string, value: EditValue): void {
   const attribute = attributeOf(tag, name);
 
@@ -207,16 +164,8 @@ function setProp(tag: JsxTag, name: string, value: EditValue): void {
   else tag.addAttribute({ name, initializer: initializerText(value) });
 }
 
-/** Where `generate` and `transform` come from — the module every project authors against. */
 const DECLARATION_MODULE = "@plan.video/jsx";
 
-/**
- * Makes sure the namespaces a declaration is spelled with are in scope once
- * it has been written into the file: added to the module's existing import,
- * or as an import of their own after the last one — or above the first
- * statement, past the file's header comments, when there are no imports at
- * all. Idempotent.
- */
 function ensureDeclarationImports(sourceFile: SourceFile, ref: SerializedAssetRef): void {
   for (const name of declarationImports(ref)) ensureNamedImport(sourceFile, name);
 }
@@ -246,20 +195,11 @@ function ensureNamedImport(sourceFile: SourceFile, name: string): void {
   }
 }
 
-/**
- * Text content as JSX spells it: bare when JSX would read it back verbatim,
- * otherwise as a string expression (JSX collapses whitespace around line
- * breaks and reads `{`, `}`, `<`, `>`, `&` as syntax).
- */
+/** JSX collapses whitespace around line breaks and reads `{`, `}`, `<`, `>`, `&` as syntax. */
 function jsxText(text: string): string {
   return /^[^\s{}<>&][^\n{}<>&]*[^\s{}<>&]$|^[^\s{}<>&]$/.test(text) ? text : `{${JSON.stringify(text)}}`;
 }
 
-/**
- * Replaces what an element says between its tags; a self-closing one is opened
- * up around the new text. Everything outside the body keeps its bytes, so an
- * element that says something else is otherwise the element it was.
- */
 function setText(sourceFile: SourceFile, tag: JsxTag, text: string): void {
   const element = elementOf(tag);
   const content = text ? jsxText(text) : "";
@@ -273,15 +213,7 @@ function setText(sourceFile: SourceFile, tag: JsxTag, text: string): void {
   sourceFile.replaceText([element.getOpeningElement().getEnd(), element.getClosingElement().getStart()], content);
 }
 
-// ---------------------------------------------------------------------------
-// Layout
-
-/**
- * ts-morph measures indentation in units of its `indentationText` setting and
- * does not learn a file's from the file, so before it is asked about one the
- * setting is matched to what the file's first indented line uses (two spaces
- * when there is none to learn from).
- */
+/** ts-morph does not learn a file's indentation, so match its `indentationText` to the file first. */
 function matchIndentation(sourceFile: SourceFile): void {
   const lead = /^([ \t]+)\S/m.exec(sourceFile.getFullText())?.[1] ?? "";
   const indentationText = lead.startsWith("\t")
@@ -294,12 +226,8 @@ function matchIndentation(sourceFile: SourceFile): void {
   sourceFile.getProject().manipulationSettings.set({ indentationText });
 }
 
-/** The whole element a tag opens — the tag itself when it is self-closing. */
 const elementOf = (tag: JsxTag): JsxElement | JsxSelfClosingElement =>
   tag.isKind(SyntaxKind.JsxOpeningElement) ? tag.getParentIfKindOrThrow(SyntaxKind.JsxElement) : tag;
-
-// ---------------------------------------------------------------------------
-// Loops
 
 type JsxBody = JsxElement | JsxSelfClosingElement | JsxFragment;
 type LoopCallback = ArrowFunction | FunctionExpression;
@@ -307,12 +235,7 @@ type LoopCallback = ArrowFunction | FunctionExpression;
 const isLoopElement = (node: Node): node is JsxElement =>
   node.isKind(SyntaxKind.JsxElement) && isLoopTag(tagName(node.getOpeningElement()));
 
-/**
- * The nearest `<For>`/`<Index>` an element sits in the body of, if any. An
- * element there is rendered once per item, so a write to it — a prop, a child,
- * a move, a cut — would reach every iteration at once; the writer refuses
- * those, and unrolls the loop instead when asked to (see `SourceUnroll`).
- */
+/** A write to an element in a loop body would reach every iteration, so those are refused (see `SourceUnroll`). */
 const loopOf = (element: Node): JsxElement | undefined => element.getAncestors().find(isLoopElement);
 
 const inLoop = (tag: JsxTag): boolean => loopOf(elementOf(tag)) !== undefined;
@@ -320,12 +243,6 @@ const inLoop = (tag: JsxTag): boolean => loopOf(elementOf(tag)) !== undefined;
 const isBlankText = (node: Node): boolean =>
   node.isKind(SyntaxKind.JsxText) && node.containsOnlyTriviaWhiteSpaces();
 
-/**
- * What a loop renders per item: the JSX its callback returns, when the
- * callback is written out and returns nothing but JSX. Anything else — a
- * reference to a function declared elsewhere, a body with statements of its
- * own — computes its element in a way the source cannot be asked to spell out.
- */
 function loopBody(loop: JsxElement): { callback: LoopCallback; body: JsxBody } | undefined {
   const children = loop.getJsxChildren().filter((child) => !isBlankText(child));
   if (children.length !== 1) return undefined;
@@ -349,11 +266,7 @@ function loopBody(loop: JsxElement): { callback: LoopCallback; body: JsxBody } |
   return body === undefined ? undefined : { callback, body };
 }
 
-/**
- * The names a loop's callback binds — the item, the index, whatever it
- * destructured (over-approximated: every identifier in the parameter list).
- * These are what an unrolled copy no longer has a value for.
- */
+/** Over-approximated: every identifier in the parameter list. */
 function boundNames(callback: LoopCallback): Set<string> {
   const names = new Set<string>();
   for (const parameter of callback.getParameters()) {
@@ -364,7 +277,6 @@ function boundNames(callback: LoopCallback): Set<string> {
   return names;
 }
 
-/** Whether an attribute's value mentions any of `names`. */
 function mentions(attribute: JsxAttribute, names: Set<string>): boolean {
   const initializer = attribute.getInitializer();
   if (!initializer) return false;
@@ -377,20 +289,13 @@ const isTextTag = (tag: JsxTag): boolean => {
   return name === "text" || name === "Text";
 };
 
-/**
- * Puts `child` (element text) under `parent`, in front of `before` (a direct
- * child of it) or last. ts-morph has no operation for either without
- * re-printing the parent's body, so these are text edits at positions it
- * supplies; the child takes the indentation of its new neighbours and
- * everything else in the file keeps its bytes.
- */
+/** ts-morph cannot do this without re-printing the parent's body, so these are text edits. */
 function insertChild(sourceFile: SourceFile, parent: JsxTag, child: string, before?: JsxTag): void {
   matchIndentation(sourceFile);
   const element = elementOf(parent);
   const indent = element.getIndentationText();
   const childIndent = element.getChildIndentationText();
 
-  // A self-closing parent is opened up around the child.
   if (element.isKind(SyntaxKind.JsxSelfClosingElement)) {
     const opening = element.getText().replace(/\s*\/>$/, ">");
     sourceFile.replaceText(
@@ -412,10 +317,6 @@ function insertChild(sourceFile: SourceFile, parent: JsxTag, child: string, befo
   else sourceFile.insertText(closing.getStart(), `\n${childIndent}${child}\n${indent}`);
 }
 
-/**
- * Takes an element out of the tree, and the line it stood on when it had one
- * to itself, so what is left reads as if it had never been there.
- */
 function cutElement(sourceFile: SourceFile, element: JsxElement | JsxSelfClosingElement): void {
   let start = element.getStart();
   let end = element.getEnd();
@@ -434,11 +335,6 @@ function cutElement(sourceFile: SourceFile, element: JsxElement | JsxSelfClosing
   sourceFile.removeText(start, end);
 }
 
-/**
- * An element's text at a new indentation level. Every line after the first
- * moves by the same amount, so the block keeps the shape its author gave it;
- * a line indented less than the element itself is left where it is.
- */
 function reindent(text: string, from: string, to: string): string {
   if (from === to) return text;
 
@@ -448,11 +344,6 @@ function reindent(text: string, from: string, to: string): string {
     .join("\n");
 }
 
-/**
- * Whether an expression is a value rather than a way of computing one. A
- * declaration call over values is one too: it is what the writer spells a
- * declaration as, so it is an initializer the writer may also overwrite.
- */
 function isLiteral(node: Node): boolean {
   if (isDeclarationCall(node)) return true;
 
@@ -489,14 +380,8 @@ function isLiteral(node: Node): boolean {
   return false;
 }
 
-/** The namespaces a declaration call is made through. */
 const DECLARATION_NAMESPACES = new Set(["generate", "transform"]);
 
-/**
- * A `generate.*` or `transform.*` call over literals — a nested declaration
- * among them. One whose argument computes anything is authored reactivity,
- * like any expression.
- */
 function isDeclarationCall(node: Node): boolean {
   const call = node.asKind(SyntaxKind.CallExpression);
   const callee = call?.getExpression().asKind(SyntaxKind.PropertyAccessExpression);
@@ -507,10 +392,6 @@ function isDeclarationCall(node: Node): boolean {
   return args.length === 1 && isLiteral(args[0]!);
 }
 
-// ---------------------------------------------------------------------------
-// Files
-
-/** Every project source file, project-relative and `/`-separated. */
 async function sourceFiles(dir: string, prefix = ""): Promise<string[]> {
   let entries;
   try {
@@ -529,28 +410,20 @@ async function sourceFiles(dir: string, prefix = ""): Promise<string[]> {
   return files;
 }
 
-/** A file as it was read, alongside the tree edits are made against. */
 interface OpenFile {
   sourceFile: SourceFile;
   text: string;
 }
 
-/** What one file's edits came to. */
 interface FileWrite {
   skipped: string[];
   ids: Record<string, string>;
   unrolled: string[];
 }
 
-/** How an edit is named in `WriteResult.skipped`: its source, or the variable's `file:name`. */
 export const editLabel = (edit: SourceEdit): string =>
   edit.kind === "variable" ? formatSource(edit.file, edit.name) : edit.source;
 
-/**
- * The element a source names, resolved through the names this write has
- * already handed out: an insert answers with a real source, and anything
- * addressed by the pending one from then on means the new element.
- */
 function locate(
   source: string,
   ids: Record<string, string>,
@@ -558,18 +431,9 @@ function locate(
   return parseSource(ids[source] ?? source);
 }
 
-/**
- * One write against a project's sources. ts-morph parses into a file system of
- * its own: bytes come off disk and go back to it here, and every file a write
- * touches is read once, edited in place, and saved at the end.
- *
- * One instance is one operation — construct it, run it, discard it. That is
- * what keeps a later write from editing a tree parsed before the project
- * changed underneath it.
- */
+/** One instance per operation, so a write never edits a tree parsed before the project changed. */
 class SourceWriter {
-  // Nothing here asks a question about types, so the standard library is never
-  // loaded: parsing it costs more than everything else this class does.
+  // Types are never asked about, so the standard library is not loaded: parsing it costs more than the rest.
   private readonly project = new Project({
     useInMemoryFileSystem: true,
     skipLoadingLibFiles: true,
@@ -581,7 +445,6 @@ class SourceWriter {
     this.context = context;
   }
 
-  /** Reads a file into the project, or does nothing if it cannot be read. */
   private async load(path: string): Promise<void> {
     if (this.files.has(path)) return;
 
@@ -592,20 +455,14 @@ class SourceWriter {
       return;
     }
 
-    // Created under the name it has in the project, so the extension still
-    // decides the dialect: in `.ts`, `<T>value` is a type assertion rather
-    // than an element.
+    // The extension decides the dialect: in `.ts`, `<T>value` is a type assertion.
     const sourceFile = this.project.createSourceFile(`/${path}`, text, { overwrite: true });
     this.files.set(path, { sourceFile, text });
   }
 
   /**
-   * Drops every file the parser had to guess at, since re-printing one would
-   * hand back source no one wrote — a file mid-edit is not a file to write to.
-   *
-   * Checked in one pass because ts-morph builds a program to answer for a
-   * file, and that program is rebuilt every time another file arrives or one
-   * is edited: asking per file would cost a program per file.
+   * Re-printing a file the parser guessed at would hand back source no one wrote. One pass,
+   * because ts-morph rebuilds its program whenever a file arrives or changes.
    */
   private dropUnparsed(paths: Iterable<string> = this.files.keys()): void {
     const program = this.project.getProgram();
@@ -616,7 +473,6 @@ class SourceWriter {
     }
   }
 
-  /** Drops a file from the write set, leaving what is on disk untouched. */
   private discard(path: string): void {
     const open = this.files.get(path);
     if (!open) return;
@@ -624,36 +480,24 @@ class SourceWriter {
     this.project.removeSourceFile(open.sourceFile);
   }
 
-  /** Writes back the files an edit actually changed, and only those. */
   private async save(): Promise<void> {
     for (const [path, open] of this.files) {
       const text = open.sourceFile.getFullText();
       if (text === open.text) continue;
       open.text = text;
 
-      // Claimed before the write lands: a watcher must never see this change
-      // arrive without knowing whose it was, and what says whose it is are the
-      // bytes themselves — so they go with the claim. Written whole, because
-      // the same watcher reads the file straight back.
+      // Claimed with the bytes before the write lands, so the watcher always knows the change is ours.
       this.context.onWrite?.(path, text);
       await writeFileAtomic(absolute(this.context.dir, path), text);
     }
   }
 
-  /**
-   * Names every composition element in the project, so identity does not have
-   * to be earned one write at a time: without an id, an element is only a
-   * position, and any edit that adds an element above it moves it. Idempotent —
-   * a project where nothing is missing an id is not written to, which is what
-   * makes this safe to run before every compile.
-   */
   public async stampProject(paths: string[]): Promise<void> {
     for (const path of paths) await this.load(path);
     this.dropUnparsed();
 
     for (const path of [...this.files.keys()]) this.stampFile(path);
 
-    // Nothing ts-morph will not vouch for reaches the disk.
     this.dropUnparsed();
     await this.save();
   }
@@ -662,9 +506,7 @@ class SourceWriter {
     const sourceFile = this.files.get(path)!.sourceFile;
     const nextId = idAllocator(idsIn(sourceFile));
 
-    // Every id in one manipulation: each tag says where its own name goes —
-    // after the attributes it already has — and the file is reparsed once
-    // rather than once per element.
+    // All ids in one manipulation, so the file is reparsed once rather than per element.
     const changes = tags(sourceFile).flatMap((tag) => {
       if (!isCompositionTag(tagName(tag)) || idOf(tag)) return [];
 
@@ -681,28 +523,16 @@ class SourceWriter {
     }
   }
 
-  /**
-   * Writes prop values back into the JSX that produced them, over whatever
-   * was there — a literal or an expression. An element that is written to and
-   * has no id gets one, so that the next edit to renumber the file cannot
-   * strand it.
-   */
   public async applyEdits(edits: SourceEdit[]): Promise<WriteResult> {
     const skipped: string[] = [];
     const ids: Record<string, string> = {};
     const unrolled: string[] = [];
 
-    // Grouped by file: one parse and one write per file, however many elements
-    // of it an edit touched. An insert lives in its parent's file, and a
-    // pending source in the file of the insert (or the unroll) that made it;
-    // edits arrive in the order they were made, so a parent is filed before
-    // its children.
     const fileOf = new Map<string, string>();
     const byFile = new Map<string, SourceEdit[]>();
     for (const edit of edits) {
       let file: string | undefined;
       if (edit.kind === "variable") {
-        // A variable names its file itself; nothing about it is pending.
         file = edit.file;
       } else {
         const address = edit.kind === "insert" ? edit.parent : edit.source;
@@ -730,8 +560,7 @@ class SourceWriter {
       const sourceFile = this.files.get(file)?.sourceFile;
       const written = sourceFile ? this.editFile(file, sourceFile, entries) : undefined;
 
-      // All or nothing per file: a file whose tree an edit left in a state
-      // ts-morph will not vouch for is dropped rather than half written.
+      // All or nothing per file: a tree ts-morph will not vouch for is dropped, never half written.
       if (!written) {
         this.discard(file);
         skipped.push(...entries.map(editLabel));
@@ -751,11 +580,6 @@ class SourceWriter {
     };
   }
 
-  /**
-   * One file's worth of edits, applied to the tree: the ids it handed out and
-   * the sources it would not write, or undefined if the file is to be left
-   * alone entirely.
-   */
   private editFile(file: string, sourceFile: SourceFile, entries: SourceEdit[]): FileWrite | undefined {
     const nextId = idAllocator(idsIn(sourceFile));
     const skipped: string[] = [];
@@ -806,25 +630,18 @@ class SourceWriter {
             break;
           }
 
-          // One element of a loop cannot take a value the others do not:
-          // the loop has to be unrolled first (and would have been, in this
-          // same write, had the canvas been able to spell it out).
+          // A loop's elements must be unrolled before one can take its own value.
           if (inLoop(tag)) {
             skipped.push(`${edit.source} (loop)`);
             break;
           }
 
-          // Whatever the source held for it: the user wins. An expression
-          // there (`x={MARGIN}`) is replaced by the value like a literal is —
-          // the canvas already shows the edit, and an export and the next open
-          // render the file, so a prop left as it was would move back.
+          // The user wins over an expression too: a prop left as it was would move back on the next render.
           setProp(tag, name, value);
           if (isSerializedAssetRef(value)) ensureDeclarationImports(sourceFile, value);
           wrote = true;
         }
 
-        // What the element says, after its props: same rules as a prop, and
-        // only a `<text>` has anything to say.
         if (edit.text !== undefined) {
           const tag = findTag(sourceFile, locator);
           if (!tag) skipped.push(edit.source);
@@ -836,8 +653,6 @@ class SourceWriter {
           }
         }
 
-        // Named only once something was written: failing to write to an
-        // element is no reason to touch the file.
         const tag = wrote ? findTag(sourceFile, locator) : undefined;
         if (!tag || idOf(tag)) continue;
 
@@ -849,23 +664,15 @@ class SourceWriter {
       return undefined;
     }
 
-    // The tree an edit leaves behind answers for itself before it is printed.
     this.dropUnparsed([file]);
     return this.files.has(file) ? { skipped, ids, unrolled } : undefined;
   }
 
-  /**
-   * Overwrites the initializer of an `@inspect`-annotated top-level const.
-   * False when no top-level const of that name carries the annotation, or when
-   * its initializer is not a literal anymore: the annotation promises the
-   * inspector a value, and an expression there is no longer one.
-   */
   private setVariable(sourceFile: SourceFile, edit: SourceVariable): boolean {
     for (const statement of sourceFile.getVariableStatements()) {
       const declaration = statement.getDeclarations().find((candidate) => candidate.getName() === edit.name);
       if (!declaration) continue;
-      // The same leniency the compile step reads with: any leading comment
-      // carrying the tag at the start of a line (past the comment markers).
+      // Same leniency as the compile step: the tag at the start of any leading comment line.
       const annotated = statement.getLeadingCommentRanges().some((range) =>
         new RegExp(`(?:^|\\n)[\\s/*]*@${INSPECT_TAG}\\b`).test(range.getText()),
       );
@@ -879,12 +686,6 @@ class SourceWriter {
     return false;
   }
 
-  /**
-   * Adds one element to the tree, named on the spot: the canvas is already
-   * showing it and will address it by that name with its next edit, so it
-   * cannot wait for a write to earn one. False when the parent (or the anchor)
-   * is not an element this file can be asked to hold a child under.
-   */
   private insertElement(
     file: string,
     sourceFile: SourceFile,
@@ -896,20 +697,16 @@ class SourceWriter {
 
     const parentLocator = locate(edit.parent, ids)?.locator;
     const parent = parentLocator === undefined ? undefined : findTag(sourceFile, parentLocator);
-    // A child of a looped element would be a child of every iteration's.
     if (!parent || inLoop(parent)) return false;
 
     let before: JsxTag | undefined;
     if (edit.before !== undefined) {
       const anchorLocator = locate(edit.before, ids)?.locator;
       before = anchorLocator === undefined ? undefined : findTag(sourceFile, anchorLocator);
-      // "In front of" only means something for a child of the same parent.
       if (!before || elementOf(before).getParent() !== elementOf(parent)) return false;
     }
 
-    // Placed bare and named, then given its props the way any element is:
-    // one attribute at a time, re-found by name after each (editing one
-    // attribute forgets its siblings).
+    // Editing one attribute forgets its siblings, so each is re-found by name.
     const id = nextId();
     const opening = `<${edit.tag} ${ID_ATTR}="${id}"`;
     const child = edit.text === undefined ? `${opening} />` : `${opening}>${jsxText(edit.text)}</${edit.tag}>`;
@@ -922,15 +719,7 @@ class SourceWriter {
     return true;
   }
 
-  /**
-   * Moves one element to another parent: its text is cut from where it stands
-   * and put back under the new one. False when either end is not an element of
-   * this file, or when the move is one no tree can hold (an element into
-   * itself or into its own subtree).
-   *
-   * Everything is addressed by id first, since cutting the text renumbers the
-   * positions the sources of an unnamed element would otherwise rely on.
-   */
+  /** Everything is addressed by id first, since cutting the text renumbers positions. */
   private moveElement(
     file: string,
     sourceFile: SourceFile,
@@ -940,25 +729,20 @@ class SourceWriter {
   ): boolean {
     const named = (source: string): string | undefined => {
       const address = locate(source, ids);
-      // Ids are allocated per file, so one from elsewhere could name an
-      // element here that has nothing to do with it.
+      // Ids are per file, so one from elsewhere could name an unrelated element here.
       const locator = address?.file === file ? address.locator : undefined;
       const tag = locator === undefined ? undefined : findTag(sourceFile, locator);
-      // Nothing in a loop moves, or is moved into: it is every iteration's.
       if (!tag || inLoop(tag)) return undefined;
       const id = idOf(tag);
       if (id) return id;
 
       const minted = nextId();
       tag.addAttribute({ name: ID_ATTR, initializer: `"${minted}"` });
-      // The write answers with it: the canvas addresses this element by
-      // position until it hears otherwise, and the move invalidates that.
       ids[source] = formatSource(file, minted);
       return minted;
     };
 
-    // Named before anything is cut, and each stamp re-parses, so the tags are
-    // re-found from the ids afterwards rather than held across the edits.
+    // Each stamp re-parses, so tags are re-found from ids rather than held across edits.
     const id = named(edit.source);
     const parentId = named(edit.parent);
     if (!id || !parentId || id === parentId) return false;
@@ -974,8 +758,7 @@ class SourceWriter {
       if (anchor.getParent() !== parentElement) return false;
     }
 
-    // Before any indentation is measured: ts-morph counts it in units of a
-    // setting it does not learn from the file on its own.
+    // Before any indentation is measured (see `matchIndentation`).
     matchIndentation(sourceFile);
     const text = element.getText();
     const indent = element.getIndentationText();
@@ -983,21 +766,13 @@ class SourceWriter {
 
     const parent = findTag(sourceFile, parentId);
     const before = beforeId === undefined ? undefined : findTag(sourceFile, beforeId);
-    // Neither can have gone with the cut (a destination inside what is being
-    // moved was refused above), and the element is out of the tree by now, so
-    // this is the file dropping out of the write rather than a skipped edit.
     if (!parent || (beforeId !== undefined && !before)) throw new Error("the element's new parent is gone");
 
     insertChild(sourceFile, parent, reindent(text, indent, elementOf(parent).getChildIndentationText()), before);
     return true;
   }
 
-  /**
-   * Cuts one element, subtree and all, out of the tree. False when the source
-   * does not name an element of this file — including one already gone: a
-   * remove of what a remove in this same write took along with its parent
-   * finds nothing, and that is not a failure of the file.
-   */
+  /** An element already removed with its parent in this write is not a failure. */
   private removeElement(
     file: string,
     sourceFile: SourceFile,
@@ -1007,7 +782,6 @@ class SourceWriter {
     const address = locate(edit.source, ids);
     const locator = address?.file === file ? address.locator : undefined;
     const tag = locator === undefined ? undefined : findTag(sourceFile, locator);
-    // Cutting a looped element would cut it from every iteration.
     if (!tag || inLoop(tag)) return false;
 
     matchIndentation(sourceFile);
@@ -1016,20 +790,9 @@ class SourceWriter {
   }
 
   /**
-   * Replaces the loop around one element with its iterations written out.
-   * The body — the JSX the loop's callback returns — is copied once per
-   * iteration, keeping the author's layout; then each copy's elements take
-   * the props that iteration rendered, spelled as literals, and lose the
-   * spreads those props came from. The first copy keeps the body's ids, the
-   * rest are named afresh and answered for in `ids`.
-   *
-   * False when the loop is not one the source can be asked to spell out: no
-   * loop around the element, a loop within a loop, a callback that computes
-   * rather than returns JSX, a body with anything but composition elements in
-   * it (a component's props are its own, and control flow renders on its own
-   * terms), an attribute that leans on the item and that the canvas did not
-   * report a value for, or an iteration the canvas knows less about than the
-   * body asks.
+   * Writes the loop's iterations out: copies of the body with each iteration's props as literals
+   * and the spreads removed. False when the source can't spell it out (nested loop, computed
+   * callback, non-composition elements, or props the canvas did not report).
    */
   private unrollLoop(
     file: string,
@@ -1047,7 +810,6 @@ class SourceWriter {
     if (!shape) return false;
     const bound = boundNames(shape.callback);
 
-    // What the canvas said, by id: every key must name an element of this file.
     const iterations: Map<string, SourceIteration[string]>[] = [];
     for (const iteration of edit.iterations) {
       const byId = new Map<string, SourceIteration[string]>();
@@ -1060,7 +822,6 @@ class SourceWriter {
     }
     if (!iterations.length) return false;
 
-    // The body's top-level elements: the copies are their text.
     const roots: (JsxElement | JsxSelfClosingElement)[] = [];
     for (const child of shape.body.isKind(SyntaxKind.JsxFragment) ? shape.body.getJsxChildren() : [shape.body]) {
       if (isBlankText(child)) continue;
@@ -1069,9 +830,6 @@ class SourceWriter {
     }
     if (!roots.length) return false;
 
-    // Checked before anything is touched: every element of the body is a named
-    // composition element every iteration accounts for, holds only what a copy
-    // can hold, and keeps no attribute that would be left pointing at the item.
     const bodyTags = roots.flatMap(tagsIn);
     const bodyIds: string[] = [];
     for (const bodyTag of bodyTags) {
@@ -1103,14 +861,10 @@ class SourceWriter {
       }
     }
 
-    // Before any indentation is measured: ts-morph counts it in units of a
-    // setting it does not learn from the file on its own.
+    // Before any indentation is measured (see `matchIndentation`).
     matchIndentation(sourceFile);
     const indent = loop.getIndentationText();
 
-    // Each copy: the roots' text at the loop's indentation, with the ids of
-    // every copy but the first swapped for fresh ones — by span, so the copies
-    // read exactly as the body does otherwise.
     const minted: Map<string, string>[] = iterations.map(() => new Map());
     const copies = iterations.map((iteration, index) =>
       roots
@@ -1136,9 +890,7 @@ class SourceWriter {
     );
     sourceFile.replaceText([loop.getStart(), loop.getEnd()], copies.join(`\n${indent}`));
 
-    // Now every copy's elements answer to a name of their own: give each what
-    // its iteration rendered, one attribute at a time and re-found after each
-    // (editing one attribute forgets its siblings).
+    // Editing one attribute forgets its siblings, so each is re-found after each write.
     for (const [index, iteration] of iterations.entries()) {
       for (const bodyId of bodyIds) {
         const id = minted[index]!.get(bodyId) ?? bodyId;
@@ -1149,7 +901,6 @@ class SourceWriter {
           return copy;
         };
 
-        // The spreads are what the recorded props stand in for.
         for (let spread = found().getAttributes().find((a) => a.isKind(SyntaxKind.JsxSpreadAttribute)); spread; ) {
           spread.remove();
           spread = found().getAttributes().find((a) => a.isKind(SyntaxKind.JsxSpreadAttribute));
@@ -1171,12 +922,10 @@ class SourceWriter {
   }
 }
 
-/** Stamps every source file of the project. Writes nothing to a fully named project. */
 export async function stampProject(context: SourceContext): Promise<void> {
   await new SourceWriter(context).stampProject(await sourceFiles(context.dir));
 }
 
-/** Writes values the editor arrived at back into the JSX that produced them. */
 export function applyEdits(context: SourceContext, edits: SourceEdit[]): Promise<WriteResult> {
   return new SourceWriter(context).applyEdits(edits);
 }

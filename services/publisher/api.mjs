@@ -1,57 +1,7 @@
-// What a signed-in browser asks the publisher, all under /api/publisher:
-//
-//   login/save     keep a login made in Connections, sealed, on the server
-//   login/access   a working access token for one of the person's own connected
-//                  Bluesky accounts, for an older browser that still calls
-//                  Bluesky itself. Never in a shared workspace, and never
-//                  YouTube's, X's, TikTok's or LinkedIn's: see youtube-logins.mjs,
-//                  x-logins.mjs, tiktok-logins.mjs and linkedin-logins.mjs
-//   login/forget   end plan.video's access at the network, and drop the login,
-//                  and for a YouTube channel what plan.video kept of its videos
-//   logins         which connected accounts have their login on the server
-//   youtube/exchange   swap the code Google sent back for a ticket to the channel's login
-//   tiktok/exchange    swap the code TikTok sent back for a ticket to the account's login
-//   linkedin/exchange  swap the code LinkedIn sent back for a ticket to the member's login
-//   youtube/profile    a YouTube channel's name and picture
-//   youtube/analytics  a YouTube channel's or video's numbers
-//   tiktok/profile     a TikTok account's name and picture
-//   tiktok/videos      a TikTok account's newest videos and their numbers
-//   tiktok/creator     what TikTok lets the account post now (creator info)
-//   linkedin/profile   a LinkedIn member's name and picture
-//   x/exchange     swap the code X sent back for a ticket to the account's login, on paid plans
-//   instagram/authorize, facebook/authorize, threads/authorize
-//                  where to send the person to sign in to one of Meta's networks
-//   instagram/exchange, facebook/exchange, threads/exchange
-//                  swap the code Meta sent back for a ticket to each account's
-//                  login: a Facebook login gives one per Page shared
-//   instagram/profile, facebook/profile, threads/profile
-//                  the account's name and picture
-//   instagram/analytics, facebook/analytics, threads/analytics
-//                  the account's recent posts with their numbers, and its followers
-//   send           "Post now": queue the post's networks and send them
-//   team/invite    email someone the invite to a workspace they were just asked into
-//   connect-link/current, connect-link/create, connect-link/revoke
-//                  the workspace's client connect link: the one open, a new one
-//                  in its place, or none (connect-links.mjs)
-//   account/delete delete the person's account, and everything of theirs
-//                  elsewhere first (see account-deletion.mjs)
-//
-// Refresh tokens never leave the server, and no browser is given a network's
-// access token, not even when it connects the account: connecting gives a
-// ticket only this service opens, once, within 15 minutes, for the person and
-// workspace it was made for. (A Bluesky app-password login is the one
-// exception, for its owner, through login/access.) The dashboard asks the
-// routes above, which call the network here and send back what it said,
-// never a token: someone taken out of a workspace has nothing left to post with.
-//
-// A client connect link's own routes, connect-link/open, connect-link/authorize
-// and connect-link/exchange, need no sign-in: the link is the client's way in,
-// to one workspace's Connections and nothing else (connect-links.mjs).
-//
-// A request about a workspace shared with the person names it as `team`:
-// `{ owner, workspace }`. Supabase says what their role there is, and they act
-// for the owner as far as it allows: a member reaches only that workspace's
-// accounts and posts, and only the owner and admins connect or remove accounts.
+// Refresh tokens never leave the server and no browser gets a network's access token: connecting gives
+// a ticket only this service opens, once, within 15 minutes, for the person and workspace it was made for
+// (a Bluesky app-password login is the one exception, via login/access). Connect-link routes need no sign-in.
+// With `team: { owner, workspace }`, a member reaches only that workspace; only owner and admins connect or remove.
 
 import { memberFor } from "../linkedin/handler.mjs";
 import { creatorFor, profileFor, videosFor } from "../tiktok/handler.mjs";
@@ -72,11 +22,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const PLATFORMS = new Set(["tiktok", "youtube", "linkedin", "bluesky", "x", "instagram", "facebook", "threads"]);
 /** Networks whose tokens no browser is given: the publisher makes their calls itself. */
 const SERVER_ONLY = new Set(["youtube", "x", "tiktok", "linkedin", "instagram", "facebook", "threads"]);
-/** Meta's networks' routes: `/api/publisher/<network>/<action>`. */
 const META_ROUTE = /^\/api\/publisher\/(instagram|facebook|threads)\/(authorize|exchange|profile|analytics)$/;
-/** A client connect link's routes, for someone with the link and no sign-in. */
 const LINK_ROUTE = /^\/api\/publisher\/connect-link\/(open|authorize|exchange)$/;
-/** The reads a browser asks the publisher to make with an account's login, by route. */
 const NETWORK_READS = {
   "/api/publisher/tiktok/profile": { platform: "tiktok", read: profileFor },
   "/api/publisher/tiktok/videos": { platform: "tiktok", read: videosFor },
@@ -119,7 +66,7 @@ function forBrowser(platform, session) {
   return { accessToken: session.accessToken, expiresAt: session.expiresAt, scope: session.scope };
 }
 
-/** Ends plan.video's access at the network. True when the network confirmed it, or the access was already gone. */
+/** True when the network confirmed it, or the access was already gone. */
 export async function revoke(platform, session, env, bluesky) {
   // Meta has no way for an app to end its own access to one account: the login is dropped, and the person removes the app in the network's settings.
   if (isMetaNetwork(platform)) return false;
@@ -180,7 +127,6 @@ export function createApi({ env, vault, worker, users, kick, bluesky, limits, db
     if (entry.count > max) throw new Refused(429, "Too many requests. Wait a few minutes and try again.");
   }
 
-  /** Whether another of the person's connections still uses this "Sign in with Bluesky" account. */
   async function sameBlueskyAccount(userId, did) {
     for (const login of await vault.list(userId)) {
       if (login.platform !== "bluesky") continue;
@@ -196,11 +142,7 @@ export function createApi({ env, vault, worker, users, kick, bluesky, limits, db
     return id;
   };
 
-  /**
-   * Whose accounts the request is about: the person's own, or, with `team`,
-   * the owner of a workspace they're in, with their role there. `workspace`
-   * is set only for someone acting for another owner.
-   */
+  /** `workspace` is set only for someone acting for another owner. */
   async function scopeOf(req, user, body) {
     if (body.team === undefined || body.team === null) return { actor: user.id, role: "owner" };
     const owner = typeof body.team.owner === "string" ? body.team.owner : "";
@@ -212,13 +154,11 @@ export function createApi({ env, vault, worker, users, kick, bluesky, limits, db
     return { actor: owner, role: access.role, workspace };
   }
 
-  /** Who a connect ticket is for: this person, in this workspace (ticketBinding in vault.mjs). */
+  /** Who a connect ticket is for (ticketBinding in vault.mjs). */
   const holderOf = (user, scope) => ({ person: user.id, owner: scope.actor, workspace: scope.workspace ?? "" });
 
-  // The connect tickets login/save has taken, by nonce, until they run out, so
-  // each attaches its login once. Kept in memory: the publisher is one process
-  // and a ticket lasts 15 minutes, so a restart can only let a ticket taken
-  // just before it be shown again, by the same person in the same workspace.
+  // Connect tickets login/save has taken, by nonce, so each attaches its login once. In memory: the publisher
+  // is one process and a ticket lasts 15 minutes, so a restart can only replay one to the same person.
   const spent = new Map();
 
   /** Takes a ticket for one connection. The same save again (a retry, another tab) waits for the first's answer. */
@@ -244,7 +184,6 @@ export function createApi({ env, vault, worker, users, kick, bluesky, limits, db
     if (scope.role !== "owner" && scope.role !== "admin") throw new Refused(403, "Only the workspace's owner and admins can connect or remove accounts.");
   }
 
-  /** The workspaces of the owner's that list each connected account, by its id. */
   async function listedIn(owner) {
     const listed = new Map();
     for (const row of (await db.rpc("publisher_workspace_connections", { owner })) ?? []) {
@@ -505,7 +444,6 @@ export function createApi({ env, vault, worker, users, kick, bluesky, limits, db
       return;
     }
 
-    // TikTok's and LinkedIn's calls the dashboard makes, made here with the account's login.
     // Anyone in the workspace may read them; the answer never carries a token.
     if (Object.hasOwn(NETWORK_READS, path)) {
       const { platform, read } = NETWORK_READS[path];
@@ -552,10 +490,8 @@ export function createApi({ env, vault, worker, users, kick, bluesky, limits, db
 }
 
 /**
- * Whether a token was granted to an outside app (Claude's connector, say)
- * instead of signed in here. Those carry the OAuth client's `client_id` and
- * are only good at /mcp. One that can't be read isn't a token Supabase made,
- * and Supabase turns it away.
+ * Tokens granted to an outside app (Claude's connector, say) carry the OAuth client's `client_id` and are
+ * only good at /mcp. One that can't be read isn't a token Supabase made, and Supabase turns it away.
  */
 function grantedToApp(token) {
   try {
@@ -565,7 +501,6 @@ function grantedToApp(token) {
   }
 }
 
-/** Signed-in people, from the Supabase token their browser sends. */
 export function createUsers({ supabaseUrl, anonKey, requireInvite }) {
   const cache = new Map();
   const call = (path, token, init = {}) =>
@@ -584,7 +519,7 @@ export function createUsers({ supabaseUrl, anonKey, requireInvite }) {
   const roles = new Map();
 
   return {
-    /** The person signed in. `waiting` lets in someone the invite gate hasn't yet, for deleting their account. */
+    /** `waiting` lets in someone the invite gate hasn't yet, only for deleting their account. */
     async from(req, { waiting = false } = {}) {
       const token = tokenOf(req);
       const cached = cache.get(token);
@@ -604,21 +539,15 @@ export function createUsers({ supabaseUrl, anonKey, requireInvite }) {
       return { id: user.id };
     },
 
-    /** The Supabase token the request was signed in with. */
     token: tokenOf,
 
-    /** Forgets the request's sign-in, for an account just deleted. */
     forget(req) {
       const token = tokenOf(req);
       cache.delete(token);
       for (const key of roles.keys()) if (key.startsWith(`${token}\n`)) roles.delete(key);
     },
 
-    /**
-     * The person's role in one of an owner's workspaces, with the owner's
-     * plan: `{ role, level }`, or null when they're not in it. Kept for a few
-     * seconds, so someone taken out of a workspace loses it about as quickly.
-     */
+    /** `{ role, level }` or null. Cached a few seconds, so someone taken out of a workspace loses it about as quickly. */
     async access(req, owner, workspace) {
       const token = tokenOf(req);
       const key = `${token}\n${owner}\n${workspace}`;

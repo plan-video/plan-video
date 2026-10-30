@@ -1,14 +1,8 @@
-// The numbers the dashboard shows for Instagram, Facebook Page and Threads
-// accounts: each recent post's views, likes and comments so far, and how many
-// follow the account. Like TikTok's, a post's numbers are its totals, which
-// the dashboard counts on the day it went out.
-//
-// Views come from each network's insights, which older posts and some kinds
-// of post don't have: those count no views, rather than failing the lot.
+// A post's numbers are its totals, counted on the day it went out. Older posts and some kinds of post have
+// no insights: those count no views, rather than failing the lot.
 
 import { API, META_NAMES, metaFetch } from "./meta.mjs";
 
-/** Recent posts read, newest first. */
 const MOST = 100;
 const PAGE = 50;
 /** Threads' numbers are asked post by post, this many at once. */
@@ -23,11 +17,7 @@ function insight(insights, name) {
   return count(found?.total_value?.value ?? found?.values?.[0]?.value);
 }
 
-/**
- * Reads pages of a list, up to MOST items. When the first page fails, tries
- * each of `fallbacks` in turn, asking for less: insights fail for posts that
- * have none, and some fields need a permission the login may not have.
- */
+/** When the first page fails, tries each of `fallbacks` asking for less: insights fail for posts that have none, and some fields need a permission the login may lack. */
 async function listOf(url, token, ...fallbacks) {
   const items = [];
   let next = url;
@@ -74,9 +64,7 @@ async function instagram(session) {
 
 async function facebook(session) {
   const fields = "id,message,created_time,permalink_url,full_picture";
-  // Reactions and comments come from other people, so Meta wants
-  // pages_read_user_content for them: a Page logged in without it still gets
-  // its posts and views, with no likes or comments.
+  // Meta wants pages_read_user_content for reactions and comments: a Page without it still gets posts and views.
   const people = ",reactions.summary(total_count).limit(0),comments.summary(total_count).limit(0)";
   const views = ",insights.metric(post_media_view)";
   const base = `${API.facebook}/${session.accountId}/published_posts?limit=${PAGE}&fields=`;
@@ -134,7 +122,6 @@ async function threads(session) {
   };
 }
 
-/** An account's recent posts with their numbers, and its followers: `{ followers, videos }`, or `{ error }`. */
 export async function analyticsFor(network, session) {
   try {
     if (network === "instagram") return await instagram(session);

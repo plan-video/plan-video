@@ -18,7 +18,6 @@ const STEP = 100_000;
 /** Creator's day: four steps. Free gets one, Pro eight, Agency sixteen. */
 const BASE = 4 * STEP;
 
-/** A server-sent event stream, the way the Messages API streams one step. */
 function stepStream() {
   const events = [
     ["message_start", { type: "message_start", message: { id: "msg_1", type: "message", role: "assistant", model: "claude-haiku-5-5", content: [], stop_reason: null, stop_sequence: null, usage: { input_tokens: STEP, output_tokens: 0 } } }],
@@ -33,11 +32,7 @@ function stepStream() {
   });
 }
 
-/**
- * Stands in for Supabase and the Anthropic API, so nothing leaves the machine.
- * `levels` is each person's plan, `teams` the owners whose teams they joined
- * (and `invites` the ones they haven't yet).
- */
+/** `levels` is each person's plan, `teams` the owners whose teams they joined (`invites`: not yet). */
 function fakes({ levels = {}, teams = {}, invites = {} } = {}) {
   const state = { calls: 0, outside: [] };
   const real = globalThis.fetch;
@@ -81,10 +76,7 @@ function fakes({ levels = {}, teams = {}, invites = {} } = {}) {
 }
 
 let keys = 0;
-/**
- * The agent's two routes, as server.mjs serves them, on a day of their own:
- * the clock is moved on so every count from an earlier test is over.
- */
+/** On a day of its own: the clock is moved on so every count from an earlier test is over. */
 async function setup(t, env = {}, world = {}) {
   keys += 1;
   t.mock.timers.enable({ apis: ["Date"], now: Date.UTC(2030, 0, 1) + keys * 3 * DAY });
@@ -109,7 +101,6 @@ async function setup(t, env = {}, world = {}) {
   return { fake, base };
 }
 
-/** One call to `route` ("agent" or "captions") as `id`, from `ip` as Caddy passes it on. */
 function send(base, route, id, ip = "203.0.113.1", forwarded = ip) {
   const body =
     route === "agent"
@@ -129,7 +120,6 @@ function send(base, route, id, ip = "203.0.113.1", forwarded = ip) {
         const text = Buffer.concat(chunks).toString("utf8");
         const lines = text.split("\n").filter(Boolean).map((line) => JSON.parse(line));
         const error = lines.find((line) => line.error)?.error ?? null;
-        // A step that went through ends with "done"; a refusal is a status with an error.
         resolve({ status: res.statusCode, ok: res.statusCode === 200 && !error, error });
       });
     });
@@ -138,7 +128,6 @@ function send(base, route, id, ip = "203.0.113.1", forwarded = ip) {
   });
 }
 
-/** Calls until refused; how many went through, and what the refusal said. */
 async function untilRefused(base, route, id, ip, most = 40) {
   for (let done = 0; done < most; done++) {
     const answer = await send(base, route, id, ip);
@@ -152,7 +141,6 @@ test("a person's day goes by plan: Free a quarter of Creator's, Pro twice, Agenc
   assert.deepEqual(budgetsByLevel("400000"), { 1: 100_000, 2: 400_000, 3: 800_000, 4: 1_600_000 });
   assert.deepEqual(budgetsByLevel(400_000), { 1: 100_000, 2: 400_000, 3: 800_000, 4: 1_600_000 });
   assert.deepEqual(budgetsByLevel("0,1,2,3"), { 1: 0, 2: 1, 3: 2, 4: 3 });
-  // Missing or unreadable numbers keep their default.
   assert.deepEqual(budgetsByLevel("5,,x"), { 1: 5, 2: 4_000_000, 3: 8_000_000, 4: 16_000_000 });
 });
 

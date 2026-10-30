@@ -2,10 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Which launches are Squirrel housekeeping: only the four event flags, only
-// on Windows, and only as the first argument, where Squirrel puts them. A
-// deep link or `--hidden` in that position is a real launch.
-
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("electron", () => ({ app: { quit: () => {} } }));

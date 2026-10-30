@@ -20,9 +20,7 @@ import typegpu from 'unplugin-typegpu/vite'
 import { resolve, sep } from 'path'
 import pkg from '../../package.json'
 
-// Workspace packages are TypeScript source. Bundling them once into the dep
-// cache keeps the editor from re-requesting hundreds of files on each load.
-// The cache lives in node_modules/.vite and survives server restarts.
+// Prebundled so the editor doesn't re-request hundreds of workspace source files on each load.
 const WORKSPACE_DEPS = [
   '@plan.video/runtime',
   '@plan.video/assets',
@@ -34,9 +32,7 @@ const WORKSPACE_DEPS = [
   '@plan.video/dapi',
 ]
 
-// These publish a compiled build and a `solid` export that points at JSX
-// source. vite-plugin-solid prefers the source, which cannot be cached.
-// Dev aliases them to the compiled files so optimizeDeps can store one bundle.
+// Their `solid` export points at JSX source, which optimizeDeps can't cache: dev aliases them to the compiled build.
 const COMPILED_DEPS = [
   '@kobalte/core',
   '@kobalte/utils',
@@ -56,11 +52,7 @@ const COMPILED_DEPS = [
   '@solid-primitives/utils',
 ]
 
-/**
- * When the workspace sources last changed. Part of the dep cache's hash, so an
- * edit to a package rebuilds the bundle on the next start and gives it new
- * URLs: the browser holds a bundle as immutable under its old ones.
- */
+// Part of the dep cache's hash: the browser caches a bundle as immutable, so an edit must give it new URLs.
 function workspaceStamp(): string {
   let latest = 0
   const walk = (dir: string) => {
@@ -77,9 +69,7 @@ function workspaceStamp(): string {
       // A package without sources here has nothing to go stale.
     }
   }
-  // The files patches/ rewrites in node_modules, too: applying a patch (or an
-  // install undoing one) changes the bundle without touching any source, and
-  // the browser would otherwise keep running the old one under the same URLs.
+  // Patched node_modules files count too: a patch changes the bundle without touching any source.
   for (const file of patchedFiles()) {
     try {
       latest = Math.max(latest, statSync(file).mtimeMs)
@@ -90,12 +80,7 @@ function workspaceStamp(): string {
   return String(Math.round(latest))
 }
 
-/**
- * The stamp above is read when the server starts, so a package edited while it
- * runs would keep being served from the old bundle: an import of anything the
- * edit added fails in the browser. Restarting reads the stamp again, which
- * rebuilds the bundle under new URLs, and the open tabs reload onto it.
- */
+// The stamp is only read at startup, so a package edit restarts the server or the browser keeps the stale bundle.
 function workspaceRestartPlugin(): Plugin {
   const dirs = WORKSPACE_DEPS.map((name) => resolve(__dirname, '../../packages', name.replace('@plan.video/', ''), 'src'))
   return {
@@ -149,10 +134,7 @@ function compiledDepAliases() {
   ]
 }
 
-/**
- * plan.video's website (homepage, feature pages, docs pages…), kept in site/,
- * its own repository. Without it the app builds alone: `/` opens the dashboard.
- */
+// The website lives in site/, its own repository; without it the app builds alone and `/` opens the dashboard.
 const SITE_PLUGINS = resolve(__dirname, 'site/vite.ts')
 
 type SiteVite = {
@@ -168,7 +150,6 @@ export default defineConfig(async ({ mode, command }): Promise<UserConfig> => {
   if (!site) {
     // The waitlist is plan.video's own: an app built without the site lets everyone in unless told otherwise.
     if (env.VITE_INVITE_ONLY === undefined) process.env.VITE_INVITE_ONLY = 'false'
-    // plan.video's own build always carries its website.
     if (command === 'build' && mode !== 'desktop' && /^https:\/\/(www\.)?plan\.video\/?$/.test(env.VITE_APP_URL ?? '')) {
       throw new Error('apps/web/site is missing: plan.video is built with its website. Clone it into apps/web/site, or set VITE_APP_URL to your own address.')
     }
@@ -196,10 +177,8 @@ export default defineConfig(async ({ mode, command }): Promise<UserConfig> => {
       linkedinDevPlugin(__dirname, mode),
       xDevPlugin(__dirname, mode),
       billingDevPlugin(__dirname, mode),
-      // The website's styles, head, pictures and each public page's own HTML.
       // Invite-only unless VITE_INVITE_ONLY=false, as in lib/waitlist.ts.
       ...(site ? site.sitePlugins({ root: __dirname, dev, mode, inviteOnly: env.VITE_INVITE_ONLY !== 'false' }) : []),
-      // A Content-Security-Policy in every page, with its inline scripts' hashes.
       // Not in dev, whose client injects scripts of its own, nor in the desktop app.
       mode === 'desktop' || dev ? null : contentSecurityPolicyPlugin(env),
       solid(),
@@ -214,8 +193,7 @@ export default defineConfig(async ({ mode, command }): Promise<UserConfig> => {
     },
     build: {
       rollupOptions: {
-        // zod's schema builders have no side effects. Saying so lets a page that only reads a
-        // constant from the API contract (the sign-in context does) leave its schemas, and zod, out.
+        // zod's builders are pure, so a page that only reads a constant from the API contract leaves zod out.
         treeshake: { manualPureFunctions: ['z'] },
       },
     },
@@ -231,15 +209,13 @@ export default defineConfig(async ({ mode, command }): Promise<UserConfig> => {
         'Cross-Origin-Embedder-Policy': 'credentialless',
       },
       proxy: {
-        // The hosted agent connector (services/mcp), for VITE_CONNECTOR_DEV=true.
+        // For VITE_CONNECTOR_DEV=true.
         '/api/mcp': {
           target: 'http://127.0.0.1:8791',
           ws: true,
         },
-        // The live publisher (services/publisher). Logins are sealed with its
-        // key, so a local copy couldn't share them; the dev site signs in to
-        // the live database, whose sessions it accepts. A self-hosted copy
-        // points VITE_PUBLISHER_URL (or VITE_APP_URL) at its own.
+        // Logins are sealed with the live publisher's key, so a local copy couldn't share them.
+        // A self-hosted copy points VITE_PUBLISHER_URL (or VITE_APP_URL) at its own.
         '/api/publisher': {
           target: (({ VITE_PUBLISHER_URL, VITE_APP_URL }) => VITE_PUBLISHER_URL || VITE_APP_URL || 'https://plan.video')(
             loadEnv(mode, __dirname, 'VITE_'),
@@ -252,8 +228,6 @@ export default defineConfig(async ({ mode, command }): Promise<UserConfig> => {
           changeOrigin: true,
         },
       },
-      // Compile the sign-in screen as soon as the server is up, so the
-      // browser is not the thing that starts that work.
       warmup: {
         clientFiles: ['./index.html'],
       },
@@ -267,8 +241,7 @@ export default defineConfig(async ({ mode, command }): Promise<UserConfig> => {
       ],
     },
     optimizeDeps: {
-      // Listed in the user config so vite-plugin-solid's crawl does not put
-      // them back on optimizeDeps.exclude.
+      // Listed here so vite-plugin-solid's crawl doesn't put them back on optimizeDeps.exclude.
       include: dev
         ? [
             ...COMPILED_DEPS,
@@ -276,8 +249,7 @@ export default defineConfig(async ({ mode, command }): Promise<UserConfig> => {
             'marked',
             'dompurify',
             'typegpu',
-            // The editor imports these on first use. Left out of the startup
-            // bundle, Vite optimizes them mid-session and full-reloads the page.
+            // Imported on first use: left out, Vite optimizes them mid-session and full-reloads the page.
             'mediabunny',
             'koota',
             'animejs',
@@ -300,9 +272,7 @@ export default defineConfig(async ({ mode, command }): Promise<UserConfig> => {
             '@kobalte/core/switch',
           ]
         : [],
-      // The dep scanner follows dynamic import(). The editor page is part of
-      // that crawl so its dependencies are ready before the first edit.
-      // Desktop tool handlers stay out: the website never loads them.
+      // Desktop tool handlers stay out of the dep scan: the website never loads them.
       esbuildOptions: {
         ...(dev ? { define: { __WORKSPACE_STAMP__: JSON.stringify(workspaceStamp()) } } : {}),
         plugins: [
@@ -313,8 +283,7 @@ export default defineConfig(async ({ mode, command }): Promise<UserConfig> => {
                 path: args.path,
                 external: true,
               }))
-              // The prebundle moves this file out of its folder, so the worker
-              // URL has to point at the source Vite can still serve.
+              // The prebundle moves this file, so the worker URL must point at the source Vite still serves.
               build.onLoad({ filter: /[\\/]packages[\\/]assets[\\/]src[\\/]derive[\\/]waveform\.ts$/ }, (args) => {
                 const contents = readFileSync(args.path, 'utf8').replace(
                   "new URL('./waveform-worker.ts', import.meta.url)",

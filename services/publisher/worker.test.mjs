@@ -12,9 +12,7 @@ const picture = (id) => ({ key: `posts/u1/${id}`, size: 10, type: "image/jpeg", 
 
 function setup({ posts, send, check, publish, file = VIDEO, sendFrom = 0 } = {}) {
   let clock = T0;
-  /** What cloud storage has, by file id. A post saved before posts listed their files keeps its one under its own id. */
   const stored = new Map([["p1", file]]);
-  /** The file ids looked for in storage. */
   const looked = [];
   const db = fakeDb({ posts });
   const calls = [];
@@ -92,7 +90,6 @@ test("a due post goes out once to each network, however many ticks run", async (
 });
 
 test("each workspace's posts go out from its own accounts", async () => {
-  // One id is one post now (the database's key), so another workspace's post has its own id.
   const theirs = { ...scheduled({ id: "p0", title: "Theirs", platforms: ["bluesky"] }), workspace_id: "w0", connections: [{ id: "bs0", platform: "bluesky" }] };
   const { worker, calls } = setup({ posts: [theirs, scheduled()] });
   await worker.tick();
@@ -135,7 +132,6 @@ test("a run that came due over a day ago, while the publisher was down, fails wi
       ["youtube", "failed", LATE, new Date(T0).toISOString()],
     ],
   );
-  // Post now still sends it.
   await worker.request("u1", "p1");
   await worker.tick();
   assert.deepEqual(calls.map((call) => call.name).sort(), ["tiktok", "youtube"]);
@@ -163,7 +159,6 @@ test("a run that went out stays sent once it's over a day old", async () => {
   await worker.tick();
   advance(2 * GRACE_MS);
   await worker.tick();
-  // A restart looks through every run again, and still leaves it.
   await restart().tick();
   assert.equal(calls.length, 2);
   assert.deepEqual(db.tables.post_deliveries.map((row) => [row.state, row.error]), [["sent", null], ["sent", null]]);
@@ -308,12 +303,10 @@ test("a video still uploading to storage is waited for", async () => {
   assert.match(row.error, /still uploading/);
 });
 
-/** A post to Bluesky, which also takes the words alone, from its one connected account. */
 const toBluesky = (post = {}) => ({ ...scheduled({ platforms: ["bluesky"], ...post }), connections: [{ id: "bs1", platform: "bluesky" }] });
 
 test("a post saved with a file waits for it, rather than going out as words alone", async () => {
   const { db, worker, calls, advance, setFile } = setup({ posts: [toBluesky({ files: ["p1"] })], file: null });
-  // Post now saves the post as due now, so it's found while its video is still uploading.
   await worker.tick();
   advance(60_000);
   await worker.tick();
@@ -322,7 +315,6 @@ test("a post saved with a file waits for it, rather than going out as words alon
   assert.equal(row.state, "queued");
   assert.equal(row.attempts, 0);
   assert.match(row.error, /media is still uploading/);
-  // The upload lands, and the browser hands the post over.
   setFile(VIDEO);
   await worker.request("u1", "p1");
   await worker.tick();
@@ -508,7 +500,6 @@ test("Post now on a repeating post whose last run went out sends today's run", a
 test("a send the network took, whose keeping failed, is never sent again", async () => {
   const { db, worker, calls, advance } = setup({ posts: [scheduled({ platforms: ["youtube"] })] });
   await worker.plan();
-  // The claim works; recording the sent post doesn't.
   const update = db.update.bind(db);
   let updates = 0;
   db.update = async (...args) => {
@@ -533,7 +524,6 @@ const uploaded = { send: () => ({ state: "processing", publishId: "video:asset1"
 test("a post made once the network has the file, whose keeping failed, is never made again", async () => {
   const { db, worker, published, advance } = setup({ posts: [onLinkedIn()], ...uploaded });
   await worker.tick();
-  // The network makes the post; keeping it as sent doesn't work.
   const update = db.update.bind(db);
   db.update = async (table, filter, values) => {
     if (values.state === "sent") throw new Error("connection lost");
@@ -878,7 +868,6 @@ test("a fast device clock doesn't let a post moved into the past go out on its o
   assert.equal(db.tables.post_deliveries.length, 0);
 });
 
-/** A worker that also holds Free's scheduled posts to the plan, as the publisher runs, with Bluesky posts that need no file. */
 function planned(posts) {
   const db = fakeDb({ posts });
   const sent = [];

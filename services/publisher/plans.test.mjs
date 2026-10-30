@@ -13,7 +13,6 @@ const T0 = Date.parse("2026-10-12T16:00:00Z");
 const HOUR = 60 * 60_000;
 const VIDEO = { key: "posts/u1/v", size: 10, type: "video/mp4", kind: "video" };
 
-/** A post on TikTok account tt1, `hours` from T0. */
 const post = (id, hours, extra = {}) => {
   const at = new Date(T0 + hours * HOUR);
   return {
@@ -33,7 +32,6 @@ function setup({ posts = [], level = 1, youtube, networks, media, session = {} }
   const users = [{ id: "u1", access_level: level }];
   const db = fakeDb({ posts, users });
   const calls = [];
-  /** Posts whose sends throw, by id, and what they throw. */
   const failing = new Map();
   const network = (name) => ({
     needsFile: true,
@@ -67,7 +65,6 @@ function setup({ posts = [], level = 1, youtube, networks, media, session = {} }
   };
 }
 
-/** Ticks every five minutes for `hours`. */
 async function runUntil(context, hours) {
   await context.worker.tick();
   const steps = Math.ceil((hours * HOUR) / (5 * 60_000));
@@ -116,7 +113,6 @@ test("a post due within minutes, or a repeating one, counts as the dashboard cou
   assert.equal(isWaiting(post("past", -1, { recurrence: "every:1:day" }).post, "UTC", at), true);
   assert.equal(isWaiting(post("ended", -48, { recurrence: "every:1:day", recurrenceEnd: "2026-10-11" }).post, "UTC", at), false);
   assert.equal(isWaiting(post("paused", 1, { paused: true }).post, "UTC", at), false);
-  // An end that isn't a day doesn't stop the series going out, so it doesn't stop it counting either.
   for (const recurrenceEnd of ["1", "0000", 20261011, ["2026-10-11"]]) assert.equal(isWaiting(post("odd end", -48, { recurrence: "every:1:day", recurrenceEnd }).post, "UTC", at), true);
 });
 
@@ -157,7 +153,6 @@ test("a slot freed by a post going out, moving to drafts or pausing takes a new 
   posts.push(post("new", 20));
   await context.worker.tick();
   assert.equal(context.planLimits.over("u1", "w1", "new", "tt1"), true);
-  // Moved to drafts and back once a slot is free: looked at afresh.
   posts[0].post.status = "draft";
   posts.at(-1).post.status = "draft";
   await context.worker.tick();
@@ -185,7 +180,6 @@ test("what the publisher saw survives a restart", async () => {
   const context = setup({ posts });
   await context.worker.tick();
   const again = createPlanLimits({ db: context.db, now: () => T0, log: { error() {} } });
-  // The one first over stays over, though the 10 before it now go in another order.
   posts.reverse();
   await again.review(posts.map((item) => ({ ...item, post_id: item.post.id, connection_id: "tt1", waiting: true, start: 0 })));
   assert.equal(again.over("u1", "w1", "p10", "tt1"), true);
@@ -213,7 +207,6 @@ test("a Free owner's YouTube uploads wait once the day's share is used, then go"
   assert.equal(waiting.state, "queued");
   assert.equal(waiting.attempts, 0);
   assert.match(waiting.error, /up to 3 YouTube videos a day/);
-  // A day after the first upload, one frees up.
   await runUntil(context, 24);
   assert.equal(context.rowsOf("v3")[0].state, "sent");
   assert.equal(context.calls.length, 4);
@@ -257,7 +250,6 @@ test("a YouTube upload that fails before YouTube starts it doesn't use up the da
   const posts = [post("bad", 0.1, { platforms: ["youtube"] }), ...Array.from({ length: 3 }, (_, index) => post(`v${index}`, 2 + index * 0.01, { platforms: ["youtube"] }))];
   const context = setup({ posts });
   context.failing.set("bad", () => new PublishError("Couldn't reach YouTube. Trying again soon.", { retry: true }));
-  // Every try of the first fails, then the other three go the same day.
   await runUntil(context, 3);
   const [bad] = context.rowsOf("bad");
   assert.equal(bad.state, "failed");
@@ -267,7 +259,6 @@ test("a YouTube upload that fails before YouTube starts it doesn't use up the da
   assert.equal(context.db.tables.publisher_uploads.length, 3);
 });
 
-/** The real YouTube network, with YouTube answered by `answer` for each request it makes. */
 function realYouTubeSetup(t, posts, answer) {
   const asked = [];
   t.mock.method(globalThis, "fetch", async (url, init = {}) => {
@@ -310,7 +301,6 @@ test("YouTube refusing to start the upload uses none of the day's uploads", asyn
 test("an upload YouTube started counts once, though it takes another try to finish", async (t) => {
   const context = realYouTubeSetup(t, [post("v", 0.1, { platforms: ["youtube"], title: "Clip" })], async (request, count) => {
     if (count === 1) return started();
-    // The first piece is cut off; the next try asks how far it got, then sends it.
     if (count === 2) throw new TypeError("socket hang up");
     if (request.range === "bytes */10") return new Response(null, { status: 308 });
     return Response.json({ id: "vid1" }, { status: 200 });
@@ -346,8 +336,6 @@ test("old uploads are pruned once they no longer count", async () => {
   await context.planLimits.prune();
   assert.equal(context.db.tables.publisher_uploads.length, 1);
 });
-
-// Logins found in account state.
 
 const legacy = (connectionId) => ({ user_id: "u1", connection_id: connectionId, platform: "tiktok", session: { openId: "o", accessToken: "a", refreshToken: "r", expiresAt: 1 } });
 
@@ -397,7 +385,6 @@ test("two connects at once can't both take the last place", async () => {
   const answers = await Promise.all([connect("c"), connect("d")]);
   assert.deepEqual(answers.sort(), [3, null].sort());
   assert.equal(kept.length, 3);
-  // A failed keep doesn't hold up the next connect.
   const broken = connectWithin({ vault, limits: undefined, userId: "u1", connectionId: "e" }, async () => {
     throw new Error("down");
   });

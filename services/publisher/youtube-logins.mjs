@@ -1,11 +1,6 @@
-// YouTube logins never reach a browser. Anyone holding one could upload around
-// plan.video's share of YouTube's daily quota, which every account draws on,
-// so the publisher swaps the code Google sends back for the tokens itself and
-// hands the browser a ticket: the login sealed with TOKEN_KEY and bound to the
-// person and workspace (ticketBinding in vault.mjs), which only this service
-// can open. The browser shows the ticket to login/save to attach the channel
-// to a connection, once, within 15 minutes, and asks the publisher for the
-// channel's picture and numbers.
+// YouTube logins never reach a browser: anyone holding one could upload around plan.video's share of the
+// daily quota every account draws on. The publisher swaps Google's code itself and hands back a ticket
+// sealed and bound to person and workspace, attachable once within 15 minutes.
 
 import { redirectsFor, channelFor, explain, tokenRequest } from "../youtube/handler.mjs";
 
@@ -15,11 +10,7 @@ import { openTicket, sealTicket, sealer } from "./vault.mjs";
 export function createYouTubeLogins({ key, env, now = () => Date.now(), token = tokenRequest, channel = channelFor }) {
   const box = sealer(key);
   return {
-    /**
-     * Swaps the code Google sent back for the channel's login. Returns who the
-     * channel is and a ticket for its login, never the tokens. `holder` is who
-     * the ticket is for.
-     */
+    /** Returns the channel and a ticket for its login, never the tokens. */
     async exchange(holder, { code, redirectUri, codeVerifier }) {
       if (!env.clientId || !env.clientSecret) throw new Refused(503, "YouTube isn't set up on the server yet.");
       if (!redirectsFor(env.publicUrl).has(redirectUri)) throw new Refused(400, "That YouTube redirect address isn't allowed.");
@@ -40,7 +31,7 @@ export function createYouTubeLogins({ key, env, now = () => Date.now(), token = 
       };
     },
 
-    /** What a ticket holds, `{ session, nonce, until }`, when it was made for this holder and hasn't run out; otherwise null. */
+    /** Null unless made for this holder and not run out. */
     open(holder, ticket) {
       return openTicket(box, "youtube", holder, ticket, now());
     },
