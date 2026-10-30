@@ -54,7 +54,7 @@ Read by every service except `mcp`.
 | `RESEND_API_KEY` | | A [Resend](https://resend.com) key, to email owners about failed posts and LinkedIn logins running out |
 | `NOTICE_FROM` | | Who those emails come from. Default `plan.video <hello@plan.video>`. |
 | `BILLING_URL` | | Where the billing service is, to end a plan when an account is deleted. Default `http://127.0.0.1:8799`. |
-| `YOUTUBE_UPLOADS_PER_DAY` | | YouTube uploads a day per owner, Free to Agency. Default `3,10,20,40`. |
+| `YOUTUBE_UPLOADS_PER_DAY` | | YouTube uploads a day per owner, Free to Agency. Default `3,50,100,200`. |
 | `X_POSTS_PER_MONTH` | | Posts to X in any 30 days per owner, Free to Agency. Default `0,150,400,800`. |
 | `X_LINK_POSTS_PER_MONTH` | | How many of those can have a link. Default `0,10,25,40`. |
 

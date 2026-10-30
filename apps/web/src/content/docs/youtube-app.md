@@ -34,4 +34,4 @@ systemctl restart plan-video-youtube plan-video-publisher
 
 - **Verification.** `youtube.upload` and `youtube.readonly` are sensitive scopes, so Google verifies your app before anyone outside your test users can connect.
 - **The YouTube audit.** YouTube keeps every video uploaded through an unaudited project private. Its separate API audit lifts that.
-- **Quota.** Each project gets a daily quota of API units, and uploads are the expensive part. `YOUTUBE_UPLOADS_PER_DAY` in `publisher.env` shares it out: how many uploads a day each plan gets, Free to Agency, `3,10,20,40` by default.
+- **Quota.** Each project gets a daily quota of API units, and uploads are the expensive part. `YOUTUBE_UPLOADS_PER_DAY` in `publisher.env` shares it out: how many uploads a day each plan gets, Free to Agency, `3,50,100,200` by default. YouTube gives a new project 100 uploads a day for all its users together, so lower these, or ask YouTube for more quota.

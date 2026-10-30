@@ -324,9 +324,9 @@ test("a Free owner with the day's uploads used doesn't ask YouTube at all", asyn
 });
 
 test("uploads a day can be set per plan, with defaults for anything left out", () => {
-  assert.deepEqual(uploadsPerDay("5,20"), { 1: 5, 2: 20, 3: 20, 4: 40 });
-  assert.deepEqual(uploadsPerDay(undefined), { 1: 3, 2: 10, 3: 20, 4: 40 });
-  assert.deepEqual(uploadsPerDay("x,,0"), { 1: 3, 2: 10, 3: 0, 4: 40 });
+  assert.deepEqual(uploadsPerDay("5,20"), { 1: 5, 2: 20, 3: 100, 4: 200 });
+  assert.deepEqual(uploadsPerDay(undefined), { 1: 3, 2: 50, 3: 100, 4: 200 });
+  assert.deepEqual(uploadsPerDay("x,,0"), { 1: 3, 2: 50, 3: 0, 4: 200 });
 });
 
 test("old uploads are pruned once they no longer count", async () => {
