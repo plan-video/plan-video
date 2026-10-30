@@ -32,10 +32,6 @@ const LAYER_ROWS: Record<TimelineNodeKind, Component<LayerRowProps>> = {
   'keyframe-track': KeyframeLayer,
 };
 
-/**
- * One row and everything expanded under it. A row's own kind decides what it
- * looks like; the nesting is the same whatever that is.
- */
 export function Layer(props: LayerProps) {
   const depth = () => props.depth ?? 0;
   const ancestorSelected = () => props.ancestorSelected ?? false;

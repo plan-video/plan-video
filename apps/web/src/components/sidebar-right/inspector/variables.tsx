@@ -2,17 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/**
- * The dynamic inspector: one control per `@inspect` variable of the mounted
- * project (see @plan.video/jsx's inspect), filed under the groups their
- * paths spell. A control moves the variable's signal live — one reactive
- * graph, no remount — and every settled value goes through the editor, so the
- * declaration's initializer and the undo history hear it like any other edit.
- *
- * Grouping renders one level deep: a path of `A/B/Label` files the control
- * under a section titled "A / B". Ungrouped variables come first, under
- * "Variables".
- */
+// A control moves the variable's signal live (no remount); every settled value goes through the editor, so the
+// declaration's initializer and the undo history hear it like any other edit.
 
 import { ControlRow } from "@/components/ui/control-group";
 import { PanelSection } from "@/components/ui/panel-section";
@@ -54,7 +45,6 @@ export function VariablesSettings() {
   const world = useWorld();
   const entries = useInspectEntries(world);
 
-  // Sections in order of first appearance, the ungrouped one always first.
   const sections = createMemo(() => {
     const grouped = new Map<string, InspectEntry[]>([["", []]]);
     for (const entry of entries()) {
@@ -80,7 +70,6 @@ function VariableControl(props: { entry: InspectEntry }) {
   const editor = useEditor();
   const entry = () => props.entry;
 
-  /** The settled value: the signal for the canvas, the edit for the file. */
   const commit = (value: InspectValue) => {
     editor.editVariable(entry().file, entry().name, value);
   };
@@ -97,8 +86,7 @@ function VariableControl(props: { entry: InspectEntry }) {
         <ControlRow label={entry().label}>
           <FontDropdown
             family={String(entry().committed())}
-            // Hovering previews on the live signal alone; closing puts the
-            // committed family back (the dropdown hands it back itself).
+            // Hovering previews on the live signal alone; the dropdown hands the committed family back on close.
             onPreview={(family) => entry().set(family)}
             onFamilyChange={(family) => {
               commit(family);

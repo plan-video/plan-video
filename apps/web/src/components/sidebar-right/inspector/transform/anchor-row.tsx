@@ -25,12 +25,7 @@ export type AnchorRowProps = {
   onRemoveAddon(): void;
 };
 
-/**
- * The pivot rotation, scale and skew turn about, as a fraction of the box,
- * written as `anchorX`/`anchorY` so it is saved and undone like any prop.
- * The document sets both axes of the trait on every write: the trait's own
- * defaults are (0, 0) while a node without one pivots about its centre.
- */
+// The document sets both axes on every write: the trait's own defaults are (0, 0), while a node without one pivots about its centre.
 export function AnchorRow(props: AnchorRowProps) {
   const anchor = useTrait(() => props.node, Anchor);
   const anchorX = () => anchor()?.x ?? 0.5;
@@ -40,7 +35,7 @@ export function AnchorRow(props: AnchorRowProps) {
 
   const editor = useEditor();
 
-  /** Both axes as `anchorX`/`anchorY`, the centre as no prop at all; only what changed is written. */
+  /** The centre is no prop at all; only what changed is written. */
   const assignAnchor = (x: number, y: number) => {
     if (x !== anchorX()) editor.editProperty(props.node, 'anchorX', x === 0.5 ? false : x);
     if (y !== anchorY()) editor.editProperty(props.node, 'anchorY', y === 0.5 ? false : y);

@@ -23,15 +23,9 @@ import { t } from "@/lib/i18n";
 
 import type { JSX } from "solid-js";
 
-/**
- * The menu a right click on the selection opens on the canvas: anywhere in
- * the selection's box counts, so several placed at odds can be stacked under
- * each other in one go. Off the selection, the app's own menu opens instead.
- */
 export function CanvasSelectionMenu(props: { children: JSX.Element }) {
   const world = useWorld();
 
-  // How many the menu opened on, read when it opens.
   const [count, setCount] = createSignal(0);
 
   const handleContextMenu = (event: MouseEvent) => {

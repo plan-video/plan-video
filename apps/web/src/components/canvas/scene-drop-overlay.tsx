@@ -6,15 +6,9 @@ import { Show, createMemo } from "solid-js";
 import { useCamera } from "@/engine";
 import { dropTarget } from "@/engine/scene-drop";
 
-/** The canvas's selection blue (see hud-system's ACCENT). */
+/** Must match hud-system's ACCENT. */
 const ACCENT = "#2f6ff0";
 
-/**
- * The empty scene a clip is being dragged over: it lights up in the
- * selection blue at once, no animation, with a dashed outline of where the
- * clip will land once fitted. On the drop it goes at once, as the clip is
- * put in place.
- */
 export function SceneDropOverlay() {
   const camera = useCamera();
 

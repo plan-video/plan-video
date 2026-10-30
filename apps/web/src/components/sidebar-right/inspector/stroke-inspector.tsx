@@ -51,13 +51,8 @@ type StrokeInspectorProps = {
   onClose(): void;
 };
 
-/**
- * One `<stroke>`: its paint (color and opacity) and its line style
- * (`width`/`join`/`miterLimit`). A stroke is a solid color and takes no paint
- * children, so the color half is the color picker alone, with no gradient or
- * asset tab. `cap` has no control yet: it only shows on open paths (text
- * glyphs) and there are no icons for it.
- */
+// A stroke is a solid color and takes no paint children, so there is no gradient or asset tab. `cap` has no
+// control yet: it only shows on open paths (text glyphs) and there are no icons for it.
 export function StrokeInspector(props: StrokeInspectorProps) {
   const world = useWorld();
   const editor = useEditor();
@@ -89,8 +84,7 @@ export function StrokeInspector(props: StrokeInspectorProps) {
   };
 
   const editWidth = (value: number) => {
-    // Unlike a node's width this is the line width, not `resizeEntity`, so
-    // there is no track of its own to mint and the sync belongs after.
+    // The line width, not a node's width via `resizeEntity`: there is no track of its own to mint, and the sync belongs after.
     editor.editProperty(props.stroke, "width", value === DEFAULT_WIDTH ? false : value);
     syncKeyframe(world, editor, props.stroke, "width", value);
   };

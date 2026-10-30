@@ -53,20 +53,13 @@ import type { VideoCodec, AudioCodec } from "mediabunny";
 import type { ContainerFormat, ExportConfig as ProjectExportConfig } from "@/engine/project-config";
 import type { ExportConfig } from "./export-templates";
 
-/**
- * One entry of the resolution picker: the stored setting (a target height)
- * together with the pixel size it works out to for this scene, so the picker
- * names what the file will actually be.
- */
 type ResolutionOption = {
   resolution: number;
   width: number;
   height: number;
-  /** 1× — the scene's own size. */
   native: boolean;
 };
 
-/** The right-hand tag of a picker entry, set like a menu shortcut. */
 function resolutionTag(option: ResolutionOption): string {
   return option.native ? t("Original") : `${option.resolution}p`;
 }
@@ -76,7 +69,7 @@ function resolutionLabel(option: ResolutionOption | null | undefined): string {
   return `${option.width}×${option.height} · ${resolutionTag(option)}`;
 }
 
-/** The whole settings a template stands for: every field, so it replaces what was there. */
+/** Every field, so it replaces what was there. */
 function templateSettings(id: string): ProjectExportConfig | null {
   const template = TEMPLATE_BY_ID.get(id);
   if (!template) return null;
@@ -88,27 +81,18 @@ function templateSettings(id: string): ProjectExportConfig | null {
   };
 }
 
-/** What a scene exports at before it is given settings of its own: the default preset. */
 export function defaultExportSettings(): ProjectExportConfig {
   return templateSettings(DEFAULT_EXPORT_TEMPLATE_ID)!;
 }
 
-/**
- * How a scene is exported, for the Export section and the editor's Export
- * button alike. Project configuration rather than part of the composition:
- * read from and written through the project config (package.json
- * `planvideo.export.<scene id>`, see `@/engine/project-config`), so every
- * place that shows the settings reads the same accessor and never disagrees.
- */
+// Read and written through the project config (package.json `planvideo.export.<scene id>`), so every
+// place that shows the settings reads the same accessor and never disagrees.
 function useSceneExport(entity: () => Entity) {
   const world = useWorld();
   const config = useProjectConfig();
   const { exportScene, exporting } = useExport();
 
   const source = useTrait(() => entity(), Source);
-  // What the scene was given; the default preset fills in until then.
-  // Everything shows and runs `effective`, and editing writes the scene's
-  // own copy.
   const settings = createMemo(() => {
     source();
     return config()?.exportOf(entity()) ?? undefined;
@@ -123,8 +107,7 @@ function useSceneExport(entity: () => Entity) {
   const resolutionOptions = createMemo<ResolutionOption[]>(() => {
     const w = sceneWidth();
     const h = sceneHeight();
-    // A resolution names the output's shorter side (the "p" number — for a
-    // vertical scene, its width), so a portrait scene still offers 720p–4K.
+    // A resolution names the output's shorter side (for a vertical scene, its width), so a portrait scene still offers 720p–4K.
     const shortSide = Math.min(w, h);
     return [...new Set([...RESOLUTION_OPTIONS, shortSide])].sort((a, b) => a - b).map((resolution) => ({
       resolution,
@@ -169,13 +152,11 @@ function useSceneExport(entity: () => Entity) {
     void config()?.setExport(entity(), value);
   };
 
-  // Replaces the settings with a preset's, wholesale.
   const applyTemplate = (id: string) => {
     const next = templateSettings(id);
     if (next) write(next);
   };
 
-  // Changes some fields, keeping the rest (and the preset label) as they are.
   const patchSettings = (patch: ExportConfig) => {
     const current = effective();
     if (!current) return;
@@ -187,8 +168,7 @@ function useSceneExport(entity: () => Entity) {
     });
   };
 
-  // The settings are already the encoder's shape; `template` is the panel's
-  // own label for them and no part of how the file is made.
+  // `template` is the panel's own label, no part of how the file is made.
   const runExport = () => {
     const current = effective();
     if (!current) return;
@@ -222,7 +202,6 @@ function useSceneExport(entity: () => Entity) {
 
 type SceneExport = ReturnType<typeof useSceneExport>;
 
-/** The button that writes the file, greyed with a reason when this browser can't encode the settings. */
 function RunExportButton(props: { scene: SceneExport; onClick?: () => void }) {
   const run = () => {
     props.onClick?.();
@@ -232,7 +211,6 @@ function RunExportButton(props: { scene: SceneExport; onClick?: () => void }) {
   return (
     <Tooltip disabled={props.scene.exportSupported()}>
       <TooltipTrigger as="div" class="w-full">
-        {/* Grey and with the same icon as the editor's Export button: it is that export. */}
         <Button variant="secondary" class="w-full gap-1.5" onClick={run} disabled={props.scene.exporting() || !props.scene.exportSupported()}>
           <DownloadIcon class="size-3.5" stroke-width={2} />
           {t("Export")}
@@ -249,12 +227,6 @@ function RunExportButton(props: { scene: SceneExport; onClick?: () => void }) {
   );
 }
 
-/**
- * The editor's Export button's dialog, the one place a scene's export is set
- * up: its settings, with how long the video is, about how big the file will
- * be and the export itself at the foot, so the settings are seen (and can be
- * changed) on the way to the file.
- */
 export function ExportSettingsDialog(props: { scene: Entity; anchorRef: HTMLElement | undefined; onClose: () => void }) {
   const scene = useSceneExport(() => props.scene);
 
@@ -293,16 +265,10 @@ type ExportInspectorProps = {
   onClose: () => void;
   onSelectTemplate: (id: string) => void;
   onPatch: (patch: ExportConfig) => void;
-  /** Back to the default preset; only offered once the scene has settings of its own. */
   onReset?: () => void;
-  /** Under the settings, e.g. the export itself when the dialog is how one is made. */
   footer?: JSX.Element;
 };
 
-/**
- * The floating export-settings dialog. Reads the settings the panel hands it
- * and writes through the panel, so there is one place they are written from.
- */
 function ExportInspector(props: ExportInspectorProps) {
   const config = () => props.settings;
   const templateId = () => props.settings.template ?? "";
@@ -599,9 +565,8 @@ function estimateFileSize(config?: ExportConfig, duration?: number, outputPixels
   const audioCodecFactor = AUDIO_CODEC_SIZE_FACTORS[audioCodec] ?? 1;
   const containerFactor = CONTAINER_SIZE_FACTORS[format];
 
-  // Scaled by pixel count when the actual output size is known (for 16:9
-  // content the two expressions agree); the height-only fallback stays for
-  // callers with nothing but the config.
+  // Scaled by pixel count when the output size is known (for 16:9 the two agree); the height-only
+  // fallback stays for callers with nothing but the config.
   const resolutionFactor = outputPixels
     ? Math.pow(outputPixels / DEFAULT_ESTIMATE_PIXELS, 0.54)
     : Math.pow(resolution / DEFAULT_ESTIMATE_RESOLUTION, 1.08);

@@ -40,10 +40,9 @@ import {
 import { plain } from "@/lib/killfeed-feed";
 import { msg, t } from "@/lib/i18n";
 
-/** What a CS2 killfeed drag carries: the notice's spec, as JSON. */
 export const CS2_KILLFEED_DRAG_TYPE = "application/x-plan-cs2-killfeed";
 
-/** Kept across tab switches, so the next notice starts from the last one; `spec()` is the one being edited. */
+/** Kept across tab switches, so the next notice starts from the last one. */
 const feed = createKillfeedFeed<Cs2KillfeedSpec>(structuredClone(DEFAULT_CS2_KILLFEED));
 const { spec, set: setSpec } = feed;
 const [placement, setPlacement] = createStore<KillfeedPlacement>({ layout: "valorant", animation: "slide" });
@@ -163,7 +162,6 @@ const handleDragStart = (event: DragEvent) => {
   if (event.dataTransfer) event.dataTransfer.effectAllowed = "copy";
 };
 
-/** The market card: an AK kill with the headshot mark, in the generator's colors. */
 const COVER_KILLFEED: Cs2KillfeedSpec = { ...DEFAULT_CS2_KILLFEED, extras: ["Headshot"] };
 
 export function Cs2KillfeedCover() {
@@ -180,10 +178,8 @@ export function Cs2KillfeedCover() {
   );
 }
 
-/** The gun in the middle: one row picks its group, then the tiles. */
 function WeaponSection() {
   const [group, setGroup] = createSignal<Cs2WeaponGroup>(cs2Weapon(spec().weapon)?.group ?? "rifles");
-  // Picking another notice opens its weapon's group.
   createEffect(
     on(feed.selected, () => {
       const weapon = cs2Weapon(spec().weapon);
@@ -225,7 +221,6 @@ function WeaponSection() {
   );
 }
 
-/** The notice as it will land on the video, scaled to fit. */
 function Cs2Preview(props: { spec: Cs2KillfeedSpec }) {
   const [src, setSrc] = createSignal<string>();
   let version = 0;

@@ -30,7 +30,6 @@ import {
   zoomToFit,
 } from "@/engine";
 
-/** The inspector's title row: what the panels below are about, and the way out to a post. */
 export function InspectorHeader(props: { title: string }) {
   return (
     <div class="h-11 shrink-0 flex items-center gap-2 pl-4 pr-2 border-b border-border">
@@ -41,11 +40,6 @@ export function InspectorHeader(props: { title: string }) {
   );
 }
 
-/**
- * The canvas zoom and the preview quality, behind the zoom level. Every
- * operation here is anchored on the stage itself — its center, or its
- * content — so the menu needs no canvas geometry of its own.
- */
 export function ZoomMenu(props: { placement?: "bottom-end" | "top-end" }) {
   const world = useWorld();
   const scale = useCameraScale();

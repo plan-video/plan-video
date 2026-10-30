@@ -15,10 +15,6 @@ import { t } from "@/lib/i18n";
 
 import { TextStyleLook } from "@/components/editor/text-style-look";
 
-/**
- * The left sidebar's Text tab: a plain text box, and under it the text
- * styles, each shown as itself. Either goes on the scene at the playhead.
- */
 export function TextPanel() {
   const world = useWorld();
 
@@ -26,7 +22,6 @@ export function TextPanel() {
     try {
       const added = await (style ? addTextStyle(world, style) : addTextBox(world));
       if (!added) toast(t("Nothing to insert into"), { description: t("Open a scene first.") });
-      // Typing goes straight into it on the canvas, replacing the placeholder.
       else mountTextInput(world, added);
     } catch (error) {
       toast.error(t("Couldn't add text"), { description: (error as Error).message });

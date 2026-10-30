@@ -36,7 +36,6 @@ export function ObjectMenu() {
   const hasContainer = () => nodes().some((node) => isGroupLike(node) || isSequence(node));
   const hasSequence = () => nodes().some(isSequence);
 
-  /** The clips with a transition that are selected or sit inside something selected. */
   const transitionClips = (): Entity[] => {
     const selected = new Set(nodes());
     const inSelection = (clip: Entity) => {

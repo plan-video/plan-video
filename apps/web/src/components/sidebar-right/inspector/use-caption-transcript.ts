@@ -14,11 +14,8 @@ import type { Entity } from "koota";
 
 const SAVE_DELAY_MS = 200;
 
-/**
- * A caption's transcript for a panel to show and edit. Edits show at once
- * and are written a moment later, so typing is not a write per key. Reloads
- * after any panel or the timeline writes, unless an edit here is still due.
- */
+// Edits show at once and are written a moment later, so typing is not a write per key. Reloads after any
+// panel or the timeline writes, unless an edit here is still due.
 export function useCaptionTranscript(entity: () => Entity) {
   const world = useWorld();
   const library = useLibrary();
@@ -92,7 +89,6 @@ export function useCaptionTranscript(entity: () => Entity) {
     void saveCaptionTranscript(world, lib, current, next);
   };
 
-  /** Shows `next` now and writes it shortly; `now` writes it straight away. */
   const commit = (next: Transcript, now = false) => {
     const currentAsset = untrack(asset);
     const previous = untrack(transcript);

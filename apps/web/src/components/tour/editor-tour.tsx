@@ -33,16 +33,12 @@ import type { SidebarTab } from "@/agent-chat/store";
 type Placement = "right" | "left" | "top" | "bottom" | "inside";
 
 type TourStep = {
-  /**
-   * `data-tour` values of the area to light up, best first: the first one
-   * on screen wins, and every element carrying it is joined into one box.
-   */
+  /** `data-tour` values, best first: the first one on screen wins, and every element carrying it is joined into one box. */
   targets: string[];
   placement: Placement;
   title: string;
   body: string;
   tab?: SidebarTab;
-  /** What gets selected so the step has something to show. */
   select?: "clip" | "frame";
 };
 
@@ -96,7 +92,6 @@ const STEPS: TourStep[] = [
   },
 ];
 
-/** The scene at the root of what the timeline shows: the one an export renders. */
 function findFrame(world: World): Entity | null {
   let scene = getActiveEntity(world);
   while (scene) {
@@ -107,7 +102,6 @@ function findFrame(world: World): Entity | null {
   return scene && isScene(scene) ? scene : null;
 }
 
-/** A clip in the frame to show things on: a video when there is one. */
 function findClip(world: World, frame: Entity): Entity | null {
   let fallback: Entity | null = null;
   for (const entity of getEntityTree(world, frame)) {
@@ -123,7 +117,6 @@ type TourState = "welcome" | number | null;
 
 const [tour, setTour] = createSignal<TourState>(null);
 
-/** Opens the tour on its first step. */
 export function startEditorTour(): void {
   setTour(0);
 }
@@ -172,11 +165,6 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
-/**
- * The editor walkthrough: a welcome card on the first visit, then one step
- * per area of the editor. The area being explained stays lit and usable; the
- * rest is dimmed and ignores clicks.
- */
 export function EditorTour() {
   const world = useWorld();
   const layout = useLayout();
@@ -223,8 +211,7 @@ export function EditorTour() {
     setTour(state === 0 ? "welcome" : state - 1);
   };
 
-  // The steps switch tabs and select things to show them; closing puts back
-  // what the user had.
+  // The steps switch tabs and select things; closing puts back what the user had.
   createEffect(on(tour, (state, previous) => {
     if (state !== null && (previous === null || previous === undefined)) {
       before = {
@@ -442,7 +429,6 @@ export function EditorTour() {
   );
 }
 
-/** The welcome card's picture: a vertical short with facecam over gameplay. */
 function TourCover() {
   return (
     <div

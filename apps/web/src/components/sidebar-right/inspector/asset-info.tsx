@@ -26,7 +26,6 @@ import { retryGeneration } from "@/engine/generations";
 
 import type { Asset, PartialAsset } from "@plan.video/assets";
 
-/** Information about the library entry picked in the assets panel. */
 export function AssetInfoPanel() {
   const selection = useAssetSelection();
 
@@ -37,10 +36,6 @@ export function AssetInfoPanel() {
   );
 }
 
-/**
- * A generation without bytes: where it stands, and — once it has failed —
- * the reason, and the way to ask again.
- */
 function PartialDetails(props: { partial: PartialAsset }) {
   const world = useWorld();
   const library = useLibrary();

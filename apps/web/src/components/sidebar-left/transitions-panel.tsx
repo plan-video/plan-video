@@ -30,20 +30,10 @@ import { AddButton } from "./extension-ui";
 import type { TransitionOption } from "@/components/sidebar-right/inspector/transition-types";
 import type { Spot } from "@/engine/transitions";
 
-/**
- * The left sidebar's Transitions tab: each style as a tile that plays on
- * hover. Clicking one picks it and puts it on both ends of the selected
- * clips, a cut or the clip's own start and end; dragging one onto either end
- * of a clip in the timeline puts it there. The button under them takes the
- * selected clips' transitions off again, or with none to take off and cuts
- * in the scene, puts the picked one on every cut. Its settings are the
- * inspector's: putting one on a single clip opens that clip's Out there.
- */
 export function TransitionsPanel() {
   const world = useWorld();
   const selection = useSelection();
 
-  /** Both ends of the selected clips. */
   const selectedSpots = useDerived(
     () => clipSpots(world, selection.nodes()),
     (a, b) =>
@@ -51,7 +41,6 @@ export function TransitionsPanel() {
       a.every((spot, index) => spot.clip === b[index]!.clip && spot.prop === b[index]!.prop && spot.partner === b[index]!.partner),
   );
 
-  /** What the selected clips already play, so its tile shows as the one in use. */
   const current = useDerived(() => {
     for (const spot of selectedSpots()) {
       const type = spotTransition(spot)?.type;
@@ -65,8 +54,7 @@ export function TransitionsPanel() {
     return scene && isScene(scene) ? sceneJoins(world, scene).length : 0;
   });
 
-  // With clips selected, the tile lit is what they play, none if nothing:
-  // a lit tile never claims a transition that is not there.
+  // With clips selected the lit tile is what they play: it never claims a transition that is not there.
   const picked = createMemo(() => (selectedSpots().length > 0 ? current() : pickedTransition()));
   const pickedLabel = createMemo(() => TRANSITION_OPTIONS.find((option) => option.name === pickedTransition())?.label ?? "");
 

@@ -2,16 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/**
- * The geometry of dragging rows to restack and reparent them: where the
- * pointer is in the tree, and what drop that means. The gesture itself
- * lives in the layer context; everything here is pure.
- *
- * It is all read back from the DOM: the rows render flat under
- * `[data-timeline-layers]` in the same depth-first order the timeline index
- * lists them, so pairing the two by position gives every visible row its
- * rect, depth and ancestor chain without the rows registering anything.
- */
+// Read back from the DOM: rows render flat under `[data-timeline-layers]` in the timeline index's depth-first order,
+// so pairing the two by position gives every row its rect, depth and ancestors without the rows registering anything.
 
 import { isGroupLike, isMask, isSequence } from '@plan.video/runtime';
 import { NESTED_INDENT_PX } from './config';
@@ -20,8 +12,7 @@ import type { Accessor } from 'solid-js';
 import type { Entity } from 'koota';
 import type { TimelineNode } from '@plan.video/runtime';
 
-/** Client X of the insertion dot for a depth-0 drop; each depth steps inwards.
- *  Sits where a row's icon starts, past the chevron column. */
+/** Client X of the insertion dot for a depth-0 drop, where a row's icon starts past the chevron column. */
 const DOT_CENTER_PX = 20;
 /** A container row's edge strips mean "next to", its middle means "into". */
 const EDGE_ZONE_MAX_PX = 8;
@@ -46,19 +37,14 @@ export type DropTarget =
     };
 
 export type LayerDrag = {
-  /** The row being dragged, once the pointer has moved far enough to mean it. */
   dragging: Accessor<Entity | null>;
-  /** Where the drag would drop right now. */
   target: Accessor<DropTarget | null>;
-  /** Arm a drag from a row's pointerdown; it activates past the threshold. */
   begin: (event: PointerEvent, entity: Entity) => void;
 };
 
-/** A visible clip row, its place in the tree paired with its place on screen. */
 export type FlatRow = {
   node: TimelineNode;
   depth: number;
-  /** The row's parent in the document: another row's entity, or the scene. */
   parent: Entity;
   /** Row entities on the path above this one, indexed by their depth. */
   ancestors: Entity[];
@@ -77,11 +63,7 @@ export type GapContext = {
   listBottom: number;
 };
 
-/**
- * The visible clip rows in render order, each with its depth and the row
- * entities above it. Sub-item and keyframe rows indent the tree but never
- * hold layers, so they contribute depth without appearing in the list.
- */
+// Sub-item and keyframe rows indent the tree but never hold layers, so they add depth without appearing in the list.
 export function flattenRows(nodes: TimelineNode[], root: Entity): Omit<FlatRow, 'rect'>[] {
   const out: Omit<FlatRow, 'rect'>[] = [];
   const ancestors: Entity[] = [];
@@ -113,16 +95,10 @@ export function getListBottom(layersEl: HTMLElement, containerRect: DOMRect): nu
 }
 
 export type RowHit =
-  /** The boundary between rows `index - 1` and `index`. */
   | { kind: 'gap'; index: number }
   | { kind: 'inside'; row: FlatRow };
 
-/**
- * What the pointer is over. A container row splits into edge strips that
- * mean "next to it" and a middle that means "into it"; a plain row splits
- * at its midline. The run of sub-item rows under a clip belongs to the gap
- * after it — there is no spot for a layer between a clip and its fills.
- */
+// The run of sub-item rows under a clip belongs to the gap after it: there is no spot for a layer between a clip and its fills.
 export function hitRows(rows: FlatRow[], y: number, forbidden: Set<Entity>): RowHit {
   let index = -1;
   for (let i = 0; i < rows.length; i++) {
@@ -150,17 +126,8 @@ export function hitRows(rows: FlatRow[], y: number, forbidden: Set<Entity>): Row
   return { kind: 'gap', index: index + 1 };
 }
 
-/**
- * Turn a gap into a drop. One boundary can close several nested groups, so
- * it offers an insertion at every depth between the row below and one level
- * into the row above; the pointer's X picks among them, the way the dot
- * moves inwards as the drop nests deeper.
- *
- * The column reads top-down while the file reads bottom-up, so the anchor —
- * the document sibling the layer is inserted before — is the nearest row
- * *above* the line at the chosen depth, and a line at the top of a parent's
- * children appends last, which renders frontmost.
- */
+// The column reads top-down while the file reads bottom-up, so the anchor is the nearest row *above* the line at
+// the chosen depth, and a line at the top of a parent's children appends last, which renders frontmost.
 export function resolveGap(gapIndex: number, rows: FlatRow[], x: number, context: GapContext): DropTarget | null {
   const above = rows[gapIndex - 1];
   const below = rows[gapIndex];
@@ -214,12 +181,8 @@ export function resolveGap(gapIndex: number, rows: FlatRow[], x: number, context
   };
 }
 
-/**
- * The document sibling to insert before: the nearest row above the gap at
- * the chosen depth. Restricted to the dragged layer's stacking bucket —
- * masks and plain layers render as separate runs, so an anchor from the
- * other bucket would land the row somewhere the line never was.
- */
+// Restricted to the dragged layer's stacking bucket: masks and plain layers render as separate runs, so an
+// anchor from the other bucket would land the row somewhere the line never was.
 function scanAnchor(
   rows: FlatRow[],
   gapIndex: number,

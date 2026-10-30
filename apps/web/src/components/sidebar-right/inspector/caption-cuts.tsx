@@ -21,11 +21,6 @@ type CaptionCutsProps = {
   selection: Entity[];
 };
 
-/**
- * Editing the video by what is said in it. The caption's words read as
- * text: pick some and cut them, and the video loses the time they take.
- * The pauses and the "um"s go in one go.
- */
 export function CaptionCuts(props: CaptionCutsProps) {
   const world = useWorld();
   const entity = () => props.selection[0]!;
@@ -98,9 +93,6 @@ export function CaptionCuts(props: CaptionCutsProps) {
     );
   };
 
-  // Picking works like selecting text: a click picks a word, a drag or a
-  // shift-click runs from the first word to this one, and ⌘/Ctrl-click adds
-  // or takes away one word.
   let anchor = -1;
   let dragging = false;
 
@@ -145,7 +137,6 @@ export function CaptionCuts(props: CaptionCutsProps) {
             when={words().length > 0}
             fallback={<p class="text-xs text-muted-foreground">{t("This caption has no words.")}</p>}
           >
-            {/* Side by side while both fit, one under the other when a language's words don't. */}
             <div class="flex flex-wrap gap-2">
               <Button variant="secondary" class="grow basis-0" disabled={busy()} onClick={removePauses}>
                 {t("Remove pauses")}

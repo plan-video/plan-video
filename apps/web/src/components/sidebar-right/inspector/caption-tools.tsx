@@ -63,11 +63,6 @@ type CaptionToolsProps = {
 
 type LanguageOption = { code: string; label: string };
 
-/**
- * What a caption can have done to it as a whole: the workspace's brand style
- * saved off it or put on it, emoji, keywords in color, a translation, and
- * its words as an SRT file. Every change to the words is one undo step.
- */
 export function CaptionTools(props: CaptionToolsProps) {
   const world = useWorld();
   const editor = useEditor();
@@ -97,7 +92,6 @@ export function CaptionTools(props: CaptionToolsProps) {
   const words = () => transcript() ?? [];
   const ready = () => loaded() && words().some((segment) => segment.words.length > 0) && busy() === null;
 
-  /** Runs a server tool over the words and writes what comes back, now. */
   const run = async (task: CaptionTask, work: (current: Transcript) => Promise<Transcript>) => {
     const current = transcript();
     if (!current || busy()) return;

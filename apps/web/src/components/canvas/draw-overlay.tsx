@@ -57,7 +57,6 @@ const TOOL_CONFIG: Partial<Record<ToolType, ToolConfig>> = {
     previewColor: 'transparent',
     namePrefix: msg('Text'),
     label: 'Create text',
-    // Width/height for click insertions are derived from the font size below.
     defaultWidth: 0,
     defaultHeight: 0,
   },
@@ -169,7 +168,6 @@ export function DrawOverlay() {
     const worldTopLeft = screenToWorld(world, rect.x, rect.y);
     const worldBottomRight = screenToWorld(world, rect.x + rect.width, rect.y + rect.height);
 
-    // Approximate text size from the parent scene's height.
     let fontSize = 16;
     if (tool === ToolType.TEXT && targetScene !== null) {
       const sceneHeight = store(world, Computed).height[targetScene.id()] ?? 0;
@@ -182,7 +180,6 @@ export function DrawOverlay() {
       width = Math.round(worldBottomRight.x - worldTopLeft.x);
       height = Math.round(worldBottomRight.y - worldTopLeft.y);
     } else if (tool === ToolType.TEXT) {
-      // Rough text bounds based on "Text" (4 chars) at the chosen font size.
       width = Math.round(fontSize * 0.6 * 4);
       height = Math.round(fontSize * 1.2);
     } else {
@@ -202,8 +199,7 @@ export function DrawOverlay() {
     }
 
     const parent = parentScene ?? world.get(Root)!;
-    // Nothing to draw into until a project is mounted: the element would have
-    // no file to be written to.
+    // No project mounted yet: the element would have no file to be written to.
     if (!parent.get(Source)?.value) {
       reset();
       return;
@@ -214,7 +210,6 @@ export function DrawOverlay() {
     const y = Math.round(posY);
     // A clicked-in text sizes itself to its glyphs, so it takes no size.
     const size = tool !== ToolType.TEXT || !isClick ? { width, height } : {};
-    // Shown from the playhead, and no longer than the scene already plays.
     const timing = parentScene !== null ? stillTiming(world, parentScene) : {};
 
     const [entity] = editor.insertElement(parent, () => {
@@ -246,8 +241,6 @@ export function DrawOverlay() {
     world.set(Tool, { value: ToolType.MOVE });
     reset();
 
-    // A new text opens for typing where it stands, its placeholder selected
-    // so the first key replaces it.
     if (tool === ToolType.TEXT && entity && isEditableText(entity)) {
       mountTextInput(world, entity);
     }

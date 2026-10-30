@@ -6,10 +6,7 @@ import type { TransitionType as TransitionName } from "@plan.video/jsx";
 
 import "./transition-preview.css";
 
-/**
- * Where each preview rests, seconds into its 2.4s loop: a frame part-way
- * through, chosen so the still alone says what the transition does.
- */
+/** Seconds into each 2.4s loop (transition-preview.css) where the still shows the transition. */
 const STILLS: Partial<Record<TransitionName, number>> = {
   fadeToBlack: 0.85,
   blur: 1.0,
@@ -17,7 +14,6 @@ const STILLS: Partial<Record<TransitionName, number>> = {
   whip: 1.05,
 };
 
-/** A transition played between two shots of real footage, for a PresetTile. */
 export function TransitionPreview(props: { type: TransitionName }) {
   return (
     <div class="tp" data-type={props.type} style={{ "--still": `-${STILLS[props.type] ?? 1.05}s` }}>

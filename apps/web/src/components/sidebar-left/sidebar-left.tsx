@@ -71,7 +71,6 @@ type EditorTitleBarProps = {
   controlsWidth: number;
 }
 
-/** The editor's Windows title bar: project menu and layout toggles, the project name centered. */
 export function EditorTitleBar(props: EditorTitleBarProps) {
   return (
     <WindowsTitleBar
@@ -102,7 +101,6 @@ type ProjectNameInputProps = {
   class?: string;
 }
 
-/** The project name, renamed in place: Enter commits, Escape or blur reverts. */
 export function ProjectNameInput(props: ProjectNameInputProps) {
   const project = useProject();
   const [projectNameDraft, setProjectNameDraft] = createSignal<string | null>(null);
@@ -125,8 +123,7 @@ export function ProjectNameInput(props: ProjectNameInputProps) {
       const input = event.currentTarget;
       const trimmedName = projectNameDraft()?.trim() ?? "";
 
-      // The rename the folder follows: the project keeps its id, so the URL
-      // and the open editor are untouched by the move.
+      // The project keeps its id through the rename, so the URL and the open editor are untouched.
       if (trimmedName.length > 0 && trimmedName !== project.name()) {
         try {
           await project.rename(trimmedName);

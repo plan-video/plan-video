@@ -56,7 +56,7 @@ import type { ThumbnailAsset } from "@/components/ui/asset-thumbnail";
 
 type Tab = "looks" | "adjust" | "wheels";
 
-// The tab the panel last showed, so it opens where it was left.
+// Kept, so the panel opens where it was left.
 const [lastTab, setLastTab] = createSignal<Tab>("looks");
 
 const STILL = "/site/surf.webp";
@@ -67,19 +67,12 @@ function sameGrade(a: Partial<GradeValues>, b: Partial<GradeValues>): boolean {
 }
 
 type GradePanelProps = {
-  /** The `<grade>`. */
   grade: Entity;
-  /** What it grades: a clip, or a scene or group. */
   target: Entity;
   anchorRef: HTMLElement;
   onClose(): void;
 };
 
-/**
- * One `<grade>`: a look and how much of it, the sliders and the wheels, and
- * the grades the person saved. Every control writes a prop of the element,
- * so the grade is undone, copied and saved like any other edit.
- */
 export function GradePanel(props: GradePanelProps) {
   const world = useWorld();
   const editor = useEditor();
@@ -93,12 +86,11 @@ export function GradePanel(props: GradePanelProps) {
     if (values()[key] !== value) editor.editProperty(props.grade, key, value);
   };
 
-  /** Writes a whole grade: what `next` leaves out goes back to neutral. */
+  /** What `next` leaves out goes back to neutral. */
   const apply = (next: Partial<GradeValues>) => {
     for (const key of GRADE_KEYS) set(key, next[key] ?? NEUTRAL_GRADE[key]);
   };
 
-  /** A frame of what is graded, for the tiles: the clip's own media, or the first in the scene. */
   const previewAsset = createMemo((): ThumbnailAsset | undefined => {
     const lib = library();
     if (!lib) return undefined;
@@ -182,7 +174,6 @@ function LooksTab(props: TabProps & { asset?: ThumbnailAsset; apply(next: Partia
   const library = useLibrary();
   const [naming, setNaming] = createSignal<{ id?: string; name: string } | null>(null);
 
-  /** The current grade with `look` in place of its own, at its strength. */
   const withLook = (look: string): GradeValues => ({ ...props.values, look, lookAmount: props.values.look ? props.values.lookAmount : 100 });
 
   const pickLook = (look: string) => {
@@ -380,7 +371,6 @@ function WheelsTab(props: TabProps) {
   );
 }
 
-/** A labelled slider; a double-click on the label puts it back. */
 function GradeSlider(props: {
   label: string;
   value: number;
@@ -414,11 +404,7 @@ function GradeSlider(props: {
 
 let previews = 0;
 
-/**
- * `values` over a frame of what is graded, drawn through the same filter the
- * canvas uses. Each tile keeps its own filter, so the canvas's cache never
- * takes one from under it.
- */
+// Each tile keeps its own filter, so the canvas's cache never takes one from under it.
 function GradePreview(props: { values: GradeValues; asset?: ThumbnailAsset; cache?: Parameters<typeof AssetThumbnail>[0]["cache"] }) {
   const id = `pv-grade-tile-${previews++}`;
   let filter!: SVGFilterElement;

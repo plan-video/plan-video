@@ -9,23 +9,16 @@ import { msg } from "@/lib/i18n";
 import type { EffectType as EffectName } from "@plan.video/jsx";
 import type { EffectType } from "@plan.video/runtime";
 
-/**
- * What an `<effect>`'s `value` means, which is what a type switch has to
- * answer for: the amount filters share a 0-1 scale, `blur` is a radius in px
- * and `hueRotate` an angle in degrees. Within a unit the value carries over,
- * across one it cannot.
- */
+// `blur` is px, `hueRotate` degrees, the rest a 0-1 amount. A value carries over a type switch only within a unit.
 export type EffectUnit = "amount" | "px" | "deg";
 
 export type EffectOption = {
   name: EffectName;
   label: string;
   unit: EffectUnit;
-  /** What "Add effect", and a switch into this type, authors. */
   value: number;
 };
 
-/** The effect types, in menu order. */
 export const EFFECT_OPTIONS: EffectOption[] = [
   { name: "blur", label: msg("Layer Blur"), unit: "px", value: 8 },
   { name: "brightness", label: msg("Brightness"), unit: "amount", value: 0.8 },
@@ -37,18 +30,13 @@ export const EFFECT_OPTIONS: EffectOption[] = [
   { name: "sepia", label: msg("Sepia"), unit: "amount", value: 0.5 },
 ];
 
-/** What the panel's plus inserts, spelled out. */
 export const DEFAULT_EFFECT: EffectOption = EFFECT_OPTIONS[0]!;
 
 const BY_TYPE = new Map<EffectType, EffectOption>(
   EFFECT_OPTIONS.map((option) => [EFFECT_TYPES[option.name]!, option]),
 );
 
-/**
- * The option for the type an `Effect` trait holds. Identity matters: the
- * type select compares its value against the array it was given, so this
- * hands back the option itself rather than a copy.
- */
+// Identity matters: the type select compares against the array it was given, so this returns the option itself, not a copy.
 export function effectOption(type: EffectType | undefined): EffectOption {
   return (type === undefined ? undefined : BY_TYPE.get(type)) ?? DEFAULT_EFFECT;
 }

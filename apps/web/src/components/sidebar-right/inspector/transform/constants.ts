@@ -57,12 +57,10 @@ const VERTICAL_NAMES = new Map<ConstraintType, VerticalConstraint>(
   Object.entries(VERTICAL_CONSTRAINTS).map(([name, type]) => [type, name as VerticalConstraint]),
 );
 
-/** The anchor as the JSX spells it on the horizontal axis (`constrainX="right"`). */
 export function horizontalConstraintName(type: ConstraintType): HorizontalConstraint {
   return HORIZONTAL_NAMES.get(type) ?? "left";
 }
 
-/** The same on the vertical axis (`constrainY="bottom"`). */
 export function verticalConstraintName(type: ConstraintType): VerticalConstraint {
   return VERTICAL_NAMES.get(type) ?? "top";
 }

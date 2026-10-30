@@ -28,7 +28,6 @@ const PLATFORMS: { id: PreviewPlatform; label: string }[] = [
   { id: "none", label: msg("Clean") },
 ];
 
-/** What the layout being set up looks like on a phone, with the app's buttons over it. */
 export function LayoutPreviewPanel(): JSX.Element {
   const world = useWorld();
   let canvasRef!: HTMLCanvasElement;
@@ -117,8 +116,7 @@ function cropSize(id: keyof ReturnType<typeof layoutCropsPx>): string {
   return box ? `${Math.round(box.width)}×${Math.round(box.height)}` : "";
 }
 
-// App chrome, drawn in the 1080×1920 space the layout is in. Shapes only:
-// enough to show what the buttons and captions cover.
+// App chrome in the layout's 1080×1920 space. Shapes only.
 
 const HEART = "M50 88C20 66 4 50 4 32 4 17 16 6 30 6c9 0 16 5 20 12 4-7 11-12 20-12 14 0 26 11 26 26 0 18-16 34-46 56z";
 const BUBBLE = "M50 8c25 0 44 16 44 38S75 84 50 84c-6 0-12-1-17-3L12 92l6-20C10 65 6 56 6 46 6 24 25 8 50 8z";
@@ -158,7 +156,7 @@ function Label(props: { x: number; y: number; children: string; size?: number; w
   );
 }
 
-/** The profile picture: the app icon's mark on a white circle. The mark's viewBox is 32 wide, centred on 16. */
+/** The mark's viewBox is 32 wide, centred on 16. */
 function Avatar(props: { cx: number; cy: number; r: number; ring?: boolean }) {
   const scale = () => (props.r * 2 * 0.62) / 32;
   return (

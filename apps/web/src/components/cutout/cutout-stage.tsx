@@ -2,10 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// A picture and its cutout over a checkerboard: split down the middle to
-// compare, or either one whole. Shared by the editor's Remove background
-// dialog and its extension panel.
-
 import { For, Show, createEffect, createSignal, on, onCleanup, onMount, type JSX } from "solid-js";
 
 import { Icon } from "@/components/ui/icon";
@@ -24,10 +20,7 @@ const MODES: { id: CutoutMode; label: string }[] = [
   { id: "original", label: msg("Original") },
 ];
 
-/**
- * The messages bg0 reports its progress with, marked for translating: the
- * stage shows a progress message through t(), and any other stays as it came.
- */
+// bg0's progress messages, marked for translating; any other message is shown as it came.
 export const BG0_PROGRESS_MESSAGES = [
   msg("Preparing image…"),
   msg("Loading cached model…"),
@@ -49,7 +42,6 @@ export const CHECKERBOARD: JSX.CSSProperties = {
   "background-size": "20px 20px",
 };
 
-/** Whether a key press belongs to a field or a menu rather than to the stage. */
 export function typingInto(event: Event): boolean {
   const target = event.target;
   return target instanceof HTMLElement && (target.isContentEditable || !!target.closest("input, textarea, select, [role=menu], [role=listbox]"));
@@ -61,14 +53,8 @@ export function CutoutStage(props: {
   progress?: CutoutProgress | null;
   mode: CutoutMode;
   class?: string;
-  /** Sized for a side panel: less padding, a smaller handle and labels. */
   compact?: boolean;
-  /**
-   * Whether Space and the arrows work the stage from anywhere on the page.
-   * Off beside the canvas, where those keys play and nudge.
-   */
   keys?: boolean;
-  /** Laid over the picture: the error card, say. */
   children?: JSX.Element;
 }) {
   let stage: HTMLDivElement | undefined;
@@ -86,7 +72,6 @@ export function CutoutStage(props: {
     reveal = 0;
   };
 
-  // A new cutout sweeps in from the right edge and settles at the middle.
   createEffect(
     on(
       () => props.result,
@@ -295,7 +280,6 @@ export function CutoutTabs(props: { mode: CutoutMode; disabled?: boolean; class?
   );
 }
 
-/** Where it ran, how long it took, how big it is. */
 export function CutoutMeta(props: { cutout: Cutout }) {
   return (
     <span class="flex items-center gap-1.5 whitespace-nowrap font-mono text-xxs text-muted-foreground tabular-nums">

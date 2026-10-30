@@ -32,19 +32,11 @@ import type { JSX } from 'solid-js';
 import type { Asset } from '@plan.video/assets';
 import type { Entity } from 'koota';
 
-/**
- * The menu a right click on a clip opens. It acts on the selection, like the
- * keys do: a right click on a clip outside the selection selects that clip
- * first, and one on a selected clip keeps the rest, so several clips are
- * replaced, split or deleted at once. Off the clips, the app's own menu
- * opens instead.
- */
 export function TimelineClipMenu(props: { children: JSX.Element }) {
   const world = useWorld();
   const library = useLibrary();
 
-  // The selection the menu opened on, read when it opens: the menu is not
-  // the place to watch it change.
+  // Read when the menu opens: the menu is not the place to watch the selection change.
   const [clips, setClips] = createSignal<Entity[]>([]);
   const [mediaClips, setMediaClips] = createSignal<Entity[]>([]);
 
@@ -63,11 +55,6 @@ export function TimelineClipMenu(props: { children: JSX.Element }) {
     setMediaClips(selectedMediaClips(world));
   };
 
-  /**
-   * The library's files the clips could take, newest first: sounds for
-   * sound clips, pictures and videos for the rest. A file every clip
-   * already plays is no change, so it is left out.
-   */
   const candidates = createMemo((): Asset[] => {
     const targets = mediaClips();
     if (!targets.length) return [];

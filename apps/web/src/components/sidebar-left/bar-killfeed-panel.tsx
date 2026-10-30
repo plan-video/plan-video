@@ -30,7 +30,6 @@ import { defaultBarSpec, renderBarKillfeed, usualBarSpec, type BarSpec } from "@
 import { plain } from "@/lib/killfeed-feed";
 import { msg, t } from "@/lib/i18n";
 
-/** What a Call of Duty, PUBG or Rust killfeed drag carries. */
 export const BAR_KILLFEED_DRAG_TYPE = "application/x-plan-bar-killfeed";
 
 const ANIMATIONS: { id: KillfeedAnimation; label: string }[] = [
@@ -44,7 +43,7 @@ function inGameLayout(game: BarGame): KillfeedLayout {
 }
 
 function createBarKillfeed(game: BarGame): { Panel: Component; Cover: Component } {
-  /** Kept across tab switches; `spec()` is the notice being edited. */
+  /** Kept across tab switches. */
   const feed = createKillfeedFeed<BarSpec>(defaultBarSpec(game));
   const { spec, set: setSpec } = feed;
   const [placement, setPlacement] = createStore<KillfeedPlacement>({ layout: inGameLayout(game), animation: "slide" });
@@ -63,7 +62,6 @@ function createBarKillfeed(game: BarGame): { Panel: Component; Cover: Component 
     const world = useWorld();
     const [adding, setAdding] = createSignal(false);
     const [group, setGroup] = createSignal(groups[0]?.id ?? "");
-    // Picking another notice opens its weapon's group.
     createEffect(
       on(feed.selected, () => {
         const weapon = game.weapons.find((item) => item.id === spec().weapon);

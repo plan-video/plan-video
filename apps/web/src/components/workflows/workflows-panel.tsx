@@ -59,16 +59,10 @@ import { STEP_INFO, StepIcon, StepValue, WorkflowArt, setSaveRequest, showWorkfl
 /** A starter's switches are for this visit only: starters are never stored. */
 const [starterEdits, setStarterEdits] = createSignal<Record<string, Workflow>>({});
 
-/** A workflow as the panel shows it: a starter with this visit's switches. */
 const shownCopy = (id: string) => starterEdits()[id] ?? findWorkflow(id);
 
 export const workflowName = (workflow: Workflow) => (isStarter(workflow) ? t(workflow.name) : workflow.name);
 
-/**
- * The left sidebar's Workflows tab: the person's workflows and the starters,
- * and one opened, its steps, each on or off, and running it on the clip.
- * While a workflow runs, its steps tick off here.
- */
 export function WorkflowsPanel() {
   const auth = useAuth();
   createEffect(() => loadWorkflows(auth.user()?.id));
@@ -159,7 +153,6 @@ function ListRow(props: { workflow: Workflow }) {
   );
 }
 
-/** The rows a workflow shows: its steps, the extras its captions can take, and where it posts. */
 function rowsOf(workflow: Workflow): WorkflowStepId[] {
   const steps = workflow.steps;
   return WORKFLOW_STEPS.filter((id) => {
@@ -182,7 +175,6 @@ function WorkflowDetail(props: { workflow: Workflow }) {
   };
   const statusOf = (id: WorkflowStepId): RunStep | undefined => run()?.steps.find((step) => step.id === id);
   const waiting = () => run()?.steps.find((step) => step.status === "waiting");
-  // What a step had to say about how it went, other than where it posts (its row says that).
   const notes = () => run()?.steps.filter((step) => step.note && step.id !== "post" && (step.status === "failed" || step.status === "done" || step.status === "skipped")) ?? [];
   const needsAccount = () => !auth.user() && run()?.state !== "running" && run()?.steps.some((step) => step.id === "captions" && step.status === "failed");
   const otherRunning = () => {
@@ -190,7 +182,6 @@ function WorkflowDetail(props: { workflow: Workflow }) {
     return current?.state === "running" && current.workflowId !== props.workflow.id ? current : null;
   };
 
-  // The scene's own clip, when it has one: the run works on it.
   const target = useDerived(() => {
     const scene = workflowScene(world);
     return scene && mainClip(world, scene) ? scene : null;
@@ -198,7 +189,6 @@ function WorkflowDetail(props: { workflow: Workflow }) {
 
   const steps = () => activeSteps(props.workflow);
 
-  /** Saves a change: to the account for the person's own, to this visit for a starter. */
   const change = (next: Pick<Workflow, "steps" | "off">) => {
     if (own()) updateWorkflow(props.workflow.id, next);
     else setStarterEdits((all) => ({ ...all, [props.workflow.id]: { ...props.workflow, ...next } }));
@@ -389,7 +379,6 @@ function StepRow(props: {
   id: WorkflowStepId;
   on: boolean;
   status?: RunStep;
-  /** A run is showing: its outcome stands where the switch was. */
   locked: boolean;
   onToggle: (on: boolean) => void;
   onPost: (template: Workflow["steps"]["post"]) => void;
@@ -458,7 +447,6 @@ function StatusIcon(props: { status?: RunStep }) {
   );
 }
 
-/** Where the workflow posts: one of the post templates, or nowhere. */
 function PostPicker(props: { workflow: Workflow; onPick: (template: Workflow["steps"]["post"]) => void }) {
   const templates = createMemo(() => sortTemplates(postTemplates()));
   const chosen = () => props.workflow.steps.post;

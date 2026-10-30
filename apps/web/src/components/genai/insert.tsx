@@ -12,13 +12,11 @@ import type { AssetRef } from "@plan.video/jsx";
 import type { DocumentEditor } from "@/engine/editor";
 import type { Entity, World } from "koota";
 
-/** Between the variants of one batch, and between the batch and its neighbour. */
 const GAP = 40;
 
 /** A declaration is keyed by its spec, so a fresh seed makes a new take. */
 export const randomSeed = () => Math.floor(Math.random() * 1_000_000);
 
-/** The box an inserted element is given, in canvas space. */
 export interface GenerationBox {
   x: number;
   y: number;
@@ -26,18 +24,7 @@ export interface GenerationBox {
   height: number;
 }
 
-/**
- * Inserts `count` elements of `size` at the root of the canvas, side by side
- * as one block, and selects them. `element` is called once per variant with
- * the box it goes in; each call declares its own source, so the variants of a
- * batch are separate takes rather than one asset shown four times.
- *
- * Returns the entities, or nothing (having said so) when there is no project
- * to insert into.
- *
- * `sources[index]` is the declaration variant `index` consumes; each element
- * is named after the asset its generation produces, once it lands.
- */
+// Each variant declares its own source, so a batch is separate takes rather than one asset shown four times.
 export function insertGenerated(
   world: World,
   editor: DocumentEditor,
@@ -77,13 +64,8 @@ export function insertGenerated(
   return inserted;
 }
 
-/**
- * Names the element after the asset its declaration resolves to — the same
- * name a library insert would give it — unless it got one in the meantime.
- * The resolution is memoized by ref, so this rides the request the element's
- * own src makes rather than asking for another; a failure is the asset
- * system's to surface (see SourceError), not this one's.
- */
+// The resolution is memoized by ref, so this rides the element's own src request; a failure is the
+// asset system's to surface (see SourceError).
 function nameAfterGeneration(world: World, editor: DocumentEditor, entity: Entity, ref: AssetRef): void {
   world.get(Ai)?.resolve(ref).then((asset) => {
     if (!entity.isAlive() || entity.get(Name)?.value) return;

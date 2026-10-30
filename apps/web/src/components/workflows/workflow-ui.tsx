@@ -2,10 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// What the workflow pieces share: each step's name, icon and what it is set
-// to in words, the picture a workflow's card shows, and which workflow the
-// panel has open.
-
 import { Match, Show, Switch, createSignal, type Component } from "solid-js";
 import CalendarClockIcon from "lucide-solid/icons/calendar-clock";
 import CaptionsIcon from "lucide-solid/icons/captions";
@@ -48,7 +44,6 @@ const STRENGTHS: Record<string, string> = { subtle: msg("Subtle"), medium: msg("
 
 const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
-/** What `step` is set to, in a few words; empty when its name says it all. */
 export function stepValue(workflow: Workflow, step: WorkflowStepId): string {
   const steps = workflow.steps;
   switch (step) {
@@ -81,7 +76,6 @@ export function stepValue(workflow: Workflow, step: WorkflowStepId): string {
   }
 }
 
-/** What `step` is set to, as the rows show it: in words, or for keywords, their colour. */
 export function StepValue(props: { workflow: Workflow; step: WorkflowStepId }) {
   return (
     <Show when={props.step === "keywords" && props.workflow.steps.keywords} fallback={stepValue(props.workflow, props.step)}>
@@ -95,15 +89,12 @@ export function StepValue(props: { workflow: Workflow; step: WorkflowStepId }) {
   );
 }
 
-/** A workflow's steps by name, for the line under it in a list. */
 export function stepsLine(workflow: Workflow): string {
   return activeSteps(workflow)
     .filter((step) => step !== "keywords" && step !== "emoji")
     .map((step) => (step === "size" || step === "layout" ? stepValue(workflow, step) : t(STEP_INFO[step].label)))
     .join(" · ");
 }
-
-/* The picture on a workflow's card */
 
 const ART: Record<StarterArt, string> = {
   stream: "/site/stream.webp",
@@ -112,11 +103,6 @@ const ART: Record<StarterArt, string> = {
   travel: "/site/surf.webp",
 };
 
-/**
- * A workflow's card picture, 9:16: the still it was saved with, or for a
- * starter, footage with what the starter puts on it drawn over. `size` is
- * the card's height in pixels, which the type on it follows.
- */
 export function WorkflowArt(props: { workflow: Workflow; height: number }) {
   const scale = () => props.height / 185;
   const px = (value: number) => `${Math.max(6, Math.round(value * scale()))}px`;
@@ -186,13 +172,9 @@ function Placeholder() {
   );
 }
 
-/* Panel state, shared with the canvas picker and the project menu */
-
 const [openId, setOpenId] = createSignal<string | null>(null);
-/** The workflow the Workflows panel shows; null for the list. */
 export { openId as shownWorkflowId, setOpenId as showWorkflow };
 
 export type SaveRequest = { replace?: string; name?: string };
 const [saveRequest, setSaveRequest] = createSignal<SaveRequest | null>(null);
-/** The Save as workflow dialog: open with what it should do, null while closed. */
 export { saveRequest, setSaveRequest };

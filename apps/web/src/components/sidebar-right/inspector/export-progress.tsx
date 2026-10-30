@@ -8,7 +8,6 @@ import { formatDuration } from "@/utils/formatters";
 import { t } from "@/lib/i18n";
 import type { EncoderConfig } from "@plan.video/encoder";
 
-/** The settings this overlay reads: the encoder's, less how it is driven. */
 export type ExportConfig = Omit<
   EncoderConfig,
   "target" | "scene" | "onProgress" | "realizeScene" | "comment"
@@ -25,10 +24,6 @@ type ExportProgressProps = {
   onCancel: () => void;
 };
 
-/**
- * While a video is written: one card in the editor's own make, with what is
- * being written on a single line rather than a table of every setting.
- */
 export function ExportProgress(props: ExportProgressProps) {
   const cfg = () => props.config;
 

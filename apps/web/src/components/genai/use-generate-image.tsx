@@ -20,16 +20,14 @@ export function useGenerateImage() {
   const run = async (config: ImageGenerationConfig) => {
     const library = world.get(Library);
 
-    // References travel by library path: durable in the file, and readable
-    // there. Ids that no longer name a library asset are dropped.
+    // By library path: durable in the file. Ids that no longer name a library asset are dropped.
     const refs = (config.imageRefIds ?? [])
       .map((id) => library?.get(id)?.path)
       .filter((path): path is string => path !== undefined);
 
     const dims = ASPECT_RATIO_DIMENSIONS[config.aspectRatio] ?? { width: 1920, height: 1080 };
 
-    // One declaration per variant, each with its own seed: a batch is four
-    // takes of the prompt rather than one asset shown four times.
+    // One seed per variant, so a batch is separate takes rather than one asset shown four times.
     const sources = Array.from({ length: config.count }, () => generate.image({
       prompt: config.prompt,
       model: config.model,

@@ -39,11 +39,7 @@ const PAINT_NAMES: Partial<Record<PaintType, string>> = {
   [PaintType.SHADER]: msg('Shader'),
 };
 
-/**
- * A row for one of a clip's parts — a fill, a stroke, a shadow, an effect —
- * which is here only so the keyframe rows under it have something to hang
- * from. It has no clip of its own on the canvas beside it.
- */
+// Here only so the keyframe rows under it have something to hang from; it has no clip of its own on the canvas.
 export function SubItemLayer(props: LayerRowProps) {
   const world = useWorld();
   const editor = useEditor();
@@ -97,7 +93,6 @@ export function SubItemLayer(props: LayerRowProps) {
   )
 }
 
-/** What the part calls itself, or what kind of part it is (in the app's language). */
 function describe(entity: Entity): string {
   const name = entity.get(Name)?.value;
   if (name) return name;

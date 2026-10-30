@@ -25,7 +25,7 @@ import { MixedTag, useMixed } from "./word-mix";
 
 import type { Entity } from "koota";
 
-/** What "Add stroke" authors; `<stroke>`'s own default color. */
+/** `<stroke>`'s own default color. */
 const DEFAULT_COLOR = "#000000";
 
 // Stable identity, so a node without strokes does not resample every tick.
@@ -35,14 +35,7 @@ type StrokesSettingsProps = {
   selection: Entity[];
 };
 
-/**
- * The `<stroke>` children of the selected node, in paint order (the list is
- * shown topmost first, so the last element in the file is the first row).
- * A row opens the stroke's own inspector; what it shows is the color, since
- * that is the one thing a stroke always says. The line style
- * (`width`/`join`/`miterLimit`) is the stroke's own and not the node's, so it
- * lives in that inspector rather than under every row.
- */
+// The list shows topmost first, so the last element in the file is the first row.
 export function StrokesSettings(props: StrokesSettingsProps) {
   const editor = useEditor();
   const mixed = useMixed();
@@ -68,12 +61,8 @@ export function StrokesSettings(props: StrokesSettingsProps) {
     return stroke !== undefined && strokes().includes(stroke) ? stroke : undefined;
   });
 
-  /**
-   * Swaps `stroke` with its neighbour, later in the file (`direction` 1, on
-   * top) or earlier. Written as a swap because a move needs an anchor:
-   * `reparent` appends without one, and refuses an append into the parent the
-   * element already has.
-   */
+  // A swap, because a move needs an anchor: `reparent` appends without one, and refuses an append
+  // into the parent the element already has.
   const handleReorderStroke = (stroke: Entity, direction: number) => {
     const siblings = strokes();
     const index = siblings.indexOf(stroke);

@@ -42,14 +42,8 @@ const SCALE_MODE_ITEMS = [
   },
 ] as const;
 
-/**
- * Uniform scale is `scale`, per-axis scale is `scaleX`/`scaleY`, and the two
- * are exclusive the way the corner radii are: `scale` wins over the pair
- * wherever both are set (motion system), so a mode switch drops the other
- * mode's props and its tracks. Uniform unsets at 1, since a scale of 1 is no
- * scale at all; the axes are written out, which is what says the node is on
- * separate scale in the first place.
- */
+// `scale` wins over `scaleX`/`scaleY` wherever both are set (motion system), so a mode switch drops the other
+// mode's props and tracks.
 export function ScaleRow(props: ScaleRowProps) {
   const world = useWorld();
   const editor = useEditor();

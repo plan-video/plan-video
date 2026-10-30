@@ -46,13 +46,8 @@ type CaptionWordStyleProps = {
   indices: ReadonlySet<number>;
 };
 
-/**
- * The inspector while words are picked on the timeline: the same panels a
- * text has, and every change lands on the picked words only. The panels
- * edit a stand-in `<text>` that looks like the words (see `createWordProxy`);
- * what changes on it is written into each word's style. With several words
- * picked, only what was changed is written, so each keeps the rest of its own.
- */
+// The panels edit a stand-in `<text>` (see `createWordProxy`) whose changes are written into each word's style;
+// with several words picked, only what changed is written, so each keeps the rest of its own.
 export function CaptionWordStyle(props: CaptionWordStyleProps) {
   const world = useWorld();
   const editor = useEditor();
@@ -71,11 +66,7 @@ export function CaptionWordStyle(props: CaptionWordStyleProps) {
   });
 
   let before: WordLook | undefined;
-  /**
-   * The stand-in as the last edit left it. Read when the edit lands rather
-   * than when it is written: a picker previews on the traits alone, and a
-   * preview is not a choice.
-   */
+  // Read when the edit lands, not when it is written: a picker previews on the traits alone, and a preview is not a choice.
   let edited: WordLook | undefined;
   let release: (() => void) | undefined;
   let timer = 0;
@@ -224,7 +215,6 @@ export function CaptionWordStyle(props: CaptionWordStyleProps) {
   );
 }
 
-/** X/Y of the picked words, stored as each word's own offset. */
 function WordPosition(props: { node: Entity }) {
   const editor = useEditor();
   const mixed = useMixed();

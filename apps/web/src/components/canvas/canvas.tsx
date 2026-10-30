@@ -28,18 +28,7 @@ import type { Entity } from "koota";
 export function Canvas() {
   const world = useWorld();
 
-  /**
-   * Drops onto the canvas: library assets (dragged from the panel) land where
-   * they were dropped, in the scene under the pointer; external files are
-   * imported into the library first, then land the same way.
-   *
-   * With no scene under the pointer they land loose on the stage, like an
-   * element drawn there (see DrawOverlay): the drop says where, so the active
-   * scene — which is somewhere else entirely — is not the answer.
-   *
-   * A scene with nothing in it yet takes the first picture or clip as its
-   * main one, put straight in its fitted place (see fitInScene).
-   */
+  // With no scene under the pointer, drops land loose on the stage, not in the active scene.
   const handleDropEvent = async (event: DragEvent) => {
     event.preventDefault();
     event.stopPropagation();
@@ -56,7 +45,6 @@ export function Canvas() {
     const fitScene = scene && isEmptyScene(world, scene) ? scene : null;
     let fitted = false;
 
-    /** Puts `asset` in the empty `target` scene, fitted; false when it couldn't. */
     const fitIntoScene = (asset: Asset, target: Entity): boolean => {
       if (!isFittable(asset)) return false;
       const to = fitInScene(sceneSize(world, target), asset);
@@ -114,7 +102,6 @@ export function Canvas() {
     setDropScene(world, null, null);
   }
 
-  /** Lights up the empty scene under a drag of pictures or footage. */
   const handleDragOver = (event: DragEvent) => {
     event.preventDefault();
     event.stopPropagation();

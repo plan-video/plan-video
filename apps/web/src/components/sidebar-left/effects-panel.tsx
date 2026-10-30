@@ -28,7 +28,6 @@ export const EFFECTS: EffectInfo[] = [
   { kind: "bars", label: msg("Cinematic bars"), summary: msg("Black bars that slide in for a film look.") },
 ];
 
-/** Says why an effect could not go on. */
 export function effectFailed(reason: EffectFailure) {
   if (reason === "no-scene") toast(t("Open a scene first"));
   else if (reason === "too-short") toast(t("Not enough clip left"), { description: t("Move the playhead earlier, or pick a shorter length.") });
@@ -36,12 +35,6 @@ export function effectFailed(reason: EffectFailure) {
   else toast(t("No clip here"), { description: t("Select a clip, or move the playhead over one.") });
 }
 
-/**
- * The left sidebar's Effects tab: each effect as a tile that plays on hover.
- * Clicking one puts it on at the playhead, on the selected clip or the one
- * under the playhead, and selects it, so its settings open in the inspector,
- * the way a transition's do. The tile of the selected effect shows lit.
- */
 export function EffectsPanel() {
   const world = useWorld();
   const selection = useSelection();

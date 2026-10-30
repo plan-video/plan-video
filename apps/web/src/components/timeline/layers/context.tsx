@@ -15,31 +15,20 @@ import { flattenRows, getListBottom, hitRows, resolveGap } from "./drag";
 import type { Entity } from "koota";
 import type { DropTarget, FlatRow, GapContext, LayerDrag } from "./drag";
 
-/** How far the pointer travels before a press means a drag, not a click. */
 const DRAG_THRESHOLD_PX = 4;
-/** Holding the pointer this close to the list's edge scrolls it. */
 const AUTO_SCROLL_ZONE_PX = 28;
 const AUTO_SCROLL_MAX_STEP_PX = 8;
-/** Hovering a collapsed container this long opens it, as dropping into it would. */
 const EXPAND_DWELL_MS = 600;
 
 type LayerContextValue = {
-  /** The row whose height is being dragged, if any. */
   resized: Signal<Entity | null>;
-  /** The row being dragged to a new place in the tree, and where it would drop. */
   drag: LayerDrag;
 }
 
 const LayerContext = createContext<LayerContextValue>();
 
-/**
- * Besides sharing gesture state with the rows, this is where dragging them
- * to restack and reparent lives, Figma-style. The rows never move while the
- * pointer is down; an indicator says where the layer would land — a line
- * with a dot for a spot between siblings, a border around a container for a
- * drop inside it — and the document is only written on release, through
- * `editor.reparent`, so the drop is one undo step.
- */
+// Rows never move while the pointer is down; the document is only written on release, through
+// `editor.reparent`, so the drop is one undo step.
 export function LayerContextProvider(props: { children: JSX.Element }) {
   const world = useWorld();
   const editor = useEditor();
@@ -99,7 +88,6 @@ export function LayerContextProvider(props: { children: JSX.Element }) {
     if (held !== null && drop !== null) performDrop(held.entity, drop);
   };
 
-  /** Escape lets go of the layer without dropping it anywhere. */
   const handleKey = (event: KeyboardEvent): void => {
     if (event.key !== 'Escape' || active === null) return;
     event.stopPropagation();
@@ -139,7 +127,6 @@ export function LayerContextProvider(props: { children: JSX.Element }) {
     updateTarget();
   };
 
-  /** Nudges the shared scroll while the pointer holds near either edge. */
   const autoScroll = (): void => {
     const viewport = document.querySelector<HTMLElement>('[data-timeline-layers-viewport]');
     if (!viewport) return;
@@ -173,8 +160,7 @@ export function LayerContextProvider(props: { children: JSX.Element }) {
     const rowEls = layersEl.querySelectorAll<HTMLElement>('[data-layer-row]');
     const flat = flattenRows(layers, root);
 
-    // The index rebuilding mid-frame can briefly disagree with the DOM; skip
-    // the frame rather than pair rows with the wrong rects.
+    // The index rebuilding mid-frame can briefly disagree with the DOM: skip the frame rather than mis-pair rows and rects.
     if (rowEls.length !== flat.length || flat.length === 0) {
       dwell = null;
       setTarget(null);
@@ -200,8 +186,7 @@ export function LayerContextProvider(props: { children: JSX.Element }) {
     if (hit.kind === 'inside') {
       const { node, rect } = hit.row;
 
-      // Dropping into a collapsed container is blind; hovering long enough
-      // opens it so the drop can aim at a spot inside instead.
+      // Dropping into a collapsed container is blind, so hovering long enough opens it.
       if (node.expandable && !node.expanded) {
         if (dwell?.entity !== node.entity) dwell = { entity: node.entity, since: performance.now() };
       } else {

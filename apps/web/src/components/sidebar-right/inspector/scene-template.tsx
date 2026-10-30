@@ -33,7 +33,6 @@ export function SceneTemplatePanel() {
     const root = world.get(Root)!;
     if (!root.get(Source)?.value) return;
 
-    // Centered in the viewport.
     const viewport = getViewport(world);
     const center = screenToWorld(world, (viewport?.width ?? 0) / 2, (viewport?.height ?? 0) / 2);
     const name = getNextName(world, "Scene");
@@ -111,7 +110,6 @@ const TEMPLATE_TABS: { id: TemplateTab; label: string }[] = [
 
 const [templateTab, setTemplateTab] = createSignal<TemplateTab>("layouts");
 
-/** Stream layouts as cards. Choosing one opens its crops on the video. */
 function LayoutGrid() {
   const world = useWorld();
 

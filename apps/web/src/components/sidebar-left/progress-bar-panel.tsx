@@ -104,7 +104,6 @@ export function ProgressBarPanel() {
   );
 }
 
-/** The bar as it will sit on the frame, part way through. */
 function Preview() {
   return (
     <div
@@ -129,7 +128,6 @@ function BarStrip(props: { position: ProgressPosition; height: number; color: st
   );
 }
 
-/** The market card: a clip playing, its bar part way along the bottom. */
 export function ProgressBarCover() {
   return (
     <div class="relative h-20 w-full overflow-hidden bg-black">

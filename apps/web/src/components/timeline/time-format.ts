@@ -16,14 +16,6 @@ function pad(value: number) {
   return Math.floor(value).toString().padStart(2, '0');
 }
 
-/**
- * Formats a frame position into a display string according to the
- * selected {@link TimeFormat}.
- *
- * - `standard`: minutes, seconds and centiseconds (`MM:SS:CS`)
- * - `timecode`: hours, minutes, seconds and frames (`HH:MM:SS:FF`)
- * - `frames`: the raw frame count (e.g. `30f`)
- */
 export function formatFrames(frame: number, fps: number, format: TimeFormat) {
   const safeFps = Number.isFinite(fps) && fps > 0 ? fps : 30;
   const safeFrame = Number.isFinite(frame) ? Math.max(0, frame) : 0;

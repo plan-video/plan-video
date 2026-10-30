@@ -23,11 +23,7 @@ export type SkewRowProps = {
   onRemoveAddon(): void;
 };
 
-/**
- * Skew in degrees, written as `skewX`/`skewY` like any prop, so it is saved
- * and undone with the rest. It has no keyframe diamonds: the motion system
- * animates skew as `skew.x`/`skew.y`, which a track cannot name yet.
- */
+// No keyframe diamonds: the motion system animates skew as `skew.x`/`skew.y`, which a track cannot name yet.
 export function SkewRow(props: SkewRowProps) {
   const skewX = useDerived(() => props.node.get(Computed)?.skewX ?? 0);
   const skewY = useDerived(() => props.node.get(Computed)?.skewY ?? 0);

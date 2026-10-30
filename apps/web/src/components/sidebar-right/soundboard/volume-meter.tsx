@@ -9,7 +9,6 @@ import { cx } from '@/lib/cva';
 const MIN_DB = -60;
 const MAX_DB = 3;
 
-/** Maps a linear amplitude (0–1+) to a meter percentage (0–100). */
 function amplitudeToMeterPct(amplitude: number): number {
   if (amplitude <= 0) return 0;
 
@@ -21,12 +20,6 @@ function amplitudeToMeterPct(amplitude: number): number {
   return ((db - MIN_DB) / (MAX_DB - MIN_DB)) * 100;
 }
 
-/**
- * Color stop thresholds (as percentage of meter height):
- *   0–60%   green
- *  60–85%   yellow
- *  85–100%  red
- */
 const GREEN_END = 60;
 const YELLOW_END = 80;
 
@@ -93,7 +86,6 @@ function VerticalMeter(props: VerticalMeterProps) {
         <MeterSegments />
       </div>
 
-      {/* Peak indicator line */}
       <Show when={peakPct() > 0.5}>
         <div
           class={cx("absolute inset-x-0 h-px", indicatorClass())}
@@ -107,12 +99,10 @@ function VerticalMeter(props: VerticalMeterProps) {
 function MeterSegments() {
   return (
     <>
-      {/* Green: bottom 60% */}
       <div
         class="absolute inset-x-0 bottom-0 bg-meter-green"
         style={{ height: `${GREEN_END}%` }}
       />
-      {/* Yellow: 60–85% */}
       <div
         class="absolute inset-x-0 bg-meter-yellow"
         style={{
@@ -120,7 +110,6 @@ function MeterSegments() {
           height: `${YELLOW_END - GREEN_END}%`,
         }}
       />
-      {/* Red: 85–100% */}
       <div
         class="absolute inset-x-0 top-0 bg-meter-red"
         style={{ height: `${100 - YELLOW_END}%` }}
@@ -129,12 +118,8 @@ function MeterSegments() {
   );
 }
 
-/**
- * 0 dB (unity) sits at 50% (middle of the track).
- * Top = SLIDER_MAX_DB, bottom = SLIDER_MIN_DB.
- */
-const SLIDER_MAX_DB = -MIN_DB;   // +60 dB at top (symmetric around 0)
-const SLIDER_MIN_DB = MIN_DB;    // -60 dB at bottom
+const SLIDER_MAX_DB = -MIN_DB;
+const SLIDER_MIN_DB = MIN_DB;
 
 /** Maps a dB value to a slider percentage (0%=top, 100%=bottom). */
 function dbToSliderPct(db: number): number {
@@ -142,7 +127,6 @@ function dbToSliderPct(db: number): number {
   return ((SLIDER_MAX_DB - clamped) / (SLIDER_MAX_DB - SLIDER_MIN_DB)) * 100;
 }
 
-/** Maps a slider percentage (0%=top, 100%=bottom) to a dB value. */
 function sliderPctToDb(pct: number): number {
   const clamped = Math.max(0, Math.min(100, pct));
   return SLIDER_MAX_DB - (clamped / 100) * (SLIDER_MAX_DB - SLIDER_MIN_DB);

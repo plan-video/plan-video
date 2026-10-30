@@ -57,14 +57,6 @@ const HANDLES: Handle[] = [
   { x: -1, y: 0, cursor: "ew-resize" },
 ];
 
-/**
- * The source video, whole, with one box per crop of the layout being set
- * up. Each box moves and resizes freely, and snaps to the frame's edges and
- * middle and to the other boxes unless snapping is off or Alt is held. The
- * dashed line inside a box is the part its slot shows, when the box is
- * shaped unlike the slot. The box picked last gets a toolbar: its shape,
- * its corner rounding, and delete.
- */
 export function LayoutCropOverlay(): JSX.Element {
   return (
     <Show when={layoutTarget()}>
@@ -95,7 +87,6 @@ function CropEditor(): JSX.Element {
     return { left: (width - w) / 2, top: (height - h) / 2, width: w, height: h };
   });
 
-  /** For each crop, the part of it its slot shows, as fractions of the source. */
   const shown = createMemo(() => {
     const { width, height } = source();
     const out: Partial<Record<CropId, Box>> = {};
@@ -110,11 +101,7 @@ function CropEditor(): JSX.Element {
     return out;
   });
 
-  /**
-   * Stacking: smaller boxes sit over larger ones, so a box inside another
-   * can always be picked up. Kept as z-index rather than DOM order, which
-   * would move the element being dragged and drop its pointer capture.
-   */
+  // z-index rather than DOM order: reordering would move the dragged element and drop its pointer capture.
   const stack = createMemo(() => {
     const crops = layoutCrops();
     const ids = activeLayout().crops.map((spec) => spec.id).filter((id) => crops[id]);
@@ -123,7 +110,6 @@ function CropEditor(): JSX.Element {
     return new Map(order.map((id, index) => [id, index + 1]));
   });
 
-  /** Each crop's corner rounding, 0–100%, as its slot in the layout has it. */
   const rounding = createMemo(() => {
     const out: Partial<Record<CropId, number>> = {};
     for (const slot of layoutSlots()) {
@@ -132,19 +118,16 @@ function CropEditor(): JSX.Element {
     return out;
   });
 
-  /** A crop's held shape as width over height in source fractions, or null when freeform. */
   const lockedRatio = (id: CropId): number | null => {
     const aspect = CROP_SHAPES.find((shape) => shape.id === cropStyle(layoutCropStyles(), id).shape)?.aspect;
     return aspect ? aspect / (source().width / source().height) : null;
   };
 
-  /** Corner radius of a box on screen, in pixels. */
   const radiusPx = (id: CropId, box: Box) => {
     const { width, height } = frameBox();
     return ((rounding()[id] ?? 0) / 100) * (Math.min(box.width * width, box.height * height) / 2);
   };
 
-  /** Lines a box can snap to on each axis: the frame's edges and middle, and every other box's. */
   const snapLines = (except: CropId): Guides => {
     const lines: Guides = { x: [0, 0.5, 1], y: [0, 0.5, 1] };
     const crops = layoutCrops();
@@ -157,7 +140,6 @@ function CropEditor(): JSX.Element {
     return lines;
   };
 
-  /** Drag a box (no handle) or one of its edges and corners. */
   const startDrag = (event: PointerEvent, id: CropId, handle: Handle | null) => {
     if (event.button !== 0) return;
     const start = layoutCrops()[id];
@@ -295,14 +277,12 @@ function CropEditor(): JSX.Element {
 
   const handleLayer = () => activeLayout().crops.length + 2;
 
-  /** The picked box, while it is still in the layout. */
   const pickedBox = () => {
     const id = selected();
     const box = id ? layoutCrops()[id] : undefined;
     return id && box && activeLayout().crops.some((spec) => spec.id === id) ? { id, box } : null;
   };
 
-  /** Under the box, or over its label when there's no room below. */
   const toolbarPosition = (box: Box): JSX.CSSProperties => {
     const frame = frameBox();
     const below = frame.top + (box.y + box.height) * frame.height + TOOLBAR_GAP;
@@ -455,7 +435,6 @@ type CropToolbarProps = {
   onDelete: () => void;
 };
 
-/** Shape, corner rounding and delete for the picked box. */
 function CropToolbar(props: CropToolbarProps): JSX.Element {
   const shape = () => cropStyle(layoutCropStyles(), props.id).shape;
   const current = () => CROP_SHAPES.find((item) => item.id === shape()) ?? CROP_SHAPES[0]!;
@@ -534,7 +513,6 @@ function CropToolbar(props: CropToolbarProps): JSX.Element {
   );
 }
 
-/** A small picture of a shape: the frame mark for freeform, else the shape filled at its aspect. */
 function ShapeGlyph(props: { shape: CropShape }): JSX.Element {
   const size = () => {
     switch (props.shape) {
@@ -658,11 +636,6 @@ function boxStyle(box: Box): JSX.CSSProperties {
   };
 }
 
-/**
- * A resized box held to `ratio` (width over height, in source fractions).
- * The side or corner opposite the handle stays put; an edge handle keeps the
- * box centred across it. The box shrinks to stay inside the source.
- */
 function keepRatio(start: Box, box: Box, handle: Handle, ratio: number): Box {
   let width = box.width;
   let height = box.height;
@@ -690,7 +663,6 @@ function keepRatio(start: Box, box: Box, handle: Handle, ratio: number): Box {
   return { x: place(ax, width, handle.x), y: place(ay, height, handle.y), width, height };
 }
 
-/** The line closest to any of `edges` within `reach`, and how far to move to meet it. */
 function nearest(edges: number[], lines: number[], reach: number): { line: number; offset: number } | null {
   let best: { line: number; offset: number } | null = null;
   for (const edge of edges) {

@@ -12,7 +12,6 @@ import { alignSelection, distributeSelection } from "@/engine/align";
 import { msg, t } from "@/lib/i18n";
 
 const ALIGNMENT_ACTIONS = [
-  /** Horizontal alignment */
   {
     id: "align-left",
     icon: "horizontal-align-left",
@@ -28,7 +27,6 @@ const ALIGNMENT_ACTIONS = [
     icon: "horizontal-align-right",
     label: msg("Align right")
   },
-  /** Vertical alignment */
   {
     id: "align-top",
     icon: "vertical-align-top",
@@ -44,13 +42,11 @@ const ALIGNMENT_ACTIONS = [
     icon: "vertical-align-bottom",
     label: msg("Align bottom"),
   },
-  /** Distribute horizontally */
   {
     id: "distribute-horizontal",
     icon: "distribute-center-horizontal",
     label: msg("Distribute horizontally"),
   },
-  /** Distribute vertically */
   {
     id: "distribute-vertical",
     icon: "distribute-center-vertical",
@@ -60,7 +56,6 @@ const ALIGNMENT_ACTIONS = [
 
 export type AlignmentAction = (typeof ALIGNMENT_ACTIONS)[number]["id"];
 
-/** The align/distribute toolbar shown for a multi-selection; the moves are `x`/`y` edits (see `engine/align.ts`). */
 export function Alignment() {
   const world = useWorld();
 

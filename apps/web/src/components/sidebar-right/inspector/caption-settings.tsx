@@ -37,18 +37,10 @@ type CaptionSettingsProps = {
   selection: Entity[];
 };
 
-/** How many looks show before "All looks". */
 const FIRST_LOOKS = 6;
 
-/**
- * What a `<captions>` element says for itself: the look its words wear
- * (`look`, the same looks as the Text tab), the motion that shows them as
- * they are said (`preset`), and the colors filling that motion's slots
- * (`colors`). Everything else is the preset's base coat — the document writes
- * it onto the entity, the look over it, and lets authored style props (font,
- * position) overwrite both — and not in the file at all unless the user edits
- * it, which is why this panel is as short as it is.
- */
+// Everything but look, preset and colors is the preset's base coat, not in the file unless edited,
+// which is why this panel is as short as it is.
 export function CaptionSettings(props: CaptionSettingsProps) {
   const editor = useEditor();
   const entity = () => props.selection[0]!;
@@ -65,8 +57,7 @@ export function CaptionSettings(props: CaptionSettingsProps) {
   const [openSlot, setOpenSlot] = createSignal<number | null>(null);
   const [showAll, setShowAll] = createSignal(false);
 
-  // Folded, the grid shows the first few; a look further down takes the last
-  // place, so the one the caption has is never hidden.
+  // A look further down takes the last place, so the one the caption has is never hidden.
   const shownLooks = () => {
     if (showAll()) return TEXT_STYLES;
     const first = TEXT_STYLES.slice(0, FIRST_LOOKS);
@@ -89,7 +80,6 @@ export function CaptionSettings(props: CaptionSettingsProps) {
     if (next !== preset()) setMotion(next);
   };
 
-  /** Picking the look the caption has takes it off again. */
   const handleLookChange = (next: TextStyle) => {
     const wearing = look() === next.id;
     editor.editProperty(entity(), "look", wearing ? false : next.id);
@@ -97,13 +87,9 @@ export function CaptionSettings(props: CaptionSettingsProps) {
     if (!wearing && !CAPTION_MOTIONS.includes(preset())) setMotion(DEFAULT_CAPTION_PRESET);
   };
 
-  /** A slot the file has not filled shows what the preset's decoder falls back to. */
   const slotColor = (index: number) => colors()[index] ?? slots()[index]?.defaultColor ?? 0;
 
-  /**
-   * `colors` is positional, so setting one slot spells every slot the preset
-   * has: a sparse write would read back as the ones before it.
-   */
+  // `colors` is positional, so setting one slot spells every slot: a sparse write would read back as the ones before it.
   const setSlotColor = (index: number, next: number) => {
     const values = slots().map((_, i) => colorToHex(i === index ? next : slotColor(i)));
     editor.editProperty(entity(), "colors", values);

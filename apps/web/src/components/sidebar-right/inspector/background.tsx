@@ -27,8 +27,7 @@ export function BackgroundSettings() {
 
   const [isPickerOpen, setIsPickerOpen] = createSignal(false);
   const background = useTrait(world.get(Root)!, Background);
-  // The default background is drawn in the editor's canvas color for its
-  // theme, so that is the color shown for it.
+  // The default background is drawn in the editor's canvas color for its theme, so that is the color shown.
   const fallback = useTrait(world, DefaultBackground);
   const defaultColor = () => fallback()?.value ?? DEFAULT_BACKGROUND;
   const color = () => {
@@ -41,8 +40,7 @@ export function BackgroundSettings() {
 
   const assignColor = (value: number) => {
     const root = world.get(Root)!;
-    // Picking the theme's own canvas color goes back to the default, which
-    // keeps following the theme.
+    // Picking the theme's own canvas color goes back to the default, which keeps following the theme.
     const color = colorToHex(value === defaultColor() ? DEFAULT_BACKGROUND : value);
     editor.editProperty(root, "background", color);
   };

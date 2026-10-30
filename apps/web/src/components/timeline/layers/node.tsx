@@ -90,11 +90,7 @@ export function NodeLayer(props: LayerRowProps) {
     editor.editProperty(entity(), 'expanded', !entity().has(Expanded));
   };
 
-  /**
-   * Solo is monitoring rather than composition — it says what you want to
-   * hear right now, which the file has nothing to say about — so it is
-   * written to the trait and only one node holds it.
-   */
+  // Solo is monitoring, not composition, so it is written to the trait alone and only one node holds it.
   const toggleSoloed = (e?: Event) => {
     e?.stopPropagation();
 
@@ -103,12 +99,6 @@ export function NodeLayer(props: LayerRowProps) {
     if (!wasSoloed) entity().add(Soloed);
   };
 
-  /**
-   * A press on a row selects it; with Shift or Cmd (Ctrl elsewhere) held it
-   * adds the row to the selection, or takes it out if it was in, as clips do
-   * on the timeline. A plain press also arms a drag: moving far enough turns
-   * the press into dragging the layer to a new place in the tree.
-   */
   const handleRowPointerDown = (e: PointerEvent) => {
     if (e.button !== 0 || resized() !== null) return;
     if ((e.target as HTMLElement | null)?.closest('button')) return;
@@ -144,14 +134,9 @@ export function NodeLayer(props: LayerRowProps) {
     document.addEventListener('pointerup', handleResizeEnd);
   };
 
-  /** Removes the row, or every selected one when it is among them. */
   const handleRemove = () => editor.remove(selected() ? [...world.query(Selected)] : entity());
 
-  /**
-   * The column reads top-down while the file reads bottom-up: the last child
-   * of an element is the one drawn on top, so "front" is the end of the file
-   * and "back" is the beginning.
-   */
+  // The last child is drawn on top, so "front" is the end of the file and "back" the beginning.
   const handleReorder = (target: 'front' | 'back') => {
     const parent = getParentEntity(entity());
     if (!parent) return;
@@ -322,7 +307,6 @@ export function NodeLayer(props: LayerRowProps) {
           </div>
         </div>
 
-        {/* Drag the bottom edge to make the row taller. */}
         <div
           class="absolute bottom-0 left-0 right-0 h-[3px] cursor-ns-resize translate-y-0.5 z-20 group/resize"
           onPointerDown={handleResizeStart}

@@ -12,12 +12,6 @@ import { appRoute } from "@/hooks/use-project-route";
 import { t } from "@/lib/i18n";
 import { queueTemplate } from "@/lib/post-templates";
 
-/**
- * Takes the project to a new post: the composer gets it by its key and
- * renders its video in the background. Leaving the editor saves what is
- * still unsaved on the way. A project a workflow set up for a post opens
- * the composer with that post's accounts, caption and timing filled in.
- */
 export function useSchedulePost() {
   const navigate = useNavigate();
   const project = useProject();

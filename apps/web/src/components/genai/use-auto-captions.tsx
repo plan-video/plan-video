@@ -25,8 +25,6 @@ export function useAutoCaptions() {
 
   createEffect(() => loadCaptionStyles(auth.ownerId()));
 
-  // A selected scene, or the scene a selected video sits in. Captions are
-  // written onto that scene and transcribe the video there.
   const scenes = createMemo(() => {
     const found: Entity[] = [];
     const seen = new Set<Entity>();
@@ -54,7 +52,6 @@ export function useAutoCaptions() {
       });
       return;
     }
-    // New captions wear the workspace's brand style, in the same undo step.
     const brand = captionBrandStyle();
     if (brand) applyCaptionLook(world, editor, entity, brand);
   };
@@ -72,8 +69,7 @@ export function useAutoCaptions() {
 
       const authored = authoredElement(existing);
 
-      // Captions bound to a subtitle file say what they show; auto-captions
-      // means transcribing, so the element is replaced by one that does.
+      // A subtitle-bound caption shows its file; auto-captions transcribe, so the element is replaced by one that does.
       if (authored?.props.src !== undefined) {
         editor.remove(existing);
         insertFresh(scene);

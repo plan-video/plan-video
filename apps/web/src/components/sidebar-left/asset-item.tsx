@@ -33,9 +33,6 @@ export type LazyAssetItemProps = {
   onSelect(): void;
 };
 
-/**
- * A lazy loaded asset item. Clears the buffer when not visible.
- */
 export function LazyAssetItem(props: LazyAssetItemProps) {
   const world = useWorld();
   const library = useLibrary();

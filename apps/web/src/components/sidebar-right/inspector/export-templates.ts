@@ -5,7 +5,6 @@
 import type { VideoCodec, AudioCodec } from "mediabunny";
 import type { ContainerFormat, ExportConfig as ProjectExportConfig } from "@/engine/project-config";
 
-/** What an export is made with: the project's export config less the template label. */
 export type ExportConfig = Omit<ProjectExportConfig, "template">;
 
 export type ExportTemplate = {

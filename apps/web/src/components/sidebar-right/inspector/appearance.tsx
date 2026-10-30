@@ -46,7 +46,6 @@ import type { Entity } from "koota";
 
 type AppearanceSettingsProps = {
   selection: Entity[];
-  /** Styling caption words, which have no keyframes. */
   words?: boolean;
 };
 
@@ -73,15 +72,8 @@ type Corner = 'cornerRadiusTopLeft' | 'cornerRadiusTopRight' | 'cornerRadiusBott
 
 const CORNERS: Corner[] = ['cornerRadiusTopLeft', 'cornerRadiusTopRight', 'cornerRadiusBottomRight', 'cornerRadiusBottomLeft'];
 
-/**
- * Opacity, blending, visibility and corner radii. All of them are props
- * (`opacity`, `blendMode`, `hidden`, `cornerRadius` and the four per-corner
- * radii) written through the editor; the shown values are Computed, which
- * the motion system writes, hence `useDerived`. A radius the panel leaves
- * at its default is unset rather than written as 0, and a mode switch
- * drops the other mode's props and tracks: uniform is `cornerRadius`,
- * separate is the four corners with `cornerRadius` gone.
- */
+// Shown values are Computed, which the motion system writes, hence `useDerived`. A radius at its default is
+// unset rather than written as 0; a mode switch drops the other mode's props and tracks.
 export function AppearanceSettings(props: AppearanceSettingsProps) {
   const world = useWorld();
   const editor = useEditor();
@@ -127,7 +119,6 @@ export function AppearanceSettings(props: AppearanceSettingsProps) {
   const handleBlendModeOpenChange = (isOpen: boolean) => {
     if (isOpen) return;
 
-    // Reset blend mode if it has not been changed.
     if (selectedBlendMode() !== blendMode()) {
       previewBlendMode(selectedBlendMode());
     }
@@ -137,7 +128,6 @@ export function AppearanceSettings(props: AppearanceSettingsProps) {
     editor.editProperty(entity(), 'hidden', !hidden());
   };
 
-  // Radius helpers
   const isRadiusDefault = createMemo(() => {
     if (radiusMode() === 'separate') {
       return mixedTL() === 0 && mixedTR() === 0 && mixedBR() === 0 && mixedBL() === 0;

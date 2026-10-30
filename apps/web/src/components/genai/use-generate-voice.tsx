@@ -2,10 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Spoken lines, declared: the prompt box writes a `generate.voice` source and
-// inserts an <Audio> consuming it (see ./insert), so the file holds the line
-// and the voice that reads it rather than a sound nobody can trace back.
-
 import { generate } from "@plan.video/jsx";
 import { Audio } from "@plan.video/reconciler";
 import { useWorld } from "@plan.video/koota-solid";

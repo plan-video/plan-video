@@ -51,14 +51,10 @@ const TABS = [
   { value: "asset", icon: "fill.media", label: msg("Asset") },
 ];
 
-/** What a fill authors when the picker seeds it. */
 const DEFAULT_SOLID_COLOR = "#E0E0E0";
 const DEFAULT_GRADIENT_STOPS = ["#E0E0E0", "#000000"];
 
-/**
- * The fit modes `objectFit` can say. `cover` is what an unset prop renders
- * as, and `ScaleModeType.NONE` has no spelling, so it is not offered.
- */
+// `cover` is what an unset prop renders as, and `ScaleModeType.NONE` has no spelling, so it is not offered.
 export const FIT_OPTIONS: ReadonlyArray<{ value: Fit; label: string }> = [
   { value: "cover", label: msg({ message: "Cover", context: "fit mode" }) },
   { value: "contain", label: msg("Contain") },
@@ -76,7 +72,6 @@ export type FillPickerProps = {
   node: Entity;
   fill: Entity;
   onClose(): void;
-  /** The picker replaced the fill element; this one is the paint now. */
   onReplace(next: Entity): void;
   tabs?: FillTab[];
 };
@@ -88,13 +83,8 @@ export function getFillTab(paint: PaintType): FillTab {
   return "asset";
 }
 
-/**
- * What a fill is, is which paint element it is, so changing its kind is not a
- * property write but a swap: the new element is inserted where the old one
- * stood and the old one removed. The picker therefore hands its caller the
- * entity it ends up with, and what a swap carries over is what the new kind's
- * defaults say, since a color is not a gradient and neither is a picture.
- */
+// Changing a fill's kind swaps its paint element rather than writing a prop, so the picker hands its
+// caller the entity it ends up with.
 export function FillPicker(props: FillPickerProps) {
   const world = useWorld();
   const editor = useEditor();
@@ -104,15 +94,10 @@ export function FillPicker(props: FillPickerProps) {
 
   const [currentTab, setCurrentTab] = createSignal<FillTab>(getFillTab(paintType()));
 
-  // The element's kind is the truth; a tab the user opened without choosing
-  // anything yet (Asset, before an asset is picked) stands until it does.
+  // The element's kind is the truth; a tab opened without a choice yet (Asset, before one is picked) stands until then.
   createEffect(() => setCurrentTab(getFillTab(paintType())));
 
-  /**
-   * Puts `element` where the current fill stands and removes the old one.
-   * The anchor is the next fill, so the paint keeps its place in the stack;
-   * without one it is appended, which is where it was anyway.
-   */
+  // Anchored on the next fill, so the paint keeps its place in the stack.
   const replaceFill = (element: () => unknown) => {
     const fills = props.node.get(Cache)?.fills ?? [];
     const index = fills.indexOf(props.fill);
@@ -146,11 +131,7 @@ export function FillPicker(props: FillPickerProps) {
     // picked there is nothing to author.
   };
 
-  /**
-   * Swaps a linear gradient for a radial one (or back). The two are separate
-   * elements, so the stops and the rotation are written out onto the new one
-   * rather than carried by it.
-   */
+  // The two gradients are separate elements, so the stops and rotation are written onto the new one.
   const handleGradientKindChange = (radial: boolean) => {
     const isRadial = paintType() === PaintType.RADIAL_GRADIENT;
     if (radial === isRadial) return;
@@ -174,8 +155,7 @@ export function FillPicker(props: FillPickerProps) {
     const current = paintType();
     const sameKind = plays ? current === PaintType.VIDEO : current === PaintType.IMAGE;
 
-    // Same element, another source: a `src` write, so the fit and any tracks
-    // under it survive the swap of picture.
+    // Same element, another source: a `src` write, so the fit and any tracks under it survive.
     if (sameKind) {
       editor.editProperty(props.fill, "src", asset.path);
       return;
@@ -243,11 +223,7 @@ type FitMenuProps = {
   fill: Entity;
 };
 
-/**
- * How an asset fill maps into the box: the paint's `objectFit`. Also serves
- * the Source section's picker, where `fill` is the geometry itself — an
- * intrinsic paint's traits live on the node, and the prop is the same.
- */
+// Also the Source section's picker, where `fill` is the node itself: an intrinsic paint's traits live on the node.
 export function FitMenu(props: FitMenuProps) {
   const editor = useEditor();
   const scaleMode = useTrait(() => props.fill, ScaleMode);
@@ -306,11 +282,8 @@ type BlendModeMenuProps = {
   fill: Entity;
 };
 
-/**
- * The paint's `blendMode`. Hovering a mode previews it by writing the trait
- * alone, so the authored value has to be kept here: while the menu is open
- * the trait holds the hover, and closing without choosing puts it back.
- */
+// Hovering previews by writing the trait alone, so the authored value is kept here and put back
+// when the menu closes without a choice.
 function BlendModeMenu(props: BlendModeMenuProps) {
   const editor = useEditor();
 

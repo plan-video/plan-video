@@ -2,11 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// A partial document in the asset panel: a generation with no bytes yet, or
-// none ever. Pending, it pulses where its asset will be; failed, it carries
-// the reason, and asking again is done from here — retrying forgets the
-// failure and re-asks for every element that got it, deleting only forgets.
-
 import { Show } from "solid-js";
 import { toast } from "somoto";
 import { useWorld } from "@plan.video/koota-solid";

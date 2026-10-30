@@ -35,27 +35,17 @@ import TypeIcon from "lucide-solid/icons/type";
 
 import type { ToolbarSlot } from "@/context/layout";
 
-/** How far the pointer goes, pressed on the toolbar, before the press is a drag rather than a click. */
 const DRAG_THRESHOLD = 4;
 
-/**
- * What floats over the canvas, at the bottom unless dragged to another of its
- * slots: the tools, and beside them the prompt for a generation or the
- * actions for what is selected.
- */
 export function Toolbar() {
   const { promptInputOpen, promptInputConfig, openPromptInput } = usePromptInput();
   const { toolbarSlot, setToolbarSlot } = useLayout();
 
-  // Dragged, the toolbar lifts off and follows the pointer, and the slots it
-  // can go to show: the one nearest it at its size, where it lands when let
-  // go of. It then glides in. Escape, or a cancelled pointer, sends it back.
   let toolbar!: HTMLDivElement;
   const [dropSlot, setDropSlot] = createSignal<ToolbarSlot>();
   const [size, setSize] = createSignal({ width: 0, height: 0 });
   const [position, setPosition] = createSignal({ x: 0, y: 0 });
   const dragging = () => dropSlot() !== undefined;
-  /** Where the press began, and where in the toolbar it took hold of it. */
   let press: { x: number; y: number; pointerId: number; grabX: number; grabY: number } | undefined;
 
   const nearestSlot = (x: number, y: number, bounds: DOMRect) => {
@@ -79,7 +69,6 @@ export function Toolbar() {
     window.removeEventListener("keydown", handleKeyDown, true);
   };
 
-  /** Moves the toolbar into a slot, sliding it there from where it is now. */
   const settle = (slot: ToolbarSlot) => {
     const from = toolbar.getBoundingClientRect();
     setToolbarSlot(slot);
@@ -149,7 +138,6 @@ export function Toolbar() {
     document.documentElement.removeAttribute("data-toolbar-dragging");
   });
 
-  // Up top, the menus open downwards, into the canvas.
   const top = () => isTopSlot(toolbarSlot());
 
   return (
@@ -200,7 +188,6 @@ export function Toolbar() {
   );
 }
 
-/** The canvas tools, as a row of icon buttons: the picked one sits on a fill. */
 export function CanvasTools(props: { placement?: "top-start" | "bottom-start" }) {
   const world = useWorld();
   const selectedTool = useTool();

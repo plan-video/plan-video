@@ -6,7 +6,6 @@ import { ProjectNameInput } from "@/components/sidebar-left";
 
 export const PROJECT_BAR_HEIGHT = 44;
 
-/** The top of the left panel: the project's name, renamed in place. */
 export function ProjectBar() {
   return (
     <div

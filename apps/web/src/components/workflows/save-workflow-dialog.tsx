@@ -43,11 +43,6 @@ import {
 import { STEP_INFO, StepIcon, StepValue, saveRequest, setSaveRequest, showWorkflow } from "./workflow-ui";
 import { workflowName } from "./workflows-panel";
 
-/**
- * Everything workflows need while the editor is open, whichever panel is
- * showing: the Save as workflow dialog, a word when a run ends out of sight,
- * and stopping a run when the editor closes.
- */
 export function WorkflowsHost() {
   const auth = useAuth();
   createEffect(() => loadWorkflows(auth.user()?.id));
@@ -76,7 +71,7 @@ export function WorkflowsHost() {
   return <SaveWorkflowDialog />;
 }
 
-/** Steps a project can be saved with, in run order; where it posts is picked on its own row. */
+/** Where it posts is picked on its own row. */
 const KEPT: WorkflowStepId[] = WORKFLOW_STEPS.filter((id) => id !== "post");
 
 function SaveWorkflowDialog() {
@@ -92,7 +87,6 @@ function SaveWorkflowDialog() {
 
   createEffect(() => loadTemplates(auth.user()?.id));
 
-  // Read the project each time the dialog opens.
   createEffect(
     on(saveRequest, (request) => {
       if (!request) return;
@@ -115,8 +109,7 @@ function SaveWorkflowDialog() {
     }),
   );
 
-  // What the dialog lists: what was found. A layout sets the size, so the size row only shows
-  // without one; it is kept either way, for when the layout is turned off later.
+  // A layout sets the size, so the size row only shows without one; it is kept either way, for when the layout is turned off later.
   const rows = createMemo(() => {
     const steps = found();
     if (!steps) return [];

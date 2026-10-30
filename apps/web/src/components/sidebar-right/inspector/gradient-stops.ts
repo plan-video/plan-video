@@ -14,12 +14,7 @@ export type GradientStop = {
   opacity: number;
 };
 
-/**
- * The `<colorStop>` children of a gradient paint, in the order they paint in
- * (by offset, not by document order: where a stop sits is its `offset`, and
- * the file's order says nothing). Values come off `Computed`, which the
- * motion system writes, so callers sample this through `useDerived`.
- */
+// By offset, not document order. Values come off `Computed`, which the motion system writes, so sample through `useDerived`.
 export function readGradientStops(world: World, fill: Entity): GradientStop[] {
   return [...world.query(ColorStop, ChildOf(fill))]
     .map((entity) => {
@@ -45,11 +40,6 @@ export function sameGradientStops(a: GradientStop[], b: GradientStop[]): boolean
   });
 }
 
-/**
- * The stops as `<colorStop>` props, for spelling them onto another gradient
- * element (the two gradient kinds are two tags, so switching between them
- * writes the stops out again). Opacity is left off at its default.
- */
 export function readStopProps(world: World, fill: Entity): { offset: number; color: string; opacity?: number }[] {
   return readGradientStops(world, fill).map((stop) => ({
     offset: stop.offset,

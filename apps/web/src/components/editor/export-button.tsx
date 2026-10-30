@@ -17,7 +17,6 @@ import { t } from "@/lib/i18n";
 
 import type { Entity, World } from "koota";
 
-/** The scene an export renders: the top of the one being worked in. */
 function exportedScene(world: World): Entity | null {
   let scene = getActiveEntity(world);
   while (scene) {
@@ -28,12 +27,6 @@ function exportedScene(world: World): Entity | null {
   return scene ?? null;
 }
 
-/**
- * Exports the video without going looking for it: opens the export settings
- * of the scene being worked in (the ones its Export section shows, the
- * default preset until the scene is given its own) beside the inspector, with
- * the export at their foot.
- */
 export function ExportButton() {
   const world = useWorld();
   const index = useTimelineIndex();
@@ -73,8 +66,6 @@ export function ExportButton() {
       </Tooltip>
       <Show when={scene()?.isAlive() && scene()} keyed>
         {(current) => (
-          // Beside the whole inspector, level with its title row, where the
-          // scene's own Export section opens the same settings.
           <ExportSettingsDialog scene={current} anchorRef={trigger?.parentElement ?? undefined} onClose={() => setScene(null)} />
         )}
       </Show>

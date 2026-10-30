@@ -34,12 +34,6 @@ const seconds = (values: number[]) => values.map((value) => ({ id: value, label:
 const sameFound = (a: FoundEffect | null, b: FoundEffect | null) =>
   a === b || (!!a && !!b && a.entity === b.entity && a.kind === b.kind && JSON.stringify(a.options) === JSON.stringify(b.options));
 
-/**
- * The selected effect's settings, at the top of the inspector, as a
- * transition's are: a few choices each. A change draws the effect again in
- * its place with the new settings, as one step to undo, and the next one
- * added from the Effects tab comes out the same.
- */
 export function EffectSettings(props: { selection: Entity[] }) {
   const world = useWorld();
   const found = useDerived(() => (props.selection.length === 1 ? effectOf(world, props.selection[0]) : null), sameFound);
@@ -47,7 +41,6 @@ export function EffectSettings(props: { selection: Entity[] }) {
 
   const label = (kind: EffectKind) => EFFECTS.find((effect) => effect.kind === kind)?.label ?? "";
 
-  /** Draws the effect again with one setting changed. */
   const change = <K extends EffectKind>(kind: K, patch: Partial<EffectOptions[K]>) => {
     const current = found();
     if (!current || current.kind !== kind || busy()) return;
@@ -201,7 +194,6 @@ export function EffectSettings(props: { selection: Entity[] }) {
   );
 }
 
-/** A labelled row of equal cells, one lit: the inspector's way of picking one of a few. */
 function Row<T extends string | number>(props: { label: string; options: Option<T>[]; value: T; onChange: (value: T) => void }) {
   return (
     <ControlRow label={props.label}>

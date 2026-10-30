@@ -11,16 +11,10 @@ import { t } from "@/lib/i18n";
 
 import type { Entity, World } from "koota";
 
-/** Opens the Effects tab from the asset menu, where Auto zoom is one of the tiles. */
 export function openAutoZoom() {
   setSidebarTab("effects");
 }
 
-/**
- * Listens to the clip and adds the zooms, saying how it went: the selected
- * clip, or the one under the playhead, or `target` when given (the clip
- * under an auto zoom being redrawn). The settings become the next one's too.
- */
 export async function runAutoZoom(world: World, options: AutoZoomOptions = effectDefaults.autoZoom, target?: Entity | null) {
   setEffectDefaults("autoZoom", { ...options });
   const clip = target ?? autoZoomTarget(world);

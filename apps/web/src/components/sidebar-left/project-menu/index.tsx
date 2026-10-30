@@ -29,7 +29,6 @@ import { ViewMenu } from "./view-menu";
 import { ToolMenu } from "./tool-menu";
 import { HelpMenu } from "./help-menu";
 
-/** The logo menu. `compact` drops the chevron, for a square spot like the editor's rail. */
 export function ProjectMenu(props: { compact?: boolean }) {
   const navigate = useNavigate();
   const location = useLocation<ProjectRouteState>();
@@ -40,10 +39,7 @@ export function ProjectMenu(props: { compact?: boolean }) {
     navigate(location.state?.returnTo ?? appRoute("projects"));
   };
 
-  /**
-   * Leaving the editor is the app's command rather than the runtime's, so its
-   * key is bound here, with the item that offers it.
-   */
+  // Leaving the editor is the app's command rather than the runtime's, so its key is bound here.
   const handleShortcut = (event: KeyboardEvent) => {
     if (!(event.metaKey || event.ctrlKey) || !event.shiftKey) return;
     if (event.key.toLowerCase() !== "d" || isInputTarget(event)) return;
@@ -75,7 +71,6 @@ export function ProjectMenu(props: { compact?: boolean }) {
             </DropdownMenuTrigger>
           }
         >
-          {/* The mark alone, square, for the editor's rail. */}
           <DropdownMenuTrigger
             as="button"
             type="button"

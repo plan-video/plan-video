@@ -64,7 +64,6 @@ import type { Entity } from 'koota';
 
 type TextPanelProps = {
   selection: Entity[];
-  /** Styling caption words: only what a word can set on its own shows. */
   words?: boolean;
 };
 
@@ -81,21 +80,8 @@ const RESIZE_MODE_ITEMS = [
   },
 ] as const;
 
-/**
- * Typography: what a `<text>` says and how its glyphs are set. Every value is
- * a prop of the element (`fontFamily`, `fontSize`, `fontWeight`, `leading`,
- * `letterSpacing`, `textAlign`, `textBaseline`) except the content itself,
- * which is the element's children and goes through `editor.editText`.
- *
- * Which font a text is set in is written out plainly; the modifiers around it
- * (leading, spacing, alignment) are unset at their default, so a file says
- * only what its text does differently. Hovering a family or a weight previews
- * it on the trait alone, which the picker undoes on close: a preview is not
- * an edit, and nothing about it belongs in the file.
- *
- * A text with no box sizes itself to its glyphs, so "Grow" is `width`/`height`
- * being authored at all rather than a prop of its own.
- */
+// Hovering a family or weight previews it on the trait alone, which the picker undoes on close: a preview is not an edit.
+// A text with no box sizes itself to its glyphs, so "Grow" is `width`/`height` not being authored at all.
 export function TextPanel(props: TextPanelProps) {
   const world = useWorld();
   const editor = useEditor();
@@ -112,8 +98,7 @@ export function TextPanel(props: TextPanelProps) {
   /** A hovered family or weight is on the trait for the canvas to show, not chosen. */
   let previewing = false;
 
-  // The pickers follow the text's own font as it changes from elsewhere (a
-  // caption's look, an undo, an agent), but not a font only being previewed.
+  // Follow the text's own font as it changes elsewhere (a look, an undo, an agent), but not a font only being previewed.
   createEffect(() => {
     const family = style()?.fontFamily ?? 'Inter';
     const weight = style()?.fontWeight ?? '400';
@@ -150,10 +135,6 @@ export function TextPanel(props: TextPanelProps) {
     return undefined;
   });
 
-  /**
-   * Pop / bounce on a caption play on each spoken word, not the whole
-   * block. On a picked word they stay on that word alone.
-   */
   const applyMotion = (name: (typeof TEXT_MOTION_PRESETS)[number]['name']) => {
     const preset = TEXT_MOTION_PRESETS.find((option) => option.name === name);
     if (!preset) return;
@@ -176,7 +157,6 @@ export function TextPanel(props: TextPanelProps) {
     return ALL_FONT_WEIGHTS.filter(w => weights.includes(w.value));
   });
 
-  /** Writes a family or weight to the trait alone, for the picker to show. */
   const previewFont = (params: { fontFamily?: string; fontWeight?: string }) => {
     // Putting the chosen font back ends the preview.
     previewing =
@@ -201,8 +181,7 @@ export function TextPanel(props: TextPanelProps) {
     if (weight === selectedWeight()) return;
 
     setSelectedWeight(weight);
-    // Authored as a CSS number, which is the only spelling the prop takes
-    // besides the "normal"/"bold" keywords the panel does not offer.
+    // A CSS number: the only other spelling the prop takes is the "normal"/"bold" keywords the panel does not offer.
     editor.editProperty(entity(), 'fontWeight', Number(weight));
   };
 
@@ -346,9 +325,6 @@ export function TextPanel(props: TextPanelProps) {
         </ControlRow>
       </Show>
 
-      {/* A picked caption word's own motion. A whole caption has Motion in its
-          Caption section (and Pop/Bounce under Animations), a plain text the
-          Animations section. */}
       <Show when={props.words}>
         <ControlRow label={t("Motion")} contentClass="flex flex-wrap gap-1">
           <For each={TEXT_MOTION_PRESETS}>
@@ -382,7 +358,6 @@ export function FontDropdown(props: FontDropdownProps) {
   const [fontQuery, setFontQuery] = createSignal('');
   const fontsPermission = usePermissionState('local-fonts');
 
-  // Preload web fonts for preview
   onMount(() => {
     if (document.visibilityState !== 'visible') return;
     for (const family of Object.keys(WebFonts)) {
@@ -402,7 +377,6 @@ export function FontDropdown(props: FontDropdownProps) {
     }
   });
 
-  // Report available weights whenever the family changes
   const allFonts = createMemo(() => [...webfonts(), ...(settled(localFonts) ?? [])]);
 
   createEffect(() => {
@@ -434,8 +408,7 @@ export function FontDropdown(props: FontDropdownProps) {
   const handleOpenChange = (isOpen: boolean) => {
     open = isOpen;
     setFontQuery('');
-    // Whatever was hovered last goes: only a selection authors a family, and
-    // `family` is the authored one whether or not this picker changed it.
+    // Only a selection authors a family, and `family` is the authored one whether or not this picker changed it.
     if (!isOpen) props.onPreview(props.family);
   };
 
@@ -556,7 +529,6 @@ export function GrowingTextArea(props: GrowingTextAreaProps) {
     ref.style.height = `${Math.min(ref.scrollHeight, max)}px`;
   };
 
-  // Resize when value changes externally (e.g. undo/redo, selection change)
   createEffect(() => {
     props.value;
     resize();
@@ -667,7 +639,6 @@ const VERTICAL_ALIGN_TABS = [
   { value: 'bottom', label: msg('Align bottom'), icon: 'text.align-bottom' },
 ] as const;
 
-// The trait's enum in the prop's vocabulary, which is what a tab is worth.
 const HORIZONTAL_ALIGNS: Record<TextAlign, string> = {
   [TextAlign.LEFT]: 'left',
   [TextAlign.CENTER]: 'center',

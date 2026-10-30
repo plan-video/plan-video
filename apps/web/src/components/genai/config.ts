@@ -4,10 +4,8 @@
 
 import { msg } from "@/lib/i18n";
 
-/** The one model the voice mode speaks with; the UI picks the voice, not the model. */
 export const PROMPT_INPUT_VOICE_MODEL = "elevenlabs-v3";
 
-/** What an aspect ratio is worth in pixels, at 1080p. */
 export const ASPECT_RATIO_DIMENSIONS: Record<string, { width: number; height: number }> = {
   "16:9": { width: 1920, height: 1080 },
   "9:16": { width: 1080, height: 1920 },

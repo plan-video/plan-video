@@ -16,11 +16,7 @@ import { t } from "@/lib/i18n";
 
 import type { Entity } from "koota";
 
-/**
- * Where a new mask sits in its parent, px. Offset rather than flush so the
- * mask shows itself the moment it is added: at the parent's own size it
- * clips a band off two edges instead of landing invisibly on top of it.
- */
+/** Inset rather than flush, so a new mask shows at once: at the parent's own size it would clip a band off two edges invisibly. */
 const MASK_INSET = 20;
 
 // Stable identity, so a node without masks does not resample every tick.
@@ -30,14 +26,7 @@ type MasksSettingsProps = {
   selection: Entity[];
 };
 
-/**
- * The `<rect mask>` children of the selected node: the boxes it is clipped
- * to (several intersect). A mask is a rect like any other, so it has no
- * inspector of its own — a row selects it and the transform, time and
- * appearance panels are then its own. Its `fill`, `opacity` and paint
- * children have no effect (a mask is never drawn), which is why the plus
- * authors neither.
- */
+// A mask is never drawn, so its `fill`, `opacity` and paint children have no effect, and the plus authors neither.
 export function MasksSettings(props: MasksSettingsProps) {
   const world = useWorld();
   const editor = useEditor();
@@ -51,16 +40,13 @@ export function MasksSettings(props: MasksSettingsProps) {
     const computed = node.get(Computed);
     const width = Math.round(computed?.width ?? 0);
     const height = Math.round(computed?.height ?? 0);
-    // A mask without a size of its own is 500x500, which is the honest
-    // answer for a parent that has no box yet (an empty group).
+    // A mask without a size of its own is 500x500, the honest answer for a parent with no box yet (an empty group).
     const size = width > 0 && height > 0 ? { width, height } : {};
 
     editor.insertElement(node, () => (
       <Rect mask name={getNextName(world, "Mask")} x={MASK_INSET} y={MASK_INSET} {...size} />
     ));
-    // Stay on the node. Selecting the new mask would swap this inspector for
-    // the mask's own, which only has time, transform, layout, appearance and
-    // animations. A row below still selects the mask when it is the thing to edit.
+    // Stay on the node: selecting the new mask would swap this inspector for the mask's own, which lacks most panels.
   };
 
   return (

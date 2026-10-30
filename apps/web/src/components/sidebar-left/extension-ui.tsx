@@ -2,12 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The pieces every extension panel is built from, so they all read the same
-// in the left panel's fixed width: a labelled section, a label-and-control
-// row, a segmented switch, a row that opens a list, on/off cells, a stepper,
-// picture tiles, the "More options" fold and the add button. The killfeeds'
-// draggable preview is in killfeed-feed.tsx.
-
 import { For, Show, createSignal, type JSX } from "solid-js";
 import ChevronDownIcon from "lucide-solid/icons/chevron-down";
 
@@ -15,7 +9,6 @@ import { Icon } from "@/components/ui/icon";
 import { Popover, PopoverContent, PopoverPortal, PopoverTrigger } from "@/components/ui/popover";
 import { t } from "@/lib/i18n";
 
-/** A label over its control, with room for a small action on the right. */
 export function Section(props: { label: string; action?: JSX.Element; children: JSX.Element }) {
   return (
     <div class="flex flex-col gap-2">
@@ -28,7 +21,6 @@ export function Section(props: { label: string; action?: JSX.Element; children: 
   );
 }
 
-/** One choice out of a few, side by side on a single track. */
 export function Segmented<T extends string | number>(props: {
   options: { id: T; label: string }[];
   value: T;
@@ -63,7 +55,6 @@ export function Segmented<T extends string | number>(props: {
   );
 }
 
-/** An extra that is on or off: a pill with an optional picture or color dot. */
 export function Toggle(props: { label: string; icon?: string; swatch?: string; on: boolean; onChange: (on: boolean) => void }) {
   return (
     <button
@@ -89,10 +80,6 @@ export function Toggle(props: { label: string; icon?: string; swatch?: string; o
 
 const [moreOpen, setMoreOpen] = createSignal(false);
 
-/**
- * The settings most kills leave alone, folded away under one line. Open or
- * shut stays the same from one extension to the next.
- */
 export function MoreOptions(props: { children: JSX.Element }) {
   return (
     <div class="flex flex-col gap-4">
@@ -112,7 +99,6 @@ export function MoreOptions(props: { children: JSX.Element }) {
   );
 }
 
-/** The panel's one action, pinned under its scrolling body. */
 export function AddButton(props: { label?: string; busy?: boolean; disabled?: boolean; onClick: () => void }) {
   return (
     <div class="shrink-0 border-t border-border p-3">
@@ -131,7 +117,6 @@ export function AddButton(props: { label?: string; busy?: boolean; disabled?: bo
   );
 }
 
-/** A player's name in the side's color, as one quiet field. */
 export function NameRow(props: { label: string; color: string; value: string; onChange: (value: string) => void }) {
   return (
     <label class="flex h-8 items-center gap-2 rounded-md bg-input px-2.5 focus-within:ring-1 focus-within:ring-ring">
@@ -149,7 +134,6 @@ export function NameRow(props: { label: string; color: string; value: string; on
   );
 }
 
-/** A setting on one line: its name on the left, its control filling the rest. */
 export function Row(props: { label: string; children: JSX.Element }) {
   return (
     <div class="flex min-h-7 items-center gap-3">
@@ -159,7 +143,6 @@ export function Row(props: { label: string; children: JSX.Element }) {
   );
 }
 
-/** Swaps the two players' names (and agents), shown beside the Players label. */
 export function SwapButton(props: { onClick: () => void }) {
   return (
     <button
@@ -173,10 +156,8 @@ export function SwapButton(props: { onClick: () => void }) {
   );
 }
 
-/**
- * The popover positioner sizes itself to its contents, which would blow
- * pictures up to their full file size. Pin it to the row that opened it.
- */
+// The popover positioner sizes itself to its contents, which would blow pictures up to their full
+// file size. Pin it to the row that opened it.
 const PICK_PANEL_STYLE = `
   [data-popper-positioner]:has(> [data-pick-panel]) {
     min-width: 0 !important;
@@ -185,10 +166,6 @@ const PICK_PANEL_STYLE = `
   }
 `;
 
-/**
- * A list that opens under the element `anchor` returns, as wide as it. Used by
- * `PickRow` and by rows that open a list from a part of themselves.
- */
 export function PickPanel(props: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -213,18 +190,12 @@ export function PickPanel(props: {
   );
 }
 
-/**
- * One choice out of many as a single quiet row, "Class  Rifles ▾", that opens
- * the whole list under it. Keeps a long list from wrapping across the panel.
- */
 export function PickRow(props: {
   label?: string;
   value: string;
   icon?: string;
   title?: string;
-  /** Shown faded: something else (a search) stands in for it for now. */
   dim?: boolean;
-  /** What the list opens under and is as wide as, when not the row itself. */
   anchor?: () => HTMLElement | undefined;
   children: (close: () => void) => JSX.Element;
 }) {
@@ -271,7 +242,6 @@ function evenColumns(count: number, max: number): number {
   return best;
 }
 
-/** A list's options as a grid of equal cells, for a `PickRow`'s panel. */
 export function OptionList<T extends string>(props: {
   options: { id: T; label: string }[];
   value?: T;
@@ -306,7 +276,6 @@ export function OptionList<T extends string>(props: {
   );
 }
 
-/** Pictures to pick from (agents), six across, the chosen one ringed. */
 export function PictureList(props: { options: { id: string; label: string; url: string }[]; value?: string; onChange: (id: string) => void; label?: string }) {
   return (
     <div class="grid max-h-56 grid-cols-6 gap-1 overflow-y-auto" role="listbox" aria-label={props.label}>
@@ -333,7 +302,6 @@ export function PictureList(props: { options: { id: string; label: string; url: 
   );
 }
 
-/** The extras as equal cells, two across so their names fit, each on or off. */
 export function ToggleGrid(props: { children: JSX.Element; count: number }) {
   return (
     <div class="grid gap-1.5" style={{ "grid-template-columns": `repeat(${Math.min(2, Math.max(1, props.count))}, minmax(0, 1fr))` }}>
@@ -342,7 +310,6 @@ export function ToggleGrid(props: { children: JSX.Element; count: number }) {
   );
 }
 
-/** A number counted up or down a step at a time, between `min` and `max`. */
 export function Stepper(props: { value: number; min: number; max: number; onChange: (value: number) => void; label?: string }) {
   const step = (by: number) => props.onChange(Math.min(props.max, Math.max(props.min, props.value + by)));
   return (
@@ -370,7 +337,6 @@ export function Stepper(props: { value: number; min: number; max: number; onChan
   );
 }
 
-/** A weapon to pick: its picture on the game's dark, its name under it in up to two lines. */
 export function WeaponTile(props: { label: string; url: string; selected: boolean; flip?: boolean; onClick: () => void }) {
   return (
     <button
@@ -404,7 +370,6 @@ export function WeaponTile(props: { label: string; url: string; selected: boolea
   );
 }
 
-/** Weapon tiles three across. */
 export function WeaponGrid(props: { children: JSX.Element }) {
   return <div class="grid grid-cols-3 gap-1.5">{props.children}</div>;
 }

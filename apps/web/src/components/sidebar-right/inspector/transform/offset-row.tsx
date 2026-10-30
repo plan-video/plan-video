@@ -26,7 +26,6 @@ export type OffsetRowProps = {
   onRemoveAddon(): void;
 };
 
-/** `offsetX`/`offsetY`: the render-time translation the slide animations drive, unset at 0. */
 export function OffsetRow(props: OffsetRowProps) {
   const world = useWorld();
   const editor = useEditor();

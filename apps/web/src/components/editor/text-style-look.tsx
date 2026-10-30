@@ -9,17 +9,10 @@ import { useWorld } from "@plan.video/koota-solid";
 import { textStyleWords, type TextStyle } from "@/engine/text-presets";
 import { t } from "@/lib/i18n";
 
-/** How much of the tile the words may take, across and down. */
 const ACROSS = 0.8;
 const DOWN = 0.36;
 
-/**
- * A text style drawn on a canvas the size of its tile, in the order the
- * renderer draws a text (runtime utils/text.ts): every shadow, cast by the
- * widest outline when there is one, then the outlines, widest first, then
- * the fill, a gradient running from the top of the line to its foot. So the
- * tile is what the scene gets.
- */
+// Drawn in the renderer's order (runtime utils/text.ts) so the tile matches the scene: shadows, outlines widest first, fill.
 export function TextStyleLook(props: { style: TextStyle }) {
   const world = useWorld();
   let canvas!: HTMLCanvasElement;
@@ -66,9 +59,7 @@ function draw(ctx: CanvasRenderingContext2D, style: TextStyle, words: string, wi
   const strokes = style.strokes ?? [];
   const widest = strokes.reduce((most, stroke) => Math.max(most, stroke.width), 0);
 
-  // Sized at 100px, then fitted so the words and their outline sit in the tile.
-  // Measured by their ink, not the line box: that box keeps room for
-  // descenders and a line gap, and words centred on it sit high.
+  // Fitted by the ink, not the line box: that box keeps room for descenders and a line gap, so words centred on it sit high.
   ctx.font = fontOf(style, 100);
   ctx.letterSpacing = `${(style.letterSpacing ?? 0) * 100}px`;
   ctx.textBaseline = "alphabetic";
@@ -82,7 +73,6 @@ function draw(ctx: CanvasRenderingContext2D, style: TextStyle, words: string, wi
   ctx.letterSpacing = `${em(style.letterSpacing ?? 0)}px`;
   ctx.lineJoin = "round";
   const metrics = ctx.measureText(words);
-  // x and y put the ink's middle on the tile's; y is the baseline.
   const x = (width - metrics.actualBoundingBoxLeft - metrics.actualBoundingBoxRight) / 2 + metrics.actualBoundingBoxLeft;
   const y = (height - metrics.actualBoundingBoxAscent - metrics.actualBoundingBoxDescent) / 2 + metrics.actualBoundingBoxAscent;
   // The line box, which a gradient runs down as the renderer's does.

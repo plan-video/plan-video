@@ -2,9 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Music and sound effects, declared: the prompt box writes a `generate.audio`
-// source and inserts an <Audio> consuming it (see ./insert).
-
 import { generate } from "@plan.video/jsx";
 import { Audio } from "@plan.video/reconciler";
 import { useWorld } from "@plan.video/koota-solid";

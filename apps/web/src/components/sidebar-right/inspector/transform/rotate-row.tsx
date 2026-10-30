@@ -27,10 +27,6 @@ type RotateRowProps = {
   onRemoveAddon(): void;
 };
 
-/**
- * `rotation` is a prop, unset at 0; the two flips are `flipX`/`flipY`, unset
- * when the node is the right way round.
- */
 export function RotateRow(props: RotateRowProps) {
   const world = useWorld();
   const editor = useEditor();

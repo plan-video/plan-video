@@ -33,14 +33,7 @@ type EffectsSettingsProps = {
   selection: Entity[];
 };
 
-/**
- * The `<effect>` children of the selected node, in filter order (the list is
- * shown topmost first, so the last element in the file is the first row).
- * A row opens the effect's own inspector, where its type and its amount live.
- * The plus authors an effect outright rather than asking which one first:
- * every type takes the same one number, so switching is a control in the
- * inspector like any other, and adding one is a single click.
- */
+// The list shows topmost first, so the last element in the file is the first row.
 export function EffectsSettings(props: EffectsSettingsProps) {
   const editor = useEditor();
   const mixed = useMixed();
@@ -57,8 +50,6 @@ export function EffectsSettings(props: EffectsSettingsProps) {
     const [effect] = editor.insertElement(entity(), () => (
       <EffectElement type={DEFAULT_EFFECT.name} value={DEFAULT_EFFECT.value} />
     ));
-    // Which filter it is, is the one thing the default cannot answer, so the
-    // inspector opens on the new effect for it to be said.
     if (effect) setPicked(effect);
   };
 
@@ -68,12 +59,8 @@ export function EffectsSettings(props: EffectsSettingsProps) {
     return effect !== undefined && effects().includes(effect) ? effect : undefined;
   });
 
-  /**
-   * Swaps `effect` with its neighbour, later in the file (`direction` 1, on
-   * top) or earlier. Written as a swap because a move needs an anchor:
-   * `reparent` appends without one, and refuses an append into the parent the
-   * element already has.
-   */
+  // A swap, because a move needs an anchor: `reparent` appends without one, and refuses an append
+  // into the parent the element already has.
   const handleReorderEffect = (effect: Entity, direction: number) => {
     const siblings = effects();
     const index = siblings.indexOf(effect);

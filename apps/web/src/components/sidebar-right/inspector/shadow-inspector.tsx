@@ -38,11 +38,7 @@ type ShadowInspectorProps = {
   onClose(): void;
 };
 
-/**
- * One `<shadow>`: its paint (color and opacity) and how it is cast (offset
- * and blur). A shadow is a solid color and takes no paint children, so the
- * color half is the color picker alone, with no gradient or asset tab.
- */
+// A shadow is a solid color and takes no paint children, so there is no gradient or asset tab.
 export function ShadowInspector(props: ShadowInspectorProps) {
   const world = useWorld();
   const editor = useEditor();

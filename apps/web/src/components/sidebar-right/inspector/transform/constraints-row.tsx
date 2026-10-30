@@ -28,17 +28,8 @@ type ConstraintsRowProps = {
   node: Entity;
 };
 
-/**
- * How the node follows its scene's frame when that frame resizes, written to
- * the document as `constrainX`/`constrainY`. The runtime seeds the cache it
- * resolves against the first time it sees the node with a constraint, so one
- * set here does not move anything until the frame changes.
- *
- * Each axis is written on its own, and `MIN` — pinned where the node already
- * is — spells as the prop's absence, the way every other default does. The
- * two writes the centre button makes land in one history step, as any two
- * edits in a burst do.
- */
+// The runtime seeds its cache the first time it sees a node with a constraint, so one set here moves nothing
+// until the frame changes. `MIN` (pinned where the node already is) spells as the prop's absence.
 export function ConstraintsRow(props: ConstraintsRowProps) {
   const editor = useEditor();
   const constraint = useTrait(() => props.node, Constraint);

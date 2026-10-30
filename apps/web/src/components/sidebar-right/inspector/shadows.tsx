@@ -25,11 +25,7 @@ import { MixedTag, useMixed } from "./word-mix";
 
 import type { Entity } from "koota";
 
-/**
- * What "Add shadow" authors. `<shadow>`'s own defaults are all zero, which
- * draws the silhouette back onto itself, so a shadow added from the panel
- * says where it sits and how soft it is.
- */
+// `<shadow>`'s own defaults are all zero, which draws the silhouette back onto itself, so an added shadow says where it sits and how soft.
 const DEFAULT_SHADOW = {
   color: "#000000",
   opacity: 0.25,
@@ -44,12 +40,7 @@ type ShadowsSettingsProps = {
   selection: Entity[];
 };
 
-/**
- * The `<shadow>` children of the selected node, in paint order (the list is
- * shown topmost first, so the last element in the file is the first row).
- * A row opens the shadow's own inspector; what it shows is the color, since
- * that is the one thing a shadow always says.
- */
+// The list shows topmost first, so the last element in the file is the first row.
 export function ShadowsSettings(props: ShadowsSettingsProps) {
   const editor = useEditor();
   const mixed = useMixed();
@@ -80,12 +71,8 @@ export function ShadowsSettings(props: ShadowsSettingsProps) {
     return shadow !== undefined && shadows().includes(shadow) ? shadow : undefined;
   });
 
-  /**
-   * Swaps `shadow` with its neighbour, later in the file (`direction` 1, on
-   * top) or earlier. Written as a swap because a move needs an anchor:
-   * `reparent` appends without one, and refuses an append into the parent the
-   * element already has.
-   */
+  // A swap, because a move needs an anchor: `reparent` appends without one, and refuses an append
+  // into the parent the element already has.
   const handleReorderShadow = (shadow: Entity, direction: number) => {
     const siblings = shadows();
     const index = siblings.indexOf(shadow);

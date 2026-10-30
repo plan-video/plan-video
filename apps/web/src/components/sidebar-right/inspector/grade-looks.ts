@@ -7,7 +7,7 @@ import { msg } from "@/lib/i18n";
 import type { GradeLook } from "@plan.video/jsx";
 import type { GradeSlider } from "@plan.video/runtime";
 
-/** The looks, in the picker's order: the runtime's GRADE_LOOKS by name. */
+/** By name from the runtime's GRADE_LOOKS. */
 export const LOOK_OPTIONS: { id: GradeLook; label: string }[] = [
   { id: "warm", label: msg("Warm") },
   { id: "cool", label: msg("Cool") },
@@ -26,7 +26,6 @@ export function lookLabel(id: string): string | undefined {
   return LOOK_OPTIONS.find((option) => option.id === id)?.label;
 }
 
-/** The sliders, in two groups as the Adjust tab lists them. */
 export const SLIDER_GROUPS: { title: string; sliders: { key: GradeSlider; label: string }[] }[] = [
   {
     title: msg("Tone"),
@@ -49,7 +48,6 @@ export const SLIDER_GROUPS: { title: string; sliders: { key: GradeSlider; label:
   },
 ];
 
-/** The wheels, darkest first. */
 export const WHEEL_OPTIONS = [
   { wheel: "lift", label: msg("Shadows") },
   { wheel: "gamma", label: msg("Midtones") },

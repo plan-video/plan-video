@@ -19,12 +19,6 @@ import type { NewSceneOptions } from "@/engine/new-scene";
 import type { Workflow } from "@/lib/workflows";
 import type { World } from "koota";
 
-/**
- * Runs `workflow` and opens it in the Workflows panel to show its steps.
- * On the scene's own clip when it has one; otherwise on `assets`, or on a
- * clip the person picks, put in the scene or, in an empty project, in a new
- * scene of its own.
- */
 export async function startWorkflow(
   world: World,
   workflow: Workflow,

@@ -22,11 +22,6 @@ import { TimelineClipMenu } from './clip-menu';
 
 import type { TransitionType as TransitionName } from '@plan.video/jsx';
 
-/**
- * The timeline's canvas. What is drawn on it is the timeline system's
- * business (see `@/engine/timeline`); this is the element it draws on and
- * what dropping an asset onto it means.
- */
 export function Timeline() {
   const world = useWorld();
   const timeline = useTimeline();
@@ -35,20 +30,8 @@ export function Timeline() {
   onMount(() => timeline.attachCanvas());
   onCleanup(() => timeline.detachCanvas());
 
-  /**
-   * Assets dropped on the timeline start where they were dropped, unlike
-   * ones dropped on the canvas, which start at the playhead: the whole point
-   * of aiming at a place on the timeline is to say when.
-   *
-   * With no scene to drop into, they get one of their own rather than
-   * landing loose at the root, sized to the last of them that has a size
-   * (see `insertAssetsInNewScene`). Dropped on a clip with Option held, the
-   * first of them replaces what the clip plays instead (see `aimReplace`).
-   */
-  /** Whether a drag carries a transition from the Transitions panel. */
   const carriesTransition = (event: DragEvent) => event.dataTransfer?.types.includes(TRANSITION_DRAG_TYPE) ?? false;
 
-  /** The clip end a transition dragged to the pointer would land on, marked on the surface for the draw pass. */
   const aimTransition = (event: DragEvent) => {
     const surface = world.get(TimelineSurface);
     const rect = surface?.canvas?.getBoundingClientRect();
@@ -62,11 +45,6 @@ export function Timeline() {
     if (surface) surface.transitionDrop = null;
   };
 
-  /**
-   * A transition dropped on a clip's end goes there: on the cut, or on the
-   * clip's own start or end. It becomes the panel's pick, as clicking its
-   * tile would make it.
-   */
   const dropTransition = (event: DragEvent) => {
     const name = event.dataTransfer?.getData(TRANSITION_DRAG_TYPE) as TransitionName | undefined;
     const drop = aimTransition(event);
@@ -76,18 +54,11 @@ export function Timeline() {
     applyTransition(world, [spotAt(world, drop.clip, drop.edge)], name);
   };
 
-  /** Whether a drag carries files: from the library, or from the computer. */
   const carriesFiles = (event: DragEvent) => {
     const types = event.dataTransfer?.types ?? [];
     return types.includes(ASSET_DRAG_TYPE) || types.includes('Files');
   };
 
-  /**
-   * The clips a file dropped here with Option (Alt) held would replace: the
-   * one under the pointer, or the whole selection when it is part of it.
-   * Marked on the surface for the draw pass; null without Option, or off
-   * the clips that play a file.
-   */
   const aimReplace = (event: DragEvent) => {
     const surface = world.get(TimelineSurface);
     const rect = surface?.canvas?.getBoundingClientRect();
@@ -107,6 +78,7 @@ export function Timeline() {
     if (surface) surface.replaceDrop = null;
   };
 
+  // Dropped assets start where they were dropped, not at the playhead as on the canvas: aiming at the timeline says when.
   const handleDrop = async (event: DragEvent) => {
     event.preventDefault();
     event.stopPropagation();
@@ -125,8 +97,7 @@ export function Timeline() {
     const fps = world.get(FrameRate)?.value ?? 30;
     const start = framesToSeconds(Math.max(0, timeline.clientToFrame(event.clientX)), fps);
 
-    // Read the transfer before the first await: it is gone by the time an
-    // import resolves.
+    // Read the transfer before the first await: it is gone by the time an import resolves.
     const ids = event.dataTransfer?.getData(ASSET_DRAG_TYPE)?.split(',').filter(Boolean) ?? [];
     const files = droppedFiles(event);
 

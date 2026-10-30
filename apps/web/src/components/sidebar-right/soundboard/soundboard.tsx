@@ -21,7 +21,6 @@ import { t } from '@/lib/i18n';
 
 import type { Entity } from 'koota';
 
-/** A layer's name, following a rename. */
 function LayerName(props: { entity: Entity | undefined }) {
   const name = useTrait(() => props.entity, Name);
 
@@ -35,10 +34,8 @@ export function Soundboard() {
 
   const scene = () => timelineIndex().root ?? undefined;
 
-  // Only audio-bearing layers can be metered. A bus is spun up by the playback
-  // system the first time a node has audio to play, so what is meterable grows
-  // while a project plays — the query follows that, the timeline index (which
-  // only reports a changed tree) would not.
+  // A bus is spun up the first time a node has audio to play, so what is meterable grows while a project plays:
+  // the query follows that, the timeline index (which only reports a changed tree) would not.
   const audible = useQuery(Or(AudioBusHandle, Volume));
 
   const audioLayers = createMemo(() => {
@@ -60,12 +57,10 @@ export function Soundboard() {
     let left = leftMeterEntity();
     let right = rightMeterEntity();
 
-    // Drop selections whose layer no longer exists.
     if (left !== undefined && !list.includes(left)) left = undefined;
     if (right !== undefined && !list.includes(right)) right = undefined;
 
-    // Auto-fill empty slots, preferring a layer not already shown in the sibling
-    // so the two meters never collapse onto the same layer.
+    // Prefer a layer the sibling doesn't show, so the two meters never collapse onto the same layer.
     if (right === undefined) right = list.find((entity) => entity !== left);
     if (left === undefined) left = list.find((entity) => entity !== right);
 
@@ -73,8 +68,7 @@ export function Soundboard() {
     setLeftMeterEntity(left);
   }, { defer: true });
 
-  // The bus is the playback system's, and is set back to null when the node's
-  // decoders are released; the meter follows it either way.
+  // The playback system sets the bus back to null when the node's decoders are released.
   const masterBus = useTrait(scene, AudioBusHandle);
   const leftMeterBus = useTrait(leftMeterEntity, AudioBusHandle);
   const rightMeterBus = useTrait(rightMeterEntity, AudioBusHandle);
@@ -90,8 +84,7 @@ export function Soundboard() {
 
   const editVolume = (entity: Entity | undefined, volume: number) => {
     if (entity === undefined) return;
-    // Whole decibels: the fader only ever shows the value that coarse, and a
-    // dragged one would otherwise write a new fraction per pointer event.
+    // Whole decibels: a dragged fader would otherwise write a new fraction per pointer event.
     const next = Math.round(volume);
     // 0 dB is unity, so a volume left there is unset.
     editor.editProperty(entity, 'volume', next === 0 ? false : next);

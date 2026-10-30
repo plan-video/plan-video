@@ -2,10 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The Remove background extension: a picture from the project, or one
-// dropped in from the computer, with its background taken out on this
-// device. The cutout goes into the project's assets, and onto the scene.
-
 import { For, Show, createEffect, createMemo, createSignal, on, type JSX } from "solid-js";
 import { toast } from "somoto";
 import { useWorld } from "@plan.video/koota-solid";
@@ -55,11 +51,9 @@ const [failure, setFailure] = createSignal<Failure | null>(null);
 const [mode, setMode] = createSignal<CutoutMode>("compare");
 const [ready, setReady] = createSignal(cutoutModelReady());
 const [requested, setRequested] = createSignal<string | null>(null);
-/** The library of the project the open picture came in through; another project starts fresh. */
 let owner: AssetLibrary | undefined;
 let controller: AbortController | undefined;
 
-/** Opens the extension on one of the project's pictures. */
 export function openCutout(asset: Asset) {
   setRequested(asset.id);
   setSidebarTab("extensions");
@@ -134,7 +128,6 @@ async function openAsset(world: World, library: AssetLibrary, asset: Asset) {
   }
   begin(library, { file, url: URL.createObjectURL(file), asset });
 
-  // The editor's Remove background may have cut this one out already.
   const earlier = editorAi(world)?.transformed("removeBackground", asset);
   if (earlier) {
     try {
@@ -159,11 +152,6 @@ function openFiles(library: AssetLibrary, files: readonly File[]) {
   run(file);
 }
 
-/**
- * The scene the cutout goes into: the one on the timeline, or else the
- * project's first, which then takes the timeline. Null when there is none
- * yet, and the cutout makes one of its own size.
- */
 function targetScene(world: World): Entity | null {
   const active = getActiveEntity(world);
   if (active && isScene(active)) return active;
@@ -174,7 +162,6 @@ function targetScene(world: World): Entity | null {
   return first;
 }
 
-/** The cutout as an asset of the project: the one already filed, or filed now. */
 async function file(world: World, library: AssetLibrary): Promise<Asset | undefined> {
   const current = source();
   const done = result();
@@ -472,7 +459,6 @@ function DropZone(props: { onChoose(): void }) {
   );
 }
 
-/** A picture on a transparent sheet: the tool's mark. */
 function CheckerGlyph() {
   return (
     <span class="relative grid size-11 place-items-center">
@@ -547,7 +533,6 @@ function Section(props: { label: string; action?: JSX.Element; children: JSX.Ele
   );
 }
 
-/** The market card: a portrait split down the middle, its backdrop on the left and gone on the right. */
 export function CutoutCover() {
   return (
     <div class="relative h-20 w-full overflow-hidden" style={{ ...CHECKERBOARD, "background-color": "#0E0F12", "background-size": "10px 10px" }}>

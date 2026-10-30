@@ -62,20 +62,9 @@ const sameOrder = (a: Entity[], b: Entity[]) =>
 
 type AnimationsSettingsProps = {
   selection: Entity[];
-  /** Animating caption words: only the presets a single word can play. */
   words?: boolean;
 };
 
-/**
- * The `<animation>` children of the selected node: the presets it plays over
- * its head and tail. Rows are the ones playing in first and the ones playing
- * out after, each in the file's order, which is the order they write in when
- * two of them drive the same property.
- *
- * The plus authors a fade rather than asking which preset first: every
- * animation is the same three settings under a different name, so which one
- * it is, is a control in the inspector like the others.
- */
 export function AnimationsSettings(props: AnimationsSettingsProps) {
   const editor = useEditor();
   const mixed = useMixed();
@@ -96,8 +85,6 @@ export function AnimationsSettings(props: AnimationsSettingsProps) {
     const [animation] = editor.insertElement(entity(), () => (
       <AnimationElement type={DEFAULT_ANIMATION.name} />
     ));
-    // Which preset it is, is the one thing the default cannot answer, so the
-    // inspector opens on the new animation for it to be said.
     if (animation) setPicked(animation);
   };
 
@@ -188,7 +175,6 @@ function AnimationRow(props: AnimationRowProps) {
   );
 }
 
-/** Whether `node` has anything to hear, which is what a gain animates. */
 function hasAudio(node: Entity): boolean {
   if (isAudio(node) || getIntrinsicPaint(node) === PaintType.VIDEO) return true;
   return (node.get(Cache)?.fills ?? []).some((fill) => fill.get(Paint)?.value === PaintType.VIDEO);
@@ -202,12 +188,7 @@ type AnimationInspectorProps = {
   onClose(): void;
 };
 
-/**
- * One `<animation>`: which preset it is (the select in the header, where a
- * title would be), whether it plays in or out, how long it takes and how
- * long after the clip edge it starts. `type` is required and always written;
- * the other three unset at their defaults.
- */
+// `type` is required and always written; the other three unset at their defaults.
 function AnimationInspector(props: AnimationInspectorProps) {
   const world = useWorld();
   const editor = useEditor();
@@ -221,11 +202,8 @@ function AnimationInspector(props: AnimationInspectorProps) {
   const delay = createMemo(() => framesToSeconds(animation()?.delay ?? 0, fps()));
   const isOut = createMemo(() => animation()?.phase === AnimationPhase.OUT);
 
-  /**
-   * The groups this node can play, plus whichever one holds the current
-   * preset: a `gain` authored on a node that has since lost its audio still
-   * has to be shown, or the select would have no value to display.
-   */
+  // Plus whichever group holds the current preset: a `gain` on a node that has since lost its audio
+  // must still show, or the select would have no value to display.
   const groups = createMemo(() =>
     ANIMATION_GROUPS.filter(
       (group) =>

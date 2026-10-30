@@ -15,10 +15,6 @@ export type TransitionOption = {
   label: string;
 };
 
-/**
- * The styles the pickers offer, in their order: the ones that hold up on
- * real footage.
- */
 export const TRANSITION_OPTIONS: TransitionOption[] = [
   { name: "dissolve", label: msg("Dissolve") },
   { name: "fadeToBlack", label: msg("Fade to black") },
@@ -28,10 +24,7 @@ export const TRANSITION_OPTIONS: TransitionOption[] = [
   { name: "whip", label: msg("Whip") },
 ];
 
-/**
- * Styles the runtime still plays but the pickers no longer offer, so a clip
- * that has one keeps its name in the inspector.
- */
+// Still played by the runtime but no longer offered, so a clip that has one keeps its name in the inspector.
 const RETIRED_OPTIONS: TransitionOption[] = [
   { name: "fadeToWhite", label: msg("Fade to white") },
   { name: "slideFromLeft", label: msg("Slide from left") },
@@ -53,11 +46,7 @@ const BY_TYPE = new Map<TransitionType, TransitionOption>(
   [...TRANSITION_OPTIONS, ...RETIRED_OPTIONS].map((option) => [TRANSITION_TYPES[option.name]!, option]),
 );
 
-/**
- * The option for the type a `Transition` trait holds. Identity matters: the
- * type select compares its value against the array it was given, so this
- * hands back the option itself rather than a copy.
- */
+// Identity matters: the type select compares against the array it was given, so this returns the option itself, not a copy.
 export function transitionOption(type: TransitionType | undefined): TransitionOption {
   return (type === undefined ? undefined : BY_TYPE.get(type)) ?? DEFAULT_TRANSITION;
 }

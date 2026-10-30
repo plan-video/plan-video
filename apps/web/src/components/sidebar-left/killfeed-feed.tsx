@@ -2,11 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The killfeed panels' feed: several kills built in one go. The stage shows
-// them stacked the way they land, the numbered cells under it pick the one
-// the settings edit (the + copies it in under), and one add puts them all
-// on the video, each a second after the one before.
-
 import { For, Show, createEffect, createSignal, onCleanup, onMount } from "solid-js";
 
 import { Icon } from "@/components/ui/icon";
@@ -14,10 +9,8 @@ import { createFeed, drawEvenFeed, MAX_FEED_ENTRIES, plain, type Feed } from "@/
 import { t } from "@/lib/i18n";
 import { Section } from "./extension-ui";
 
-/** The seconds from one of a feed's kills coming in to the next. */
 const SPACING = 1;
 
-/** A feed and the seconds from one of its kills coming in to the next. */
 export type KillfeedFeed<T> = Feed<T> & { spacing: () => number };
 
 /** Made once per panel, so the feed outlives a tab switch. */
@@ -25,43 +18,29 @@ export function createKillfeedFeed<T extends object>(first: T): KillfeedFeed<T> 
   return { ...createFeed(first), spacing: () => SPACING };
 }
 
-/** What the add button says: how many kills go in. */
 export const addLabel = (feed: { entries: () => unknown[] }) => {
   const count = feed.entries().length;
   return count > 1 ? t("{count, plural, one {Add # kill to scene} other {Add # kills to scene}}", { count }) : undefined;
 };
 
-/** The feed as one drag: every kill, how they land, and how far apart they come in. */
 export const feedDrag = <T,>(feed: KillfeedFeed<T>, placement: object) => ({
   specs: plain(feed.entries()),
   placement: plain(placement),
   spacing: feed.spacing(),
 });
 
-/** One entry's height at most, as the stage held a single one before feeds. */
 const ROW = 56;
-/** The feed's height at most: past it, the entries shrink together. */
 const ROOM = 156;
 const GAP = 4;
 const PAD = 12;
 
 type Drawn = { url: string; width: number; height: number };
 
-/**
- * The feed over the game's dark, the way it sits on gameplay: lined up on
- * the layout's edge (`align`), and bottom-up for a feed that grows upwards
- * (`upwards`), so it reads as it will land, every entry one size as they
- * are placed (`drawEvenFeed`, against `usual`). With several, a click on one
- * edits it, and that one is outlined. Drag it onto the video.
- */
 export function FeedStage<T>(props: {
   feed: Feed<T>;
   background: string;
-  /** Draws an entry at a scale, in a width at its natural size when given one. */
   draw: (entry: T, scale: number, width?: number) => Promise<HTMLCanvasElement>;
-  /** An entry with names of a usual length, the narrowest one is drawn. */
   usual: T;
-  /** The scale the stage draws entries at. */
   scale: number;
   align: "left" | "right";
   upwards?: boolean;
@@ -81,7 +60,6 @@ export function FeedStage<T>(props: {
       .catch(() => {});
   });
 
-  /** One scale for every entry, so they keep their sizes to each other. */
   const zoom = () => {
     const list = pictures();
     if (!list.length || !room()) return 0;
@@ -140,11 +118,6 @@ export function FeedStage<T>(props: {
   );
 }
 
-/**
- * The kills in the feed, top to bottom, as numbered cells and one to add
- * another (a copy of the one picked, which `next` may move on, as a streak
- * counts up); the picked one is what the settings below edit.
- */
 export function FeedField<T>(props: { feed: KillfeedFeed<T>; next?: (copy: T) => void }) {
   const count = () => props.feed.entries().length;
   const picked = (index: number) => index === props.feed.selected();

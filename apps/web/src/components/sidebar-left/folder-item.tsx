@@ -37,10 +37,7 @@ export function isAssetOrFolderDrag(event: DragEvent): boolean {
   return types.includes(ASSET_DRAG_TYPE) || types.includes(FOLDER_DRAG_TYPE);
 }
 
-/**
- * Handles a drop of an internal asset/folder drag onto the target folder
- * ('' = root). Returns true when the event was an internal drag.
- */
+/** `target` '' is the root. True when the event was an internal drag. */
 export function handleFolderDrop(library: AssetLibrary | undefined, event: DragEvent, target: string): boolean {
   if (!library) return false;
 
@@ -61,7 +58,6 @@ export function handleFolderDrop(library: AssetLibrary | undefined, event: DragE
   return true;
 }
 
-/** Deletes a folder and everything in it, saying so if that fails. */
 export async function deleteFolder(library: AssetLibrary | undefined, path: string): Promise<void> {
   try {
     await library?.deleteFolder(path);
@@ -70,7 +66,6 @@ export async function deleteFolder(library: AssetLibrary | undefined, path: stri
   }
 }
 
-/** How many files are in a folder, its subfolders' included. */
 export function itemsInFolder(library: AssetLibrary, path: string): number {
   const prefix = `${path}/`;
   return [...library.list(), ...library.partials()]
@@ -78,13 +73,11 @@ export function itemsInFolder(library: AssetLibrary, path: string): number {
 }
 
 export type DeleteFolderDialogProps = {
-  /** The folder waiting on an answer, and how many files go with it; null while closed. */
   pending: { path: string; count: number } | null;
   onConfirm(path: string): void;
   onClose(): void;
 };
 
-/** Asks before a folder goes along with what is in it. */
 export function DeleteFolderDialog(props: DeleteFolderDialogProps) {
   // Kept after closing, so the close animation still names the folder.
   const [shown, setShown] = createSignal<{ path: string; count: number } | null>(null);
@@ -124,11 +117,9 @@ export function DeleteFolderDialog(props: DeleteFolderDialogProps) {
 }
 
 export type FolderItemProps = {
-  /** The folder's library path. */
   path: string;
   selected: boolean;
   onSelect(): void;
-  /** Delete was asked for; the list decides whether to ask first. */
   onDelete(): void;
   renaming: boolean;
   onRenameStart(): void;

@@ -97,19 +97,12 @@ type TimeSettingsProps = {
   selection: Entity[];
 };
 
-/**
- * Where the node sits on the timeline and for how long. Edits are time props
- * (`start`/`end`/`sourceIn`/`sourceOut`/`playbackRate`) written through the
- * editor; the resolved bounds are read from Computed, which the systems
- * write, hence `useDerived`.
- */
 export function TimeSettings(props: TimeSettingsProps) {
   const world = useWorld();
   const editor = useEditor();
   const entity = () => props.selection[0]!;
 
-  // Added on this node alone: In & Out shown on one clip doesn't follow
-  // every other layer. The inspector remounts on a new selection.
+  // Per node: In & Out shown on one clip doesn't follow every other layer. The inspector remounts on a new selection.
   const [addons, setAddons] = createSignal<TimeAddons>({});
 
   const frameRate = useTrait(world, FrameRate);
@@ -138,15 +131,12 @@ export function TimeSettings(props: TimeSettingsProps) {
       || findKeyframeTrack(world, node, "playbackRate") !== null;
   });
 
-  // The frames directory the node shows, if any, and the element carrying it:
-  // the clip itself for a <video>, the paint for a <rect> with a fill.
   const sequenceAsset = useDerived(() => {
     const asset = findGeometryAsset(world, entity());
     return asset?.type === 'SEQUENCE' ? asset : null;
   });
   const sequenceSource = useDerived(() => findGeometryAssetSource(world, entity()));
-  // The element's own rate when it sets one, else the asset's. Both are
-  // sampled: the trait is what the prop writes, the asset what it falls back to.
+  // Both sampled: the trait is what the prop writes, the asset what it falls back to.
   const authoredFrameRate = useTrait(sequenceSource, SourceFrameRate);
   const sequenceFrameRate = createMemo(() => {
     const asset = sequenceAsset();
@@ -159,8 +149,7 @@ export function TimeSettings(props: TimeSettingsProps) {
   const handleAddAddon = (addon: TimeAddon) => setAddons({ ...addons(), [addon]: true });
   const handleRemoveAddon = (addon: TimeAddon) => setAddons({ ...addons(), [addon]: false });
 
-  // The rate scales the source window onto the timeline around the node's
-  // start, so the start stays put on its own; 1 is the default, so it is unset.
+  // The rate scales the source window around the node's start, so the start stays put; 1 is the default, so it is unset.
   // A speed track stores the rate on the keyframe at the playhead instead.
   const assignPlaybackRate = (rate: number) => {
     const next = Math.max(0.01, rate);

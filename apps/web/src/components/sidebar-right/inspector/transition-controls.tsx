@@ -27,7 +27,6 @@ import type { Spot, TransitionFinish } from "@/engine/transitions";
 
 type Way = "left" | "right" | "up" | "down";
 
-/** The way each style that moves goes on its own, which its direction cell shows lit until another is set. */
 const OWN_WAY: Partial<Record<TransitionName, Way>> = {
   slideFromRight: "left",
   slideFromLeft: "right",
@@ -37,7 +36,6 @@ const OWN_WAY: Partial<Record<TransitionName, Way>> = {
   wipe: "right",
 };
 
-/** The colour each fade or flash goes through on its own. */
 const OWN_COLOR: Partial<Record<TransitionName, number>> = {
   fadeToBlack: 0x000000,
   fadeToWhite: 0xffffff,
@@ -73,15 +71,9 @@ const sameShown = (a: Shown | null, b: Shown | null) =>
     a.finish.color === b.finish.color);
 
 type TransitionControlsProps = {
-  /** The spots to change, each playing a transition; the first one's settings show. */
   spots: Spot[];
 };
 
-/**
- * A transition's settings: how long it lasts, the curve it plays along, and
- * for the styles they apply to, which way it goes and the colour it goes
- * through. Each change goes on every spot handed in, as one step to undo.
- */
 export function TransitionControls(props: TransitionControlsProps) {
   const world = useWorld();
   const frameRate = useTrait(world, FrameRate);

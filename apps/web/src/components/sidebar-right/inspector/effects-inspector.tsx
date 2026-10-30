@@ -43,15 +43,7 @@ type EffectsInspectorProps = {
   onClose(): void;
 };
 
-/**
- * One `<effect>`: which filter it is and how much of it. Both are required
- * props, so neither is ever unset — an effect that says nothing is not an
- * effect. The type select stands where the title would (the export
- * inspector's shape): it names the effect *and* changes it, so a separate
- * heading would only say the same word twice. `value` is one number in three
- * units (px, degrees, a 0-1 amount), which is why the control below the type
- * changes with it.
- */
+// Type and value are required props, so neither is ever unset.
 export function EffectsInspector(props: EffectsInspectorProps) {
   const world = useWorld();
   const editor = useEditor();
@@ -67,11 +59,8 @@ export function EffectsInspector(props: EffectsInspectorProps) {
     syncKeyframe(world, editor, props.effect, "value", next);
   };
 
-  /**
-   * Switches the filter. A value only means the same thing across types of
-   * the same unit; crossing one (a 4px blur becoming 4 turns of sepia) takes
-   * the new type's default, and the track goes with the numbers it held.
-   */
+  // A value only means the same across types of one unit; crossing one takes the new type's default,
+  // and the track goes with the numbers it held.
   const handleTypeChange = (next: EffectOption | null) => {
     const previous = option();
     if (next === null || next.name === previous.name) return;

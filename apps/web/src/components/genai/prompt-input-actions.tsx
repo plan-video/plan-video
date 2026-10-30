@@ -142,7 +142,6 @@ type TransformItemProps = {
   toggle(name: TransformType): void;
 };
 
-/** A transform as a menu row: a check when the selection is asking for it. */
 function TransformItem(props: TransformItemProps) {
   return (
     <DropdownMenuItem onSelect={() => props.toggle(props.name)}>

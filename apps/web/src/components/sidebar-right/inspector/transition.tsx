@@ -33,7 +33,6 @@ type TransitionSettingsProps = {
   selection: Entity[];
 };
 
-/** One end of the clip: where its transition is written, and what plays there, if anything. */
 type End = {
   spot: Spot;
   type: number | undefined;
@@ -47,19 +46,8 @@ const sameEnd = (a: End, b: End) =>
   a.type === b.type &&
   a.frames === b.frames;
 
-/**
- * The clip's two ends, In and Out, each a row showing what plays there. An
- * end that is a cut shows the transition between the two clips, which the
- * clip going out carries; any other end plays the clip in or out on its own
- * (see `Spot`). Clicking a row opens the styles and the settings (see
- * `TransitionControls`), the one place they are changed: the Transitions
- * panel only puts transitions on, then asks for the end it filled to open.
- *
- * The prop is written whole every time (see `writeTransition`). The document
- * merges a partial into the transition already set while the file would
- * spell only what it was handed, so a partial write would leave the two
- * saying different things.
- */
+// The prop is written whole every time (see `writeTransition`): the document merges a partial into the set
+// transition while the file spells only what it was handed, so a partial write would leave the two disagreeing.
 export function TransitionSettings(props: TransitionSettingsProps) {
   const world = useWorld();
   const entity = () => props.selection[0]!;
@@ -69,8 +57,7 @@ export function TransitionSettings(props: TransitionSettingsProps) {
   const [open, setOpen] = createSignal<ClipEdge | null>(null);
   const frameRate = useTrait(world, FrameRate);
 
-  // The Transitions panel put one on: bring the rows into view, then open
-  // that end, a frame later, so the panel places itself by where they ended up.
+  // Opened a frame later, so the panel places itself by where the rows ended up.
   createEffect(() => {
     const request = transitionEndRequest();
     if (!request) return;
@@ -90,8 +77,6 @@ export function TransitionSettings(props: TransitionSettingsProps) {
     out: useDerived(() => readEnd("out"), sameEnd),
   };
 
-  // With nothing at either end the section is just its header and a +, which
-  // brings the two rows up to pick from.
   const [adding, setAdding] = createSignal(false);
   const empty = () => !adding() && ends.in().type === undefined && ends.out().type === undefined;
 

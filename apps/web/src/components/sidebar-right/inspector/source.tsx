@@ -31,13 +31,11 @@ import { useMixed } from "./word-mix";
 import type { Asset } from "@plan.video/assets";
 import type { Entity } from "koota";
 
-/** The row label, like a fill row's: which kind of media the node is. */
 const MEDIA_LABELS: Partial<Record<PaintType, string>> = {
   [PaintType.VIDEO]: msg("Video"),
   [PaintType.IMAGE]: msg("Image"),
 };
 
-/** What a non-media intrinsic is, said instead of controls it cannot have. */
 const INTRINSIC_LABELS: Partial<Record<PaintType, string>> = {
   [PaintType.HTML]: msg("HTML content"),
   [PaintType.SURFACE]: msg("Canvas surface"),
@@ -46,24 +44,11 @@ const INTRINSIC_LABELS: Partial<Record<PaintType, string>> = {
 
 type SourceSettingsProps = {
   selection: Entity[];
-  /** Styling caption words, which have no keyframes. */
   words?: boolean;
 };
 
-/**
- * What the node is intrinsically painted with, as its own section beneath
- * Fill, which mirrors the canvas: the intrinsics draw beneath every paint
- * child. Two rows can show — the intrinsic paint (a `<video>`'s footage, an
- * `<image>`'s picture, a `<surface>`'s canvas) and, beneath it as it draws,
- * the intrinsic solid (the `fill` prop). An intrinsic is not an element of
- * its own, so it offers exactly two things: another value (a `src` or `fill`
- * write, `objectFit` through the picker's fit menu — the node keeps its
- * identity) or removal. Removing the solid takes the prop off; removing the
- * media takes the element's nature off, rewriting it as the `<rect>` it
- * otherwise was (see `DocumentEditor.removeIntrinsicPaint`), and the section
- * goes with it. A surface or html intrinsic has neither; its row just says
- * what the node is made of.
- */
+// An intrinsic is not an element of its own: it offers another value (a `src`/`fill` write, so the node keeps its identity)
+// or removal. Removing the media rewrites the node as the `<rect>` it otherwise was (see `DocumentEditor.removeIntrinsicPaint`).
 export function SourceSettings(props: SourceSettingsProps) {
   const editor = useEditor();
   const library = useLibrary();
@@ -79,22 +64,16 @@ export function SourceSettings(props: SourceSettingsProps) {
     () => intrinsic() === PaintType.VIDEO || intrinsic() === PaintType.IMAGE,
   );
 
-  // The node's intrinsic solid (the `fill` prop, its Color trait): the other
-  // intrinsic, drawn beneath even the intrinsic paint.
   const hasFill = useHas(() => entity(), Color);
 
   const assetId = useTrait(() => entity(), AssetId);
   const asset = createMemo(() => library()?.get(assetId()?.value ?? ""));
 
-  // Same element, another source: the paint follows what the src turns out
-  // to name (an image path onto a <video> paints as a picture), so a swap is
-  // only ever a `src` write and the node keeps its identity.
+  // The paint follows what the src turns out to name (an image path onto a <video> paints as a picture), so a swap is only a `src` write.
   const handleSelectAsset = (picked: Asset) => {
     editor.editProperty(entity(), "src", picked.path);
   };
 
-  // Removal is the element ceasing to be a media element: the node is
-  // rewritten as the <rect> it otherwise was, and this section goes with it.
   const handleRemoveMedia = () => {
     setPicking(undefined);
     editor.removeIntrinsicPaint(entity());
@@ -211,14 +190,7 @@ type SolidFillRowProps = {
   onPickingChange(open: boolean): void;
 };
 
-/**
- * The node's intrinsic solid: the `fill` prop, edited in place as a hex the
- * way a solid fill row edits its color, or through the picker the swatch
- * opens — both are `fill` prop writes, the node keeps its identity. Read
- * from `Computed.color` so it animates (the `color` keyframe track drives
- * the same trait); alpha is not offered because the prop ignores it. The X
- * takes the prop off the node.
- */
+// Read from `Computed.color` so it animates (the `color` track drives the same trait); no alpha, since the prop ignores it.
 function SolidFillRow(props: SolidFillRowProps) {
   const world = useWorld();
   const editor = useEditor();

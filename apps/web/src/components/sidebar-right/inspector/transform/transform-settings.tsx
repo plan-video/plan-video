@@ -59,11 +59,7 @@ const TRACKED: Partial<Record<TransformAddon, AnimatableProperty[]>> = {
   scale: ['scale', 'scaleX', 'scaleY'],
 };
 
-/**
- * Whether the node already sets what a row edits, away from its default or
- * on a keyframe track. The traits hold the authored values (motion only
- * writes Computed), and an unset prop leaves its trait at the default.
- */
+// The traits hold the authored values (motion only writes Computed), and an unset prop leaves its trait at the default.
 function setsAddon(world: World, node: Entity, addon: TransformAddon): boolean {
   if (TRACKED[addon]?.some((property) => findKeyframeTrack(world, node, property))) return true;
   switch (addon) {
@@ -95,23 +91,12 @@ function setsAddon(world: World, node: Entity, addon: TransformAddon): boolean {
   }
 }
 
-/**
- * Where a node sits and how it is transformed there. Position, rotation,
- * offset, scale and constraints are props (`x`/`y`, `rotation`,
- * `offsetX`/`offsetY`, `scale` or `scaleX`/`scaleY`,
- * `constrainX`/`constrainY`) written through the editor; anchor, flip and
- * skew have no JSX spelling and are written to their traits alone, so they do
- * not survive a recompile. The rows below Position are per node: a row shows
- * when the node sets what it edits, or once it is added here, so rows added
- * on one clip don't follow every other layer.
- */
 export function TransformSettings(props: TransformSettingsProps) {
   const world = useWorld();
   const editor = useEditor();
   const entity = () => props.selection[0]!;
 
-  // Rows added or removed here; the rest follow what the node sets. The
-  // inspector remounts on a new selection, which starts this afresh.
+  // The inspector remounts on a new selection, which starts this afresh.
   const [toggled, setToggled] = createSignal<TransformAddons>({});
 
   const positionX = useDerived(() => entity().get(Computed)?.positionX ?? 0);

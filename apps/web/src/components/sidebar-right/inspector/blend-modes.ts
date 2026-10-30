@@ -42,7 +42,6 @@ const NAMES = new Map<BlendModeType, BlendMode>(
   Object.entries(BLEND_MODES).map(([name, mode]) => [mode, name as BlendMode]),
 );
 
-/** The mode as the JSX spells it (`blendMode="colorDodge"`). */
 export function blendModeName(mode: BlendModeType): BlendMode {
   return NAMES.get(mode) ?? "sourceOver";
 }
@@ -66,7 +65,7 @@ const LABELS: Record<BlendModeType, string> = {
   [BlendModeType.LUMINOSITY]: msg("Luminosity"),
 };
 
-/** The mode as the menu labels it, in English: "Normal", "Color dodge", ... Show it with t(). */
+/** In English; show it with t(). */
 export function displayBlendMode(mode: BlendModeType): string {
   return LABELS[mode];
 }

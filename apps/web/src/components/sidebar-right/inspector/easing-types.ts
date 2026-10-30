@@ -8,14 +8,8 @@ import { msg } from "@/lib/i18n";
 
 import type { Easing } from "@plan.video/jsx";
 
-/**
- * The easings the JSX has a word for, which are exactly the presets the
- * interpolation panel offers. `descriptor` is what the runtime stores for the
- * name (`EASINGS` is the one table mapping them, linear being the empty
- * string); the panel matches on it to know which preset a keyframe is set to,
- * and writes `name` back so the file reads `easing="easeOut"` rather than the
- * bezier behind it.
- */
+// `EASINGS` is the one table mapping names to descriptors (linear is ''). The panel matches on the descriptor
+// and writes `name` back, so the file reads `easing="easeOut"` rather than the bezier behind it.
 export type EasingPreset = {
   name: Easing;
   label: string;
@@ -42,7 +36,6 @@ export const SPRING_PRESETS: EasingPreset[] = [
   preset("strong", msg("Strong")),
 ];
 
-/** What the Spring tab starts a keyframe at. */
 export const DEFAULT_SPRING: EasingPreset = SPRING_PRESETS[0]!;
 
 /** `<keyframe>`'s default: absent easing is linear. */
@@ -52,7 +45,6 @@ const BY_DESCRIPTOR = new Map<string, EasingPreset>(
   [...EASE_PRESETS, ...SPRING_PRESETS].map((option) => [option.descriptor, option]),
 );
 
-/** The named easing a descriptor is, or null for one the JSX can only spell out. */
 export function easingPreset(descriptor: string): EasingPreset | null {
   return BY_DESCRIPTOR.get(descriptor) ?? null;
 }

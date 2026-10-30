@@ -44,17 +44,11 @@ const NO_GRADES: Entity[] = [];
 
 const isMedia = (paint: PaintType | undefined) => paint === PaintType.VIDEO || paint === PaintType.IMAGE;
 
-/**
- * Colour grading for a clip with a picture (its own video or image, or a
- * media fill), or for a scene or group and all that is in it. One `<grade>`
- * per node: the plus adds it and opens it, the row opens it again.
- */
 export function GradeSettings(props: { selection: Entity[] }) {
   const editor = useEditor();
   const auth = useAuth();
   const entity = () => props.selection[0]!;
 
-  // Saved grades are the person's, and show in every project.
   createEffect(() => loadGradePresets(auth.user()?.id));
 
   let anchorRef!: HTMLDivElement;
@@ -119,7 +113,6 @@ function GradeRow(props: { grade: Entity; onSelect(): void; onRemove(): void }) 
   const trait = useTrait(() => props.grade, Grade);
   const hidden = useHas(() => props.grade, Hidden);
 
-  /** A saved grade's name when it is one, else its look, else "Custom". */
   const label = createMemo(() => {
     const values: GradeValues = { ...NEUTRAL_GRADE, ...trait() };
     const defined = definedGrade(values);

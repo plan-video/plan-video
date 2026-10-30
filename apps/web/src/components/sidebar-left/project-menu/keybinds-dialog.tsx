@@ -14,7 +14,7 @@ import { msg, t } from "@/lib/i18n";
 type Keybind = { label: string; keys: string };
 type KeybindGroup = { title: string; items: Keybind[] };
 
-/** Shortcuts the editor actually runs. Menu labels that are not bound are left out. */
+/** Only shortcuts the editor actually runs; unbound menu labels are left out. */
 const GROUPS: KeybindGroup[] = [
   {
     title: msg("Playback"),

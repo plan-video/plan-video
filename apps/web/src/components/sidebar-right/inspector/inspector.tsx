@@ -86,8 +86,7 @@ export function Inspector() {
   const { asset, partial } = useAssetSelection();
   const wordPick = captionWordSelection;
 
-  // A picked caption word is not the captions layer: the panels style the
-  // picked words alone (see CaptionWordStyle).
+  // A picked caption word is not the captions layer: the panels style the picked words alone (see CaptionWordStyle).
   const selection = createMemo(() => {
     const current = nodes();
     if (current.length > 0) return current;
@@ -96,7 +95,6 @@ export function Inspector() {
   });
   const primary = createMemo(() => selection()[0] ?? first());
 
-  // Words picked on the timeline, when nothing else is selected.
   const pickedWords = createMemo(() => {
     const picked = wordPick();
     if (!picked || nodes().length > 0 || keyframes().length > 0 || asset() || partial()) return null;
@@ -112,13 +110,11 @@ export function Inspector() {
     return "stage";
   });
 
-  // Remounts the panels when the selection changes
   const selectionHash = createMemo(() => {
     return [...selection(), ...keyframes(), asset()?.id ?? partial()?.id ?? ""].join(",") + selectionTarget();
   });
 
-  // What the panels are about, in a word: the same word the timeline gives a
-  // clip with no name.
+  // The same word the timeline gives a clip with no name.
   const title = createMemo(() => {
     if (layoutTarget()) return t("Stream layout");
     const target = selectionTarget();

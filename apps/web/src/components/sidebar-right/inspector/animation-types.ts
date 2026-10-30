@@ -14,10 +14,7 @@ export type AnimationOption = {
   label: string;
 };
 
-/**
- * Which nodes a group is offered on: a text animation needs glyphs to move,
- * a gain needs something to hear. A group without a kind fits every node.
- */
+/** A group without a kind fits every node. */
 export type AnimationGroupKind = "text" | "audio";
 
 export type AnimationGroup = {
@@ -26,7 +23,6 @@ export type AnimationGroup = {
   options: AnimationOption[];
 };
 
-/** The presets, grouped as the type select shows them. */
 export const ANIMATION_GROUPS: AnimationGroup[] = [
   {
     label: msg("Fade"),
@@ -69,10 +65,8 @@ export const ANIMATION_GROUPS: AnimationGroup[] = [
   },
 ];
 
-/** How long a TikTok-style pop or bounce is on screen. */
 export const POP_MOTION_DURATION = 0.2;
 
-/** One-click in-presets offered on text and caption words. */
 export const TEXT_MOTION_PRESETS: readonly (AnimationOption & { duration: number })[] = [
   { name: "pop", label: msg("Pop"), duration: POP_MOTION_DURATION },
   { name: "bounce", label: msg("Bounce"), duration: POP_MOTION_DURATION },
@@ -80,18 +74,14 @@ export const TEXT_MOTION_PRESETS: readonly (AnimationOption & { duration: number
 
 const ALL_OPTIONS = ANIMATION_GROUPS.flatMap((group) => group.options);
 
-/** What the panel's plus authors: a fade, the one preset every node can play. */
+/** A fade: the one preset every node can play. */
 export const DEFAULT_ANIMATION: AnimationOption = ALL_OPTIONS[0]!;
 
 const BY_TYPE = new Map<AnimationType, AnimationOption>(
   ALL_OPTIONS.map((option) => [ANIMATION_TYPES[option.name]!, option]),
 );
 
-/**
- * The option for the type an `Animation` trait holds. Identity matters: the
- * type select compares its value against the groups it was given, so this
- * hands back the option itself rather than a copy.
- */
+// Identity matters: the type select compares against the groups it was given, so this returns the option itself, not a copy.
 export function animationOption(type: AnimationType | undefined): AnimationOption {
   return (type === undefined ? undefined : BY_TYPE.get(type)) ?? DEFAULT_ANIMATION;
 }

@@ -21,12 +21,8 @@ import { generationConfigSchema, type GenerationConfig } from "./schemas";
 import type { AssetInput, AssetRef, GenerateSpec } from "@plan.video/jsx";
 import type { AssetLibrary } from "@plan.video/assets";
 
-/**
- * The stored `usage_records.config` IS the server-side adapter input, which
- * shares its schema with the client's `GenerationConfig` — except that media
- * fields carry `fileRef`s with embedded `assetId`s instead of raw asset IDs.
- * This normalizes those fields so the object validates as a `GenerationConfig`.
- */
+// Stored configs carry `fileRef`s with embedded `assetId`s instead of raw asset ids; this normalizes
+// them so the object validates as a `GenerationConfig`.
 export function toClientConfig(stored: unknown): GenerationConfig | undefined {
   if (!stored || typeof stored !== "object") return undefined;
   const c = stored as Record<string, unknown> & {
@@ -57,12 +53,7 @@ export function toClientConfig(stored: unknown): GenerationConfig | undefined {
   return parsed.success ? parsed.data : undefined;
 }
 
-/**
- * A declaration read back as what the prompt box would have to be set to to
- * produce it — the element's own account of how it was made, which is what
- * "Rerun" and "Reuse" work from. Inputs are named by library path in the
- * file and by asset id in the prompt box, so they are looked up on the way.
- */
+// Inputs are named by library path in the file and by asset id in the prompt box.
 function toPromptConfig(spec: GenerateSpec, library: AssetLibrary): GenerationConfig {
   const idOf = (input: AssetInput | undefined): string | undefined =>
     typeof input === "string" ? library.get(input)?.id : undefined;
@@ -104,7 +95,6 @@ function toPromptConfig(spec: GenerateSpec, library: AssetLibrary): GenerationCo
   }
 }
 
-/** The generation a declaration rests on: itself, or what its transforms were put over. */
 function generationUnder(ref: AssetRef): GenerateSpec | undefined {
   const spec = getAssetSpec(ref);
   if (!isTransformSpec(spec)) return spec;
@@ -115,10 +105,7 @@ export function useGenerationRecords() {
   const library = useLibrary();
   const { bound, sources } = useMediaSelection();
 
-  // What the selected elements declare their source to be. An element made by
-  // the prompt box carries the whole spec, so this answers before the asset
-  // exists — and without asking the server what it was asked for. Transforms
-  // are looked through: the generation under them is what the box made.
+  // Read from the declarations, so this answers before the asset exists; transforms are looked through.
   const declarations = createMemo(() =>
     sources()
       .map((entity) => authoredElement(entity)?.props.src)
@@ -169,8 +156,7 @@ export function useGenerationRecords() {
     const declared = declarations()[0];
     if (declared && lib) return toPromptConfig(declared, lib);
 
-    // Nothing declared: an asset generated before the project was written in
-    // JSX, whose settings only the record of the run still has.
+    // Nothing declared: an asset generated before projects were JSX, whose settings only the run's record has.
     const ids = generationIds();
     if (ids.length === 0) return undefined;
     const record = settledRecords().find((r) => r.id === ids[0]);

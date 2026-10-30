@@ -294,8 +294,7 @@ export function FileExportSpecificSceneMenu() {
   const world = useWorld();
   const { exportScene } = useExport();
 
-  // Scenes are top-level by definition; the order is the stage's, so the menu
-  // reads the way the timeline's scene switcher does.
+  // Scenes are top-level by definition; the stage's order is the one the timeline's scene switcher shows.
   const children = useQuery(Scene, ChildOf(world.get(Root)!));
   const scenes = createMemo(() => [...children()].sort(sortByItemIndex));
 

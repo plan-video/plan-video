@@ -47,7 +47,6 @@ import type { Entity } from "koota";
 
 export type GradientPickerProps = {
   fill: Entity;
-  /** Swaps the gradient for one of the other kind, which is another element. */
   onChangeKind(radial: boolean): void;
 };
 
@@ -75,9 +74,7 @@ function getSliderRatio(
   return Math.round(clamp((pos.x - rect.left) / rect.width, 0, 1) * 100) / 100;
 }
 
-// Visual position of a stop on the track in [0, 1]. Offsets in [0, 1] map
-// directly so the right edge stays at 100%; offsets > 1 wrap so cycling
-// animations show the wrapped position.
+// Offsets in [0, 1] map directly so the right edge stays at 100%; offsets > 1 wrap for cycling animations.
 function visualOffset(raw: number): number {
   if (raw <= 1) return Math.max(0, raw);
   return raw % 1;
@@ -87,12 +84,6 @@ function isPrimaryPointerButton(e: PointerEvent) {
   return e.button === 0 && !e.ctrlKey;
 }
 
-/**
- * A gradient paint: its stops, its rotation, and which of the two gradient
- * elements it is. Every stop is a `<colorStop offset color opacity>` of its
- * own, so adding, moving and deleting one are element edits; the values shown
- * are `Computed`, which the motion system writes.
- */
 export function GradientFillPicker(props: GradientPickerProps) {
   const world = useWorld();
   const editor = useEditor();
@@ -126,7 +117,6 @@ export function GradientFillPicker(props: GradientPickerProps) {
     syncKeyframe(world, editor, stop, "opacity", value);
   };
 
-  /** Adds a `<colorStop>` and returns it, or null if the fill has no source yet. */
   const insertStop = (offset: number, color: number, opacity: number): Entity | null => {
     const [stop] = editor.insertElement(props.fill, () => (
       <ColorStopElement
@@ -216,8 +206,7 @@ export function GradientFillPicker(props: GradientPickerProps) {
     }
     if (selectedStop() === null) return;
 
-    // Prevent the event from bubbling up to the document.
-    // otherwise the selection would get deleted instead
+    // Keep the key from reaching the document, which would delete the selection instead.
     e.preventDefault();
     e.stopImmediatePropagation();
     removeSelectedStop();
@@ -227,7 +216,6 @@ export function GradientFillPicker(props: GradientPickerProps) {
   onMount(() => window.addEventListener("keydown", handleKeyDown, { capture: true }));
   onCleanup(() => window.removeEventListener("keydown", handleKeyDown, { capture: true }));
 
-  // Clear stale selection if the selected stop was deleted.
   createEffect(() => {
     const stop = selectedStop();
     if (stop === null) return;

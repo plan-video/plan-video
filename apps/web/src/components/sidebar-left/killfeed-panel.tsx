@@ -47,10 +47,9 @@ import {
 import { plain } from "@/lib/killfeed-feed";
 import { msg, t } from "@/lib/i18n";
 
-/** What a killfeed drag carries: the entry's spec, as JSON. */
 export const KILLFEED_DRAG_TYPE = "application/x-plan-killfeed";
 
-/** Kept across tab switches, so the next kill starts from the last one; `spec()` is the kill being edited. */
+/** Kept across tab switches, so the next kill starts from the last one. */
 const feed = createKillfeedFeed<KillfeedSpec>(structuredClone(DEFAULT_KILLFEED));
 const { spec, set: setSpec } = feed;
 const [placement, setPlacement] = createStore<KillfeedPlacement>(structuredClone(DEFAULT_PLACEMENT));
@@ -80,7 +79,6 @@ function setKillType(type: KillType) {
   setSpec({ suicide: type === "self", enemyKill: type === "enemy" });
 }
 
-/** Guns (with the special kills) or an agent's abilities. */
 type WeaponTab = "weapons" | "abilities";
 
 const WEAPON_TABS: { id: WeaponTab; label: string }[] = [
@@ -88,7 +86,6 @@ const WEAPON_TABS: { id: WeaponTab; label: string }[] = [
   { id: "abilities", label: msg("Abilities") },
 ];
 
-/** The special kills as one more class after the guns': the spike, a fall, a door. */
 const SPECIAL = { id: "special", label: msg("Special") };
 
 const agentKey = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -104,10 +101,8 @@ const RED = "light-dark(#D63A37, #F05B58)";
 
 type Role = "killer" | "victim";
 
-/** The side's color in game: your team is teal, the enemy red. */
 const roleColor = (role: Role) => ((role === "killer") !== spec().enemyKill ? TEAL : RED);
 
-/** The next kill in a streak: a copy of the last, one more on the killer's count. */
 const nextKill = (copy: KillfeedSpec) => {
   copy.kills = Math.min(KILLFEED_MAX_KILLS, copy.kills + 1);
 };
@@ -212,7 +207,6 @@ const handleDragStart = (event: DragEvent) => {
   if (event.dataTransfer) event.dataTransfer.effectAllowed = "copy";
 };
 
-/** The market card: the default kill, marked as yours and a headshot. */
 const COVER_KILLFEED: KillfeedSpec = { ...DEFAULT_KILLFEED, headshot: true, highlight: true };
 
 export function KillfeedCover() {
@@ -226,11 +220,6 @@ export function KillfeedCover() {
   );
 }
 
-/**
- * A player as one row like the other games' name rows: their agent's face,
- * which opens the agent grid under the row, their side in its color, and
- * their name. A name still matching the old agent follows the new one.
- */
 function PlayerRow(props: {
   role: Role;
   label: string;
@@ -299,18 +288,10 @@ function PlayerRow(props: {
   );
 }
 
-/**
- * The gun, ability or special icon in the middle. A switch picks guns or
- * abilities; one row under it picks the guns' class (the special kills are
- * the last) or whose abilities; then the tiles. The abilities open on the
- * killer's agent when theirs can kill. Picking the chosen one again leaves
- * the middle empty.
- */
 function WeaponSection() {
   const current = killfeedWeapon(spec().weapon);
   const [group, setGroup] = createSignal<KillfeedWeaponGroup>(current?.group ?? "weapons");
   const [category, setCategory] = createSignal(current?.category ?? "");
-  // Picking another kill opens its weapon's class.
   createEffect(
     on(feed.selected, () => {
       const weapon = killfeedWeapon(spec().weapon);
@@ -328,7 +309,6 @@ function WeaponSection() {
     return options.some((option) => option.id === category()) ? category() : options[0]!.id;
   };
 
-  /** Opens a tab on the chosen weapon when it's there, else on the first class, or the killer's own abilities. */
   const selectTab = (next: WeaponTab) => {
     const weapon = killfeedWeapon(spec().weapon);
     if (weapon && (weapon.group === "abilities") === (next === "abilities")) {
@@ -341,7 +321,6 @@ function WeaponSection() {
     setCategory(own?.id ?? options[0]?.id ?? "");
   };
 
-  /** The guns' classes, with the special kills as one more. */
   const classes = () => [...killfeedCategories("weapons"), SPECIAL];
   const activeClass = () => (group() === "special" ? SPECIAL.id : (activeCategory() ?? ""));
   const selectClass = (id: string) => {
@@ -349,7 +328,6 @@ function WeaponSection() {
     setCategory(id === SPECIAL.id ? "" : id);
   };
 
-  /** Whose abilities: each class is an agent, shown by their face. */
   const owners = () => categories().map((option) => ({ id: option.id, label: option.label, url: agentNamed(option.label)?.icon ?? "" }));
   const owner = () => categories().find((option) => option.id === activeCategory())?.label ?? "";
 
@@ -428,7 +406,6 @@ function WeaponSection() {
   );
 }
 
-/** The entry as it will land on the video, scaled to fit. */
 function KillfeedPreview(props: { spec: KillfeedSpec }) {
   const [src, setSrc] = createSignal<string>();
   let version = 0;

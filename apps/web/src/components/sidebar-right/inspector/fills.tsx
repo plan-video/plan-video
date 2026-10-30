@@ -16,7 +16,6 @@ import { FillRow } from "./fill-row";
 
 import type { Entity } from "koota";
 
-/** What "Add fill" authors. */
 const DEFAULT_FILL_COLOR = "#E0E0E0";
 
 /** A text is painted by its glyphs, which no picture and no video fills. */
@@ -29,13 +28,7 @@ type FillsSettingsProps = {
   selection: Entity[];
 };
 
-/**
- * The paint children of the selected node, in paint order (the list is shown
- * topmost first, so the last element in the file is the first row). A row
- * opens the picker, where the fill's kind can be changed — which replaces the
- * element, since each kind is a tag of its own, so the picker hands back the
- * entity it ended up with.
- */
+// The list shows topmost first, so the last element in the file is the first row.
 export function FillsSettings(props: FillsSettingsProps) {
   const editor = useEditor();
   const entity = () => props.selection[0]!;
@@ -64,12 +57,8 @@ export function FillsSettings(props: FillsSettingsProps) {
     return fill !== undefined && fills().includes(fill) ? fill : undefined;
   });
 
-  /**
-   * Swaps `fill` with its neighbour, later in the file (`direction` 1, on
-   * top) or earlier. Written as a swap because a move needs an anchor:
-   * `reparent` appends without one, and refuses an append into the parent the
-   * element already has.
-   */
+  // A swap, because a move needs an anchor: `reparent` appends without one, and refuses an append
+  // into the parent the element already has.
   const handleReorderFill = (fill: Entity, direction: number) => {
     const siblings = fills();
     const index = siblings.indexOf(fill);

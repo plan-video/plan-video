@@ -15,20 +15,12 @@ import { isMacOSDesktop, isWindowsDesktop } from "@/projects";
 
 export const EDITOR_RAIL_WIDTH = 44;
 
-/**
- * The strip down the window's left edge, on the chrome like the dashboard's
- * rail: the project menu, the left panel's views, and at the bottom
- * the toggle that hides every panel.
- */
 export function EditorRail(props: { style?: JSX.CSSProperties }) {
   const { isDesktop, isFullscreen } = useEditorApi();
   const { toggleUI } = useLayout();
 
-  // Padded by the gap on its left, so the buttons sit in the middle of the
-  // strip between the window's edge and the left panel.
   return (
     <nav class="flex min-h-0 flex-col items-center gap-1 pb-1.5 pl-1.5" style={props.style} aria-label={t("Panels")}>
-      {/* The traffic lights, on the Mac app outside fullscreen. */}
       <Show when={isDesktop && isMacOSDesktop() && !isFullscreen()}>
         <div class="h-8 shrink-0" />
       </Show>

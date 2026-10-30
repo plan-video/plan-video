@@ -42,16 +42,9 @@ const ASSET_FILTER_OPTIONS: ReadonlyArray<{
 export type AssetFillPickerProps = {
   node: Entity;
   fill: Entity;
-  /** Paints `asset` into the fill; see `FillPicker` for what that authors. */
   onSelectAsset(asset: Asset): void;
 };
 
-/**
- * The library, as a fill picker: the image and video assets, filtered and
- * searched, one of which becomes the paint. The cards are the asset
- * browser's, so an asset can be renamed, replaced or deleted from here the
- * same way it can from the sidebar.
- */
 export function AssetFillPicker(props: AssetFillPickerProps) {
   const library = useLibrary();
 

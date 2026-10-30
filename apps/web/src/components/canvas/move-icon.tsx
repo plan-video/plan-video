@@ -4,8 +4,7 @@
 
 import { cx } from "@/lib/cva";
 
-// The Move tool's pointer, filled and drawn on a 16px grid. Lucide's outlined
-// mouse-pointer-2 smeared its diagonal 2px lines into grey steps at 1x.
+// Hand-drawn on a 16px grid: Lucide's outlined mouse-pointer-2 smears its 2px diagonals into grey steps at 1x.
 export function MoveIcon(props: { class?: string }) {
   return (
     <svg viewBox="0 0 16 16" class={cx("size-4 shrink-0", props.class)} aria-hidden="true">

@@ -246,13 +246,8 @@ type AudioSettingsProps = {
   selection: Entity[];
 };
 
-/**
- * The node's audio: its gain in decibels, mute and solo, and the live level
- * of its bus. `volume` and `muted` are props (0 dB is unity, so a volume
- * left there is unset); solo is the runtime's own tag with no JSX spelling,
- * written to the trait alone and gone on the next recompile, which is what a
- * monitoring toggle should be.
- */
+// 0 dB is unity, so a volume left there is unset. Solo is the runtime's own tag with no JSX spelling:
+// written to the trait alone and gone on the next recompile, as a monitoring toggle should be.
 export function AudioSettings(props: AudioSettingsProps) {
   const world = useWorld();
   const editor = useEditor();
@@ -263,8 +258,7 @@ export function AudioSettings(props: AudioSettingsProps) {
   const volume = useDerived(() => entity().get(Computed)?.volume ?? 0);
   const muted = useHas(entity, Muted);
   const soloed = useHas(entity, Soloed);
-  // The bus is spun up by the playback system once the node has audio, and
-  // set back to null when its decoders are released.
+  // Spun up by the playback system once the node has audio, and set back to null when its decoders are released.
   const audioBus = useTrait(entity, AudioBusHandle);
 
   const toggleMuted = () => {
@@ -289,8 +283,7 @@ export function AudioSettings(props: AudioSettingsProps) {
 
   const handleVolumeChange = (value: number | undefined) => {
     if (value === undefined) return;
-    // Whole decibels: the field and the knob both show the value rounded,
-    // and a dragged knob would otherwise write a new fraction per frame.
+    // Whole decibels: a dragged knob would otherwise write a new fraction per frame.
     const next = Math.round(normalizeDb(value));
     editor.editProperty(entity(), "volume", next === 0 ? false : next);
     syncKeyframe(world, editor, entity(), "volume", next);

@@ -14,7 +14,7 @@ export type SolidFillPickerProps = {
   fill: Entity;
 };
 
-/** A `<solidPaint>`'s color and opacity. `color` is required, never unset. */
+/** `color` is required, never unset. */
 export function SolidFillPicker(props: SolidFillPickerProps) {
   const world = useWorld();
   const editor = useEditor();

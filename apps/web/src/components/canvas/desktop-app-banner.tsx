@@ -14,10 +14,6 @@ import { store } from "@/init";
 
 const BANNER_IMAGE = new URL("@/assets/images/desktop-app-banner.png", import.meta.url).href;
 
-/**
- * Dismissible promo for the desktop app, pinned to the bottom left of the
- * canvas. Hidden in the desktop build, which is the thing being advertised.
- */
 export function DesktopAppBanner() {
   const { isDesktop } = useEditorApi();
   const [dismissed, setDismissed] = createStoredSignal(

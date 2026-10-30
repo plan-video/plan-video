@@ -69,10 +69,6 @@ export function LayoutPanel(props: LayoutPanelProps) {
     return currentWidth > currentHeight ? "horizontal" : "vertical";
   });
 
-  /**
-   * The ratio the lock keeps: the pinned authored box, or — when the pin is
-   * empty because neither bound is authored — the box as currently shown.
-   */
   const lockedRatio = () => {
     const aspect = entity().get(KeepAspectRatio);
     if (!aspect) return undefined;
@@ -83,8 +79,7 @@ export function LayoutPanel(props: LayoutPanelProps) {
   const resize = (params: { width?: number; height?: number }) => {
     let { width, height } = params;
 
-    // One bound given, the lock drives the other; both given is a size
-    // chosen outright (a preset, an orientation swap) the lock follows.
+    // One bound given, the lock drives the other; both given is a size chosen outright, which the lock follows.
     const ratio = lockedRatio();
     if (ratio !== undefined) {
       if (width !== undefined && height === undefined) {
@@ -142,7 +137,7 @@ export function LayoutPanel(props: LayoutPanelProps) {
     return t("Square");
   };
 
-  /** A size chosen outright (orientation swap, preset). The lock is cleared so the old ratio cannot keep the previous resolution. */
+  /** The lock is cleared so the old ratio cannot keep the previous resolution. */
   const setSize = (width: number, height: number) => {
     resizeScene(world, entity(), width, height);
   };
@@ -151,7 +146,6 @@ export function LayoutPanel(props: LayoutPanelProps) {
     const currentWidth = width() || DEFAULT_WIDTH;
     const currentHeight = height() || DEFAULT_HEIGHT;
 
-    // Swap width and height
     setSize(currentHeight, currentWidth);
   };
 

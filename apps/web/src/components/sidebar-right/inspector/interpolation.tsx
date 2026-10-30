@@ -55,7 +55,7 @@ function parseBezier(
   const match = easing.match(
     /cubicBezier\(([\d.-]+),([\d.-]+),([\d.-]+),([\d.-]+)\)/,
   );
-  if (!match) return [0, 0, 1, 1]; // linear
+  if (!match) return [0, 0, 1, 1];
   return [
     parseFloat(match[1]),
     parseFloat(match[2]),
@@ -84,18 +84,7 @@ function formatBezier(points: [number, number, number, number]): string {
   return points.map((p) => p.toFixed(2)).join(", ");
 }
 
-/**
- * The easing of the selected keyframes: which segment shape they use and its
- * parameters. What a `<keyframe>` says is one `easing` prop, either a named
- * preset or the descriptor spelled out, so a curve dragged by hand travels as
- * `cubicBezier(...)` while the four ease and four spring presets travel as
- * their names. Linear is `<keyframe>`'s default and so is unset rather than
- * written.
- *
- * The panel shows the first selected keyframe and writes to all of them, the
- * way it always has: a multi-selection is being set to one easing, not being
- * asked what each of them says.
- */
+// Shows the first selected keyframe and writes to all of them: a multi-selection is being set to one easing.
 export function InterpolationSettings(props: InterpolationSettingsProps) {
   const editor = useEditor();
 
@@ -120,10 +109,7 @@ export function InterpolationSettings(props: InterpolationSettingsProps) {
     }) ?? null;
   });
 
-  /**
-   * Writes `descriptor` to every selected keyframe, named where the JSX has a
-   * word for it. Linear is the prop's default, so it unsets instead.
-   */
+  // Linear is the prop's default, so it unsets instead.
   const setEasingForAll = (descriptor: string) => {
     const named = easingPreset(descriptor);
     const value = named === LINEAR ? false : (named?.name ?? descriptor);
@@ -182,7 +168,6 @@ export function InterpolationSettings(props: InterpolationSettingsProps) {
         class="w-full"
       />
 
-      {/* Hold tab content */}
       <Show when={activeTab() === "hold"}>
         <StepCurve
           steps={stepsCount()}
@@ -219,7 +204,6 @@ export function InterpolationSettings(props: InterpolationSettingsProps) {
         </div>
       </Show>
 
-      {/* Ease tab content */}
       <Show when={activeTab() === "ease"}>
         <BezierCurve
           points={bezierPoints()}
@@ -271,7 +255,6 @@ export function InterpolationSettings(props: InterpolationSettingsProps) {
         </div>
       </Show>
 
-      {/* Spring tab content */}
       <Show when={activeTab() === "spring"}>
         <SpringCurve
           bounce={springParams().bounce}
@@ -340,8 +323,6 @@ export function InterpolationSettings(props: InterpolationSettingsProps) {
     </PanelSection>
   );
 }
-
-/* ---------- Bezier curve visualisation ---------- */
 
 const BEZIER_SIZE = 236;
 const BEZIER_PAD_X = 12;
@@ -436,7 +417,6 @@ function BezierCurve(props: BezierCurveProps) {
         class="w-full h-full"
         fill="none"
       >
-        {/* Guide lines */}
         <line
           x1={0}
           y1={BEZIER_PAD_Y}
@@ -456,7 +436,6 @@ function BezierCurve(props: BezierCurveProps) {
           stroke-opacity="0.4"
         />
 
-        {/* Handle lines */}
         <line
           x1={p0().x}
           y1={p0().y}
@@ -474,14 +453,12 @@ function BezierCurve(props: BezierCurveProps) {
           stroke-width="1"
         />
 
-        {/* Bezier curve */}
         <path
           d={`M ${p0().x} ${p0().y} C ${p1().x} ${p1().y}, ${p2().x} ${p2().y}, ${p3().x} ${p3().y}`}
           stroke="var(--color-primary)"
           stroke-width="2"
         />
 
-        {/* Endpoint diamonds */}
         <rect
           x={p0().x - 4}
           y={p0().y - 4}
@@ -501,7 +478,6 @@ function BezierCurve(props: BezierCurveProps) {
           transform={`rotate(45 ${p3().x} ${p3().y})`}
         />
 
-        {/* Handle knob P1 (bottom-left control point) */}
         <circle
           cx={p1().x}
           cy={p1().y}
@@ -516,7 +492,6 @@ function BezierCurve(props: BezierCurveProps) {
           onPointerCancel={handlePointerUp}
         />
 
-        {/* Handle knob P2 (top-right control point) */}
         <circle
           cx={p2().x}
           cy={p2().y}
@@ -534,8 +509,6 @@ function BezierCurve(props: BezierCurveProps) {
     </div>
   );
 }
-
-/* ---------- Interpolation preview ---------- */
 
 const PREVIEW_DURATION = 1000;
 const KNOB_SIZE = 8;
@@ -610,8 +583,6 @@ function InterpolationPreview(props: { easing: string }) {
   );
 }
 
-/* ---------- Spring curve visualisation ---------- */
-
 const SPRING_W = BEZIER_SIZE;
 const SPRING_H = BEZIER_SIZE;
 const SPRING_PAD = 20;
@@ -637,7 +608,6 @@ function SpringCurve(props: SpringCurveProps) {
   let svgRef!: SVGSVGElement;
   const [dragging, setDragging] = createSignal<"duration" | "bounce" | null>(null);
 
-  // Sample the curve via animejs spring
   const curveData = createMemo(() => {
     const s = spring({ bounce: props.bounce, duration: props.duration });
     // More oscillations at high bounce — scale samples to avoid aliasing
@@ -691,13 +661,11 @@ function SpringCurve(props: SpringCurveProps) {
     return d;
   });
 
-  // Duration pill: linear map [DURATION_MIN..DURATION_MAX] → x
   const durationX = createMemo(() => {
     const norm = (props.duration - DURATION_MIN) / (DURATION_MAX - DURATION_MIN);
     return SPRING_PAD + norm * SPRING_INNER_W;
   });
 
-  // Bounce pill: linear map [BOUNCE_MAX..BOUNCE_MIN] → y (inverted: top = max bounce)
   const bounceY = createMemo(() => {
     const norm = (props.bounce - BOUNCE_MIN) / (BOUNCE_MAX - BOUNCE_MIN);
     return SPRING_PAD + (1 - norm) * SPRING_INNER_H;
@@ -748,7 +716,6 @@ function SpringCurve(props: SpringCurveProps) {
         fill="none"
         preserveAspectRatio="none"
       >
-        {/* 4 inset corner diamonds defining the mapping range */}
         {[
           [SPRING_PAD, SPRING_PAD],
           [SPRING_PAD + SPRING_INNER_W, SPRING_PAD],
@@ -763,7 +730,6 @@ function SpringCurve(props: SpringCurveProps) {
           />
         ))}
 
-        {/* Duration handle guide line (vertical, full height) */}
         <line
           x1={durationX()}
           y1={0}
@@ -774,7 +740,6 @@ function SpringCurve(props: SpringCurveProps) {
           stroke-opacity="0.4"
         />
 
-        {/* Bounce handle guide line (horizontal, full width) */}
         <line
           x1={0}
           y1={bounceY()}
@@ -785,7 +750,6 @@ function SpringCurve(props: SpringCurveProps) {
           stroke-opacity="0.4"
         />
 
-        {/* Spring response curve */}
         <path
           d={buildPath()}
           stroke="var(--color-primary)"
@@ -793,7 +757,6 @@ function SpringCurve(props: SpringCurveProps) {
           fill="none"
         />
 
-        {/* Duration pill (horizontal drag) — vertical bar */}
         <rect
           x={durationX() - PILL_THICK / 2}
           y={SPRING_H / 2 - PILL_LONG / 2}
@@ -810,7 +773,6 @@ function SpringCurve(props: SpringCurveProps) {
           onPointerCancel={handlePointerUp}
         />
 
-        {/* Bounce pill (vertical drag) — horizontal bar */}
         <rect
           x={SPRING_W / 2 - PILL_LONG / 2}
           y={bounceY() - PILL_THICK / 2}
@@ -830,8 +792,6 @@ function SpringCurve(props: SpringCurveProps) {
     </div>
   );
 }
-
-/* ---------- Step curve visualisation ---------- */
 
 const STEP_KNOB_W = 16;
 const STEP_KNOB_H = 8;
@@ -866,7 +826,6 @@ function StepCurve(props: StepCurveProps) {
     return parts.join(" ");
   };
 
-  // Linear slider: steps=1 at bottom, steps=STEP_MAX at top
   const stepsToY = (steps: number) =>
     BEZIER_SIZE - BEZIER_PAD_Y - ((steps - 1) / (STEP_MAX - 1)) * BEZIER_H;
 
@@ -909,7 +868,6 @@ function StepCurve(props: StepCurveProps) {
         class="w-full h-full"
         fill="none"
       >
-        {/* Guide lines */}
         <line
           x1={0}
           y1={BEZIER_PAD_Y}
@@ -928,7 +886,6 @@ function StepCurve(props: StepCurveProps) {
           class="text-muted"
           stroke-opacity="0.4"
         />
-        {/* Dynamic guide line at step level */}
         <line
           x1={BEZIER_PAD_X}
           y1={guideLine()}
@@ -939,14 +896,12 @@ function StepCurve(props: StepCurveProps) {
           stroke-opacity="0.4"
         />
 
-        {/* Step curve */}
         <path
           d={buildPath()}
           stroke="var(--color-primary)"
           stroke-width="2"
         />
 
-        {/* Endpoint diamonds */}
         <rect
           x={BEZIER_PAD_X - 4}
           y={BEZIER_SIZE - BEZIER_PAD_Y - 4}
@@ -966,7 +921,6 @@ function StepCurve(props: StepCurveProps) {
           transform={`rotate(45 ${BEZIER_PAD_X + BEZIER_W} ${BEZIER_PAD_Y})`}
         />
 
-        {/* Draggable knob — pill shape */}
         <rect
           x={knobX() - STEP_KNOB_W / 2}
           y={knobY() - STEP_KNOB_H / 2}

@@ -40,11 +40,7 @@ import { isDesktop } from "@/projects";
 import type { GenerationConfig } from "./schemas";
 import type { Entity } from "koota";
 
-/**
- * Generating takes the desktop app: the website has nothing answering
- * `/api/trpc`, so there it keeps to what runs in the browser (captions,
- * removing a background) and leaves out prompts, reruns and credits.
- */
+// The website has nothing answering `/api/trpc`, so only the desktop app generates; the site keeps to what runs in the browser.
 const canGenerate = isDesktop();
 
 interface ActionBarProps {
@@ -70,7 +66,6 @@ export function ActionBar(props: ActionBarProps) {
   const isImage = createMemo(() => imageNodes().length > 0);
   const isVideo = createMemo(() => videoNodes().length > 0);
 
-  /** One clip whose footage is another size than its scene: the scene can take the footage's. */
   const sceneFit = useDerived(
     () => {
       const selected = nodes();
@@ -122,7 +117,6 @@ export function ActionBar(props: ActionBarProps) {
     });
   };
 
-  /** One picture opens the preview; several, or taking it back off, act at once. */
   const removeBackground = () => {
     const images = imageNodes();
     if (images.length === 1 && !isOn("removeBackground")) setCutoutFor(images[0]!);

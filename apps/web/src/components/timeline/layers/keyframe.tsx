@@ -32,10 +32,6 @@ import type { Entity } from 'koota';
 import type { PropertyPath } from '@plan.video/runtime';
 import type { LayerRowProps } from './layer';
 
-/**
- * A row for one animated property, with a way to step between its keyframes
- * and to put one where the playhead is.
- */
 export function KeyframeLayer(props: LayerRowProps) {
   const world = useWorld();
 
@@ -49,12 +45,8 @@ export function KeyframeLayer(props: LayerRowProps) {
   const hovering = useTag(entity, Hovering);
   const selected = useTag(entity, Selected);
 
-  /**
-   * The track's keyframes as scene frames, in order. They are authored in the
-   * clip's own time — which is what makes them move with it, and run at its
-   * speed — so each is put back on the scene's the way `getNodeLocalFrame`
-   * takes them off it.
-   */
+  // Authored in the clip's own time, so they move with it and run at its speed; put back on the scene's
+  // the way `getNodeLocalFrame` takes them off it.
   const frames = useDerived(
     () => {
       const clip = findClosestParentGeometry(entity());
@@ -155,10 +147,7 @@ export function KeyframeLayer(props: LayerRowProps) {
   )
 }
 
-/**
- * What the row calls each property it can hold a track for — the name the
- * inspector puts on the same control, so the two agree.
- */
+/** The same names the inspector puts on these controls, so the two agree. */
 const PROPERTY_NAMES: Partial<Record<PropertyPath, string>> = {
   'position.x': msg('Position X'),
   'position.y': msg('Position Y'),
@@ -188,11 +177,7 @@ const PROPERTY_NAMES: Partial<Record<PropertyPath, string>> = {
   'chars': msg('Text'),
 };
 
-/**
- * A property's name as the row shows it, in English (show it through t()).
- * Tracks hold the runtime's paths, so a path with no name of its own falls
- * back to its last segment as words — a label rather than the path itself.
- */
+// In English (show it through t()). A path with no name of its own falls back to its last segment as words.
 export function formatProperty(path: string): string {
   if (!path) return '';
 

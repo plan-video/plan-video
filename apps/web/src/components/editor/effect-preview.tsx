@@ -8,11 +8,7 @@ import type { EffectKind } from "@/engine/effects";
 
 import "./effect-preview.css";
 
-/**
- * Where each preview rests, seconds into its 2.4s loop: a frame where the
- * effect shows, so the still alone says what it does. The zooms rest wide,
- * with the crop they go to marked.
- */
+/** Seconds into each 2.4s loop (effect-preview.css) where the still shows the effect. */
 const STILLS: Record<EffectKind, number> = {
   zoomIn: 0.2,
   slowZoom: 0,
@@ -26,7 +22,6 @@ const STILLS: Record<EffectKind, number> = {
 
 const ZOOMS: EffectKind[] = ["zoomIn", "autoZoom", "slowZoom"];
 
-/** An effect played on real footage, for a PresetTile. */
 export function EffectPreview(props: { kind: EffectKind }) {
   return (
     <div class="fx" data-kind={props.kind} style={{ "--still": `-${STILLS[props.kind]}s` }}>

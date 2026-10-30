@@ -2,11 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Takes the background out of the selected picture on this device and shows
-// the cutout against the original before it goes on the canvas. Applying
-// files the PNG as the element's `transform.removeBackground` result and
-// puts the declaration on its `src`, so it undoes like any other edit.
-
 import { Show, createSignal, onCleanup, onMount } from "solid-js";
 import { toast } from "somoto";
 import { useWorld } from "@plan.video/koota-solid";
@@ -33,7 +28,6 @@ export function RemoveBackgroundDialog(props: { entity: Entity; onClose(): void 
   const { turnOn } = useTransforms();
   const [input, setInput] = createSignal<{ asset: Asset; file: File; url: string } | null>(null);
   const [progress, setProgress] = createSignal<CutoutProgress | null>(STARTING);
-  /** The PNG, fresh from the model or the one an earlier run left in the library. */
   const [result, setResult] = createSignal<{ blob: Blob; url: string; cutout?: Cutout } | null>(null);
   const [error, setError] = createSignal<{ message: string; retry: boolean } | null>(null);
   const [mode, setMode] = createSignal<CutoutMode>("compare");
@@ -102,8 +96,7 @@ export function RemoveBackgroundDialog(props: { entity: Entity; onClose(): void 
       event.preventDefault();
       void apply();
     };
-    // The canvas behind reads every key off the window: arrows would nudge
-    // the clip, Delete would remove it, Escape would drop the selection.
+    // The canvas behind reads every key off the window (arrows nudge, Delete removes, Escape deselects).
     // Tab still reaches the dialog's focus trap.
     const shield = (event: KeyboardEvent) => {
       if (event.key === "Tab") return;

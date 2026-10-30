@@ -10,10 +10,6 @@ import { Icon } from "@/components/ui/icon";
 import { EXTENSIONS, openExtension, setOpenExtension, type Extension } from "@/extensions";
 import { t } from "@/lib/i18n";
 
-/**
- * The left sidebar's Extensions tab: the market, or the extension opened from
- * it. An open extension takes over the header line, with its way back.
- */
 export function ExtensionsPanel() {
   return (
     <div class="relative flex min-h-0 flex-1 flex-col text-sm text-foreground">
@@ -100,11 +96,6 @@ function Market() {
   );
 }
 
-/**
- * An extension in the market: one card, its cover inset in a soft frame and
- * its name and tag beneath, inside the frame, so each name plainly belongs to
- * its cover.
- */
 function ExtensionCard(props: { extension: Extension }) {
   return (
     <button
@@ -129,7 +120,6 @@ function ExtensionCard(props: { extension: Extension }) {
   );
 }
 
-/** What an extension is for as a small tag, in the game's colors when it is for one. */
 function TagBadge(props: { tag: string }) {
   return (
     <span

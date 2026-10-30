@@ -39,7 +39,6 @@ import { isInputTarget } from "@/utils";
 
 import type { AssetLibrary } from "@plan.video/assets";
 
-/** The ancestors of a folder path, root excluded, nearest last. */
 function ancestorsOf(path: string): string[] {
   const chain: string[] = [];
   for (let folder = path; folder; folder = dirname(folder)) chain.unshift(folder);
@@ -56,7 +55,6 @@ export function Assets() {
   const [assetFilter, setAssetFilter] = createSignal<AssetFilter>("ALL");
   const [isDragging, setIsDragging] = createSignal(false);
   const [renamingFolder, setRenamingFolder] = createSignal<string | null>(null);
-  /** A folder picked in the list; picking an asset, anywhere, unpicks it. */
   const [selectedFolder, setSelectedFolder] = createSignal<string | null>(null);
   const [pendingFolderDelete, setPendingFolderDelete] = createSignal<{ path: string; count: number } | null>(null);
   const [currentFolder, setCurrentFolder] = createSignal("");
@@ -71,7 +69,6 @@ export function Assets() {
     return ASSET_FILTER_OPTIONS.find((option) => option.value === value)?.label ?? null;
   };
 
-  /** Whether an entry is in view: of the filtered type, matching the search, or in the open folder. */
   const isShown = (entry: { type: string; path: string }): boolean => {
     const q = query().trim().toLowerCase();
     const selectedFilter = assetFilter();
@@ -93,8 +90,6 @@ export function Assets() {
 
   const itemCount = createMemo(() => visibleFolders().length + filteredPartials().length + filteredAssets().length);
 
-  // Deep paths collapse like the breadcrumbs docs example:
-  // All assets / … / parent / current, with the hidden folders in a dropdown.
   const folderPath = createMemo(() => ancestorsOf(currentFolder()));
   const collapsedFolders = createMemo(() => {
     const path = folderPath();
@@ -127,7 +122,6 @@ export function Assets() {
   const isFolderTarget = (target: EventTarget | null) =>
     target instanceof Element && target.closest("[data-folder-path]") !== null;
 
-  // A folder that went away (deleted, moved) closes to the nearest one left.
   createEffect(() => {
     const folders = library()?.folders();
     let folder = currentFolder();
@@ -146,7 +140,6 @@ export function Assets() {
   };
 
   const handleImportAssets = () => withLibrary((lib) => pickAndImport(lib, currentFolder()).then(() => {}));
-  /** Copies files from the media library, what posts and the dashboard keep, into the project. */
   const importFromLibrary = (files: File[]) => withLibrary((lib) => importFiles(lib, files, currentFolder()).then(() => {}));
   const LIBRARY_LIMIT = 20;
 
@@ -209,7 +202,6 @@ export function Assets() {
     root?.focus();
   };
 
-  /** Deletes a folder with what is in it, asking first unless it holds nothing. */
   const requestDeleteFolder = (path: string) => {
     const lib = library();
     if (!lib) return;
@@ -315,12 +307,7 @@ export function Assets() {
     setRenamingFolder(folder);
   });
 
-  /**
-   * The panel's own keys, the ones its menu advertises. These commands are the
-   * library's rather than the stage's, so they are bound here and not in the
-   * engine's shortcut table, and they act on the folder the panel is showing —
-   * the same folder the buttons import into.
-   */
+  // Bound here, not in the engine's shortcut table: these are the library's commands, acting on the folder the panel shows.
   const handleShortcut = (event: KeyboardEvent) => {
     if (!(event.metaKey || event.ctrlKey) || isInputTarget(event)) return;
     const key = event.key.toLowerCase();
@@ -662,10 +649,6 @@ type BreadcrumbCrumbProps = {
   onOpen(folder: string): void;
 };
 
-/**
- * One segment of the folder path. Clicking navigates there; assets and
- * folders can be dropped on it to move them to that level.
- */
 function BreadcrumbCrumb(props: BreadcrumbCrumbProps) {
   const [isDropTarget, setIsDropTarget] = createSignal(false);
   const library = useLibrary();

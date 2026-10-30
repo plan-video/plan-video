@@ -52,7 +52,6 @@ import { DropIndicator } from './drop-indicator';
 import type { TimelineNode } from '@plan.video/runtime';
 import type { Entity } from 'koota';
 
-/** The row heights the height menu offers, tightest first. */
 const HEIGHT_PRESETS = [
   { label: msg('Tight'), height: 28 },
   { label: msg('Snug'), height: 32 },
@@ -95,8 +94,6 @@ export function Layers() {
     entity.set(Playback, { loop: !playback()?.loop });
   };
 
-  // What the height menu ticks: the height the rows share, or none of them if
-  // they differ.
   const commonHeight = useDerived(() => {
     let common: number | null = null;
 
@@ -115,10 +112,6 @@ export function Layers() {
     }
   };
 
-  /**
-   * A new layer is an empty sequence: a row of its own whose clips share
-   * one line, laid end to end without overlapping.
-   */
   const addLayer = () => {
     const parent = scene();
     if (!parent?.get(Source)?.value) {
@@ -131,7 +124,6 @@ export function Layers() {
     if (layer) editor.select(layer);
   };
 
-  // A press on the empty space below the rows, not on one of them.
   const handlePointerDown = (e: PointerEvent) => {
     if (e.button !== 0 || e.target !== e.currentTarget) return;
     editor.clearSelection();
@@ -302,7 +294,6 @@ export function Layers() {
   );
 }
 
-/** Every clip row of the tree, expanded ones included. */
 function* geometryEntities(nodes: TimelineNode[]): Generator<Entity> {
   for (const node of nodes) {
     if (node.kind === 'geometry') yield node.entity;

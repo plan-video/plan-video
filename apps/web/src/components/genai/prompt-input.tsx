@@ -43,7 +43,6 @@ import {
   ALL_VIDEO_ASPECT_RATIO_OPTIONS,
   ALL_DURATION_OPTIONS,
   PROMPT_INPUT_AUDIO_MODEL_OPTIONS,
-  // PROMPT_INPUT_RESOLUTION_OPTIONS
 } from "./config";
 import { createStoredSignal } from "@/lib/store";
 import { store } from "@/init";
@@ -140,7 +139,6 @@ export function PromptInput(props: PromptInputProps) {
     props.initialConfig ?? createDefaultConfig("IMAGE"),
   );
 
-  /** Shallow-merge updates into the current config. */
   const patch = (updates: Partial<GenerationConfig>) => {
     setConfig((prev) => ({ ...prev, ...updates }) as GenerationConfig);
   };
@@ -148,8 +146,7 @@ export function PromptInput(props: PromptInputProps) {
   const mode = () => config().mode;
   const prompt = () => config().prompt;
 
-  // These are only read inside their matching <Match when={mode() === …}>
-  // blocks, so the narrowing is sound.
+  // Only read inside their matching <Match when={mode() === …}> blocks, so the narrowing is sound.
   const imageConfig = () => {
     const c = config();
     return c.mode === "IMAGE" ? c : undefined;
@@ -177,8 +174,6 @@ export function PromptInput(props: PromptInputProps) {
     return model ? ALL_VIDEO_ASPECT_RATIO_OPTIONS.filter((o) => model.aspectRatios.includes(o.value)) : [];
   });
 
-  // Pictures on the canvas are offered as references and as video frames:
-  // selecting one is another way of attaching it.
   const effectiveImageRefIds = createMemo(() => {
     const lib = library();
     if (!lib) return [];
@@ -191,11 +186,8 @@ export function PromptInput(props: PromptInputProps) {
       .slice(0, MAX_IMAGE_REFERENCES);
   });
 
-  /** The library id a frame is set to, explicitly or by the selection. */
   const frameId = (frame: "start" | "end") => {
-    // A frame the model cannot take is not one the prompt box offers, and
-    // not one a canvas selection quietly attaches either: the declaration is
-    // checked against the model before it runs.
+    // A frame the model cannot take is never offered or auto-attached: the declaration is checked against the model before it runs.
     if (!currentVideoModel()?.features.includes(`${frame}-frame`)) return null;
 
     const lib = library();
@@ -240,8 +232,7 @@ export function PromptInput(props: PromptInputProps) {
       patch({ imageRefIds: refs.filter((id) => id !== assetId) });
       return;
     }
-    // The reference is shown from a selected canvas entity, so removing it
-    // means deselecting that entity.
+    // Shown from a selected canvas entity, so removing it means deselecting that entity.
     const entry = selectedImages().find((e) => e.asset.id === assetId);
     if (entry) editor.deselect(entry.entity);
   };
@@ -292,8 +283,7 @@ export function PromptInput(props: PromptInputProps) {
       patch(frame === "start" ? { startFrameImageId: undefined } : { endFrameImageId: undefined });
       return;
     }
-    // The frame is being shown from a selected canvas entity, so clearing it
-    // means deselecting that entity (mirrors removeImageReference).
+    // Shown from a selected canvas entity, so clearing it means deselecting that entity.
     const entry = selectedImages()[frame === "start" ? 0 : 1];
     if (entry) editor.deselect(entry.entity);
   };
@@ -318,7 +308,6 @@ export function PromptInput(props: PromptInputProps) {
 
     const currentConfig = { ...config(), prompt: prompt().trim() };
 
-    // Add to recent prompts
     const filtered = recentPrompts().filter((p) => p !== currentConfig.prompt);
     setRecentPrompts([currentConfig.prompt, ...filtered].slice(0, 10));
 
@@ -409,8 +398,6 @@ export function PromptInput(props: PromptInputProps) {
     const lib = library();
     if (!lib) return;
 
-    // What a generation is given to work from lives in the project library:
-    // dragged library assets are taken as they are, external files imported.
     const assetIdData = event.dataTransfer?.getData(ASSET_DRAG_TYPE);
     const existingAssetIds = assetIdData?.split(",").filter(Boolean) ?? [];
     const files = droppedFiles(event).filter((file) => file.type.startsWith("image/"));
@@ -461,7 +448,6 @@ export function PromptInput(props: PromptInputProps) {
     });
   };
 
-  // ── Accessors for UI menus (string ↔ config conversions) ────────────
   const aspectRatioAccessor: Accessor<string> = () =>
     imageConfig()?.aspectRatio ?? videoConfig()?.aspectRatio ?? "16:9";
   const variantCountAccessor: Accessor<string> = () => String(imageConfig()?.count ?? 1);
@@ -676,14 +662,6 @@ export function PromptInput(props: PromptInputProps) {
                     onChange={(v) => patch({ aspectRatio: v as AspectRatio })}
                     triggerIcon="aspect-ratio-16-9"
                   />
-                  {/* <PromptInputCompactMenu
-                    aria-label="Select resolution"
-                    menuLabel="Resolution"
-                    value={resolution}
-                    options={PROMPT_INPUT_RESOLUTION_OPTIONS}
-                    onChange={setResolution}
-                    triggerIcon="resolution"
-                  /> */}
                   <PromptInputCompactMenu
                     aria-label={t("Select duration")}
                     menuLabel={t("Duration")}

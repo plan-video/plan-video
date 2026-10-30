@@ -16,8 +16,7 @@ import { cx } from "@/lib/cva";
 
 export type RailIconProps = { class?: string };
 
-// The editor rail's icons, all from Lucide like the dashboard's, shown at 18
-// with 1.75 strokes (about 1.3px, the dashboard rail's weight).
+// All from Lucide, like the dashboard's; 1.75 strokes match the dashboard rail's weight.
 function railIcon(Lucide: Component<{ class?: string; "stroke-width"?: number; "aria-hidden"?: "true" }>) {
   return (props: RailIconProps) => (
     <Lucide class={cx("size-[18px] shrink-0", props.class)} stroke-width={1.75} aria-hidden="true" />

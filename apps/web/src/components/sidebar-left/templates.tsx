@@ -5,7 +5,6 @@
 import { SidebarTabs } from "@/agent-chat";
 import { SceneTemplatePanel } from "@/components/sidebar-right/inspector/scene-template";
 
-/** The left sidebar's Layout tab: stream layouts and video sizes for the scene. */
 export function TemplatePanel() {
   return (
     <div class="relative flex min-h-0 flex-1 flex-col text-sm text-foreground">

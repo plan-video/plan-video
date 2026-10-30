@@ -28,10 +28,6 @@ type CaptionWordsProps = {
   selection: Entity[];
 };
 
-/**
- * The caption's words. Each row is one word: its text, how long it stays
- * on screen, and a way to take it out.
- */
 export function CaptionWords(props: CaptionWordsProps) {
   const world = useWorld();
   const entity = () => props.selection[0]!;

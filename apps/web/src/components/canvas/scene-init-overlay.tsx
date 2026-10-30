@@ -33,14 +33,10 @@ import type { LayoutPreset } from "@/lib/layout-presets";
 const DEFAULT_NAME: string = msg("New Scene");
 const DEFAULT_PRESET: LayoutPreset = { label: msg("Long-form 16:9"), width: 1920, height: 1080 };
 
-/** Same breathing room `focusRect` leaves around a framed rect. */
+/** Matches the padding `focusRect` leaves around a framed rect. */
 const FRAME_PADDING = 80;
 
-/**
- * Centers `rect` in `view`. Done here, rather than through `focusRect`,
- * because the canvas reports no viewport until the engine has mounted, and
- * the placeholder is on screen before that.
- */
+// Not via `focusRect`: the canvas reports no viewport until the engine has mounted, and the placeholder shows before that.
 function frameInView(world: ReturnType<typeof useWorld>, rect: Rect, view: { width: number; height: number }): boolean {
   const width = view.width - FRAME_PADDING * 2;
   const height = view.height - FRAME_PADDING * 2;
@@ -58,12 +54,6 @@ function frameInView(world: ReturnType<typeof useWorld>, rect: Rect, view: { wid
   return true;
 }
 
-/**
- * The empty-project prompt: a placeholder frame where the first scene will
- * land. It is that scene's rect drawn through the camera, so the zoom control
- * scales it before anything exists. The first time a format is shown, the
- * camera frames it; a later zoom is left alone.
- */
 export function SceneInitOverlay() {
   const world = useWorld();
   const editor = useEditor();
@@ -78,14 +68,11 @@ export function SceneInitOverlay() {
   const [dropping, setDropping] = createSignal(false);
   const [overlayEl, setOverlayEl] = createSignal<HTMLDivElement>();
   const [overlaySize, setOverlaySize] = createSignal({ width: 0, height: 0 });
-  // Hidden until the camera has framed this format, so the default camera
-  // offset never flashes the frame off to one side.
+  // Hidden until framed, so the default camera offset never flashes the frame off to one side.
   const [placed, setPlaced] = createSignal(false);
 
   let overlayRef: HTMLDivElement | undefined;
   let buttonRef: HTMLButtonElement | undefined;
-  // The format the camera was last framed on. A zoom doesn't change it, so
-  // the zoom is kept; picking another format frames that one instead.
   let framedPreset: LayoutPreset | undefined;
 
   const showOverlay = createMemo(() => source()?.value && children().length === 0);
@@ -134,8 +121,7 @@ export function SceneInitOverlay() {
     setPlaced(true);
   });
 
-  // The placeholder covers the canvas, so a wheel gesture never reaches the
-  // camera controller underneath. Hand it the same event.
+  // The placeholder covers the canvas, so wheel gestures never reach the camera controller: hand it the same event.
   createEffect(() => {
     const el = overlayEl();
     if (!el) return;
@@ -189,12 +175,7 @@ export function SceneInitOverlay() {
     }
   };
 
-  /**
-   * Puts the new scene exactly where the placeholder frame is, rather than
-   * framing it the way the camera would on its own. A scene made from a
-   * dropped asset need not have the placeholder's aspect ratio, so it is
-   * fitted inside the frame rather than stretched over it.
-   */
+  // A dropped asset's scene may not share the placeholder's aspect ratio, so it is fitted inside the frame, not stretched.
   const focusPlaceholder = (rect: Rect) => {
     const buttonRect = buttonRef?.getBoundingClientRect();
     // The overlay covers the canvas, so its rect is the canvas rect.
@@ -218,10 +199,6 @@ export function SceneInitOverlay() {
     if (scene) editor.select(scene);
   };
 
-  /**
-   * Assets dropped on the placeholder all go into the one scene it becomes,
-   * which takes its format from the last of them that has one.
-   */
   const handleDrop = async (event: DragEvent) => {
     event.preventDefault();
     event.stopPropagation();
@@ -233,13 +210,11 @@ export function SceneInitOverlay() {
     insertAssetsInNewScene(world, assets, sceneOptions());
   };
 
-  /** What a drop brings: library assets dragged in, and files imported now. */
   const droppedAssets = async (event: DragEvent) => {
     const library = world.get(Library);
     if (!library) return [];
 
-    // Read the transfer before the first await: it is gone by the time an
-    // import resolves.
+    // Read the transfer before the first await: it is gone by the time an import resolves.
     const assetIds = event.dataTransfer?.getData(ASSET_DRAG_TYPE)?.split(',').filter(Boolean) ?? [];
     const files = droppedFiles(event);
 

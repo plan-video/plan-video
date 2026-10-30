@@ -2,12 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Upscaling, taking a background out, scoring footage: the editor's side of
-// `transform.*` (see reference/jsx/generate.md). A toggle wraps the
-// element's `src` in the transform — `transform.upscale(<what it was>)` —
-// or takes that layer out again, and stops there: the asset system is what
-// notices the new declaration, runs it and binds the result. Turning one
-// off gives the inner declaration back rather than running anything.
+// Toggles only rewrite the element's `src`: the asset system notices the new declaration, runs it and binds the result.
 
 import { createSignal, onCleanup } from "solid-js";
 import { getAssetSpec, isAssetRef, isTransformSpec, mapAssetInputs, transform } from "@plan.video/jsx";
@@ -18,7 +13,6 @@ import { useMediaSelection } from "./selection";
 import type { AssetInput, TransformType } from "@plan.video/jsx";
 import type { Entity } from "koota";
 
-/** Whether `input` is, somewhere down its chain of transforms, put through `type`. */
 function hasTransform(input: AssetInput, type: TransformType): boolean {
   if (!isAssetRef(input)) return false;
   const spec = getAssetSpec(input);
@@ -26,11 +20,6 @@ function hasTransform(input: AssetInput, type: TransformType): boolean {
   return spec.type === type || hasTransform(spec.input, type);
 }
 
-/**
- * `input` with every `type` layer taken out of its chain of transforms. A
- * generation under the chain is left as it is: its own inputs are its
- * business, not the element's.
- */
 function withoutTransform(input: AssetInput, type: TransformType): AssetInput {
   if (!isAssetRef(input)) return input;
   const spec = getAssetSpec(input);
@@ -39,7 +28,6 @@ function withoutTransform(input: AssetInput, type: TransformType): AssetInput {
   return mapAssetInputs(input, (inner) => withoutTransform(inner, type));
 }
 
-/** The element's `src` as authored, when it is something a transform can be put over. */
 export function sourceOf(entity: Entity): AssetInput | undefined {
   const src = authoredElement(entity)?.props.src;
   return typeof src === "string" && src !== "" ? src : isAssetRef(src) ? src : undefined;
@@ -52,14 +40,12 @@ export function useTransforms() {
   const [edits, setEdits] = createSignal(0);
   onCleanup(editor.onEdit(() => setEdits((count) => count + 1)));
 
-  /** The selected elements a transform can be asked of. */
   const targets = (type: TransformType): Entity[] => {
     if (type === "removeBackground") return imageNodes();
     if (type === "addAudio") return videoNodes();
     return [...imageNodes(), ...videoNodes()];
   };
 
-  /** On when every element it applies to asks for it, so the toggle turns the odd one on. */
   const isOn = (type: TransformType): boolean => {
     edits();
     const selected = targets(type);
@@ -69,11 +55,6 @@ export function useTransforms() {
     });
   };
 
-  /**
-   * Puts `type` over the selection's sources, or takes it off when they all
-   * have it. On goes outermost — the last thing done to the source — and off
-   * takes every layer of it out, wherever it sits in the chain.
-   */
   const toggle = (type: TransformType): void => {
     const next = !isOn(type);
 
@@ -87,7 +68,6 @@ export function useTransforms() {
     }
   };
 
-  /** Puts `type` over one element's source, outermost, unless its chain has it already. */
   const turnOn = (type: TransformType, entity: Entity): void => {
     const src = sourceOf(entity);
     if (src !== undefined && !hasTransform(src, type)) editor.editProperty(entity, "src", transform[type](src));
