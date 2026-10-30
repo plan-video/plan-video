@@ -2,11 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Connected accounts, workspaces, calendars, the media library's list and the
-// lists around them used to stay in the browser that saved them. This keeps
-// one copy on the account and loads it in every browser signed in as that
-// person. Posts have a table of their own and sync one at a time
-// (lib/post-sync.ts); files are in cloud storage; projects sync on their own.
+// Posts have their own table (lib/post-sync.ts), files are in cloud storage, and projects sync on their own.
 
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { createSignal } from "solid-js";
@@ -43,7 +39,7 @@ import {
 
 type Notes = { read: string[]; cleared: string[]; seen: Record<string, number> };
 
-/** One workspace's part of the account. A workspace shared with someone is synced with them on its own (lib/team-sync.ts). */
+/** A shared workspace syncs with its members on its own (lib/team-sync.ts). */
 export type Slice = {
   connections: unknown[];
   groups: unknown[];
@@ -53,10 +49,9 @@ export type Slice = {
   signatureId: string | null;
   templates: unknown[];
   plugs: unknown[];
-  /** Saved caption looks: the brand style. */
   captionStyles: unknown[];
   calendars: Calendar[];
-  /** The media library's items whose files are in cloud storage. */
+  /** Only items whose files are in cloud storage. */
   library: LibraryItem[];
 };
 
@@ -64,11 +59,9 @@ type Body = {
   workspaces: { active: string; list: Workspace[] };
   timeZone: string | null;
   notifications: Notes;
-  /** The person's project folders: projects are a person's, not a workspace's. */
+  /** Projects are a person's, not a workspace's. */
   projectFolders: ProjectFolder[];
-  /** The person's saved colour grades, used across their projects. */
   gradePresets: GradePreset[];
-  /** The person's editor workflows, used across their projects. */
   workflows: Workflow[];
   slices: Record<string, Slice>;
 };
@@ -77,28 +70,24 @@ type Payload = Body & { revision: string };
 
 const EMPTY_NOTES: Notes = { read: [], cleared: [], seen: {} };
 
-/**
- * A slice saved by a tab still running code from before the library synced.
- * It says nothing about the library, which must not read as every item deleted.
- */
+/** From a tab predating library sync. It says nothing about the library, which must not read as every item deleted. */
 const UNKNOWN_LIBRARY: LibraryItem[] = [];
-/** Likewise a copy saved by a tab from before project folders synced: it must not read as every folder deleted. */
+/** Likewise from before project folders synced: it must not read as every folder deleted. */
 const UNKNOWN_FOLDERS: ProjectFolder[] = [];
-/** And one from before saved grades synced. */
+/** Likewise from before saved grades synced. */
 const UNKNOWN_GRADES: GradePreset[] = [];
-/** And one from before workflows synced. */
+/** Likewise from before workflows synced. */
 const UNKNOWN_WORKFLOWS: Workflow[] = [];
-/** The account's table isn't there, as before its migration, so the account's copy is off for this visit. */
+/** The table isn't there (before its migration), so the account copy is off for this visit. */
 let missing = false;
 
-/** Waits before trying the account again after a failed read or save, longer each time in a row. */
+/** Longer each time in a row. */
 const RETRY_MS = [5_000, 15_000, 60_000, 5 * 60_000];
 let failures = 0;
 let retryTimer: ReturnType<typeof setTimeout> | undefined;
 
 const [syncProblem, setSyncProblem] = createSignal<{ message: string; since: number } | null>(null);
 
-/** Why changes made here aren't reaching the account, and since when, while they aren't. */
 export const accountSyncProblem = syncProblem;
 
 let currentUser: string | undefined;
@@ -128,11 +117,7 @@ function schedule() {
   }, 400);
 }
 
-/**
- * Saves this browser's changes to the account now, rather than after the
- * usual pause, for something on the server that reads them next. False when
- * the account couldn't be reached, so the server would read an older copy.
- */
+/** False when the account couldn't be reached, so the server would read an older copy. */
 export async function flushAccountSync(): Promise<boolean> {
   const userId = currentUser;
   if (!userId || missing || !supabase) return true;
@@ -146,12 +131,11 @@ export async function flushAccountSync(): Promise<boolean> {
   return reconcile(userId);
 }
 
-/** Tries the account again now, rather than at the next retry. */
 export function retryAccountSync() {
   if (currentUser && ready && !reconciling) void reconcile(currentUser);
 }
 
-/** Starts the copy for this person. A second call with the same id does nothing. */
+/** A second call with the same id does nothing. */
 export function beginAccountSync(userId: string | undefined) {
   const key = userId ?? "";
   if (startedFor === key) return;
@@ -176,7 +160,7 @@ export function beginAccountSync(userId: string | undefined) {
   const onFocus = () => {
     if (ready && !reconciling && !pushTimer) void reconcile(person);
   };
-  // A change saved just before the tab is hidden or closed goes now, rather than after the pause the page may not live through.
+  // Saved now, rather than after a pause the page may not live through.
   const onHide = () => {
     if (document.visibilityState !== "hidden" || !ready || !pushTimer) return;
     clearTimeout(pushTimer);
@@ -204,7 +188,7 @@ async function run(userId: string) {
     // Someone else signed in while this ran, and their own run takes it from here.
     if (userId === currentUser) {
       ready = true;
-      // Reads the connections again, which hands any login still in this browser to the server.
+      // Hands any login still in this browser to the server.
       reloadSocialConnections(userId);
       subscribe(userId);
       if (dirty) {
@@ -231,7 +215,7 @@ function subscribe(userId: string) {
     .subscribe();
 }
 
-/** True when this browser's copy and the account's agree afterwards. */
+/** True when both copies agree afterwards. */
 async function reconcile(userId: string): Promise<boolean> {
   if (!supabase || missing) return false;
   if (reconciling) {
@@ -247,26 +231,26 @@ async function reconcile(userId: string): Promise<boolean> {
         return false;
       }
       if (remote === "failed") return failed(userId);
-      // Each workspace's posts as read now: what changes here before the merged copy is written back is kept.
+      // Posts as read now: what changes here before the merged copy is written back is kept.
       const reads = new Map<string, CalendarRead>();
       const local = await readLocal(userId, reads);
       const baseline = readBaseline(userId);
       const next = canonicalize(choose(remote, local, baseline, readKnown(userId), readKnownWorkspaces(userId)));
       const changedHere = stable(next) !== stable(local);
       const changedThere = !remote || stable(next) !== stable(strip(remote));
-      // Another tab in this browser may already have written the account's newer copy here, so nothing
-      // changes in storage, but this tab's stores still show the copy before it: they're read again.
+      // Another tab may already have written the newer copy, so storage is unchanged, but this tab's stores still
+      // show the older one: they're read again.
       const movedOn = !!remote && !!baseline && remote.revision !== baseline.revision;
       // A post changed here while this ran stays as it is, and is saved by the run this asks for.
       if ((changedHere || movedOn) && (await writeLocal(userId, { ...next, revision: remote?.revision ?? "" }, reads))) dirty = true;
-      // This browser's copy now has the account's: a save refused below merges the newer copy against it, not the older one.
+      // A save refused below merges the newer copy against this one, not the older one.
       if (remote) remember(userId, withLibrary(remote, baseline ?? local));
       let revision = remote?.revision ?? "";
       if (changedThere) {
         revision = crypto.randomUUID();
         const saved: Payload = { ...next, revision };
-        // `base` names the copy this merged with. If the account moved on since, as when a team member
-        // saves a shared workspace, the server refuses the save, and this merges with the newer copy.
+        // `base` names the copy this merged with: if the account moved on (a team member saved), the server refuses
+        // and this merges with the newer copy.
         const { error } = await supabase.from("account_state").upsert(
           { user_id: userId, payload: { ...saved, base: remote?.revision ?? null }, updated_at: new Date().toISOString() },
           { onConflict: "user_id" },
@@ -303,7 +287,7 @@ function synced(userId: string, body: Body): true {
   return true;
 }
 
-/** A read or save that failed is tried again on its own, soon at first, and on focus or when the connection comes back. */
+/** Retried on its own, soon at first, and on focus or when the connection comes back. */
 function failed(userId: string): false {
   failures++;
   const message = navigator.onLine === false ? t("This browser is offline") : t("plan.video can't reach your account right now");
@@ -325,12 +309,12 @@ function choose(saved: Payload | null, local: Body, baseline: Payload | null, kn
   return mergeBody(strip(baseline), local, strip(remote));
 }
 
-/** A workspace's copy saved by a tab from before the library synced says nothing about it: fills in the one known. */
+/** A copy from a tab before library sync says nothing about it: fills in the one known. */
 export function fillLibrary(slice: Slice, known: Slice): Slice {
   return slice.library === UNKNOWN_LIBRARY ? { ...slice, library: known.library } : slice;
 }
 
-/** Fills in a library, or project folders, an older tab left out with the last ones known. */
+/** Fills in what an older tab left out with the last ones known. */
 function withLibrary(remote: Payload, known: Body): Payload {
   const slices: Record<string, Slice> = {};
   for (const [id, slice] of Object.entries(remote.slices)) {
@@ -342,7 +326,7 @@ function withLibrary(remote: Payload, known: Body): Payload {
   return { ...remote, projectFolders, gradePresets, workflows, slices };
 }
 
-/** The account's copy, null when it has none yet. "failed" is tried again; "missing" means the table isn't there at all. */
+/** Null when it has none yet. "failed" is retried; "missing" means the table isn't there at all. */
 async function fetchPayload(userId: string): Promise<Payload | null | "missing" | "failed"> {
   const { data, error } = await supabase!.from("account_state").select("payload").eq("user_id", userId).maybeSingle();
   if (error) {
@@ -354,7 +338,7 @@ async function fetchPayload(userId: string): Promise<Payload | null | "missing" 
   return asPayload((data as { payload: unknown }).payload);
 }
 
-/** True when posts changed here since `reads` were taken were kept as they are, so the sync must run again. */
+/** True when posts changed here since `reads` were kept as they are, so the sync must run again. */
 async function writeLocal(userId: string, payload: Payload, reads?: ReadonlyMap<string, CalendarRead>): Promise<boolean> {
   setAccountApplying(true);
   try {
@@ -385,10 +369,7 @@ async function writeLocal(userId: string, payload: Payload, reads?: ReadonlyMap<
   }
 }
 
-/**
- * Writes one workspace's copy into this browser, where its stores read it. Call between setAccountApplying(true) and (false).
- * With `read`, as `readSlice` took it before the merge, posts changed here since are kept; true when any were.
- */
+/** Call between setAccountApplying(true) and (false). With `read`, posts changed here since are kept; true when any were. */
 export async function writeSlice(userId: string, workspaceId: string, slice: Slice, read?: CalendarRead): Promise<boolean> {
   writeJson(storageKeyFor("plan.video.connections", userId, workspaceId), slice.connections);
   writeJson(storageKeyFor("plan.video.groups", userId, workspaceId), slice.groups);
@@ -406,7 +387,6 @@ export async function writeSlice(userId: string, workspaceId: string, slice: Sli
   return kept;
 }
 
-/** Has the open workspace's stores read their copies again, after a write. */
 export function reloadWorkspaceStores(userId: string) {
   reloadSocialConnections(userId);
   reloadAccountGroups(userId);
@@ -447,7 +427,7 @@ async function readLocal(userId: string, reads?: Map<string, CalendarRead>): Pro
 
 /** `reads`, when given, gets the workspace's calendars as read, for `writeSlice`. */
 export async function readSlice(userId: string, workspaceId: string, reads?: Map<string, CalendarRead>): Promise<Slice> {
-  // Logins' tokens go to the publisher's server, never into the account's copy.
+  // Logins' tokens go to the publisher, never into the account's copy.
   const connections = shareableConnections(readArray(storageKeyFor("plan.video.connections", userId, workspaceId)));
   const groups = readArray(storageKeyFor("plan.video.groups", userId, workspaceId));
   const queue = readArray(storageKeyFor("plan.video.queue", userId, workspaceId));
@@ -479,7 +459,7 @@ export async function readSlice(userId: string, workspaceId: string, reads?: Map
   };
 }
 
-/** The automatic Posts calendar uses one id, so two browsers don't each keep their own; its posts follow it (lib/post-sync.ts). */
+/** One id, so two browsers don't each keep their own; its posts follow it (lib/post-sync.ts). */
 export function onePostsCalendar(calendars: Calendar[], events: StoredEvent[]) {
   const only = calendars.length === 1 ? calendars[0] : undefined;
   if (!only || only.id === "posts" || only.name !== "Posts") return { calendars, events };
@@ -514,9 +494,8 @@ function readJson<T>(key: string): T | null {
 }
 
 /**
- * Kept per tab. One saved before each person had their own posts database was
- * taken against the shared one, and would read a person's new, empty one as
- * every post deleted, so those are left behind.
+ * Per tab. Baselines saved before per-person posts databases would read a new, empty one as every post
+ * deleted, so those are left behind.
  */
 function baselineKey(userId: string) {
   return `plan.video.account-baseline-2.${userId}`;
@@ -539,7 +518,6 @@ function remember(userId: string, payload: Payload) {
   }
 }
 
-/** Stored workflows as they should be, the rest left out. */
 function readWorkflows(rows: unknown[]): Workflow[] {
   return rows.map(readWorkflow).filter((row): row is Workflow => row !== null);
 }
@@ -566,7 +544,7 @@ function hasContent(body: Body): boolean {
   return Object.values(body.slices).some(sliceHasContent);
 }
 
-/** Whether a workspace's copy holds anything someone made, beyond the calendar every workspace starts with. */
+/** Beyond the calendar every workspace starts with. */
 export function sliceHasContent(slice: Slice): boolean {
   return (
     slice.connections.length > 0 ||
@@ -584,7 +562,7 @@ export function sliceHasContent(slice: Slice): boolean {
 }
 
 function unionBody(remote: Body, local: Body, known: Known | null, knownWorkspaces?: Record<string, string>): Body {
-  // A workspace this browser hasn't changed since the account last had it takes the account's version, or stays deleted, like a slice's rows.
+  // A workspace unchanged here since the account last had it takes the account's version, or stays deleted.
   const list = withAccountMembers(unionKnown(remote.workspaces.list, local.workspaces.list, knownWorkspaces), remote.workspaces.list, local.workspaces.list);
   const active = [local.workspaces.active, remote.workspaces.active, list[0]?.id].find((id) => list.some((row) => row.id === id)) ?? DEFAULT_WORKSPACE;
   return {
@@ -619,10 +597,8 @@ function mergeBody(base: Body, local: Body, remote: Body): Body {
 }
 
 /**
- * The members kept on a workspace are invites from before invites went through
- * the server. They're sent once the plan has a team (sendLegacyInvites), and
- * none are added anymore, so a browser can only take them away: one can't put
- * back someone the account no longer has, as a stale tab would otherwise do.
+ * Legacy invites from before the server handled them: a browser can only take them away, so a stale tab
+ * can't put back someone the account no longer has.
  */
 function withAccountMembers(list: Workspace[], remote: readonly Workspace[], local: readonly Workspace[]): Workspace[] {
   return list.map((row) => {
@@ -643,12 +619,8 @@ function unionSlices(remote: Body, local: Body, list: Workspace[], known: Known 
 }
 
 /**
- * Both copies' rows, for a copy with no last shared copy to merge against, as
- * in a new tab. With what this browser and the account last agreed on
- * (`known`), a row this browser hasn't changed since takes the account's
- * version, and one the account has deleted since stays deleted: someone else
- * may have changed it, as a team member does. Without, this browser's wins.
- * A row missing here is never deleted from the account this way.
+ * For a copy with no shared base, as in a new tab. With `known`, a row unchanged here takes the account's version
+ * and one deleted there stays deleted; without, this browser's wins. A row missing here is never deleted this way.
  */
 export function unionSlice(remote: Slice, local: Slice, known?: KnownSlice): Slice {
   return {
@@ -678,21 +650,19 @@ function unionKnown<T extends { id: string }>(remote: readonly T[], local: reado
   return [...rows.values()];
 }
 
-// ---------------------------------------------------------------------------
-// What this browser and the account last agreed on, row by row, as short
-// fingerprints. Kept in this browser beside its copy, for every tab: a new
-// tab has no last copy of its own, and merges against these.
+// Row fingerprints of what this browser and the account last agreed on, shared by every tab:
+// a new tab has no last copy of its own and merges against these.
 
 const KNOWN_LISTS = ["connections", "groups", "queue", "vault", "templates", "plugs", "captionStyles", "calendars", "library"] as const;
 
-/** Posts' fingerprints from when the account's copy still had them, kept for post-sync's first run (legacyKnownPosts). */
+/** Kept for post-sync's first run (legacyKnownPosts). */
 const LEGACY_LISTS = ["events", "media"] as const;
 
 type KnownSlice = Partial<Record<(typeof KNOWN_LISTS)[number] | (typeof LEGACY_LISTS)[number], Record<string, string>>>;
 type Known = Record<string, KnownSlice>;
 
 const knownKey = (userId: string) => `plan.video.account-known.${userId}`;
-/** The workspace list's rows, kept apart from the slices', whose keys are workspace ids. */
+/** Kept apart from the slices', whose keys are workspace ids. */
 const knownWorkspacesKey = (userId: string) => `plan.video.account-known-workspaces.${userId}`;
 
 /** FNV-1a of the row as stored. */
@@ -728,12 +698,11 @@ function readKnown(userId: string): Known | null {
   return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Known) : null;
 }
 
-/** The posts of a workspace as the account's old copy last had them, by fingerprint: what post-sync's first run measures changes here against. */
+/** What post-sync's first run measures changes here against. */
 export function legacyKnownPosts(userId: string, workspaceId: string): Record<string, string> | null {
   return readKnown(userId)?.[workspaceId]?.events ?? null;
 }
 
-/** A post's fingerprint as the account's old copy took it. */
 export const legacyFingerprint = (event: StoredEvent) => fingerprint(event);
 
 function readKnownWorkspaces(userId: string): Record<string, string> | undefined {
@@ -766,10 +735,8 @@ function unionById<T extends { id: string }>(remote: readonly T[], local: readon
 }
 
 /**
- * Three-way merge against the last copy both browsers shared. A row only this
- * browser changed is kept. A row only the other browser changed is taken.
- * A row both changed keeps this browser's copy. A delete sticks unless the
- * other browser edited that same row.
+ * Three-way merge: a row changed on one side takes that side's; changed on both keeps this browser's.
+ * A delete sticks unless the other side edited that row.
  */
 function mergeById<T extends { id: string }>(base: readonly T[], local: readonly T[], remote: readonly T[]): T[] {
   const baseBy = new Map(base.map((item) => [item.id, stable(item)]));
@@ -854,7 +821,7 @@ function asPayload(value: unknown): Payload | null {
   });
 }
 
-/** A workspace's copy as stored, with anything that doesn't hold up left out. */
+/** Anything that doesn't hold up is left out. */
 export function asSlice(value: unknown): Slice {
   const row = value && typeof value === "object" ? (value as Partial<Slice>) : {};
   return {
@@ -958,7 +925,6 @@ function canonicalize<T extends Body | Payload>(body: T): T {
   };
 }
 
-/** One workspace's rows in the same order on every browser. */
 export function canonicalSlice(slice: Slice): Slice {
   return {
     ...slice,

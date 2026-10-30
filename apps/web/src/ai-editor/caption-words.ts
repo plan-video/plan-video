@@ -2,10 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The words of a <captions> element, for the editor's AI: what is said and
-// when, in scene time, and each word's own look. Edits go through the same
-// stand-in `<text>` the word inspector edits (see `createWordProxy`), so a
-// word can take anything a text can, and land as one undo step.
+// Edits go through the same stand-in `<text>` the word inspector edits (see `createWordProxy`), so they land as one undo step.
 
 import { isUrlSource, type Asset, type AssetLibrary, type Transcript, type TranscriptWord, type TranscriptWordStyle } from "@plan.video/assets";
 import { renderAuthored } from "@plan.video/reconciler";
@@ -39,7 +36,7 @@ const hex = (color: number): string => `#${color.toString(16).padStart(6, "0").t
 
 type CaptionFile = { library: AssetLibrary; asset: Asset; transcript: Transcript; offset: number };
 
-/** The caption's transcript, and the scene time its time 0 is heard at. */
+/** Also the scene time its time 0 is heard at. */
 async function captionFile(world: World, caption: Entity): Promise<CaptionFile> {
   if (!isCaption(caption)) throw new Error("That element is not a <captions>.");
   const library = world.get(Library);
@@ -53,7 +50,7 @@ async function captionFile(world: World, caption: Entity): Promise<CaptionFile> 
   return { library, asset, transcript, offset };
 }
 
-/** A word's own look, readably: what is left out is the caption's. */
+/** What is left out is the caption's. */
 function describeStyle(style: TranscriptWordStyle | undefined): Record<string, unknown> | undefined {
   if (!style) return undefined;
   const out: Record<string, unknown> = {};
@@ -81,11 +78,8 @@ export async function readCaptionWords(world: World, caption: Entity): Promise<u
   };
 }
 
-// --- styling ---------------------------------------------------------------
-
 type LayerKind = "fills" | "strokes" | "shadows" | "effects" | "animations";
 
-/** Which of a word's layer lists an authored child belongs to. */
 function kindOfTag(tag: string): LayerKind | null {
   if (tag === "stroke") return "strokes";
   if (tag === "shadow") return "shadows";
@@ -105,19 +99,14 @@ function kindOfEntity(entity: Entity): LayerKind | null {
 }
 
 export type WordStyleInput = {
-  /** Text props: color, fontFamily, fontWeight, fontSize, opacity, offsetX, hidden, … */
   props?: Record<string, unknown>;
-  /** stroke, shadow, effect, animation and paint elements. Each kind given replaces the word's list of it. */
+  /** Each kind given replaces the word's list of it. */
   children?: AuthoredTree[];
   /** Layer kinds to take off the word, so it shows the caption's again. */
   clear?: LayerKind[];
 };
 
-/**
- * `style` with `input` applied, the way the word inspector applies a panel
- * edit: on a stand-in that looks like the word, keeping only what differs
- * from the caption.
- */
+/** Applied like the word inspector applies a panel edit: on a stand-in, keeping only what differs from the caption. */
 function restyle(world: World, caption: Entity, word: TranscriptWord, input: WordStyleInput): TranscriptWordStyle | undefined {
   const editor = getDocumentEditor(world);
   const proxy = createWordProxy(world, caption, word.style, word.text);
@@ -152,19 +141,16 @@ function restyle(world: World, caption: Entity, word: TranscriptWord, input: Wor
   }
 }
 
-// --- editing ---------------------------------------------------------------
-
 export type WordEdit = {
   index: number;
   text?: string;
   start?: number;
   end?: number;
   style?: WordStyleInput;
-  /** Drops the word's own look before `style` applies. */
   reset?: boolean;
 };
 
-/** A new word, placed among the others by its own time. Times are scene seconds. */
+/** Times are scene seconds. */
 export type WordInsert = { text: string; start: number; end: number };
 
 export type CaptionWordsInput = {
@@ -173,7 +159,6 @@ export type CaptionWordsInput = {
   insert?: WordInsert[];
 };
 
-/** Applies `input` to the caption's words as the current undo step, and saves them. */
 export async function editCaptionWords(world: World, caption: Entity, input: CaptionWordsInput): Promise<string> {
   const { library, asset, transcript, offset } = await captionFile(world, caption);
   const count = listWords(transcript).length;
@@ -230,7 +215,7 @@ export async function editCaptionWords(world: World, caption: Entity, input: Cap
   return parts.length ? `Caption words ${parts.join(", ")}.` : "Nothing to change.";
 }
 
-/** `word` put in among the others by its start, in the sentence of the word before it. Nothing else moves. */
+/** Nothing else moves. */
 function placeWord(transcript: Transcript, word: TranscriptWord): Transcript {
   const next = transcript.map((segment) => ({ text: segment.text, words: [...segment.words] }));
   let segment = -1;

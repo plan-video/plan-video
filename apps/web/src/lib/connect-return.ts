@@ -2,12 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// A network's login comes back to /<network>/callback. That page passes what
-// came back on to Connections straight away, and Connections finishes the
-// login there, with a toast, instead of on a page of its own. A client's
-// sign-in started from a connect link goes back to the link's page instead
-// (lib/connect-link.ts), which finishes it the same way.
-
 import { toast } from "somoto";
 
 import { loadBlueskyProfile } from "@/lib/bluesky";
@@ -36,14 +30,12 @@ const NAMES: Record<ReturningNetwork, string> = {
   threads: "Threads",
 };
 
-/** Keeps what the network sent back, for Connections or a connect link's page to finish, and says where that is. */
 export function handOffConnection(network: ReturningNetwork, search: string): string {
   sessionStorage.setItem(KEY, JSON.stringify({ network, search, redirect: `${window.location.origin}${window.location.pathname}` }));
   const link = linkSignInFor(network, search);
   return link ? `/connect/${link}` : "/dashboard?dashboard=connections";
 }
 
-/** What a network sent back to this tab, taken once: for a connect link's page, which finishes it itself. */
 export function takeHandOff(): { network: ReturningNetwork; search: string } | null {
   const raw = sessionStorage.getItem(KEY);
   if (!raw) return null;
@@ -58,12 +50,11 @@ export function takeHandOff(): { network: ReturningNetwork; search: string } | n
   }
 }
 
-/** Why a network didn't hand back a login, in words, or null when it did. For a connect link's page. */
 export function loginRefusal(network: ReturningNetwork, search: string): string | null {
   return refusal(network, new URLSearchParams(search));
 }
 
-/** The code a login came back with, after checking it came back to the login this tab started. */
+/** Checks the login came back to the one this tab started before taking its code. */
 function codeFrom(params: URLSearchParams, expected: string | null, name: string): string {
   const code = params.get("code");
   const returned = params.get("state");
@@ -71,7 +62,6 @@ function codeFrom(params: URLSearchParams, expected: string | null, name: string
   return code;
 }
 
-/** Why a network didn't hand back a login, in words, or null when it did. */
 function refusal(network: ReturningNetwork, params: URLSearchParams): string | null {
   const error = params.get("error");
   if (!error) return null;
@@ -127,7 +117,6 @@ async function finish(network: ReturningNetwork, userId: string, params: URLSear
   return profile.handle;
 }
 
-/** Finishes a login that came back to this tab, if one did, and says how it went. */
 export async function finishPendingConnection(userId: string): Promise<void> {
   const raw = sessionStorage.getItem(KEY);
   if (!raw) return;

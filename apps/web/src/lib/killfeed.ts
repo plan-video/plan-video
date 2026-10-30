@@ -2,11 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// A Valorant killfeed entry for gameplay edits, drawn the way the Valorant
-// Killfeed Generator draws it (github.com/mr-velosofy/FastAPI_KillfeedGenerator):
-// same geometry, colors and pictures, in Riot Sans. One picture feeds both
-// the builder's preview and the element put on the scene, so what the panel
-// shows is what lands on the video.
+// Copies the geometry, colours and pictures of github.com/mr-velosofy/FastAPI_KillfeedGenerator.
 
 import fontUrl from "@/assets/fonts/RiotSans-Bold.woff2?url";
 
@@ -16,24 +12,21 @@ import { USUAL_NAME } from "./killfeed-feed";
 
 export type KillfeedPlayer = {
   name: string;
-  /** Agent name, as in assets/killfeed/agents. */
   agent: string;
 };
 
 export type KillfeedSpec = {
   killer: KillfeedPlayer;
   victim: KillfeedPlayer;
-  /** Weapon id (`weapons/Ares.png`); empty draws none. */
+  /** Empty draws none. */
   weapon: string;
-  /** The killer's streak this round; 3 and up draws the numeral. */
+  /** 3 and up draws the numeral. */
   kills: number;
   headshot: boolean;
   wallbang: boolean;
-  /** The killer took themself out: they are on both sides. */
   suicide: boolean;
-  /** The kill went against your team, so the sides swap colors. */
+  /** The sides swap colours. */
   enemyKill: boolean;
-  /** The entry is yours: yellow, with a border and a pointer. */
   highlight: boolean;
 };
 
@@ -49,7 +42,7 @@ export const DEFAULT_KILLFEED: KillfeedSpec = {
   highlight: true,
 };
 
-/** The default kill with names of a usual length: the narrowest a placed entry is. */
+/** The narrowest a placed entry is. */
 export const USUAL_KILLFEED: KillfeedSpec = {
   ...DEFAULT_KILLFEED,
   killer: { ...DEFAULT_KILLFEED.killer, name: USUAL_NAME },
@@ -57,13 +50,11 @@ export const USUAL_KILLFEED: KillfeedSpec = {
 };
 
 export const KILLFEED_FONT = "Riot Sans";
-/** How long a new entry stays up. */
 export const KILLFEED_SECONDS = 5;
 export const KILLFEED_MAX_KILLS = 10;
-/** The height every entry is drawn at, in picture pixels. */
 export const KILLFEED_HEIGHT = 128;
 
-/** Riot Sans at 61px has the cap height and advance the generator's DIN at 66px has. */
+/** Riot Sans at 61px matches the cap height and advance of the generator's DIN at 66px. */
 const FONT_SIZE = 61;
 const PORTRAIT = { width: 256, height: 128 };
 const WEAPON_HEIGHT = 90;
@@ -75,12 +66,9 @@ const PADDING = 40;
 const TEXT_PADDING = 70;
 const EDGE_GAP = Math.floor(TEXT_PADDING / 4);
 const EDGE_WIDTH = 120;
-/** How far the colored silhouette sits out from behind a portrait. */
 const OUTLINE = 10;
-/** The middle arrow: the killer's side ends in a point this deep. */
 const NOTCH = 35;
 const BORDER = 6;
-/** The yellow border's top and bottom lines stop this short of the arrow. */
 const BORDER_EARLY = 128;
 const TRIANGLE = 64;
 const NUMERAL = { size: 96, x: 12, y: 30 };
@@ -129,7 +117,6 @@ function loadImage(url: string): Promise<HTMLImageElement> {
 
 type Side = { name: string; portrait: HTMLImageElement; outline: Rgb; edge: Rgb; background: Rgb };
 
-/** Which colors go where, and where the "yours" marks go, per kind of kill. */
 function sides(spec: KillfeedSpec) {
   const me = spec.highlight;
   if (spec.suicide) {
@@ -165,7 +152,6 @@ function canvas(width: number, height: number): [HTMLCanvasElement, CanvasRender
   return [element, element.getContext("2d")!];
 }
 
-/** The picture's silhouette in `color`, optionally mirrored, `scale` times its size. */
 function silhouette(image: CanvasImageSource, width: number, height: number, color: Rgb | null, mirror: boolean, scale: number) {
   const [element, ctx] = canvas(width * scale, height * scale);
   ctx.imageSmoothingQuality = "high";
@@ -190,10 +176,6 @@ function polygon(ctx: CanvasRenderingContext2D, points: [number, number][]) {
   ctx.closePath();
 }
 
-/**
- * The yellow "yours" border on one end: a bar down the edge and lines along
- * the top and bottom that fade out before the middle arrow.
- */
 function border(ctx: CanvasRenderingContext2D, edge: number, length: number, direction: 1 | -1) {
   const H = KILLFEED_HEIGHT;
   ctx.fillStyle = rgba(YELLOW);
@@ -211,13 +193,7 @@ function border(ctx: CanvasRenderingContext2D, edge: number, length: number, dir
   ctx.fillRect(left, H - BORDER, length, BORDER);
 }
 
-/**
- * Draws the entry `scale` times its natural size, which is `KILLFEED_HEIGHT`
- * tall and as wide as the names make it, or `width` wide (at the natural
- * size) with the streak's numeral and the pointers inside it: the room to
- * spare goes either side of the weapon, and names too long for it get
- * smaller, then cut short.
- */
+/** `width` spreads the spare room either side of the weapon; names too long shrink, then cut short. */
 export async function renderKillfeed(spec: KillfeedSpec, scale = 1, width?: number): Promise<HTMLCanvasElement> {
   const killerAgent = killfeedAgent(spec.killer.agent) ?? killfeedAgent(DEFAULT_KILLFEED.killer.agent)!;
   const victimPlayer = spec.suicide ? spec.killer : spec.victim;
@@ -248,15 +224,13 @@ export async function renderKillfeed(spec: KillfeedSpec, scale = 1, width?: numb
   const badgeSize = (badge: HTMLImageElement) => (badge === headshot ? HEADSHOT : BADGE);
   const badgesWidth = badges.length ? PADDING + badges.reduce((sum, badge) => sum + badgeSize(badge) + BADGE_GAP, 0) : 0;
 
-  // A standalone yellow pointer sits outside the entry; the team's own kill
-  // drops it when the numeral takes that spot.
+  // The team's own kill drops the standalone pointer when the numeral takes that spot.
   const leftTriangle = layout.mark.left && !(numeral && !spec.suicide && !spec.enemyKill);
   const rightTriangle = layout.mark.right;
   const numeralWidth = numeral ? NUMERAL.size : 0;
   const offset = numeralWidth + (leftTriangle ? TRIANGLE : 0);
   const outside = offset + (rightTriangle ? TRIANGLE : 0);
 
-  // Everything in the bar but the names.
   const frame = 2 * (PORTRAIT.width + EDGE_GAP + TEXT_PADDING) + weaponWidth + badgesWidth + PADDING;
   let spare = 0;
   if (width !== undefined) {
@@ -271,7 +245,6 @@ export async function renderKillfeed(spec: KillfeedSpec, scale = 1, width?: numb
   const killerWidth = killerName.width;
   const victimWidth = victimName.width;
 
-  // The killer's half of the room to spare goes before the weapon, the victim's before their portrait.
   const leftTextX = PORTRAIT.width + EDGE_GAP;
   const weaponLeft = Math.floor(leftTextX + killerWidth + TEXT_PADDING + spare / 2);
   const weaponEnd = weaponLeft + weaponWidth + badgesWidth;
@@ -286,7 +259,6 @@ export async function renderKillfeed(spec: KillfeedSpec, scale = 1, width?: numb
   ctx.save();
   ctx.translate(offset, 0);
 
-  // Killer's side: fades in from nothing to its color at the arrow.
   ctx.save();
   polygon(ctx, [[0, 0], [mx - 20, 0], [mx, H / 2], [mx - 20, H], [0, H]]);
   ctx.clip();
@@ -297,7 +269,6 @@ export async function renderKillfeed(spec: KillfeedSpec, scale = 1, width?: numb
   ctx.fillRect(0, 0, mx + 1, H);
   ctx.restore();
 
-  // Victim's side: cut around the arrow, fading out toward the far end.
   ctx.save();
   polygon(ctx, [[mx - NOTCH, 0], [barWidth, 0], [barWidth, H], [mx - NOTCH, H], [mx, H / 2]]);
   ctx.clip();
@@ -364,7 +335,6 @@ export async function renderKillfeed(spec: KillfeedSpec, scale = 1, width?: numb
   return element;
 }
 
-/** A file name for the entry's picture. */
 export function killfeedFileName(spec: KillfeedSpec): string {
   const clean = (text: string) => text.replace(/[\\/:*?"<>|]+/g, "").trim() || "Player";
   const victim = spec.suicide ? "self" : clean(spec.victim.name);

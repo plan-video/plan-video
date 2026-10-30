@@ -2,17 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Browser projects belong to a person. Each person's are kept in a folder of
-// their own, `/browser/projects/@<user id>` (a guest's under their guest id),
-// and only the signed-in person's are listed, opened or synced: someone
-// signing in after another on this browser never sees, or backs up, the
+// Only the signed-in person's projects (in `/browser/projects/@<user id>`) are listed,
+// opened or synced, so someone signing in after another never sees or backs up the
 // other's. Project folders are slugs, which never hold an `@`.
-//
-// Projects used to share one folder. Each of those goes to the accounts whose
-// cloud backup already holds it, as this browser last agreed with the cloud.
-// One no account backed up stays where it is, listed for no one; a guest's
-// goes to the guest, and without cloud storage (local development) to whoever
-// is signed in.
 
 import { openDB } from "idb";
 
@@ -23,19 +15,15 @@ import { guestId, inGuestMode, isGuestProject, signedInUserId } from "@/lib/gues
 import { BROWSER_PROJECTS_ROOT, freeFolder } from "./browser";
 import { allPaths, copyTree, moveTree, readText } from "./browser-store";
 
-/** The database the cloud sync keeps a person's agreed files in, by `projectId/path`. */
 export const SYNCED_DB_PREFIX = "plan-video-cloud-";
 
-/** Where the projects of `owner`, a user or guest id, are kept. */
 export const ownerRoot = (owner: string): string => `${BROWSER_PROJECTS_ROOT}/@${owner}`;
 
-/** The folder the person using this tab keeps projects in: null when no one is signed in and there's no guest. */
 export function browserProjectsRoot(): string | null {
   const owner = signedInUserId() ?? (inGuestMode() ? guestId() : null);
   return owner ? ownerRoot(owner) : null;
 }
 
-/** Whether `dir` is one of the projects in `root`. */
 export const isProjectIn = (root: string, dir: string): boolean =>
   dir.startsWith(`${root}/`) && !dir.slice(root.length + 1).includes("/");
 
@@ -48,7 +36,6 @@ async function projectIdIn(dir: string): Promise<string | null> {
   }
 }
 
-/** The projects in the folder everyone used to share, by folder name, with their ids. */
 export async function sharedProjects(): Promise<{ folder: string; dir: string; projectId: string }[]> {
   const root = `${BROWSER_PROJECTS_ROOT}/`;
   const folders = new Set<string>();
@@ -65,7 +52,7 @@ export async function sharedProjects(): Promise<{ folder: string; dir: string; p
   return found;
 }
 
-/** The accounts whose cloud backup holds each project, by id. Null when the browser can't list its databases. */
+/** Null when the browser can't list its databases. */
 async function backedUpBy(): Promise<Map<string, Set<string>> | null> {
   if (typeof indexedDB.databases !== "function") return null;
   const owners = new Map<string, Set<string>>();
@@ -108,8 +95,7 @@ async function claimNow(): Promise<void> {
   const shared = await sharedProjects();
   if (!shared.length) return;
   const owners = await backedUpBy();
-  // Without the list, nothing can say whose a backed-up project is: those wait
-  // where they are, and the cloud sync leaves them alone.
+  // Without the list nobody can say whose a backed-up project is, so those stay put.
   if (!owners) return;
   const signedIn = signedInUserId();
   const held = new Map<string, Set<string>>();
@@ -124,7 +110,7 @@ async function claimNow(): Promise<void> {
       if (!held.has(root)) held.set(root, await projectIdsIn(root));
       if (held.get(root)!.has(projectId)) continue;
       const target = `${root}/${await freeFolder(root, folder)}`;
-      // Each keeps the files' times, so the sync finds them as it left them. Moved for the last one.
+      // Copies keep the files' times, so the sync finds them as it left them.
       if (index === claimants.length - 1) {
         await moveTree(dir, target);
         await moveProjectRecord(dir, target);
@@ -142,9 +128,8 @@ const claims = new Map<string | null, Promise<void>>();
 let claiming: Promise<void> = Promise.resolve();
 
 /**
- * Hands the projects of the folder everyone used to share to their owners,
- * once a visit for each person using the tab. Listing, opening and syncing
- * wait for it.
+ * Hands each project in the old shared folder to the accounts whose cloud backup holds it;
+ * one nobody backed up stays put. Listing, opening and syncing wait for it.
  */
 export function claimSharedProjects(): Promise<void> {
   if (window.desktop) return Promise.resolve();

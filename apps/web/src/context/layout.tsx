@@ -7,7 +7,7 @@ import { assert } from '@/utils';
 import { createStoredSignal } from '@/lib/store';
 import { store } from '@/init';
 
-/** Where the toolbar sits over the canvas: one of six slots along the top and bottom edges, which it snaps to when dragged. */
+/** The toolbar snaps to one of these when dragged. */
 export const TOOLBAR_SLOTS = ['bottom', 'top', 'top-left', 'top-right', 'bottom-left', 'bottom-right'] as const;
 
 export type ToolbarSlot = (typeof TOOLBAR_SLOTS)[number];

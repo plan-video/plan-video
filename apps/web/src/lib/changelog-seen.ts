@@ -2,10 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Whether What's new (/changelog) has an entry this browser hasn't seen, for
-// the dot on the dashboard's help menu, as Linear marks its changelog. The
-// newest entry's id is kept once the page is opened; a browser seeing the
-// dashboard for the first time starts from today's newest, so a new account
+// A browser seeing the dashboard for the first time starts from today's newest, so a new account
 // isn't told about everything before it.
 
 import { createSignal } from "solid-js";
@@ -43,7 +40,7 @@ export const changelogUnread = () => {
 };
 
 let watching = false;
-/** Learns the newest entry, loading the list on its own so the dashboard doesn't carry it. */
+/** Loads the list on its own so the dashboard bundle doesn't carry it. */
 export function watchChangelog() {
   if (watching) return;
   watching = true;
@@ -55,7 +52,7 @@ export function watchChangelog() {
   });
 }
 
-/** Notes What's new as read up to `id`, its newest entry, or whatever the dashboard last learned. */
+/** `id` defaults to whatever the dashboard last learned. */
 export function markChangelogSeen(id = newest()) {
   if (!id) return;
   write(id);

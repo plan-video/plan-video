@@ -2,11 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The Counter-Strike 2 killfeed pictures, under assets/killfeed-cs2.
-// Weapons sit in the middle of an entry; extras are the small marks around it
-// (a headshot, a no-scope, and the rest). White shapes on a clear background,
-// the same files the CS2 KillFeed Generator draws.
-
 import { msg } from "@/lib/i18n";
 
 export type Cs2WeaponGroup ="rifles" | "smgs" | "heavy" | "pistols" | "grenades";
@@ -21,7 +16,6 @@ export type Cs2Weapon = {
 export type Cs2ExtraPlace = "prefix" | "suffix";
 
 export type Cs2Extra = {
-  /** File stem under assets/killfeed-cs2/extras. */
   id: string;
   label: string;
   /** Prefix marks sit before the weapon; the rest follow it, in this order. */

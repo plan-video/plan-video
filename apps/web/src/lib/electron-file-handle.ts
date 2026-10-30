@@ -51,8 +51,7 @@ async function materializeFile(absolutePath: string): Promise<File> {
     absolutePath,
   });
   const file = input.files?.[0];
-  // Reset so subsequent reads of `input.files[0]` aren't ambiguous if a
-  // caller forgets to serialize through `inFlight`.
+  // Reset so later reads of `input.files[0]` aren't ambiguous if a caller skips `inFlight`.
   input.value = "";
   if (!file) {
     throw new Error(`Failed to materialize file: ${absolutePath}`);
@@ -80,8 +79,7 @@ export class ElectronFileHandle {
 
   public async getFile(): Promise<File> {
     if (!this.filePromise) {
-      // Serialize CDP round-trips: every call shares the same hidden input,
-      // and overlapping setFiles() calls would race on `input.files[0]`.
+      // Serialized: every call shares one hidden input, and overlapping setFiles() calls would race on `input.files[0]`.
       const next = inFlight.then(() => materializeFile(this.path));
       inFlight = next.catch(() => {});
       this.filePromise = next;
@@ -94,8 +92,7 @@ export class ElectronFileHandle {
     this.filePromise = null;
   }
 
-  // FileSystemFileHandle shape — ElectronFileHandle is always "granted" because
-  // the main process has full disk access.
+  // Always "granted": the main process has full disk access.
   public async queryPermission(_descriptor?: any): Promise<PermissionState> {
     return "granted";
   }

@@ -8,7 +8,6 @@ export type DashboardTheme = "dark" | "light";
 
 const STORAGE_KEY = "plan.dashboard-theme";
 
-/** The theme picked in the dashboard or the site's footer, if one has been. */
 function storedTheme(): DashboardTheme | null {
   try {
     const value = localStorage.getItem(STORAGE_KEY);
@@ -20,10 +19,7 @@ function storedTheme(): DashboardTheme | null {
 
 const [choice, setChoice] = createSignal<DashboardTheme | null>(storedTheme());
 
-/**
- * The dashboard's, the editor's and the site's theme on this device: the one
- * picked in the dashboard or the site's footer, and until one is, light.
- */
+/** Shared by the dashboard, the editor and the site; light until one is picked. */
 export const dashboardTheme = (): DashboardTheme => choice() ?? "light";
 
 export function setDashboardTheme(next: DashboardTheme) {
@@ -47,7 +43,7 @@ function storedRailLabels(): boolean {
 
 const [railLabels, setRailLabelsSignal] = createSignal(storedRailLabels());
 
-/** Whether the app rail names its icons. On until the user picks icons only. */
+/** On until the user picks icons only. */
 export const dashboardRailLabels = railLabels;
 
 export function setDashboardRailLabels(next: boolean) {

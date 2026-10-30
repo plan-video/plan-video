@@ -7,11 +7,7 @@ import { toast } from "somoto";
 import { track } from "@/lib/analytics";
 import { t } from "@/lib/i18n";
 
-/**
- * The asset names are version-independent (see the makers in
- * `forge.config.ts`), which is what lets GitHub's `/releases/latest/download/`
- * alias resolve to the newest build.
- */
+/** The asset names are version-independent (see the makers in `forge.config.ts`), so `/releases/latest/download/` resolves. */
 const RELEASES = "https://github.com/plan-video/plan-video/releases/latest/download/";
 
 const DOWNLOADS = {
@@ -21,10 +17,9 @@ const DOWNLOADS = {
 
 export type DesktopAppPlatform = keyof typeof DOWNLOADS;
 
-/** Where a download was started from, so the promos can be compared. */
+/** So the promos can be compared. */
 export type DesktopAppDownloadSource = "canvas_banner" | "dashboard_footer" | "main_menu" | "chat_panel";
 
-/** The platform the desktop app is built for that this browser runs on, if any. */
 export function desktopAppPlatform(): DesktopAppPlatform | null {
   const uaData = (navigator as { userAgentData?: { platform?: string } }).userAgentData;
   const platform = uaData?.platform ?? navigator.platform;
@@ -33,26 +28,20 @@ export function desktopAppPlatform(): DesktopAppPlatform | null {
   return null;
 }
 
-/** "macOS" or "Windows" for the promos' copy, null where there is no build. */
+/** Null where there is no build. */
 export function desktopAppPlatformLabel(): string | null {
   const platform = desktopAppPlatform();
   return platform ? DOWNLOADS[platform].label : null;
 }
 
-/** Button copy for the promos: names the platform when there is a build for it. */
 export function desktopAppDownloadLabel(): string {
   const label = desktopAppPlatformLabel();
   return label ? t("Download for {platform}", { platform: label }) : t("Download desktop app");
 }
 
 /**
- * Pulls the latest installer for this platform. GitHub serves the asset with
- * `Content-Disposition: attachment`, so this starts a download rather than
- * navigating away.
- *
- * The promos run on every platform to gauge interest, but there are only
- * macOS and Windows builds to hand out — everywhere else this explains that
- * instead.
+ * GitHub serves the asset with `Content-Disposition: attachment`, so this downloads rather than navigates.
+ * Only macOS and Windows have builds; elsewhere this explains that instead.
  */
 export function downloadDesktopApp(source: DesktopAppDownloadSource) {
   const platform = desktopAppPlatform();

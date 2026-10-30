@@ -3,18 +3,14 @@
 
 @custom-variant dark (&:is([data-kb-theme="dark"] *));
 
-/* Screens the dashboard and editor don't open on (see ScreenTooSmall), so the
-   site leaves out its ways into them there, such as the demo. */
+/* Must match the screens ScreenTooSmall refuses. */
 @custom-variant too-small {
   @media (max-width: 719px), (max-height: 479px) {
     @slot;
   }
 }
 
-/* Inter and JetBrains Mono (SIL Open Font License) come in two files each: a
-   Latin subset every page loads, and the whole font, loaded only for a
-   character outside it. scripts/subset-fonts.py makes the subsets and prints
-   these ranges. */
+/* scripts/subset-fonts.py makes the Latin subsets and prints these unicode ranges. */
 @font-face {
   font-family: 'Inter';
   src: url('./assets/fonts/Inter-Variable-Latin.woff2') format('woff2');
@@ -69,9 +65,6 @@
 
 /* @site:audience */
 
-/* A post stashed (StashMark in components/brand/logo.tsx): the ▶ slides in
-   from the right into the squirrel's paws, and as it lands the squirrel hops
-   once. Half a second in all. */
 @keyframes stash-play {
   from {
     opacity: 0;
@@ -103,8 +96,7 @@
 
 /* @site:cards */
 
-/* Geist, split like Inter above: the Latin subset, which the page preloads for the homepage's headline
-   (HOME_HEADLINE in lib/hero-shell.ts) and the dashboard, and the whole font for every other script. */
+/* The Latin subset is preloaded for HOME_HEADLINE (lib/hero-shell.ts) and the dashboard. */
 @font-face {
   font-family: 'Geist';
   src: url('./assets/fonts/Geist-Variable-Latin.woff2') format('woff2');
@@ -153,7 +145,6 @@
 @theme inline {
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
-  /* The homepage headline's face: Geist, as the dashboard and the wordmark are set in. */
   --font-display: 'Geist', 'Inter', ui-sans-serif, system-ui, sans-serif;
   --font-weight-strong: 450;
   --radius-xs: calc(var(--radius) - 4px);
@@ -218,7 +209,6 @@
   --color-meter-red: var(--meter-red);
   --color-meter-clip: var(--meter-clip);
 
-  /** Timeline colors */
   --color-audio-background: var(--audio-background);
   --color-audio-primary: var(--audio-primary);
   --color-caption-background: var(--caption-background);
@@ -239,9 +229,6 @@
   --text-5xl: 24px;
   --text-6xl: 32px;
 
-  /* The editor's light theme: white panels around a light gray canvas, the
-     dark theme's translucent tints flipped to black so they sit on any panel,
-     and selected states in a pale blue. */
   --canvas: hsla(0, 0%, 95%, 1);
   --background: hsla(0, 0%, 100%, 1);
   --sidebar: var(--background);
@@ -356,27 +343,21 @@
   --caption-accent: rgba(207, 63, 149, 0.24);
 }
 
-/* Windows desktop: the native minimize/maximize/close buttons overlay the
-   top-right corner. Chromium reports the free part of the title bar through
-   the titlebar-area variables, so this is the width the controls take at any
-   DPI, and 0 wherever there is no overlay (web, macOS, fullscreen). */
+/* Chromium's titlebar-area variables: the width the native controls overlay at any DPI, 0 with no overlay. */
 :root {
   --titlebar-controls-width: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw));
   --titlebar-height: 0px;
-  /* No lift outside the dashboard; it sets its own below. */
   --button-raised-shadow: 0 0 #0000;
   --button-secondary-shadow: 0 0 #0000;
   --button-outline-shadow: 0 0 #0000;
 }
 
-/* Windows desktop: the editor draws its own title bar (`WindowsTitleBar`) as a
-   fixed row under the native controls, and pads its root by this height. It matches `WINDOWS_OVERLAY_HEIGHT` in the main process. */
+/* Must match `WINDOWS_OVERLAY_HEIGHT` in the main process. */
 [data-platform="win32"] {
   --titlebar-height: 40px;
 }
 
-/* macOS desktop: the BrowserWindow uses native vibrancy, so the page keeps a
-   transparent background and the sidebars go translucent to let the blur show. */
+/* macOS native vibrancy: the page stays transparent so the blur shows. */
 [data-platform="darwin"],
 [data-platform="darwin"] body {
   background: transparent;
@@ -399,16 +380,11 @@
 @layer base {
   * {
     @apply border-border outline-ring/50 select-none;
-    /* The focus ring's own width at rest, so a transition-all control fades
-       its ring in instead of shrinking it from the browser's 3px. */
+    /* The ring's own width at rest, so a transition-all control fades it in instead of shrinking it from the browser's 3px. */
     outline-width: 1px;
 
-    /* Hide scrollbars (keep scroll behavior) until we add custom styling. */
     scrollbar-width: none;
     -ms-overflow-style: none;
-
-    /* disables things like pull-to-refresh and overscroll effects */
-    /* overscroll-behavior: none; */
   }
 
   *::-webkit-scrollbar {
@@ -436,26 +412,21 @@
   }
 }
 
-/* A label set in a flex-centered box rides high, Geist most of all: its line box
-   rounds onto a tall ascender. Trimmed to the capitals and padded back to a full
-   line, the box keeps its size and centers on the cap height. */
+/* Geist rides high in a flex-centred box; trimmed to the capitals and padded back, it centres on the cap height. */
 @supports (text-box: trim-both cap alphabetic) {
   .cap-centered {
     text-box: trim-both cap alphabetic;
     padding-block: calc((1lh - 1cap) / 2);
   }
 
-  /* For a fixed-height block button: its own height holds, so the trim alone
-     does it. Flex buttons need .cap-centered on a span around the label. */
+  /* Flex buttons need .cap-centered on a span around the label. */
   .cap-trim {
     text-box: trim-both cap alphabetic;
   }
 }
 
 @layer utilities {
-  /* The one focus ring: a 1px line in --ring just inside the edge. It is an
-     outline, so it follows the corners, sits over the element's own children
-     and leaves box-shadow free for rings and lifts. */
+  /* An outline, so it follows the corners, sits over children and leaves box-shadow free for rings and lifts. */
   .focus-ring:focus-visible,
   .focus-ring[data-dragging='true'] {
     border-color: var(--ring);
@@ -463,8 +434,7 @@
     outline-offset: -1px;
   }
 
-  /* A button pressing in: a hair smaller while held. Lists every property the
-     color transitions animate as well, so adding it keeps those fades. */
+  /* Lists the colour transitions too, so adding it keeps those fades. */
   .press {
     transition-property: color, background-color, border-color, outline-color, fill, stroke, opacity, box-shadow, transform, translate, scale, rotate;
     transition-duration: var(--tw-duration, 150ms);
@@ -482,9 +452,7 @@
   }
 }
 
-/* Menus, popovers, dialogs and the other panels that come and go with
-   tw-animate's animate-in and animate-out: quick and easing out, 120ms in and
-   100ms out. Fallbacks, so a duration-* or ease-* class on the element wins. */
+/* Fallbacks, so a duration-* or ease-* class on the element wins. */
 @layer base {
   :where([class*="animate-in"], [class*="animate-out"]) {
     --tw-duration: 120ms;
@@ -496,7 +464,6 @@
   }
 }
 
-/* For people who ask their device for less motion, they appear and go at once. */
 @media (prefers-reduced-motion: reduce) {
   :is([class*="animate-in"], [class*="animate-out"]) {
     animation: none;
@@ -509,31 +476,18 @@
   }
 }
 
-/**
- * The soundboard is as tall as the timeline the user drags, not as tall as the
- * viewport, so its scale thins itself out against its own box. Both columns are
- * laid out with justify-between, so hiding an element re-spreads the rest —
- * dropping a label and its major tick together keeps the two lined up.
- *
- * Heights below are the soundboard's content box; the meters themselves sit
- * 32px shorter than that (row gap + the layer picker underneath).
- */
+/* Both columns use justify-between: drop a label and its major tick together to keep them lined up. Heights are the content box; meters sit 32px shorter. */
 .soundboard {
   container: soundboard / size;
 }
 
-/* Halve the minor ticks — the labels still have room at this height. */
 @container soundboard (max-height: 188px) {
   .soundboard-tick:nth-child(even) {
     display: none;
   }
 }
 
-/**
- * Halve the scale itself. Majors sit at 4n+1 of the 21 ticks, so keeping
- * 6n+1 plus the last one leaves major-minor-major-minor-major: three majors for
- * the three surviving labels, still with a minor between each pair.
- */
+/* Majors sit at 4n+1 of the 21 ticks; keeping 6n+1 plus the last leaves three majors with a minor between each. */
 @container soundboard (max-height: 167px) {
   .soundboard-tick {
     display: none;
@@ -549,11 +503,7 @@
   }
 }
 
-/* The dashboard's dark theme: Plane's token structure (packages/tailwind-config),
-   on a darker, near-black neutral ramp of our own. The dashboard puts
-   `dashboard-theme` on <html> while it is open, so menus, tooltips and dialogs
-   (which mount on <body>) get the same palette. The app's own tokens are
-   pointed at these, so every page inside the dashboard sits on one palette. */
+/* Set on <html> so menus, tooltips and dialogs mounted on <body> get the same palette. */
 html.dashboard-theme {
   --plane-canvas: #060606;
   --plane-surface-1: #0b0b0b;
@@ -572,14 +522,12 @@ html.dashboard-theme {
   --plane-border-subtle-1: #252525;
   --plane-border-strong: #2e2e2e;
   --plane-border-strong-1: #3a3a3a;
-  /* Text steps far enough apart to read as levels: titles and the item you are
-     on, then labels, then descriptions, then hints. */
   --plane-text-primary: #ededed;
   --plane-text-secondary: #a1a1a1;
   --plane-text-tertiary: #7d7d7d;
   --plane-text-placeholder: #666666;
   --plane-text-disabled: #4a4a4a;
-  /* A clean, saturated blue: the brightest that still carries white text at 4.5:1. */
+  /* The brightest blue that still carries white text at 4.5:1. */
   --plane-accent-primary: #2f6ff0;
   --plane-accent-primary-hover: #3d7bf3;
   --plane-accent-primary-active: #2563eb;
@@ -591,12 +539,10 @@ html.dashboard-theme {
   --plane-danger-text: oklch(0.7022 0.1892 22.23);
   --plane-shadow-raised-100: 0px 1px 6px -1px #00000014, 0px 1px 4px 0px #0000001a;
   --plane-shadow-overlay-200: 0px 10px 10px -10px #0000001f, 0px 30px 60px -12px #00000066;
-  /* Tints that flip with the theme: light on dark, dark on light. */
   --plane-fill-faint: rgb(255 255 255 / 0.03);
   --plane-fill-subtle: rgb(255 255 255 / 0.07);
   --plane-fill-recessed: rgb(0 0 0 / 0.2);
   --plane-chart-muted: rgb(255 255 255 / 0.42);
-  /* Empty-state drawings, in the timeline's clip colours. */
   --art-card: #151515;
   --art-card-edge: #262626;
   --art-line: #2e2e2e;
@@ -607,13 +553,10 @@ html.dashboard-theme {
   --art-audio-ink: #34d399;
   --art-text: #2e3239;
   --art-text-ink: #8fa3bb;
-  /* The logo badge: the white tile on dark, the black one on light. */
   --logo-tile: #ffffff;
   --logo-ink: #000000;
   --scrollbar-thumb: rgb(255 255 255 / 0.13);
   --scrollbar-thumb-hover: rgb(255 255 255 / 0.26);
-  /* Depth: light catching a surface's top edge, a card lifted off the page,
-     and what floats above it all. */
   --depth-edge: rgb(255 255 255 / 0.07);
   --depth-overlay: 0 0 0 1px rgb(0 0 0 / 0.25), 0 6px 12px -4px rgb(0 0 0 / 0.35), 0 24px 56px -12px rgb(0 0 0 / 0.65);
   --depth-tooltip: 0 4px 12px -4px rgb(0 0 0 / 0.5);
@@ -650,15 +593,13 @@ html.dashboard-theme {
   --border-input: var(--plane-border-subtle-1);
   --input: var(--plane-layer-1);
   --inset: var(--plane-layer-2);
-  /* An off switch's track: a step up from the cards it sits on, which --muted isn't here. */
+  /* A step up from the cards it sits on, which --muted isn't here. */
   --switch-track: var(--plane-border-strong);
   --ring: var(--plane-accent-primary);
   --selection: var(--plane-accent-subtle-active);
 }
 
-/* The light theme: the same tokens on white panels and a light gray frame.
-   Kobalte keeps the app's <html> in dark mode (an inline color-scheme), so
-   the dashboard's own choice needs !important to reach native controls. */
+/* Kobalte pins <html> to dark (an inline color-scheme), so the dashboard's choice needs !important to reach native controls. */
 html.dashboard-theme[data-dashboard-theme="light"] {
   color-scheme: light !important;
   --art-card: #ffffff;
@@ -718,7 +659,6 @@ html.dashboard-theme[data-dashboard-theme="light"] {
   --plane-fill-recessed: rgb(0 0 0 / 0.025);
   --plane-chart-muted: rgb(0 0 0 / 0.3);
 
-  /* App tokens whose dark values are not a step on the --plane-* ramp. */
   --secondary: #f0f0f0;
   --secondary-hover: #e8e8e8;
   --secondary-pressing: #dedede;
@@ -733,25 +673,14 @@ html.dashboard-theme[data-dashboard-theme="light"] {
   --destructive-accent-foreground: #b91c1c;
 }
 
-/* Fields that pin a dark color-scheme for their native parts (date and time
-   pickers, select arrows) follow the light theme instead. */
 html.dashboard-theme[data-dashboard-theme="light"] [class*="color-scheme:dark"] {
   color-scheme: light;
 }
 
-/* The site's pages (everything but the dashboard and the editor) take the same
-   theme as the dashboard. They're drawn in Tailwind's white and black, at many
-   strengths, on a near-black page, so their light theme, `site-light` on
-   <html>, swaps the two ends: white becomes ink and black becomes white, and
-   every word, line, card and button turns over at once. The surfaces the site
-   names itself, from the page to the panels of its product pictures, are the
-   --site-* colours here: the dark ones, then the dashboard's light ones. A
-   picture that stays as it is, such as a frame of video, sits in `.site-dark`. */
+/* `site-light` swaps Tailwind's white and black ends, so everything turns over at once. A picture that must stay as it is sits in `.site-dark`. */
 :root,
 html.site-light .site-dark {
   --site-page: #0a0a0a;
-  /* The product pictures' surfaces, from the window behind everything to the
-     rows inside a panel, and their edges. */
   --site-canvas: #060606;
   --site-surface: #0b0b0b;
   --site-raised: #111111;
@@ -771,7 +700,6 @@ html.site-light .site-dark {
   --site-shadow-panel: 0 24px 48px -16px rgb(0 0 0 / 0.8);
   --site-shadow-pop: 0 40px 80px -24px rgb(0 0 0 / 0.95);
   --site-shadow-popover: 0 24px 60px -20px rgb(0 0 0 / 0.9);
-  /* Words the pictures set in their own colours, and the accents they share. */
   --site-label: #f2f2f2;
   --site-ink: #f8f8f8;
   --site-ink-soft: #a4a4a4;
@@ -791,7 +719,7 @@ html.site-light .site-dark {
   --site-logo-ink: #000000;
   --site-scrollbar: rgb(255 255 255 / 0.13);
   --site-scrollbar-hover: rgb(255 255 255 / 0.26);
-  /* The timeline's clips, as the editor draws them (engine/timeline/constants.ts). */
+  /* Must match engine/timeline/constants.ts. */
   --clip-video-bg: #1a2a4a;
   --clip-video-edge: #2a4785;
   --clip-video-ink: #7aa7f7;
@@ -822,8 +750,6 @@ html.site-light {
   --color-red-300: #dc2626;
   --color-red-400: #ef4444;
 
-  /* Buffer's warm near-white (buffer.com's neutral-050), so the page isn't a
-     glaring white; panels on it stay white. The frame is their neutral-100. */
   --site-page: #fefdfb;
   --site-canvas: #f3f3f3;
   --site-surface: #ffffff;
@@ -863,8 +789,7 @@ html.site-light {
   --site-logo-ink: #ffffff;
   --site-scrollbar: rgb(0 0 0 / 0.16);
   --site-scrollbar-hover: rgb(0 0 0 / 0.32);
-  /* Claude's and Codex's own light themes, for their windows (site-agents.tsx;
-     the dark ones are the fallbacks written there). */
+  /* The dark values are the fallbacks written in site-agents.tsx. */
   --claude-bg: #faf9f5;
   --claude-ask: #f0eee6;
   --claude-input: #ffffff;
@@ -896,18 +821,13 @@ html.site-light {
 
 /* @site:grounds */
 
-/* Fields that pin a dark color-scheme for their native parts follow the light theme, as in the dashboard. */
 html.site-light [class*="color-scheme:dark"] {
   color-scheme: light;
 }
 
 /* @site:site-dark */
 
-/* The dashboard shows thin scrollbars, so a long page says there is more below
-   it; the editor keeps them hidden. Unlayered, so these win over the base
-   layer's `scrollbar-width: none`. Chromium and Safari draw them from the
-   ::-webkit-scrollbar parts (Chromium only when scrollbar-width is auto),
-   Firefox from scrollbar-color. */
+/* Unlayered, so these beat the base layer's `scrollbar-width: none`. Chromium reads ::-webkit-scrollbar only when scrollbar-width is auto; Firefox reads scrollbar-color. */
 html.dashboard-theme * {
   scrollbar-width: auto;
   -ms-overflow-style: auto;
@@ -942,11 +862,7 @@ html.dashboard-theme *::-webkit-scrollbar-thumb:hover {
   }
 }
 
-/* The site's pages scroll the document itself. With a mouse, its scrollbar
-   is drawn over the page (site-scrollbar.tsx), so the page keeps the window's
-   whole width; the browser's own is hidden. Touch screens keep the browser's,
-   which floats over the page already. Everything inside keeps the base
-   layer's hidden scrollbars, and the editor's document never scrolls. */
+/* With a mouse the scrollbar is drawn over the page (site-scrollbar.tsx), so the browser's is hidden; touch keeps its own. */
 @media (pointer: fine) {
   html:not(.dashboard-theme) {
     scrollbar-width: none;
@@ -994,9 +910,7 @@ html:not(.dashboard-theme)::-webkit-scrollbar-thumb:hover {
   }
 }
 
-/* Depth, in the dashboard only. The top-edge light is a 1px background line,
-   not a shadow, so it never covers a card's ring, drawn with box-shadow, or
-   the focus ring, drawn with an outline. */
+/* A 1px background line, not a shadow, so it never covers a card's box-shadow ring or the outline focus ring. */
 html.dashboard-theme :is(.depth-panel, .depth-card) {
   background-image: linear-gradient(90deg, transparent, var(--depth-edge) 12%, var(--depth-edge) 88%, transparent);
   background-size: 100% 1px;
@@ -1004,7 +918,7 @@ html.dashboard-theme :is(.depth-panel, .depth-card) {
   background-repeat: no-repeat;
 }
 
-/* The workspace frame: its children cover its background, so the light is drawn above them. */
+/* Its children cover its background, so the light is drawn above them. */
 html.dashboard-theme .depth-frame::after {
   content: "";
   position: absolute;
@@ -1015,11 +929,6 @@ html.dashboard-theme .depth-frame::after {
   pointer-events: none;
 }
 
-/* Cards rise a pixel on hover and their background brightens: a tint laid
-   over whatever color the card has, under the top light. No shadow. A
-   bordered card brightens its border with `hover:border-(--border-input)`.
-   Pressed, a card settles back down. The lift steps aside while the card has
-   keyboard focus. */
 html.dashboard-theme .depth-card {
   transition-property: transform, background-color, border-color, color;
   transition-duration: 150ms;
@@ -1034,9 +943,7 @@ html.dashboard-theme .depth-card:hover {
   background-position: top, 0 0;
 }
 
-/* A card with no fill of its own, like a thumbnail with its title under it,
-   has no top edge to light: the line would float above the thumbnail. It
-   keeps the tint and the lift. */
+/* No fill, so no top edge to light: the line would float above the thumbnail. */
 html.dashboard-theme .depth-card.depth-unlit {
   background-image: none;
 }
@@ -1061,15 +968,12 @@ html.dashboard-theme .depth-card:hover:active {
   }
 }
 
-/* Anything you can tab to in the dashboard gets the focus ring, even without
-   .focus-ring or with an `outline-none` it was given. Text fields show focus
-   with their border, and menu items with their highlight. */
+/* Overrides `outline-none` too. Text fields show focus with their border, menu items with their highlight. */
 html.dashboard-theme :is(button, a[href], summary, [role="button"], [role="tab"], [role="radio"], [role="checkbox"], [role="switch"], [role="link"], [role="slider"], [tabindex="0"]):focus-visible {
   outline: 1px solid var(--ring);
   outline-offset: -1px;
 }
 
-/* Menus, popovers, dialogs and popups float with a soft shadow and the same top light. */
 html.dashboard-theme :is([data-popper-positioner] > :not([role="tooltip"]), [role="dialog"]) {
   box-shadow: var(--depth-overlay);
   background-image: linear-gradient(90deg, transparent, var(--depth-edge) 12%, var(--depth-edge) 88%, transparent);
@@ -1082,8 +986,6 @@ html.dashboard-theme [data-popper-positioner] > [role="tooltip"] {
   box-shadow: var(--depth-tooltip);
 }
 
-/* The Assistant's message box: a card lifted off the page with the same top
-   light as the panels above, and no ring when the cursor lands in it. */
 html.dashboard-theme .assistant-composer {
   box-shadow: var(--depth-card);
   background-image: linear-gradient(90deg, transparent, var(--depth-edge) 12%, var(--depth-edge) 88%, transparent);
@@ -1092,8 +994,6 @@ html.dashboard-theme .assistant-composer {
   background-repeat: no-repeat;
 }
 
-/* The Assistant's answers read at the dashboard's base size, a step up from
-   the editor's chat, which shares the Markdown. */
 .assistant-prose > div {
   font-size: 14px;
   line-height: 1.6;
@@ -1108,24 +1008,19 @@ html.dashboard-theme .assistant-composer {
   font-size: 12.5px;
 }
 
-/* Grayscale smoothing keeps light text on the dark surfaces thin. Set on
-   <html> so menus and dialogs get it too. */
+/* Set on <html> so menus and dialogs get it too. */
 html.dashboard-theme {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
 }
 
-/* The dashboard sets in Geist, the editor keeps Inter. Inter is the first
-   fallback, so the moment before Geist loads looks almost the same. On <body>
-   too, for menus and dialogs. */
+/* Inter is the first fallback, so the moment before Geist loads looks almost the same. On <body> too, for menus and dialogs. */
 html.dashboard-theme :is(body, .font-sans) {
   font-family: 'Geist', 'Inter', ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
 }
 
-/* Every weight a touch heavier than Tailwind's steps, the same in both themes:
-   Geist is variable, so 430 is a real weight, and thin 12-13px strokes read
-   firmer on dark and light alike. Tailwind's weight classes read these. */
+/* Geist is variable, so 430 is a real weight. */
 html.dashboard-theme {
   --font-weight-normal: 430;
   --font-weight-medium: 530;
@@ -1137,8 +1032,6 @@ html.dashboard-theme body {
   font-weight: var(--font-weight-normal);
 }
 
-/* One button look across the dashboard: the shared Button takes PlaneButton's
-   hairline border, lift, ghost colours and 13px medium label. */
 html.dashboard-theme {
   --button-raised-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.15), inset 0 1px 0 rgb(255 255 255 / 0.2), 0 1px 2px rgb(0 0 0 / 0.25);
   --button-secondary-shadow: inset 0 0 0 1px var(--plane-border-strong), var(--plane-shadow-raised-100);
@@ -1152,13 +1045,10 @@ html.dashboard-theme [data-slot="button"][data-size="default"] {
   font-weight: var(--font-weight-medium);
 }
 
-/* Corners: 6px for controls, 12px for cards and anything that floats over the
-   page, dialogs included (the shared dialog is rounder for the editor). */
 html.dashboard-theme [data-slot="dialog-content"] {
   border-radius: var(--radius-xl);
 }
 
-/* 13px body at the face's own spacing; added tracking only loosens it. */
 .dashboard-shell {
   background: var(--plane-canvas);
   color: var(--plane-text-primary);
@@ -1167,9 +1057,7 @@ html.dashboard-theme [data-slot="dialog-content"] {
   letter-spacing: normal;
 }
 
-/* The app's 10px and 11px steps are sized for the editor's dense panels. Next
-   to 13px navigation they read as fine print, so the dashboard takes each one
-   step up. (Declared before the menu rules, which set their own size.) */
+/* Declared before the menu rules, which set their own size. */
 html.dashboard-theme .text-xxs {
   font-size: 11px;
 }
@@ -1178,12 +1066,10 @@ html.dashboard-theme .text-xs {
   font-size: 12px;
 }
 
-/* Large type gets tighter tracking, as display sizes want. */
 html.dashboard-theme :is(.text-xl, .text-2xl, .text-3xl, .text-4xl, .text-5xl) {
   letter-spacing: -0.015em;
 }
 
-/* Plane's menus: a surface with a strong hairline, 4px in, rows that only tint on hover. */
 html.dashboard-theme :is([data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="select-content"]) {
   gap: 2px;
   padding: 4px;
@@ -1216,8 +1102,6 @@ html.dashboard-theme [data-slot="dropdown-menu-item"][data-variant="destructive"
   background: var(--plane-danger-subtle);
 }
 
-/* On the near-black surfaces a field's fill alone is not enough to see it,
-   so text fields get a hairline, like Plane's inputs. Focus keeps its ring. */
 html.dashboard-theme [data-slot="text-field-input"] {
   border-width: 1px;
   border-style: solid;
@@ -1233,28 +1117,19 @@ html.dashboard-theme [data-slot="tooltip-content"] {
   font-weight: var(--font-weight-medium);
 }
 
-/* The editor's theme: the dashboard's near-black ramp and Geist, so the editor
-   reads as the same product. The editor puts `editor-theme` on <html> while it
-   is open, so its menus, tooltips and dialogs get it too. The canvas sits a
-   step darker than the panels around it, and the text runs a step larger than
-   the 10-11px the app's base tokens are sized for. */
+/* Set on <html> so its menus, tooltips and dialogs get it too. */
 html.editor-theme {
   --text-xs: 11px;
   --text-sm: 12px;
   --text-base: 12px;
   --text-lg: 13px;
-  /* Four steps far enough apart to read: values and body at 440, labels,
-     section titles and buttons at 500, panel titles at 530. A touch over
-     Tailwind's steps, as small grey text on near-black reads thin, but no
-     more: with macOS's stem thickening (below) 560-600 came out bold. */
+  /* With macOS's stem thickening, 560-600 came out bold. */
   --font-weight-normal: 440;
   --font-weight-strong: 500;
   --font-weight-medium: 530;
   --font-weight-semibold: 600;
   --radius: 6px;
-  /* No antialiased smoothing here, unlike the dashboard: on macOS it turns
-     off the stem thickening that light text on a dark ground gets, and the
-     editor's 11-12px labels go spindly without it, most of all at 1x. */
+  /* No antialiased smoothing: on macOS it turns off stem thickening, and 11-12px light-on-dark labels go spindly. */
 }
 
 html.editor-theme :is(body, .font-sans) {
@@ -1265,8 +1140,7 @@ html.editor-theme body {
   font-weight: var(--font-weight-normal);
 }
 
-/* The 10px and 11px steps, a step up: the theme sets them inline, so the
-   classes are overridden rather than the tokens. */
+/* The theme sets these inline, so the classes are overridden rather than the tokens. */
 html.editor-theme .text-xxs {
   font-size: 11px;
 }
@@ -1275,15 +1149,11 @@ html.editor-theme .text-xs {
   font-size: 12px;
 }
 
-/* The editor's labels ask for `font-450`, which Tailwind does not generate
-   (an arbitrary weight is `font-[450]`), so they fell back to body weight.
-   Here it is the label step. */
+/* Tailwind doesn't generate `font-450` (an arbitrary weight is `font-[450]`), so it's defined here. */
 html.editor-theme .font-450 {
   font-weight: var(--font-weight-strong);
 }
 
-/* Text a step down from white: at the editor's weights, near-white on
-   near-black glares in titles and labels. */
 html.editor-theme[data-kb-theme="dark"] {
   --canvas: #060606;
   --background: #0b0b0b;
@@ -1336,8 +1206,6 @@ html.editor-theme[data-kb-theme="light"] {
   --border-input: #e0e0e0;
 }
 
-/* Menus and tooltips: a hairline a step stronger than the panels', and the
-   dashboard's soft lift. */
 html.editor-theme :is([data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="select-content"]) {
   border-color: var(--border-input);
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.12), 0 12px 32px -8px rgb(0 0 0 / 0.4);
@@ -1347,8 +1215,6 @@ html.editor-theme[data-kb-theme="light"] :is([data-slot="dropdown-menu-content"]
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.06), 0 12px 32px -8px rgb(0 0 0 / 0.16);
 }
 
-/* The dashboard's menus: 4px in, rows that tint on hover instead of filling
-   with the accent, and corners no rounder than the rest of the app. */
 html.editor-theme :is([data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="select-content"], [data-slot="context-menu-content"], [data-slot="context-menu-sub-content"]) {
   gap: 1px;
   padding: 4px;
@@ -1376,8 +1242,4 @@ html.editor-theme :is([data-slot="dropdown-menu-separator"], [data-slot="context
   margin-block: 3px;
 }
 
-/* A laptop's short screen, from the lg breakpoint up: the homepage hero's
-   card has less height to give the headline there, between the week's day
-   labels and the window rising from its bottom (HOME_HEADLINE in
-   lib/hero-shell.ts). */
 @custom-variant short (@media (max-height: 820px) and (min-width: 1024px));

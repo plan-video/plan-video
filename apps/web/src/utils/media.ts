@@ -3,17 +3,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 
-/**
- * Converts a MIME type to its corresponding file extension
- * @param mimeType - The MIME type to convert (e.g., "image/jpeg" or "text/plain; charset=utf-8")
- * @returns The file extension with leading dot (e.g., ".jpg") or null if not found
- */
 export function mimeTypeToExtension(mimeType: string): string {
-  // Normalize the MIME type to lowercase and extract main type (before semicolon)
   const normalizedMimeType = mimeType.toLowerCase().trim().split(';')[0].trim();
 
   const mimeToExtMap: Record<string, string> = {
-    // Images
     'image/jpeg': '.jpg',
     'image/jpg': '.jpg',
     'image/png': '.png',
@@ -28,11 +21,9 @@ export function mimeTypeToExtension(mimeType: string): string {
     'image/heic': '.heic',
     'image/heif': '.heif',
 
-    // Documents
     'application/pdf': '.pdf',
     'text/plain': '.txt',
 
-    // Audio
     'audio/mpeg': '.mp3',
     'audio/mp3': '.mp3',
     'audio/wav': '.wav',
@@ -44,7 +35,6 @@ export function mimeTypeToExtension(mimeType: string): string {
     'audio/flac': '.flac',
     'audio/webm': '.webm',
 
-    // Video
     'video/mp4': '.mp4',
     'video/mpeg': '.mpeg',
     'video/quicktime': '.mov',
@@ -55,7 +45,6 @@ export function mimeTypeToExtension(mimeType: string): string {
     'video/x-flv': '.flv',
     'video/x-ms-wmv': '.wmv',
 
-    // Web files
     'text/html': '.html',
     'text/javascript': '.js',
     'application/javascript': '.js',
@@ -69,11 +58,6 @@ export function mimeTypeToExtension(mimeType: string): string {
   return mimeToExtMap[normalizedMimeType] || '.bin';
 }
 
-/**
- * Returns a file name without its final extension.
- * @param name - File name
- * @returns File name without extension
- */
 export function stripExtension(name: string): string {
   const dotIndex = name.lastIndexOf('.');
   if (dotIndex <= 0) return name;

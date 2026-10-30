@@ -2,16 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// A post's picture, kept on the post itself: a small JPEG that travels with
-// the account, so every browser and the desktop app can show it without the
-// video. A few kilobytes each.
+// Kept on the post so every browser and the desktop app can show it without the video.
 
 import { readMedia, releaseMedia, videoStill } from "@/lib/social-media";
 
-/** The longest side, in pixels. Twice the largest place it is shown. */
+/** Twice the largest place it is shown. */
 const SIZE = 160;
 
-/** A picture at `src` made small enough to keep on the post. */
 export async function shrinkToThumbnail(src: string): Promise<string | null> {
   try {
     const image = new Image();
@@ -30,7 +27,6 @@ export async function shrinkToThumbnail(src: string): Promise<string | null> {
   }
 }
 
-/** The thumbnail of a post's file: the picture, or the video at its cover (or its first frames). */
 export async function thumbnailFromFile(file: File, coverTime?: number | null): Promise<string | null> {
   try {
     const media = await readMedia(file);

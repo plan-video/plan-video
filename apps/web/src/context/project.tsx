@@ -2,12 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The open project, for everything that acts on it. A project is three names
-// at once and they come apart: the id is what it *is* (the URL, the key the
-// world is under), the folder is where it lives (and moves, when the project
-// is renamed), and the display name is what the user calls it. Resolving the
-// URL to a project happens once, in ProjectPage; this is that answer, kept
-// current as the project is renamed underneath the editor.
+// A project has three names that come apart: the id (the URL, the world's key), the
+// folder (moves on rename) and the display name.
 
 import { createContext, createMemo, createSignal, useContext, type Accessor, type JSX } from 'solid-js';
 
@@ -16,23 +12,17 @@ import { refreshProject, renameProject } from '@/projects';
 import type { ProjectInfo } from '@/projects';
 
 export type ProjectContextValue = {
-	/** package.json `projectId`: what the project is, whatever it is called. */
 	id: Accessor<string>;
-	/** Absolute project folder. Moves when the project is renamed. */
 	dir: Accessor<string>;
-	/** package.json `displayName`: what the user calls it. */
 	name: Accessor<string>;
-	/** Renames the project — the record, and the folder with it. */
 	rename: (displayName: string) => Promise<void>;
-	/** Re-reads the record, for when something else wrote it. */
 	refresh: () => Promise<void>;
 };
 
 const ProjectContext = createContext<ProjectContextValue>();
 
 export function ProjectProvider(props: { project: ProjectInfo; children: JSX.Element }) {
-	// Seeded once: the subtree is keyed on the project, so a different one
-	// arrives as a new provider rather than as a new value here.
+	// Seeded once: the subtree is keyed on the project, so another one arrives as a new provider.
 	const [info, setInfo] = createSignal(props.project);
 
 	// Memos, not plain reads: `dir` re-mounts the scene when it changes, and a

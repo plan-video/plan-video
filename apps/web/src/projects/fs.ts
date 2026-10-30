@@ -2,11 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The asset library's view of a project folder on desktop: the main process
-// reads and writes the manifest (as YAML) and lists and stats files; bytes
-// come in as real Files (see ElectronFileHandle) and go out through the
-// streaming FILE_WRITE_* channels.
-
 import { MAIN_CHANNELS } from '@desktop/main-channels';
 import { mainBridge } from '@/lib/ipc';
 import { ElectronFileHandle } from '@/lib/electron-file-handle';
@@ -17,7 +12,7 @@ import { createBrowserProjectFS, isBrowserProjectDir } from './browser';
 
 import type { Manifest, ProjectFS } from '@plan.video/assets';
 
-/** Streams `blob` to an absolute path in chunks. */
+/** In chunks. */
 async function writeBlob(path: string, blob: Blob): Promise<void> {
 	const target = new ElectronWritableFileHandle(path);
 	const writable = await target.createWritable();
@@ -38,7 +33,6 @@ async function writeBlob(path: string, blob: Blob): Promise<void> {
 	}
 }
 
-/** The `ProjectFS` of the project folder at `dir`. */
 export function createProjectFS(dir: string): ProjectFS {
 	if (isBrowserProjectDir(dir)) return createBrowserProjectFS(dir);
 

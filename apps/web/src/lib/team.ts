@@ -2,16 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Team members: the people a workspace's owner asked into it, and the
-// workspaces other people asked the signed-in person into. Who is in which is
-// kept on the server (supabase/migrations/20261014200000_team_members.sql),
-// which checks every change against the person's role; this lists them and
-// asks for the changes. Pro and Agency include a team.
-//
-//   owner    the account the workspace belongs to: everything, and the only
-//            one who renames or deletes it
-//   admin    everything in the workspace: posts, accounts, settings, people
-//   member   writes, schedules and posts; can't connect accounts or invite
+// The server (supabase/migrations/20261014200000_team_members.sql) checks every change
+// against the person's role; this only lists and asks. owner: everything, and the only
+// one who renames or deletes; admin: everything in the workspace; member: writes,
+// schedules and posts, but can't connect accounts or invite.
 
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { createSignal } from "solid-js";
@@ -36,12 +30,11 @@ import {
   type WorkspaceRole,
 } from "@/lib/workspaces";
 
-/** The plan level, as user_data.access_level, from which a workspace can have a team: Pro. */
+/** Pro, as user_data.access_level. */
 export const TEAM_LEVEL = 3;
 
 export type WorkspaceLook = Pick<Workspace, "name" | "color" | "icon" | "shape">;
 
-/** A workspace someone asked the signed-in person into, waiting for them. */
 export type TeamInvite = {
   id: string;
   scope: TeamScope;
@@ -55,7 +48,7 @@ export type TeamInvite = {
   invitedBy: string | null;
 };
 
-/** Someone in a workspace, or asked into it. `userId` is set once they've joined. */
+/** `userId` is set once they've joined. */
 export type TeamMember = {
   id: string;
   email: string;
@@ -77,21 +70,18 @@ const [invites, setInvites] = createSignal<TeamInvite[]>([]);
 const [changes, setChanges] = createSignal(0);
 const [shown, setShown] = createSignal<string | null>(null);
 
-/** The invite whose dialog is open, by id. */
 export { shown as shownInvite };
 
-/** Opens an invite's dialog, from the workspace menu, the inbox or a link. Null closes it. */
 export function showInvite(id: string | null) {
   setShown(id);
 }
 
-/** Invites waiting for the signed-in person. */
 export { invites as teamInvites };
 
-/** Bumped whenever someone joins, leaves or changes role anywhere this person can see, so lists of people read again. */
+/** Bumped on any join, leave or role change this person can see, so lists read again. */
 export { changes as teamChanges };
 
-/** The sentences the server refuses with, so each shows in the language picked. */
+/** The sentences the server refuses with, so each can be shown translated. */
 const SERVER_WORDS = new Set<string>([
   msg("Only the workspace's owner and admins can invite people."),
   msg("Only the workspace's owner and admins can change roles."),
@@ -117,7 +107,7 @@ function reason(error: { message?: string } | null, fallback: string): string {
 
 const asRole = (value: unknown): WorkspaceRole => (value === "admin" ? "admin" : "member");
 
-/** How a workspace looks, from its owner's list. One still wearing a name the app gave it is called after its owner. */
+/** A workspace still wearing a name the app gave it is called after its owner. */
 function asLook(value: unknown, owner: string): WorkspaceLook | null {
   if (!value || typeof value !== "object") return null;
   const row = value as Record<string, unknown>;
@@ -136,11 +126,9 @@ function asLook(value: unknown, owner: string): WorkspaceLook | null {
 
 let person: string | undefined;
 let channel: RealtimeChannel | null = null;
-/** Rows of workspace_members this person has reason to hear of: theirs, their invites, and the people on a list they have open. */
 const mine = new Set<string>();
 const watched = new Map<symbol, ReadonlySet<string>>();
 
-/** Hears when any of these people leave or are taken out, while a list of them is open. Returns the stop. */
 export function watchTeamRows(ids: readonly string[]) {
   const key = Symbol("rows");
   watched.set(key, new Set(ids));
@@ -152,10 +140,9 @@ let refreshing: Promise<void> | null = null;
 let refreshAgain = false;
 let refreshTimer: ReturnType<typeof setTimeout> | undefined;
 let lastRefresh = 0;
-/** The shared workspaces known before, so one that goes away is told about. */
 let known: ReadonlySet<string> | null = null;
 
-/** Starts following the signed-in person's teams. A second call for the same person does nothing. */
+/** Does nothing when already following this person. */
 export function beginTeam(userId: string | undefined) {
   if (person === userId) return;
   person = userId;
@@ -167,8 +154,7 @@ export function beginTeam(userId: string | undefined) {
   channel = null;
   if (!userId || !supabase) return;
   void refreshTeam();
-  // Someone joined, was asked in or given another role: only rows this person may see come through.
-  // A row taken out comes to everyone listening, with only its id, so it counts only when it's one of theirs.
+  // A deleted row reaches every listener with only its id, so it counts only when it's one of theirs.
   channel = supabase
     .channel(`team-${userId}`)
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "workspace_members" }, () => scheduleRefresh())
@@ -193,12 +179,11 @@ if (typeof window !== "undefined") {
   });
 }
 
-/** Reads the list again in a moment, as when a shared workspace changed and may have a new name. Several in a row read it once. */
+/** Several calls in a row read it once. */
 export function refreshTeamSoon() {
   if (person) scheduleRefresh(1_500);
 }
 
-/** Reads the workspaces shared with the signed-in person, and their invites, again. */
 export function refreshTeam(): Promise<void> {
   if (refreshing) {
     refreshAgain = true;
@@ -250,7 +235,7 @@ async function readTeam() {
   const { data, error } = await supabase.rpc("my_team");
   if (userId !== person) return;
   if (error) {
-    // Before the migration, there are no teams to list. Offline, or a page left mid-read, it's read again later.
+    // Offline, or a page left mid-read: it's read again later.
     if (/Failed to fetch|NetworkError|Load failed/i.test(error.message)) console.warn("[team] Could not read your teams", error.message);
     else if (!/my_team/.test(error.message)) console.error("[team] Could not read your teams", error);
     return;
@@ -306,7 +291,6 @@ async function readTeam() {
   setChanges((count) => count + 1);
 }
 
-/** Says once a visit that someone asked the person in, with the way to the invite. */
 function announce(userId: string, waiting: readonly TeamInvite[]) {
   const key = `plan.video.invites-told.${userId}`;
   let told: string[] = [];
@@ -329,7 +313,6 @@ function announce(userId: string, waiting: readonly TeamInvite[]) {
   }
 }
 
-/** Joins the workspace and opens it. Returns why it couldn't. */
 export async function acceptInvite(invite: TeamInvite): Promise<string | undefined> {
   if (!supabase) return t("Sign in first.");
   const { error } = await supabase.rpc("accept_workspace_invite", { invite: invite.id });
@@ -341,7 +324,6 @@ export async function acceptInvite(invite: TeamInvite): Promise<string | undefin
   switchWorkspace(sharedIdOf(invite.scope));
 }
 
-/** Turns an invite down. */
 export async function declineInvite(invite: TeamInvite): Promise<string | undefined> {
   if (!supabase) return t("Sign in first.");
   const { error } = await supabase.rpc("remove_workspace_member", { member: invite.id });
@@ -350,21 +332,15 @@ export async function declineInvite(invite: TeamInvite): Promise<string | undefi
   void refreshTeam();
 }
 
-/** Leaves a workspace someone shared. What this browser kept of it goes too. */
 export async function leaveWorkspace(workspace: SharedWorkspace): Promise<string | undefined> {
   if (!supabase) return t("Sign in first.");
   const { error } = await supabase.rpc("remove_workspace_member", { member: workspace.membership });
   if (error) return reason(error, t("Couldn't leave {workspace}. Try again.", { workspace: workspace.name }));
-  // Gone from the list, it isn't announced as if someone else took them out.
+  // Dropped from `known` so leaving isn't announced as being taken out.
   known = new Set([...(known ?? [])].filter((id) => id !== workspace.id));
   await refreshTeam();
 }
 
-// ---------------------------------------------------------------------------
-// The people in one workspace, for whoever is in it. The owner and admins
-// change them.
-
-/** Everyone in the workspace. Throws with words for the person when it can't be read. */
 export async function loadTeamList(scope: TeamScope): Promise<TeamList> {
   if (!supabase) throw new Error(t("Sign in first."));
   const { data, error } = await supabase.rpc("workspace_team", { owner: scope.owner, workspace: scope.workspace });
@@ -385,7 +361,7 @@ export async function loadTeamList(scope: TeamScope): Promise<TeamList> {
   };
 }
 
-/** Asks someone in. `emailInvite` then tells them. */
+/** Doesn't email; `emailInvite` does. */
 export async function inviteToWorkspace(scope: TeamScope, email: string, role: WorkspaceRole): Promise<{ id: string } | { error: string }> {
   if (!supabase) return { error: t("Sign in first.") };
   const { data, error } = await supabase.rpc("invite_workspace_member", { owner: scope.owner, workspace: scope.workspace, address: email, role });
@@ -394,11 +370,7 @@ export async function inviteToWorkspace(scope: TeamScope, email: string, role: W
   return { id: String((data as { id: string }).id) };
 }
 
-/**
- * Emails an invite to an address with no account yet, and says whether it
- * went. One that has an account finds the invite the next time they open
- * plan.video, so nothing is sent to it.
- */
+/** Only for an address with no account: one with an account finds the invite in the app. */
 export function emailInvite(id: string): Promise<boolean> {
   return sendInviteEmail(id).catch(() => false);
 }
@@ -410,7 +382,6 @@ export async function changeMemberRole(id: string, role: WorkspaceRole): Promise
   setChanges((count) => count + 1);
 }
 
-/** Takes someone out of the workspace, or an invite back. */
 export async function removeTeamMember(id: string): Promise<string | undefined> {
   if (!supabase) return t("Sign in first.");
   const { error } = await supabase.rpc("remove_workspace_member", { member: id });
@@ -418,16 +389,13 @@ export async function removeTeamMember(id: string): Promise<string | undefined> 
   setChanges((count) => count + 1);
 }
 
-/** The link that opens an invite, for sending it some other way. It only works for the address invited. */
+/** It only works for the address invited. */
 export function inviteLink(id: string): string {
   const origin = window.desktop ? APP_ORIGIN : window.location.origin;
   return `${origin}/dashboard?invite=${encodeURIComponent(id)}`;
 }
 
-/**
- * Invites kept on a workspace before they went through the server only ever
- * waited there. Once the plan includes a team, they're sent for real.
- */
+/** Old invites stored on the workspace itself; sent for real once the plan includes a team. */
 export async function sendLegacyInvites(workspace: Workspace, ownerId: string) {
   if (!workspace.members.length || sharedWorkspace(workspace.id)) return;
   const scope = { owner: ownerId, workspace: workspace.id };

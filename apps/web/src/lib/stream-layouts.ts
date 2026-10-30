@@ -2,13 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/**
- * Vertical layouts for a stream recording: which parts of the source frame
- * (crops) go where in a 1080×1920 frame (slots). A crop is any rectangle on
- * the source. Its slot shows it cover-fit, so a crop shaped unlike its slot
- * loses its edges. Some slots take their height from their crop, so a wide
- * facecam crop makes a short band.
- */
+/** A slot shows its crop cover-fit, so a crop shaped unlike its slot loses its edges. */
 
 import { msg } from "@/lib/i18n";
 
@@ -23,9 +17,9 @@ export const LAYOUT_HEIGHT = 1920;
 
 export type CropSpec = {
   id: CropId;
-  /** Pixel aspect (width / height) of the crop a layout starts with. */
+  /** Width / height of the crop a layout starts with. */
   aspect: number;
-  /** Center and height of the starting crop, as fractions of the source. */
+  /** As fractions of the source. */
   cx: number;
   cy: number;
   height: number;
@@ -44,7 +38,7 @@ export type StreamLayout = {
   id: string;
   label: string;
   crops: CropSpec[];
-  /** Where each crop lands, given the crops in source pixels. */
+  /** Crops are in source pixels. */
   slots: (crops: Crops) => Slot[];
 };
 
@@ -55,7 +49,7 @@ export const CROP_LABELS: Record<CropId, string> = {
   ui: msg("Game UI"),
 };
 
-/** The shape a crop is held to while resizing. Its aspect is in output pixels. */
+/** Its aspect is in output pixels. */
 export type CropShape = "freeform" | "fullscreen" | "wide" | "classic" | "square" | "circle";
 
 export const CROP_SHAPES: { id: CropShape; label: string; aspect: number | null }[] = [
@@ -69,7 +63,7 @@ export const CROP_SHAPES: { id: CropShape; label: string; aspect: number | null 
 
 export type CropStyle = {
   shape: CropShape;
-  /** Corner rounding, 0–100% of half the slot's shorter side. Null keeps the layout's own. */
+  /** 0–100% of half the slot's shorter side. Null keeps the layout's own. */
   rounding: number | null;
 };
 
@@ -87,7 +81,7 @@ const H = LAYOUT_HEIGHT;
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 
-/** The height a crop wants at `width`, kept between `min` and `max`. A deleted crop wants none. */
+/** Kept between `min` and `max`. A deleted crop wants none. */
 function band(crop: Box | undefined, width: number, min: number, max: number): number {
   if (!crop) return 0;
   if (crop.width <= 0) return min;
@@ -99,10 +93,6 @@ const full = (crop: CropId): Slot => ({ crop, box: { x: 0, y: 0, width: W, heigh
 const gameplay = (aspect: number): CropSpec => ({ id: "gameplay", aspect, cx: 0.5, cy: 0.5, height: 1 });
 const facecam = (aspect: number, cx = 0.16, cy = 0.22, height = 0.32): CropSpec => ({ id: "facecam", aspect, cx, cy, height });
 
-/**
- * The game as a band across the middle of the frame, over the same footage
- * blurred to fill it, for layouts that put a facecam over its top edge.
- */
 function blurredBand(crops: Crops): { slots: Slot[]; top: number } {
   const height = band(crops.gameplay, W, 600, 1400);
   const top = Math.round(920 - height / 2);
@@ -266,22 +256,17 @@ export function getStreamLayout(id: string): StreamLayout {
   return STREAM_LAYOUTS.find((layout) => layout.id === id) ?? STREAM_LAYOUTS[0]!;
 }
 
-/** A slot's corner rounding as a percentage of half its shorter side. */
 export function slotRounding(slot: Slot): number {
   const half = Math.min(slot.box.width, slot.box.height) / 2;
   return half > 0 ? clamp(((slot.radius ?? 0) / half) * 100, 0, 100) : 0;
 }
 
-/** The style a crop has: its own if set, else freeform with the layout's rounding. */
+/** Its own if set, else freeform with the layout's rounding. */
 export function cropStyle(styles: CropStyles, id: CropId): CropStyle {
   return styles[id] ?? { shape: "freeform", rounding: null };
 }
 
-/**
- * Slots as each crop's style has them. A floating slot takes its crop's
- * shape about its centre; every slot takes its crop's rounding, or keeps the
- * layout's as a share of its size. A circle is fully rounded.
- */
+/** A floating slot takes its crop's shape about its centre. A circle is fully rounded. */
 export function styleSlots(slots: Slot[], styles: CropStyles): Slot[] {
   return slots.map((slot) => {
     const style = styles[slot.crop];
@@ -293,7 +278,7 @@ export function styleSlots(slots: Slot[], styles: CropStyles): Slot[] {
   });
 }
 
-/** `box` reshaped to `aspect` about its centre, keeping its area, inside the frame. */
+/** Keeps its area, inside the frame. */
 function fitSlot(box: Box, aspect: number): Box {
   let width = Math.sqrt(box.width * box.height * aspect);
   let height = width / aspect;
@@ -308,10 +293,7 @@ function fitSlot(box: Box, aspect: number): Box {
   };
 }
 
-/**
- * `crop` reshaped to `aspect` (output pixels) about its centre, keeping its
- * area where it fits, as fractions of a source of `sourceAspect`.
- */
+/** Keeps its area where it fits, as fractions of a source of `sourceAspect`. */
 export function reshapeCrop(crop: Box, aspect: number, sourceAspect: number): Box {
   const ratio = aspect / sourceAspect;
   let height = Math.sqrt((crop.width * crop.height) / ratio);
@@ -334,7 +316,6 @@ export function reshapeCrop(crop: Box, aspect: number, sourceAspect: number): Bo
   };
 }
 
-/** The crop a layout starts with, as fractions of a source of `sourceAspect`. */
 export function defaultCrop(spec: CropSpec, sourceAspect: number): Box {
   let height = spec.height;
   let width = (height * spec.aspect) / sourceAspect;
@@ -350,7 +331,7 @@ export function defaultCrop(spec: CropSpec, sourceAspect: number): Box {
   };
 }
 
-/** The part of `crop` a slot of `aspect` shows: the crop, trimmed to that aspect around its center. */
+/** Trimmed to that aspect around its center. */
 export function coverRect(crop: Box, aspect: number): Box {
   if (crop.width <= 0 || crop.height <= 0 || aspect <= 0) return crop;
   if (crop.width / crop.height > aspect) {
@@ -369,7 +350,7 @@ export function toPixels(crops: Crops, width: number, height: number): Crops {
   return out;
 }
 
-/** Slots for a layout's starting crops on a 16:9 source, for the template cards. */
+/** On a 16:9 source, for the template cards. */
 export function thumbnailSlots(layout: StreamLayout): Slot[] {
   const crops: Crops = {};
   for (const spec of layout.crops) crops[spec.id] = defaultCrop(spec, 16 / 9);
@@ -378,11 +359,7 @@ export function thumbnailSlots(layout: StreamLayout): Slot[] {
 
 type Frame = CanvasImageSource & { width: number; height: number };
 
-/**
- * Draws a layout into `ctx`, `scale` output pixels per layout pixel. `crops`
- * are in source pixels; `source` is the size those pixels are counted in,
- * which the decoder's frame may not match.
- */
+/** `crops` are in source pixels counted at `source`, which the decoder's frame may not match. */
 export function drawLayout(
   ctx: CanvasRenderingContext2D,
   frame: Frame,

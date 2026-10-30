@@ -14,14 +14,11 @@ import { loadStartingLanguage } from './lib/i18n'
 import { restoreLastRoute } from './lib/persist-route'
 import { isReloadingAfterModuleError } from './components/route-error'
 
-// Sentry starts once the page has loaded, so the first paint doesn't wait for it.
-// Errors from before then are kept and sent when it's up. A build without
-// VITE_SENTRY_DSN (apps/web/.env) reports nowhere and never loads Sentry.
+// Sentry starts after load so the first paint doesn't wait; earlier errors are kept and sent then.
 const sentryDsn = import.meta.env.VITE_SENTRY_DSN as string | undefined
 if (import.meta.env.PROD && sentryDsn) {
   const early: unknown[] = []
-  // An error event can come without an error (a ResizeObserver loop, another
-  // site's script): there is nothing to send, and Sentry would file it as "null".
+  // An error event can come without an error (a ResizeObserver loop, another site's script); Sentry would file it as "null".
   const keep = (event: ErrorEvent | PromiseRejectionEvent) => {
     const error = event instanceof ErrorEvent ? event.error : event.reason
     if (error != null) early.push(error)
@@ -35,8 +32,7 @@ if (import.meta.env.PROD && sentryDsn) {
         sendDefaultPii: false,
         release: APP_VERSION,
         environment: 'production',
-        // A deploy replaced the files under this tab and it is reloading: code
-        // that asked for the old ones fails on its way out, and that's no bug.
+        // A deploy replaced the files and the tab is reloading: old chunks failing on the way out aren't bugs.
         beforeSend: (event) => (isReloadingAfterModuleError() ? null : event),
       })
       window.removeEventListener('error', keep)
@@ -71,15 +67,14 @@ initGoogleAnalytics()
 fadeInImages()
 
 const root = document.getElementById('root')
-// In another language the app draws once that language's words are here, so it never shows English first.
+// Wait for the language's words so the app never shows English first.
 const words = loadStartingLanguage()
 const draw = () => {
-  // The page's text written in for search engines (prerender-pages.ts) makes way for the app.
+  // Clears the prerendered text written for search engines (prerender-pages.ts).
   root!.replaceChildren()
   render(() => <App />, root!)
 }
 const mount = () => (words ? void words.then(draw) : draw())
 
-// On the home page the HTML starts this script only once its copy of the hero has been counted
-// as the page's first and largest content (heroStartHtml in lib/hero-shell.ts).
+// On the home page, HTML starts this script only after its hero copy counts as the largest content (heroStartHtml in lib/hero-shell.ts).
 mount()

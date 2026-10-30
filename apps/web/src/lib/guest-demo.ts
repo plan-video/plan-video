@@ -2,14 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// What guest mode opens on: plan.video's own accounts, without logins, a
-// month of posts around today, the clips they use in the media library, a
-// posting queue, templates, words in the vault, a plug, and sample numbers in
-// Analytics (see `analyticsSources`). The posts are the homepage calendar's,
-// with the site's own footage. The demo is made again on another day, so its
-// posts stay around today, in another language, so its words are in it, and
-// whenever it changes here. Nothing in it goes out, and nothing comes along
-// into an account (see lib/guest.ts).
+// The demo is made again on another day (so posts stay around today), in another language, or when VERSION changes.
 
 import { writeWorkspaceCalendar } from "@/components/calendar/store";
 import type { Calendar, Delivery, StoredEvent } from "@/components/calendar/types";
@@ -29,24 +22,17 @@ import type { VaultItem } from "@/lib/vault";
 import { DEFAULT_WORKSPACE, WORKSPACE_DATABASES, storageKeyFor, workspaceDatabaseFor, type Workspace } from "@/lib/workspaces";
 import { eraseProjectsById } from "@/projects/host";
 
-/** Raised when the sample data changes, so a demo made before starts over. */
+/** Raise when the sample data changes, so a demo made before starts over. */
 const VERSION = 2;
 
 const DAY_MS = 86_400_000;
 const HOUR_MS = 3_600_000;
 
-// ---------------------------------------------------------------------------
-// Files
-
-/**
- * The site's own footage (see components/site-media.tsx), which the demo's
- * posts go out with. TikTok and Instagram get the upright ones, creator and
- * vlogger, so their previews fill the screen.
- */
+/** TikTok and Instagram get the upright clips, creator and vlogger, so their previews fill the screen. */
 const CLIPS = ["creator", "surf", "sunset", "vlogger"] as const;
 type Clip = (typeof CLIPS)[number];
 
-/** What the library shows of each clip in public/site: its size in bytes, its frame and its length in seconds. */
+/** Must match the files in public/site: size in bytes, frame and length in seconds. */
 const FOOTAGE: Record<Clip, { size: number; width: number; height: number; duration: number }> = {
   creator: { size: 1_033_837, width: 540, height: 960, duration: 9 },
   surf: { size: 783_641, width: 960, height: 540, duration: 10 },
@@ -54,10 +40,9 @@ const FOOTAGE: Record<Clip, { size: number; width: number; height: number; durat
   vlogger: { size: 210_560, width: 540, height: 960, duration: 4.6 },
 };
 
-/** How a demo post names its file: the footage it is. */
 const DEMO_FILE = "demo-";
 
-/** One of the demo posts' files, from the site's footage. Null when it isn't one; undefined when it couldn't be fetched. */
+/** Null when it isn't one; undefined when it couldn't be fetched. */
 export async function demoFile(id: string): Promise<File | null | undefined> {
   const clip = CLIPS.find((name) => id === `${DEMO_FILE}${name}`);
   if (!clip) return null;
@@ -70,10 +55,7 @@ export async function demoFile(id: string): Promise<File | null | undefined> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// What the demo holds
-
-/** plan.video's own accounts, as on the homepage (`SAMPLE_ACCOUNT`). Facebook and Pinterest are left to connect. */
+/** Facebook and Pinterest are left to connect. */
 const ACCOUNTS: readonly { platform: PlatformId; handle: string }[] = [
   { platform: "youtube", handle: "planvideo_" },
   { platform: "tiktok", handle: "planvideo_" },
@@ -142,7 +124,6 @@ const POSTS: readonly Sample[] = [
 
 const pad = (value: number) => String(value).padStart(2, "0");
 
-/** Days from `today` to the post's day. */
 function offsetOf(day: Sample["day"], today: string): number {
   if (typeof day === "number") return day;
   const weekday = new Date(`${today}T00:00:00Z`).getUTCDay();
@@ -151,7 +132,6 @@ function offsetOf(day: Sample["day"], today: string): number {
   return day.sunday < 0 ? last + 7 * (day.sunday + 1) : next + 7 * (day.sunday - 1);
 }
 
-/** The settings New post saves for each network a post goes to. */
 function settingsFor(sample: Sample): Partial<StoredEvent> {
   const has = (platform: PlatformId) => sample.platforms.includes(platform);
   return {
@@ -218,7 +198,7 @@ function demoPosts(now: number): { calendars: Calendar[]; events: StoredEvent[] 
   return { calendars, events };
 }
 
-/** The clips in the media library, as if uploaded before the posts that use them. */
+/** As if uploaded before the posts that use them. */
 function demoLibrary(now: number): MediaItem[] {
   return CLIPS.map((clip, index) => {
     const { size, width, height, duration } = FOOTAGE[clip];
@@ -308,7 +288,6 @@ function demoLists(now: number) {
     item("demo-vault-episode", "snippet", t("Full episode"), t("The full episode is on our YouTube channel."), 5),
     item("demo-vault-intro", "caption", t("Weekly tip"), t("One thing that makes your edits easier:"), 3),
   ];
-  // The homepage's plug: switched on, with the likes it waits for and the reply it posts.
   const plugs: PlugSetting[] = [
     {
       id: plugId(accountId("bluesky"), "auto-plug"),
@@ -324,10 +303,6 @@ function demoLists(now: number) {
   return { workspaces, connections, groups, queue, templates, vault, plugs };
 }
 
-// ---------------------------------------------------------------------------
-// Making it
-
-/** Puts the demo's posts and lists under `guest`. */
 async function seed(guest: string, now: number) {
   const lists = demoLists(now);
   const key = (base: string) => storageKeyFor(base, guest, DEFAULT_WORKSPACE);
@@ -345,7 +320,6 @@ async function seed(guest: string, now: number) {
   await putLibraryItems(guest, DEFAULT_WORKSPACE, demoLibrary(now));
 }
 
-/** Everything kept for an earlier demo: its databases, its lists, and the projects made in it. */
 async function forget(old: GuestRecord) {
   for (const base of WORKSPACE_DATABASES) {
     try {
@@ -381,10 +355,7 @@ async function open() {
   else track("guest_started");
 }
 
-/**
- * Opens guest mode's demo: today's, or a new one in place of an older one.
- * Tabs take turns, so a new day's demo is made once.
- */
+/** Tabs take turns, so a new day's demo is made once. */
 export async function openDemo() {
   if (navigator.locks) await navigator.locks.request("plan.video.guest-demo", open);
   else await open();

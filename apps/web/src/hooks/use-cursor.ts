@@ -20,8 +20,7 @@ function getCursorCss(svg: string, r: number, tr: number, color: string, hx = 16
   return `url("data:image/svg+xml,<svg height='32' width='32' viewBox='0 0 32 32' xmlns='http://www.w3.org/2000/svg' style='color: ${color};'><defs><filter id='shadow' y='-40%' x='-40%' width='180px' height='180%' color-interpolation-filters='sRGB'><feDropShadow dx='${dx}' dy='${dy}' stdDeviation='1.2' flood-opacity='.5'/></filter></defs><g fill='none' transform='rotate(${r + tr} 16 16)' filter='url(%23shadow)'>${svg.replaceAll(`"`, `'`)}</g></svg>") ${hx} ${hy}, pointer`
 }
 
-// Embeds a full, self-contained SVG (its own shadow/outlines) directly as a cursor
-// data URI. Newlines are stripped and `#`/`"` encoded so it survives in a CSS url().
+// Newlines are stripped and `#`/`"` encoded so it survives in a CSS url().
 function trimCursorCss(svg: string, hx = 16, hy = 16) {
   const encoded = svg.replace(/\s*\n\s*/g, '').replaceAll(`"`, `'`).replaceAll('#', '%23')
   return `url("data:image/svg+xml,${encoded}") ${hx} ${hy}, pointer`

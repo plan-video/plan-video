@@ -2,17 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Keeps each workspace's posts in this browser in step with the posts table
-// (supabase/migrations/20261026090000_posts.sql), one post at a time, by the
-// rules in lib/post-sync-core.ts. The person's own workspaces and the ones
-// shared with them sync the same way: the table's rules let each person
-// reach only the workspaces they're in.
-//
-// A workspace is read again when this browser changes one of its posts, when
-// another browser does (Realtime on posts), when the tab comes back into view
-// or online, and every minute while it's in view, in case a live change was
-// missed. Every signed-in tab syncs, so a post an AI agent makes in a tab that
-// never opened the dashboard reaches the account too.
+// Every signed-in tab syncs, so a post an AI agent makes in a tab that never opened the dashboard reaches the account.
+// Also re-read every minute while in view, in case a Realtime change was missed.
 
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { createSignal } from "solid-js";
@@ -28,46 +19,38 @@ import { supabase } from "@/lib/supabase";
 import { readTeamCopyPosts } from "@/lib/team-sync";
 import { activeWorkspaceId, onWorkspaceChange, sharedWorkspaces, workspaces } from "@/lib/workspaces";
 
-/** One workspace's posts: whose and which on the server, and its id in this browser. */
 type Scope = { key: string; local: string; owner: string; workspace: string; name: string; shared: boolean };
 
 const COLUMNS = POST_COLUMNS;
 const PUSH_MS = 400;
 const LIVE_MS = 300;
 const POLL_MS = 60_000;
-/** Waits before trying again after a run failed, longer each time in a row. */
 const RETRY_MS = [5_000, 15_000, 60_000, 5 * 60_000];
 
 const [problem, setProblem] = createSignal<{ message: string; since: number } | null>(null);
 const [unsynced, setUnsynced] = createSignal<ReadonlySet<string>>(new Set());
 const [refused, setRefused] = createSignal<ReadonlyMap<string, string>>(new Map());
 
-/** Why changes made here aren't reaching the server, and since when, while they aren't. */
 export const postSyncProblem = problem;
-/** Posts changed here that the server doesn't have yet: the publisher sends from the server's. */
+/** The publisher sends from the server's copy. */
 export const unsyncedPosts = unsynced;
-/** Posts the server turned down, and why, until they change. */
 export const refusedPosts = refused;
 
 let person: string | undefined;
 let lastRead = 0;
-/** Each workspace's own trouble: its runs failed in a row, its next try, and why. One workspace syncing fine leaves another's alone. */
+/** One workspace syncing fine leaves another's alone. */
 const failures = new Map<string, number>();
 const retries = new Map<string, ReturnType<typeof setTimeout>>();
 const problems = new Map<string, { message: string; since: number }>();
 const timers = new Map<string, ReturnType<typeof setTimeout>>();
 const running = new Map<string, Promise<boolean>>();
 const again = new Set<string>();
-/** Each post this tab wrote, with the time of the change it made, so the live echo of that write isn't read again. */
+/** So the live echo of that write isn't read again. */
 const wrote = new Map<string, string>();
-/** Unsynced and refused posts by workspace, merged into the signals above. */
 const unsyncedBy = new Map<string, Set<string>>();
 const refusedBy = new Map<string, Map<string, string>>();
 const channels = new Map<string, RealtimeChannel>();
 let channelSerial = 0;
-
-// ---------------------------------------------------------------------------
-// Which workspaces
 
 function scopes(): Scope[] {
   const userId = person;
@@ -81,10 +64,7 @@ function scopes(): Scope[] {
 
 const activeScope = () => scopes().find((scope) => scope.local === activeWorkspaceId());
 
-// ---------------------------------------------------------------------------
-// When to sync
-
-/** Starts keeping this person's posts in step, in this tab. A second call for the same person does nothing. */
+/** A second call for the same person does nothing. */
 export function beginPostSync(userId: string | undefined) {
   if (person === userId) return;
   person = userId;
@@ -104,7 +84,7 @@ export function beginPostSync(userId: string | undefined) {
   const first = open ? syncScope(open) : Promise.resolve(true);
   setPostSyncPending(first.then(() => undefined));
   if (userId) {
-    // The others, one at a time, after the open one: a change a closed tab didn't get to save goes now.
+    // The others after the open one: a change a closed tab didn't get to save goes now.
     void first.then(async () => {
       for (const scope of scopes()) if (person === userId && scope.key !== open?.key) await syncScope(scope);
     });
@@ -129,7 +109,7 @@ if (typeof window !== "undefined") {
   };
   window.addEventListener("focus", now);
   window.addEventListener("online", now);
-  // A change saved just before the tab is hidden or closed goes now, rather than after a pause the page may not live through.
+  // Saved now, rather than after a pause the page may not live through.
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState !== "hidden") return;
     for (const [key, timer] of timers) {
@@ -155,7 +135,7 @@ function schedule(scope: Scope, delay: number) {
   );
 }
 
-/** Hears every change to the posts of the person's own workspaces, and of each owner who shared one: the table's rules pass on only the ones they may see. */
+/** The table's rules pass on only the rows this person may see. */
 function follow() {
   const wanted = new Set(person && supabase ? scopes().map((scope) => scope.owner) : []);
   for (const [owner, channel] of channels) {
@@ -170,7 +150,7 @@ function follow() {
       .on("postgres_changes", { event: "*", schema: "public", table: "posts", filter: `owner_id=eq.${owner}` }, (payload) => {
         const row = payload.new as { id?: string; workspace_id?: string; updated_at?: string } | undefined;
         if (!row?.id || !row.workspace_id) return;
-        // This tab's own write, coming back. Times are compared as moments: the live message and the API may write them differently.
+        // Times are compared as moments: the live message and the API may write them differently.
         const mine = wrote.get(`${owner}|${row.workspace_id}|${row.id}`);
         if (mine && row.updated_at && Date.parse(mine) === Date.parse(row.updated_at)) return;
         const scope = scopes().find((item) => item.owner === owner && item.workspace === row.workspace_id);
@@ -185,12 +165,7 @@ function follow() {
   }
 }
 
-/**
- * Saves this browser's changes to the open workspace's posts now, for
- * something on the server that reads them next, as Post now. With `postId`,
- * says whether that post reached the server, whatever another post's trouble;
- * without, whether the workspace's posts did.
- */
+/** With `postId`, says whether that post reached the server, whatever another post's trouble. */
 export async function flushPostSync(postId?: string): Promise<boolean> {
   const open = activeScope();
   if (!open || !person || !supabase) return true;
@@ -201,25 +176,23 @@ export async function flushPostSync(postId?: string): Promise<boolean> {
   return postId ? !problems.has(open.key) && !unsynced().has(postId) : ok;
 }
 
-/** Brings the person's own workspaces' posts in step now, as before one of them is deleted. False when any couldn't be. */
+/** False when any couldn't be. */
 export async function flushAllPosts(): Promise<boolean> {
   let ok = true;
   for (const scope of scopes()) if (!scope.shared && !(await syncScope(scope))) ok = false;
   return ok;
 }
 
-/** Tries again now, rather than at the next retry: every workspace in trouble. */
 export function retryPostSync() {
   for (const scope of scopes()) if (problems.has(scope.key) || scope.key === activeScope()?.key) void syncScope(scope);
 }
 
-/** One workspace in step. Asked again while it runs, it runs once more after. True when both sides agree. */
+/** Asked again while it runs, it runs once more after. True when both sides agree. */
 function syncScope(scope: Scope): Promise<boolean> {
   const userId = person;
   if (!userId || !supabase) return Promise.resolve(true);
   const current = running.get(scope.key);
   if (current) {
-    // It runs once more when it ends, with what changed meanwhile.
     again.add(scope.key);
     return current;
   }
@@ -240,14 +213,11 @@ function syncScope(scope: Scope): Promise<boolean> {
   return work;
 }
 
-/** One tab of this browser at a time works on a workspace's posts: they share its database. */
+/** One tab at a time per workspace: they share its database. */
 function locked<T>(scope: Scope, work: () => Promise<T>): Promise<T> {
   const locks = typeof navigator !== "undefined" ? navigator.locks : undefined;
   return locks ? (locks.request(`plan.video.posts.${scope.key}`, work) as Promise<T>) : work();
 }
-
-// ---------------------------------------------------------------------------
-// One run
 
 async function run(userId: string, scope: Scope): Promise<boolean> {
   lastRead = Date.now();
@@ -259,7 +229,7 @@ async function run(userId: string, scope: Scope): Promise<boolean> {
     settled(scope);
     return result.ok;
   } catch (error) {
-    // Offline, or a workspace this person can't reach just now (a team paused): tried again later, not a fault.
+    // Offline, or a workspace this person can't reach just now (a team paused): retried later, not a fault.
     if ((error as { unreachable?: boolean })?.unreachable || /Failed to fetch|NetworkError|Load failed/i.test(String((error as Error)?.message))) {
       console.warn("[posts] Could not reach the server", (error as Error).message);
     } else console.error("[posts] Could not sync the posts", error);
@@ -276,12 +246,10 @@ function note(scope: Scope, unsyncedHere: ReadonlySet<string>, refusedHere: Read
 function publish() {
   setUnsynced(new Set([...unsyncedBy.values()].flatMap((ids) => [...ids])));
   setRefused(new Map([...refusedBy.values()].flatMap((reasons) => [...reasons])));
-  // The workspace in trouble longest says why; it's shown since its trouble began.
   const oldest = [...problems.values()].sort((a, b) => a.since - b.since)[0];
   setProblem((current) => (!oldest ? null : current?.message === oldest.message && current.since === oldest.since ? current : oldest));
 }
 
-/** A run that reached the server: this workspace's trouble is over, whatever another's. */
 function settled(scope: Scope) {
   failures.delete(scope.key);
   clearTimeout(retries.get(scope.key));
@@ -289,7 +257,6 @@ function settled(scope: Scope) {
   if (problems.delete(scope.key)) publish();
 }
 
-/** Tried again on its own, soon at first; meanwhile the posts changed here that the server lacks are named. */
 async function failed(userId: string, scope: Scope): Promise<false> {
   const count = (failures.get(scope.key) ?? 0) + 1;
   failures.set(scope.key, count);
@@ -314,19 +281,12 @@ async function failed(userId: string, scope: Scope): Promise<false> {
   return false;
 }
 
-// ---------------------------------------------------------------------------
-// This browser and the server, as the rules see them
-
-/** Postgres's codes for a write the table's rules turn down: a file of another workspace, a post that doesn't hold up, too large. */
+/** Postgres codes for a write the table's rules turn down. */
 const REFUSED_CODES = new Set(["42501", "23514", "22001", "54000"]);
 
 type Problem = { code?: string; message?: string } | null;
 
-/**
- * Whether the server turned the post itself down, for what's in it: kept
- * until the post changes. One the access rules turned away (a team paused, a
- * workspace left) is a failed run instead, tried again later.
- */
+/** A row-level security refusal (team paused, workspace left) is a failed run instead, retried later. */
 const REFUSED = { has: (code: string, error?: Problem) => REFUSED_CODES.has(code) && !/row-level security/i.test(error?.message ?? "") };
 
 function fail(error: Problem): never {

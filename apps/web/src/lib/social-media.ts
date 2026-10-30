@@ -2,9 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Files picked for a post, read in the browser: their size, length, and a
-// picture to show for them. Nothing is uploaded or copied.
-
 import { intlLocale, localized, t } from "./i18n";
 import { formatDuration, isAspect, type MediaSummary } from "./social";
 
@@ -12,13 +9,12 @@ export type PostMedia = {
   id: string;
   file: File;
   kind: "video" | "image";
-  /** An object URL for the file; release it with `releaseMedia`. */
+  /** Release it with `releaseMedia`. */
   url: string;
   width: number;
   height: number;
   /** Seconds. 0 for a picture. */
   duration: number;
-  /** A still to show in lists. */
   poster: string;
 };
 
@@ -33,7 +29,6 @@ export function mediaKind(file: File): PostMedia["kind"] | null {
 
 export const fileKey = (file: File): string => `${file.name}:${file.size}:${file.lastModified}`;
 
-/** What publishing takes, on every platform. */
 export const MEDIA_LIMITS = {
   videoMinSeconds: 3,
   videoMaxSeconds: 5 * 60,
@@ -51,7 +46,6 @@ export const MEDIA_LIMITS = {
   postMaxBytes: 500e6,
 } as const;
 
-/** For file pickers, so only what can be posted is offered. */
 export const POSTABLE_FILES = "video/mp4,video/quicktime,.mp4,.mov,image/jpeg,image/png,.jpg,.jpeg,.png";
 export const POSTABLE_VIDEOS = "video/mp4,video/quicktime,.mp4,.mov";
 export const POSTABLE_IMAGES = "image/jpeg,image/png,.jpg,.jpeg,.png";
@@ -59,17 +53,17 @@ export const POSTABLE_IMAGES = "image/jpeg,image/png,.jpg,.jpeg,.png";
 export const isPostableVideo = (file: Pick<File, "name" | "type">) => /^video\/(mp4|quicktime)$/.test(file.type) || /\.(mp4|mov)$/i.test(file.name);
 const isPostableImage = (file: File) => /^image\/(jpeg|png)$/.test(file.type) || /\.(jpe?g|png)$/i.test(file.name);
 
-/** Why a picture can't be posted, or null. Pictures are turned away when picked, as nothing here can fix them. */
+/** Pictures are turned away when picked, as nothing here can fix them. */
 export function imageFileProblem(file: File): string | null {
   if (!isPostableImage(file)) return t("{name} isn't a JPG or PNG.", { name: file.name });
   if (file.size > MEDIA_LIMITS.imageMaxBytes) return t("{name} is {size}. Pictures can be up to 8 MB.", { name: file.name, size: formatBytes(file.size) });
   return null;
 }
 
-/** Shapes listed as the language lists choices; en-GB's has no comma before "or". */
+/** en-GB's has no comma before "or". */
 const SHAPE_LIST = localized((locale) => new Intl.ListFormat(locale, { type: "disjunction" }), "en-GB");
 
-/** Why a video can't be posted. It is kept, so it can be fixed in the editor and exported again. */
+/** The video is kept, so it can be fixed in the editor and exported again. */
 export function videoProblems(media: Pick<PostMedia, "duration" | "width" | "height"> & { file: Pick<File, "name" | "type" | "size"> }): string[] {
   const problems: string[] = [];
   if (!isPostableVideo(media.file)) problems.push(t("Videos need to be MP4 or MOV."));
@@ -85,7 +79,6 @@ export function videoProblems(media: Pick<PostMedia, "duration" | "width" | "hei
   return problems;
 }
 
-/** Why what a post carries can't be posted, wherever it goes. */
 export function mediaProblems(items: readonly PostMedia[]): string[] {
   const first = items[0];
   if (!first) return [];
@@ -96,7 +89,7 @@ export function mediaProblems(items: readonly PostMedia[]): string[] {
 
 export function formatBytes(bytes: number): string {
   const locale = intlLocale();
-  // English writes sizes as it always has; other languages in their own digits and units.
+  // English keeps its fixed form; other languages use their own digits and units.
   if (locale) {
     const [value, unit, digits]: [number, string, number] =
       bytes >= 1e9 ? [bytes / 1e9, "gigabyte", 1] : bytes >= 1e6 ? [Math.round(bytes / 1e6), "megabyte", 0] : [Math.max(1, Math.round(bytes / 1e3)), "kilobyte", 0];
@@ -107,18 +100,13 @@ export function formatBytes(bytes: number): string {
   return `${Math.max(1, Math.round(bytes / 1e3))} KB`;
 }
 
-/** The name without its extension, for titles. */
 export function baseName(file: File): string {
   return file.name.replace(/\.[^.]+$/, "");
 }
 
 const POSTER_HEIGHT = 320;
 
-/**
- * Decodes `url` in a tiny off-screen element. A video that is never on the
- * page often reports a seek as done and then paints a blank frame, which is
- * why cover stills came out empty.
- */
+/** A video that is never on the page often reports a seek as done, then paints a blank frame. */
 function withVideo<T>(url: string, work: (video: HTMLVideoElement) => Promise<T>): Promise<T> {
   const video = document.createElement("video");
   video.muted = true;
@@ -202,7 +190,7 @@ function loadImage(url: string): Promise<HTMLImageElement> {
 
 let nextId = 0;
 
-/** Reads a file the user picked. Throws, with a reason, for a file that is neither or will not decode. */
+/** Throws, with a reason, for a file that is neither or will not decode. */
 export async function readMedia(file: File): Promise<PostMedia> {
   const kind = mediaKind(file);
   if (!kind) throw new Error(t("{name} is not a video or a picture.", { name: file.name }));
@@ -230,7 +218,6 @@ export function releaseMedia(media: PostMedia): void {
   URL.revokeObjectURL(media.url);
 }
 
-/** Stills from across a video, for picking its cover. */
 export async function videoFrames(media: PostMedia, count: number): Promise<{ time: number; src: string }[]> {
   return withVideo(media.url, async (video) => {
     const duration = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : media.duration;
@@ -249,7 +236,6 @@ export async function videoFrames(media: PostMedia, count: number): Promise<{ ti
   });
 }
 
-/** A still at `time`, for the cover a post goes out with. */
 export async function videoStill(media: PostMedia, time: number): Promise<string> {
   return withVideo(media.url, async (video) => {
     await seek(video, time);

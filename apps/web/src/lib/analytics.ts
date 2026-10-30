@@ -3,16 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 /**
- * Umami analytics wrapper. Loads the Umami script lazily and exposes
- * type-safe `track` / `identify` helpers that no-op when Umami is
- * disabled (env vars unset) or has not finished loading yet.
- *
- * Inside the desktop app the Umami script is inert (its `data-domains` gate
- * does not match the `file://` origin), so `track` hands events to main,
- * which posts them to Umami itself.
- *
- * Pageviews and SPA route changes are auto-tracked by the Umami script
- * via the History API — call `track` only for custom product events.
+ * In the desktop app the Umami script is inert (its `data-domains` gate misses `file://`), so `track` hands events
+ * to main. Pageviews are auto-tracked; call `track` only for custom events.
  */
 
 import { MAIN_CHANNELS } from "@desktop/main-channels";
@@ -54,7 +46,7 @@ export function initAnalytics(): void {
   document.head.appendChild(script);
 }
 
-/** Drop undefined entries — Umami rejects payloads with `undefined` values. */
+/** Umami rejects payloads with `undefined` values. */
 function clean(data?: UmamiEventData): UmamiEventData | undefined {
   if (!data) return undefined;
   const out: UmamiEventData = {};

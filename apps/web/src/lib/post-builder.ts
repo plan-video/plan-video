@@ -2,14 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/**
- * A vertical post from a set of clips: one 1080×1920 scene, the clips back to
- * back, every clip laid out the way a stream layout places a single video
- * (see engine/stream-layout), and captions over the lot. The result is a tree
- * of authored elements, spelled once and written out either as the browser's
- * saved composition or as the desktop project's JSX.
- */
-
 import {
   CROP_LABELS,
   LAYOUT_HEIGHT,
@@ -27,7 +19,7 @@ import { t } from "./i18n";
 import type { CaptionPreset } from "@plan.video/jsx";
 
 export type PostClip = {
-  /** Library path, what `src` names. */
+  /** What `src` names. */
   src: string;
   width: number;
   height: number;
@@ -53,10 +45,7 @@ export const POST_CAMERA = [0.25, 0, 0, 0.25, 235, 70] as const;
 
 const node = (tag: string, props: Record<string, unknown>, children: PostNode[] = []): PostNode => ({ tag, props, children });
 
-/**
- * The clip is the whole frame, scaled so the part of its crop the slot shows
- * fills the slot exactly, with a mask keeping only the slot.
- */
+/** Scaled so the crop's visible part fills the slot exactly, with a mask keeping only the slot. */
 function slotVideo(clip: PostClip, slot: Slot, crop: Box, start: number, muted: boolean, name: string): PostNode {
   const { box } = slot;
   const shown = coverRect(crop, box.width / box.height);
@@ -94,7 +83,6 @@ function slotVideo(clip: PostClip, slot: Slot, crop: Box, start: number, muted: 
   );
 }
 
-/** Where each of a clip's slots goes, with the crops a layout starts with. */
 function layoutFor(layoutId: string, clip: PostClip): { slots: Slot[]; crops: Crops } {
   const layout = getStreamLayout(layoutId);
   const fractions: Crops = {};
@@ -103,7 +91,7 @@ function layoutFor(layoutId: string, clip: PostClip): { slots: Slot[]; crops: Cr
   return { slots: layout.slots(crops).filter((slot) => crops[slot.crop]), crops };
 }
 
-/** The scene for a post. Slots are listed back to front, and so are the sequences made of them. */
+/** Slots are listed back to front, and so are the sequences made of them. */
 export function buildPost(spec: PostSpec): PostNode {
   const layout = getStreamLayout(spec.layoutId);
   const perClip = spec.clips.map((clip) => layoutFor(spec.layoutId, clip));
@@ -118,7 +106,7 @@ export function buildPost(spec: PostSpec): PostNode {
       const { slots, crops } = perClip[i]!;
       const slot = slots[s];
       if (slot) {
-        // The clip that keeps the sound is the main gameplay slot, as applying a layout does.
+        // The main gameplay slot keeps the sound, as applying a layout does.
         const main = Math.max(0, slots.findIndex((entry) => entry.crop === "gameplay" && !entry.blur));
         label ||= slot.blur ? t("Background") : t(CROP_LABELS[slot.crop]);
         videos.push(slotVideo(clip, slot, crops[slot.crop]!, start, s !== main, `${label} ${i + 1}`));
@@ -155,7 +143,6 @@ function jsxNode(entry: PostNode, indent: string): string {
   return `${indent}${open}>\n${inner}\n${indent}</${entry.tag}>`;
 }
 
-/** The project source for a post: its scene on a stage framed on it. */
 export function postSource(scene: PostNode): string {
   return `export default function Project() {
   return (

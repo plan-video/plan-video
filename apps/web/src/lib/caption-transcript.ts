@@ -36,15 +36,12 @@ import { captionWordSelection, clearCaptionWordSelection, setCaptionWordSelectio
 
 import type { Entity, World } from "koota";
 
-/**
- * Where an edit was made. A drag has already moved the timeline decoder's
- * words, and reloading them would drop a drag that is still going.
- */
+/** A drag has already moved the timeline decoder's words; reloading them would drop a drag still going. */
 export type CaptionEditSource = "list" | "drag" | "timeline";
 
 const writes = new Map<string, Promise<void>>();
 
-/** Bumped when undo or redo rewrites a transcript, so a pending keystroke does not save over it. */
+/** Bumped on undo/redo, so a pending keystroke does not save over it. */
 const [historyStamp, setHistoryStamp] = createSignal(0);
 export const captionHistoryStamp = historyStamp;
 
@@ -56,11 +53,10 @@ setCaptionTranscriptApplier((world, assetId, transcript) => {
   void saveCaptionTranscript(world, library, asset, transcript);
 });
 
-/** Bumped after every caption write, so each panel showing its words reloads. */
+/** So each panel showing its words reloads. */
 const [transcriptRevision, setTranscriptRevision] = createSignal(0);
 export const captionTranscriptRevision = transcriptRevision;
 
-/** Writes `transcript` over the caption asset and shows the new words. */
 export function saveCaptionTranscript(
   world: World,
   library: AssetLibrary,
@@ -71,11 +67,7 @@ export function saveCaptionTranscript(
   return queue(asset, () => persistCaptionTranscript(world, library, asset, transcript, source));
 }
 
-/**
- * Removes the words picked on the timeline from their caption. Returns false
- * when no words are picked, so the caller can act on the selection instead.
- * With `copy`, the words' text goes to the clipboard first.
- */
+/** False when no words are picked, so the caller can act on the selection instead. */
 export function removePickedCaptionWords(world: World, copy = false): boolean {
   const picked = captionWordSelection();
   if (!picked || picked.indices.size === 0) return false;
@@ -122,7 +114,7 @@ function captionFile(world: World, entity: Entity): { library: AssetLibrary; ass
   return { library, asset };
 }
 
-/** Copies the picked caption words. False when no words are picked. */
+/** False when no words are picked. */
 export function copyPickedCaptionWords(world: World): boolean {
   const picked = captionWordSelection();
   if (!picked || picked.indices.size === 0 || !picked.entity.isAlive()) return false;
@@ -144,13 +136,12 @@ function copiedWords(transcript: Transcript, indices: ReadonlySet<number>): Tran
   return keepWords(transcript, indices).flatMap((segment) => segment.words.map((word) => ({ ...word })));
 }
 
-/** Forgets copied words, so the next paste is of elements again. */
+/** So the next paste is of elements again. */
 export function clearCaptionWordClipboard(): void {
   wordsOnClipboard = false;
   wordClipboard = null;
 }
 
-/** Copies the picked words and then deletes them, so paste puts them back. */
 export function cutPickedCaptionWords(world: World): boolean {
   const picked = captionWordSelection();
   if (!picked || picked.indices.size === 0 || !picked.entity.isAlive()) return false;
@@ -173,11 +164,7 @@ export function cutPickedCaptionWords(world: World): boolean {
   return true;
 }
 
-/**
- * Pastes copied words into the caption those words belong to, after the
- * picked word, or at the end when the caption layer itself is selected.
- * False when this paste is not a caption-word paste.
- */
+/** After the picked word, or at the end when the caption layer is selected. False when not a caption-word paste. */
 export function pasteCaptionWords(world: World): boolean {
   if (!wordsOnClipboard) return false;
 
@@ -207,11 +194,8 @@ export function pasteCaptionWords(world: World): boolean {
 }
 
 /**
- * Puts the words at `positions` on a layer of their own: a copy of the
- * caption that says only them, over just the time they are spoken, so the
- * layer's masks, animations and effects are theirs alone. Each keeps its own
- * look. The words stay in `caption`; taking them out is the caller's.
- * Returns the copy, or null when it could not be made.
+ * A copy of the caption saying only them, so masks, animations and effects are theirs alone. The words stay
+ * in `caption`; taking them out is the caller's. Null when it could not be made.
  */
 export async function moveWordsToLayer(
   world: World,
@@ -234,8 +218,7 @@ export async function moveWordsToLayer(
   setTranscriptDuration(stored, transcriptEnd(own));
   if (!caption.isAlive()) return null;
 
-  // Where the words are spoken, in scene frames, read off the caption before
-  // the copy exists: it plays the same source from the same origin.
+  // Read off the caption before the copy exists: it plays the same source from the same origin.
   const fps = world.get(FrameRate)?.value ?? 30;
   const computed = store(world, Computed);
   const origin = computed.origin[caption.id()] ?? 0;
@@ -265,12 +248,11 @@ export async function moveWordsToLayer(
   return copy;
 }
 
-/** Settles once every write already asked of the asset has landed. */
 export function captionWritesSettled(assetId: string): Promise<void> {
   return (writes.get(assetId) ?? Promise.resolve()).catch(() => undefined);
 }
 
-/** Runs `write` after the asset's earlier writes, so edits land in order. */
+/** So edits land in order. */
 function queue(asset: Asset, write: () => Promise<void>): Promise<void> {
   const previous = writes.get(asset.id) ?? Promise.resolve();
   const run = previous.catch(() => undefined).then(write);

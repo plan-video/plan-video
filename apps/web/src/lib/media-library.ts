@@ -2,12 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Videos and pictures kept to reuse in posts. Each is kept in the browser, in
-// a database per workspace like the calendar's, and in the account's cloud
-// storage with its picture. Once both are up, it's on the account's list, and
-// every browser signed in shows it: the picture comes down at once, the file
-// the first time it's used. Only files a post can carry are taken, and the
-// same file is kept once.
+// An item reaches the account's list only once its file and picture are both in cloud storage.
+// Other browsers fetch the picture at once and the file on first use.
 
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 import { createSignal } from "solid-js";
@@ -40,31 +36,29 @@ export type MediaItem = {
   height: number;
   /** Seconds. 0 for a picture. */
   duration: number;
-  /** A small JPEG of it, as a data URL. Empty until another browser's copy comes down. */
+  /** A data URL. Empty until another browser's copy comes down. */
   poster: string;
-  /** Name, size and change time of the file it came from, so the same file is kept once. */
+  /** Name, size and change time, so the same file is kept once. */
   fingerprint: string;
   lastModified: number;
   createdAt: string;
   uses: number;
   lastUsedAt: string | null;
-  /** Its copy in cloud storage, once uploaded. */
   cloud?: CloudCopy;
-  /** Its picture is in cloud storage too, under `<id>-poster`. */
+  /** Under `<id>-poster`. */
   cloudPoster?: boolean;
 };
 
-/** What the account keeps of an item. The picture is fetched from cloud storage instead. */
+/** The picture is fetched from cloud storage instead. */
 export type LibraryItem = Omit<MediaItem, "poster">;
 
-/** On the account: the file and its picture are both in cloud storage, so any browser can show it. */
 const onAccount = (item: Pick<MediaItem, "cloud" | "cloudPoster">) => !!item.cloud && !!item.cloudPoster;
 
 export const posterId = (id: string) => `${id}-poster`;
 
 interface MediaDB extends DBSchema {
   items: { key: string; value: MediaItem };
-  /** The files themselves, apart from the list, so listing never reads them. */
+  /** Kept apart from the list, so listing never reads them. */
   files: { key: string; value: { id: string; blob: Blob } };
 }
 
@@ -90,7 +84,6 @@ function db() {
   return dbPromise;
 }
 
-/** One person's library in one workspace, open or not. */
 async function withWorkspaceDb<T>(userId: string, workspaceId: string, work: (database: IDBPDatabase<MediaDB>) => Promise<T>): Promise<T> {
   if (isActiveWorkspace(userId, workspaceId)) return work(await db());
   const database = await openMediaDb(workspaceDatabaseFor(DB_BASE, userId, workspaceId));
@@ -144,7 +137,7 @@ onWorkspaceChange(() => {
   if (reopen) void loadMediaLibrary();
 });
 
-/** Why a file can't go in the library, or null. */
+/** Null when it can. */
 export function libraryProblem(file: File): string | null {
   const kind = mediaKind(file);
   if (kind === "image") return imageFileProblem(file);
@@ -155,7 +148,7 @@ export function libraryProblem(file: File): string | null {
 
 const THUMB_SIZE = 480;
 
-/** A JPEG of a picture, no more than THUMB_SIZE on its longer side. */
+/** No more than THUMB_SIZE on its longer side. */
 async function pictureThumb(url: string): Promise<string> {
   const image = new Image();
   image.src = url;
@@ -194,10 +187,7 @@ async function store(media: PostMedia): Promise<MediaItem> {
   return item;
 }
 
-/**
- * Uploads an item's file, then its picture, to cloud storage, if it's still
- * here when its turn comes. The account lists it once both are up.
- */
+/** Skipped if the item is gone when its turn comes. The account lists it once both are up. */
 function backUp(id: string) {
   if (!cloudEnabled) return;
   const run = generation;
@@ -227,7 +217,7 @@ function backUp(id: string) {
 let fetchingPosters = false;
 let fetchAgain = false;
 
-/** Brings down the pictures of items another browser added, so the library shows them before their files. */
+/** So the library shows them before their files. */
 async function fetchPosters() {
   if (!cloudEnabled) return;
   if (fetchingPosters) {
@@ -267,17 +257,12 @@ function dataUrl(blob: Blob): Promise<string> {
   });
 }
 
-/** The items of one of a person's workspaces their account keeps, for the account copy. */
 export async function readLibrarySnapshot(userId: string, workspaceId: string): Promise<LibraryItem[]> {
   const found = await withWorkspaceDb(userId, workspaceId, (database) => database.getAll("items"));
   return found.filter(onAccount).map(({ poster: _poster, ...item }) => item);
 }
 
-/**
- * Replaces one workspace's account items with the account copy. Items this
- * browser holds that aren't uploaded yet stay; they join the copy once they are.
- * Files aren't downloaded here: `mediaFile` fetches one when it's first used.
- */
+/** Items not uploaded yet stay and join the copy once they are. Files download on first use (`mediaFile`). */
 export async function writeLibrarySnapshot(userId: string, workspaceId: string, incoming: readonly LibraryItem[]) {
   const run = generation;
   const next = await withWorkspaceDb(userId, workspaceId, async (database) => {
@@ -299,11 +284,7 @@ export async function writeLibrarySnapshot(userId: string, workspaceId: string, 
   void fetchPosters();
 }
 
-/**
- * Puts items in one of a person's libraries as they are, pictures and all,
- * without their files: guest mode's demo footage, whose files come from the
- * site when first used (see lib/guest-demo.ts).
- */
+/** Without their files: guest demo footage, whose files come from the site when first used (lib/guest-demo.ts). */
 export async function putLibraryItems(userId: string, workspaceId: string, list: readonly MediaItem[]) {
   await withWorkspaceDb(userId, workspaceId, async (database) => {
     const tx = database.transaction("items", "readwrite");
@@ -311,19 +292,18 @@ export async function putLibraryItems(userId: string, workspaceId: string, list:
   });
 }
 
-/** One of guest mode's demo files, from the site's footage. */
 async function demoFile(id: string): Promise<File | null> {
   return (await (await import("@/lib/guest-demo")).demoFile(id)) ?? null;
 }
 
-/** Fingerprints being added, so a file dropped twice at once is kept once. */
+/** So a file dropped twice at once is kept once. */
 const adding = new Set<string>();
 
 const known = (file: File) => items().find((item) => item.fingerprint === fileKey(file));
 
 export type AddResult = { added: MediaItem[]; existing: MediaItem[]; problems: string[] };
 
-/** Reads the files and keeps the ones that fit. A file already in the library comes back as `existing`. */
+/** A file already in the library comes back as `existing`. */
 export async function addToLibrary(files: readonly File[], onProgress?: (done: number) => void): Promise<AddResult> {
   keepBrowserStorage();
   await loadMediaLibrary();
@@ -355,7 +335,7 @@ export async function addToLibrary(files: readonly File[], onProgress?: (done: n
   return result;
 }
 
-/** Keeps what a post carries in the library too, from the copy the post already read. */
+/** From the copy the post already read. */
 export async function keepInLibrary(read: readonly PostMedia[]) {
   await loadMediaLibrary();
   for (const media of read) {
@@ -374,7 +354,7 @@ export async function keepInLibrary(read: readonly PostMedia[]) {
 
 const downloads = new Map<string, Promise<Blob | null>>();
 
-/** Fetches an item another browser added, once, and keeps it here. */
+/** Once. */
 function download(item: MediaItem): Promise<Blob | null> {
   let job = downloads.get(item.id);
   if (job) return job;
@@ -397,7 +377,7 @@ function download(item: MediaItem): Promise<Blob | null> {
   return job;
 }
 
-/** The file of an item, with its name and change time, as it was added. Downloaded first when another browser added it. */
+/** Downloaded first when another browser added it. */
 export async function mediaFile(item: MediaItem): Promise<File | null> {
   const stored = await (await db()).get("files", item.id);
   const blob = stored?.blob ?? (item.cloud && cloudEnabled ? await download(item) : inGuestMode() ? await demoFile(item.id) : null);
@@ -411,7 +391,7 @@ function putItem(next: MediaItem, options?: { sync?: boolean }) {
   if (options?.sync !== false && onAccount(next)) queueAccountSync();
 }
 
-/** Renames an item. The extension stays. Returns what is wrong, or nothing. */
+/** The extension stays. Returns what is wrong, or nothing. */
 export function renameMedia(id: string, name: string): string | undefined {
   const item = items().find((row) => row.id === id);
   if (!item) return t("This file is no longer in the library.");
@@ -429,16 +409,16 @@ export function markMediaUsed(ids: readonly string[]) {
   }
 }
 
-/** What a delete took, so Undo can put it back. `blob` is null for a file this browser never downloaded. */
+/** `blob` is null for a file this browser never downloaded. */
 export type RemovedMedia = { item: MediaItem; blob: Blob | null }[];
 
-/** How long the cloud copy of a deleted item waits, so Undo can still bring back one that was never downloaded here. */
+/** So Undo can still bring back one that was never downloaded here. */
 const UNDO_MS = 15_000;
-/** Cloud copies waiting to be deleted, kept so a tab closed in the meantime deletes them on the next visit. */
+/** Kept so a tab closed in the meantime deletes them on the next visit. */
 const DELETES_KEY = "plan.video.media-deletes";
 const deleteTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
-/** A copy waiting to be deleted, with the shared workspace it's in, if any: those are in the owner's storage. */
+/** Shared workspace copies are in the owner's storage. */
 type WaitingDelete = { id: string; team?: TeamScope };
 
 function waitingDeletes(): WaitingDelete[] {
@@ -446,7 +426,7 @@ function waitingDeletes(): WaitingDelete[] {
     const parsed = JSON.parse(localStorage.getItem(DELETES_KEY) ?? "[]") as unknown;
     if (!Array.isArray(parsed)) return [];
     return parsed.flatMap((entry: unknown): WaitingDelete[] => {
-      // Saved as a bare id before shared workspaces.
+      // Older saves hold a bare id.
       if (typeof entry === "string") return [{ id: entry }];
       const row = entry as WaitingDelete | null;
       if (typeof row?.id !== "string") return [];
@@ -483,7 +463,6 @@ function deleteCopies(entries: readonly WaitingDelete[]) {
   }
 }
 
-/** Deletes the copies a closed tab left waiting. */
 export function flushMediaDeletes() {
   if (cloudEnabled) deleteCopies(waitingDeletes().filter((entry) => !deleteTimers.has(entry.id)));
 }

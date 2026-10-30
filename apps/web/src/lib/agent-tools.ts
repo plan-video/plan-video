@@ -2,12 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The dashboard agent's tools, run here against the calendar on screen. They
-// are the posting tools agents reach over MCP, with the same handlers, so a
-// post the agent schedules is the post the New post form would have made.
-// One more, analytics, reads the numbers on the Analytics page. Agents that
-// come in through the hosted connector run the same tools here, and one more,
-// list_media, to find the files the dashboard agent is handed in each message.
+// The same handlers as the MCP posting tools, so a post the agent schedules is the one the New post form would make.
 
 import { analyticsTool, DapiError, isDapiError, listMediaTool, toolByName, type ToolName } from "@plan.video/dapi";
 import type { User } from "@supabase/supabase-js";
@@ -36,7 +31,6 @@ const HANDLERS = {
   list_media: listMedia,
 } as const;
 
-/** Schemas of the tools that aren't in the MCP catalog. */
 const OWN_SCHEMAS: Record<string, { input: typeof analyticsTool.input | typeof listMediaTool.input }> = {
   [analyticsTool.name]: analyticsTool,
   [listMediaTool.name]: listMediaTool,
@@ -44,13 +38,12 @@ const OWN_SCHEMAS: Record<string, { input: typeof analyticsTool.input | typeof l
 
 export type AgentToolName = keyof typeof HANDLERS;
 
-/** Whether the agent's tools include `name`. */
 export const isAgentTool = (name: string): name is AgentToolName => Object.hasOwn(HANDLERS, name);
 
-/** Tools that change the calendar or send something. A turn that ran one isn't run again. */
+/** A turn that ran one isn't run again. */
 export const CHANGING_TOOLS: ReadonlySet<string> = new Set(["schedule_post", "copy_post", "update_post", "delete_post", "publish_post"]);
 
-/** Tools that send something or remove it. They always wait for the person to say yes; the others wait when a post goes out soon or to a TikTok profile, or for an outside agent whenever a post stays scheduled (see lib/agent-confirm). */
+/** Always wait for the person's yes; the rest wait as lib/agent-confirm decides. */
 export const CONFIRM_TOOLS: ReadonlySet<string> = new Set(["publish_post", "delete_post"]);
 
 export type StepStatus = "running" | "done" | "error" | "waiting";
@@ -69,7 +62,6 @@ const LABELS: Record<AgentToolName, { running: string; done: string; failed: str
   publish_post: { running: msg("Publishing a post"), done: msg("Published a post"), failed: msg("Didn't publish a post") },
 };
 
-/** What a step says: as it runs, once it's done, when it failed or was turned down, or while it waits for a yes. */
 export function toolLabel(name: string, status: StepStatus): string {
   const label = LABELS[name as AgentToolName];
   if (!label) return name;
@@ -77,10 +69,9 @@ export function toolLabel(name: string, status: StepStatus): string {
   return status === "running" ? label.running : status === "done" ? label.done : label.failed;
 }
 
-/** A media id as the agent sees it in a message. */
 export const mediaReference = (id: string) => `media:${id}`;
 
-/** Library files by the ids listed in the person's messages. Anything else is refused, so no path reaches the disk. */
+/** Anything not in the library is refused, so no path reaches the disk. */
 async function libraryFile(reference: string): Promise<File> {
   const id = reference.trim().replace(/^media:/, "");
   if (!reference.trim().startsWith("media:")) {
@@ -94,7 +85,6 @@ async function libraryFile(reference: string): Promise<File> {
   return file;
 }
 
-/** The library, newest first, as list_media returns it. */
 async function listMedia(args: { kind?: "video" | "image"; search?: string; limit?: number }) {
   await loadMediaLibrary();
   const words = (args.search ?? "").toLowerCase().split(/\s+/).filter(Boolean);
@@ -140,12 +130,7 @@ function context(user: () => User | null, signal: AbortSignal, confirm: ToolCont
   };
 }
 
-/**
- * Runs one tool call: its output as JSON for the model, or what went wrong.
- * `confirm` asks the person in this tab before a call that needs their yes
- * (see lib/agent-confirm); with it, only their yes accepts TikTok's terms.
- * `confirmEvery` asks before every post left scheduled, for outside agents.
- */
+/** With `confirm`, only the person's yes in this tab accepts TikTok's terms (see lib/agent-confirm). */
 export async function runAgentTool(
   name: string,
   input: unknown,
@@ -159,7 +144,7 @@ export async function runAgentTool(
     return { text: `The arguments don't fit ${name}: ${problems}`, error: true };
   }
   try {
-    // The signed-in person's posts and media, also in a tab that never opened the dashboard.
+    // Also in a tab that never opened the dashboard.
     const current = options.user();
     if (current) loadWorkspaces(current.id);
     // Each handler takes its own parsed arguments; the map's union can't say so.

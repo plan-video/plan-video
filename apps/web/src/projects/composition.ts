@@ -2,9 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The web app has no compiler, so the stage cannot be written back as JSX.
-// What the canvas is showing is saved here instead, and the next open mounts
-// a bundle built from it. The desktop app keeps using the project source.
+// The web app has no compiler, so the stage can't be written back as JSX; the canvas's state is saved here instead.
 
 import { isAssetRef, serializeAssetRef } from "@plan.video/jsx";
 import { authoredElement } from "@plan.video/reconciler";
@@ -23,17 +21,15 @@ import { readText, replaceText, writeText } from "./browser-store";
 import type { EntityEdit } from "@/engine/editor";
 import type { Entity, World } from "koota";
 
-/** Saved next to package.json. Absent means the project is still the empty stage. */
+/** Absent means the project is still the empty stage. */
 export const COMPOSITION_FILE = "composition.json";
 
 const DEFAULT_STAGE = colorToHex(DEFAULT_BACKGROUND);
 const PENDING_SOURCE = "pending#";
 
 /**
- * View state. It describes the session, not the composition, so it is not
- * saved — except `active`, which is put back from the trait: without it the
- * project opens on an empty timeline. Nor is the camera: an open frames the
- * stage for the window it opens in (see `settleOpeningView`).
+ * Not saved, except `active` (without it the project opens on an empty timeline). The camera isn't saved:
+ * an open frames the stage for its window (see `settleOpeningView`).
  */
 const VIEW_PROPS: ReadonlySet<string> = new Set([
   "selected",
@@ -47,10 +43,7 @@ const VIEW_PROPS: ReadonlySet<string> = new Set([
   "ref",
 ]);
 
-/**
- * Whether `edit` can change what is saved. Selecting, scrubbing, panning and
- * the rest of the view state never reach the file, so they never save it.
- */
+/** View state never reaches the file, so it never saves it. */
 export function changesComposition(edit: EntityEdit): boolean {
   return edit.kind !== "prop" || edit.name === "active" || !VIEW_PROPS.has(edit.name);
 }
@@ -59,7 +52,7 @@ export interface SavedNode {
   tag: string;
   props: Record<string, unknown>;
   text?: string;
-  /** `__source` to stamp on the next mount, so edits can still find the element. */
+  /** Stamped on the next mount, so edits can still find the element. */
   source: string;
   children: SavedNode[];
 }
@@ -67,10 +60,7 @@ export interface SavedNode {
 export interface SavedComposition {
   version: 1;
   background?: string;
-  /**
-   * Where the canvas was looking. The editor no longer saves it: an open
-   * frames the stage (see `settleOpeningView`).
-   */
+  /** No longer saved: an open frames the stage (see `settleOpeningView`). */
   camera?: [number, number, number, number, number, number];
   children: SavedNode[];
 }
@@ -191,30 +181,18 @@ export async function readBrowserComposition(dir: string): Promise<SavedComposit
   }
 }
 
-/**
- * What a save writes for the stage `world` is showing: the composition, or
- * null for the empty default, which is kept as no file at all. The read of
- * the world is synchronous, so it is safe to call as the mount is about to
- * be torn down.
- */
+/** Null for the empty default, kept as no file. Synchronous, so it's safe to call as the mount is torn down. */
 export function browserCompositionText(world: World): string | null {
   const saved = capture(world);
   return saved ? `${JSON.stringify(saved)}\n` : null;
 }
 
-/**
- * Reads and saves of each composition file, one at a time, by path: a project
- * closed and opened again at once reads its file after the last save of the
- * editor that closed.
- */
+/** One at a time per path, so a project reopened at once reads its file after the closing editor's last save. */
 const turns = new Map<string, Promise<unknown>>();
 
 /**
- * The open editor's hold on a browser project's composition: the file as the
- * stage on the canvas read it or last saved it. A save goes through only
- * while the file still says that, so a tab never writes over a save made
- * since in another tab or on another device. Reads and saves take turns, so
- * a read never takes this tab's own save for someone else's.
+ * A save goes through only while the file still says what this stage read or saved, so a tab never
+ * writes over a save from another tab or device.
  */
 export function holdBrowserComposition(dir: string) {
   const path = `${dir}/${COMPOSITION_FILE}`;
@@ -227,17 +205,13 @@ export function holdBrowserComposition(dir: string) {
     });
     return next;
   };
-  // One per stage, so a save the last stage left queued is still checked
-  // against what that stage was built on.
+  // One per stage, so a save the last stage left queued is checked against what that stage was built on.
   let held: { text: string | null } | undefined;
 
   return {
     /**
-     * Runs `compile`, which reads the file, and answers with the file's text
-     * as it compiled. It is read on both sides: a write from another tab in
-     * between means reading again, or the stage would be held to a file it
-     * never showed. After a few tries the earlier text is the one answered,
-     * which at worst turns this tab's next save away.
+     * Read before and after: a write from another tab in between means reading again. After a few tries
+     * the earlier text is answered, which at worst turns this tab's next save away.
      */
     read<T>(compile: () => Promise<T>): Promise<{ result: T; text: string | null }> {
       return inTurn(async () => {
@@ -248,19 +222,13 @@ export function holdBrowserComposition(dir: string) {
         }
       });
     },
-    /** The stage on the canvas is now the file's `text`, as `read` answered it. */
     adopt(text: string | null): void {
       held = { text };
     },
-    /** Whether `text` is what the stage on the canvas was read from or last saved as. */
     holds(text: string | null): boolean {
       return held !== undefined && held.text === text;
     },
-    /**
-     * Saves the stage as `text` (see `browserCompositionText`). Resolves false
-     * when the file changed since the stage read or saved it, and is left as
-     * it is.
-     */
+    /** Resolves false, writing nothing, when the file changed since the stage read or saved it. */
     save(text: string | null): Promise<boolean> {
       const stage = held;
       return inTurn(async () => {
@@ -273,23 +241,20 @@ export function holdBrowserComposition(dir: string) {
   };
 }
 
-/** Writes a composition made outside the editor, for the next open to mount. */
+/** For the next open to mount. */
 export function writeBrowserComposition(dir: string, composition: SavedComposition): Promise<void> {
   return writeText(`${dir}/${COMPOSITION_FILE}`, `${JSON.stringify(composition)}\n`);
 }
 
 /**
- * The bundle the stage is showing right now. An encode mounts this rather
- * than the bundle remembered at open: the web app saves edits here and never
- * recompiles them, so that remembered copy predates the scene on the canvas.
- * Null when the stage is still the empty default.
+ * An encode mounts this, not the bundle remembered at open: the web app never recompiles edits,
+ * so that copy predates the canvas. Null for the empty default.
  */
 export function liveCompositionBundle(world: World): string | null {
   const saved = capture(world);
   return saved ? compositionBundle(saved) : null;
 }
 
-/** The JSX runtime a bundle requires, as far as a composition uses it. */
 export type CompositionJsx = Record<string, unknown> & {
   AssetRef: new (spec: Record<string, unknown>) => unknown;
   Stage: unknown;
@@ -297,14 +262,10 @@ export type CompositionJsx = Record<string, unknown> & {
   createTextNode(text: string): unknown;
 };
 
-/** How every composition bundle starts. The line after holds the saved tree as JSON. */
+/** The line after holds the saved tree as JSON. */
 const BUNDLE_START = 'var import_jsx = require("@plan.video/jsx");\nvar saved = ';
 
-/**
- * The project a composition mounts: the saved tree rebuilt with the same
- * `createComponent` calls a compiled project uses, as `compositionBundle`'s
- * text does when it's evaluated. Change one, change the other.
- */
+/** Must rebuild the tree exactly as `compositionBundle`'s text does when evaluated. Change one, change the other. */
 export function compositionProject(jsx: CompositionJsx, saved: SavedComposition): () => unknown {
   type Data = Record<string, unknown>;
   const reviveInput = (value: unknown): unknown => (value && typeof value === "object" && (value as Data).$asset ? revive(value) : value);
@@ -348,13 +309,7 @@ export function compositionProject(jsx: CompositionJsx, saved: SavedComposition)
   };
 }
 
-/**
- * A bundle `mount` can evaluate. The saved tree is embedded as JSON and
- * rebuilt with the same `createComponent` calls a compiled project uses, as
- * `compositionProject` does; the website reads it with `readCompositionBundle`
- * instead. Kept as plain text, not that function's source, so nothing a
- * bundler adds to it can leak in.
- */
+/** Must match `compositionProject`. Plain text, not that function's source, so nothing a bundler adds can leak in. */
 export function compositionBundle(saved: SavedComposition): string {
   const json = JSON.stringify(saved).replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
   return `var import_jsx = require("@plan.video/jsx");
@@ -410,11 +365,7 @@ module.exports = { default: Project };
 `;
 }
 
-/**
- * The project in a bundle `compositionBundle` wrote, without evaluating it;
- * undefined for any other bundle. Bundles remembered from older builds read
- * too: their first two lines are the same.
- */
+/** Undefined for any other bundle. Bundles from older builds read too: their first two lines are the same. */
 export function readCompositionBundle(code: string, jsx: CompositionJsx): (() => unknown) | undefined {
   if (!code.startsWith(BUNDLE_START)) return undefined;
   const line = code.slice(BUNDLE_START.length, code.indexOf("\n", BUNDLE_START.length));

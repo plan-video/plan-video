@@ -12,7 +12,7 @@ declare global {
   interface Window {
     queryLocalFonts(query?: Record<string, any>): FontData[];
     chrome: any;
-    /** index.html's loading screen mark: how far into its loop it is, and holding it still (components/page-loader.tsx). */
+    /** Set by index.html's loading screen (components/page-loader.tsx). */
     bootMark?: {
       time(): number;
       hold(on: boolean): void;

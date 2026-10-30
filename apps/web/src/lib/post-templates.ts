@@ -2,10 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// A post set up once and started from again: where it goes, the caption,
-// what each platform gets of its own, and when it goes out. The media is
-// left out, since that changes every time. Saved on the account, one list
-// per workspace, like the vault.
+// Media is left out, since that changes every time.
 
 import { createSignal } from "solid-js";
 
@@ -26,17 +23,15 @@ export type PostTemplate = {
   platforms: PlatformId[];
   accounts: AccountChoices;
   caption: string;
-  /** Captions a platform has of its own, instead of the shared one. */
+  /** Instead of the shared one. */
   overrides: Partial<Record<PlatformId, string>>;
   settings: PlatformSettings;
-  /** Whether the vault signature goes at the end of the caption. */
   signature: boolean;
-  /** Follow-ups posted under each post made from it. */
   thread: ThreadReply[];
   when: TemplateWhen;
   /** `HH:MM`, when `when` is `time`. */
   time: string;
-  /** How a post made from it repeats, as the calendar keeps it. `""` for once. */
+  /** As the calendar keeps it. `""` for once. */
   repeat: string;
   pinned: boolean;
   uses: number;
@@ -48,7 +43,6 @@ export type PostTemplate = {
 export type TemplateDraft = Pick<PostTemplate, "name" | "platforms" | "accounts" | "caption" | "overrides" | "settings" | "signature" | "thread" | "when" | "time" | "repeat">;
 
 const [items, setItems] = createSignal<PostTemplate[]>([]);
-/** The storage key the shown templates came from: the user's, in the active workspace. */
 let loadedKey: string | undefined;
 
 export { items as postTemplates };
@@ -76,7 +70,7 @@ function platformIds(value: unknown): PlatformId[] {
   return PLATFORM_IDS.filter((id) => value.includes(id));
 }
 
-/** Saved settings over the defaults, so a template from before a setting was added still has it. */
+/** Over the defaults, so a template from before a setting was added still has it. */
 function readSettings(value: unknown): PlatformSettings {
   const base = defaultPlatformSettings();
   if (!value || typeof value !== "object") return base;
@@ -98,7 +92,7 @@ function readOverrides(value: unknown, platforms: readonly PlatformId[]): PostTe
   return out;
 }
 
-/** A saved thread, without anything that isn't a follow-up. Templates from before threads have none. */
+/** Templates from before threads have none. */
 function readThread(value: unknown): ThreadReply[] {
   if (!Array.isArray(value)) return [];
   return keptThread(
@@ -135,7 +129,7 @@ export function readPostTemplate(value: unknown): PostTemplate | null {
   };
 }
 
-/** Reads the account copy again. `loadTemplates` does nothing when this key is already loaded. */
+/** `loadTemplates` does nothing when this key is already loaded. */
 export function reloadTemplates(userId: string | undefined) {
   loadedKey = undefined;
   loadTemplates(userId);
@@ -242,7 +236,6 @@ export function markTemplateUsed(id: string) {
   write((current) => current.map((item) => (item.id === id ? { ...item, uses: item.uses + 1, lastUsedAt: now } : item)));
 }
 
-/** Pinned first, then the ones used or edited most recently. */
 export function sortTemplates(list: readonly PostTemplate[]): PostTemplate[] {
   const recency = (item: PostTemplate) => (item.lastUsedAt && item.lastUsedAt > item.updatedAt ? item.lastUsedAt : item.updatedAt);
   return [...list].sort((a, b) => Number(b.pinned) - Number(a.pinned) || recency(b).localeCompare(recency(a)));
@@ -258,7 +251,6 @@ export function searchTemplates(list: readonly PostTemplate[], query: string): P
   );
 }
 
-// The New post page opens with a template applied when one is waiting here.
 const [pendingTemplate, setPendingTemplate] = createSignal<PostTemplate | null>(null);
 
 export function queueTemplate(item: PostTemplate) {

@@ -6,48 +6,33 @@ import { mimeTypeToExtension } from "./media";
 import { colord } from "colord";
 import { ElectronFileHandle } from "@/lib/electron-file-handle";
 
-/**
- * Reads the computed value of a CSS custom property from the document root.
- * @param name - The CSS variable name (e.g., `'--color-canvas'`)
- * @returns The resolved value as a colord instance
- */
 export function getCssVar(name: string) {
   const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
   return colord(value);
 }
 
-/**
- * Opens the browser's EyeDropper to pick a color from the screen.
- * @returns The selected hex color string, or null if cancelled/unsupported
- */
+/** Null if cancelled or unsupported. */
 export async function pickScreenColor(): Promise<string | null> {
   try {
     const eyeDropper = new (window as any).EyeDropper();
     const result = await eyeDropper.open();
     return result.sRGBHex;
   } catch {
-    // User cancelled or error occurred
     return null;
   }
 }
 
-/**
- * Verifies if we still have permission to access the handle.
- * Returns true if permission is granted, false otherwise.
- */
 export async function verifyHandlePermission(
   handle: FileSystemDirectoryHandle | FileSystemFileHandle,
   mode: 'read' | 'readwrite' = 'readwrite'
 ): Promise<boolean> {
   const options = { mode };
 
-  // Check if we already have permission
   if ((await handle.queryPermission(options)) === 'granted') {
     return true;
   }
 
-  // Request permission if not granted
   if ((await handle.requestPermission(options)) === 'granted') {
     return true;
   }
@@ -55,12 +40,7 @@ export async function verifyHandlePermission(
   return false;
 }
 
-/**
- * Batch-verifies permission for many handles. Calls requestPermission on every
- * handle that needs it in parallel within the same task — Chromium consolidates
- * the prompts into a single dialog listing all files. Must be invoked during a
- * transient user activation (e.g. inside a click handler).
- */
+/** Prompts in parallel in one task so Chromium merges them into one dialog. Must run during a user activation (a click). */
 export async function verifyHandlePermissions(
   handles: (FileSystemDirectoryHandle | FileSystemFileHandle | ElectronFileHandle)[],
   mode: 'read' | 'readwrite' = 'readwrite'
@@ -76,13 +56,6 @@ export async function verifyHandlePermissions(
   return results.every(state => state === 'granted');
 }
 
-/**
- * This utility creates a file input element and clicks on it
- * @param accept comma separated mime types
- * @example audio/mp3, video/mp4
- * @param multiple enable multiselection
- * @default true
- */
 export async function showFileDialog(
   accept = 'image/*,video/*,audio/*,text/*',
   multiple = true
@@ -96,12 +69,10 @@ export async function showFileDialog(
     }
 
     return new Promise<(File | ElectronFileHandle)[]>(resolve => {
-      // setup input
       const input = document.createElement('input');
       input.type = 'file';
       input.accept = accept;
       input.multiple = multiple;
-      // listen for changes
       input.onchange = (fileEvent: Event) => {
         const files = Array.from((fileEvent.target as HTMLInputElement)?.files ?? []);
         resolve(files.map((file) => {
@@ -117,17 +88,11 @@ export async function showFileDialog(
   }
 }
 
-/**
- * This utility creates an anchor tag and clicks on it
- * @param source Blob url or base64 encoded svg
- * @param name File name suggestion
- */
 export async function downloadObject(source: Blob, name?: string): Promise<void> {
   const a = document.createElement('a');
   document.head.appendChild(a);
   a.target = '_blank';
 
-  // Add extension to name if it doesn't have one
   if (name && !name.match(/\.[^.]+$/)) {
     if (source instanceof File) {
       name = name + mimeTypeToExtension(source.type);

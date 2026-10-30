@@ -2,10 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Rules that act on a post after it goes out: once it has enough likes,
-// repost it, or reply under it with a plug. One of each per account. Saved on
-// the account, one list per workspace; the publisher carries them out on the
-// server (services/publisher/plugs.mjs).
+// Carried out on the server (services/publisher/plugs.mjs).
 
 import { createSignal } from "solid-js";
 
@@ -21,7 +18,6 @@ export type PlugDefinition = {
   id: PlugKind;
   title: string;
   description: string;
-  /** Whether the plug has a message to post. */
   message: boolean;
 };
 
@@ -41,22 +37,20 @@ export const PLUGS: Record<PlugKind, PlugDefinition> = {
 };
 
 /**
- * The plugs each network runs. A network joins once plan.video posts to it and
- * can read a post's likes, with its steps in services/publisher/plugs.mjs: X is next.
+ * A network joins once the publisher can read its likes (steps in services/publisher/plugs.mjs).
  * LinkedIn doesn't let apps read likes, and Threads has no reposting.
  */
 export const PLUGS_BY_PLATFORM: Partial<Record<string, readonly PlugKind[]>> = {
   bluesky: ["auto-repost", "auto-plug"],
 };
 
-/** The longest plug reply each network takes, and how it counts. */
 const REPLY_LIMITS: Partial<Record<string, { max: number; length(text: string): number }>> = {
   bluesky: { max: BLUESKY_TEXT_LIMIT, length: blueskyLength },
 };
 
 export const PLUG_PLATFORMS = Object.keys(PLUGS_BY_PLATFORM);
 
-/** How often a post is checked after it goes out, and how many times (lib/plug-timing.ts, free of the browser for the build). */
+/** Kept in lib/plug-timing.ts, free of the browser, for the build. */
 export { PLUG_CHECK_HOURS, PLUG_CHECKS } from "./plug-timing";
 
 export type PlugSetting = {
@@ -74,7 +68,6 @@ export type PlugSetting = {
 export type PlugDraft = { likes: string; message: string };
 
 const [items, setItems] = createSignal<PlugSetting[]>([]);
-/** The storage key the shown plugs came from: the user's, in the active workspace. */
 let loadedKey: string | undefined;
 
 export { items as plugSettings };
@@ -102,7 +95,7 @@ function readPlug(value: unknown): PlugSetting | null {
   };
 }
 
-/** Reads the account copy again. `loadPlugs` does nothing when this key is already loaded. */
+/** `loadPlugs` does nothing when this key is already loaded. */
 export function reloadPlugs(userId: string | undefined) {
   loadedKey = undefined;
   loadPlugs(userId);
@@ -142,7 +135,7 @@ function write(update: (current: PlugSetting[]) => PlugSetting[]) {
   return true;
 }
 
-/** What is wrong with the fields, by field, or nothing. */
+/** By field, or nothing. */
 export function plugProblems(kind: PlugKind, draft: PlugDraft, platform: string): Partial<Record<keyof PlugDraft, string>> {
   const problems: Partial<Record<keyof PlugDraft, string>> = {};
   if (!/^\d+$/.test(draft.likes.trim()) || Number(draft.likes) < 1) problems.likes = t("Enter a whole number of likes, 1 or more.");
@@ -152,7 +145,7 @@ export function plugProblems(kind: PlugKind, draft: PlugDraft, platform: string)
   return problems;
 }
 
-/** Saves the plug and turns it on. Returns an error for the user. */
+/** Turns it on. Returns an error for the user. */
 export function savePlug(accountId: string, platform: string, kind: PlugKind, draft: PlugDraft): string | undefined {
   if (Object.keys(plugProblems(kind, draft, platform)).length) return t("Check the fields above.");
   const now = new Date().toISOString();

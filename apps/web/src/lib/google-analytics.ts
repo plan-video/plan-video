@@ -2,11 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/**
- * Google Analytics for the public site. The tag loads only after a visitor
- * accepts, and only on plan.video, so desktop, local development, and preview
- * deploys stay out of the property.
- */
+// Loads only after consent and only on plan.video, so desktop, dev and preview deploys stay out of the property.
 
 import { createSignal } from "solid-js";
 
@@ -40,7 +36,6 @@ const [consent, setConsent] = createSignal<AnalyticsConsent | null>(readConsent(
 
 export { consent as analyticsConsent };
 
-/** The live site in a browser. The desktop app and every other host stay quiet. */
 export function googleAnalyticsEnabled(): boolean {
   return !window.desktop && HOSTS.has(location.hostname);
 }
@@ -97,7 +92,6 @@ export function chooseAnalyticsConsent(value: AnalyticsConsent) {
   }
 }
 
-/** Forgets the stored choice so the notice shows again. */
 export function resetAnalyticsConsent() {
   try {
     localStorage.removeItem(CONSENT_KEY);

@@ -1,7 +1,4 @@
-// Browser stand-in for the desktop project folder. New projects are created
-// here, listed from the same records the dashboard already uses, and opened
-// in the editor. The empty composition is compiled ahead of time: the
-// browser has no esbuild, and a fresh project is always this one file.
+// The empty composition is compiled ahead of time: the browser has no esbuild.
 
 import type { CompileResult, ProjectInfo, SourceEdit, WriteResult } from "@desktop/main-channels";
 import type { FsEntry, Manifest, ProjectFS } from "@plan.video/assets";
@@ -42,10 +39,8 @@ const STARTER = `export default function Project() {
 }
 `;
 
-// The desktop compiler's output for STARTER: composition tags become
-// PascalCase components, then babel-preset-solid (universal) and esbuild.
-// A lowercase createElement("stage") is a DOM node, and the renderer
-// refuses DOM content that is not inside <html>.
+// The desktop compiler's output for STARTER. A lowercase createElement("stage") would be a DOM node,
+// which the renderer refuses outside <html>.
 const STARTER_BUNDLE = `var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -78,10 +73,7 @@ function Project() {
 }
 `;
 
-// The website reads the bundles it mounts, the starter's and those built from
-// composition.json, rather than evaluating them: its Content-Security-Policy
-// has no 'unsafe-eval' (content-security-policy.ts). The desktop app compiles
-// and evaluates its projects.
+// The website reads bundles rather than evaluating them: its CSP has no 'unsafe-eval' (content-security-policy.ts).
 if (!window.desktop) {
   setBundleReader((code, require) => {
     const jsx = require("@plan.video/jsx") as CompositionJsx;
@@ -100,7 +92,7 @@ interface PackageJson {
   private?: boolean;
   type?: string;
   planvideo?: unknown;
-  /** Where the config lived before the app was renamed. */
+  /** Read once, from before the rename. */
   diffusion?: unknown;
 }
 
@@ -164,8 +156,7 @@ export async function browserCreateProject(root: string, displayName: string): P
   await writeText(`${dir}/package.json`, `${JSON.stringify(pkg, null, 2)}\n`);
   await writeText(`${dir}/index.tsx`, STARTER);
   await writeText(`${dir}/assets.yml`, `${JSON.stringify(EMPTY_MANIFEST, null, 2)}\n`);
-  // Stamp createdAt from the folder we just wrote. describe uses "now" for
-  // both clocks; the entry mtime is the one the dashboard sorts on.
+  // describe() uses "now" for both clocks; the entry mtime is the one the dashboard sorts on.
   const project = await describe(dir);
   if (!project) throw new Error("Failed to scaffold the project.");
   project.createdAt = now;
@@ -181,27 +172,23 @@ export async function browserDeleteProject(dir: string): Promise<void> {
   await removeTree(dir);
 }
 
-/**
- * Inside the folder, so the trash travels to other browsers with the
- * project's files: holds when it was trashed.
- */
+/** Inside the folder, so the trash travels to other browsers with the project's files. */
 export const TRASHED_FILE = ".trashed";
-/** The project's cover, kept in the folder for the same reason. */
+/** Kept in the folder for the same reason. */
 export const COVER_FILE = ".cover";
 
-/** Marks the project in `dir` trashed, or not, for every browser. */
 export async function browserMarkTrashed(dir: string, at: string | null): Promise<void> {
   if (at) await writeText(`${dir}/${TRASHED_FILE}`, at);
   else if (await existsPath(`${dir}/${TRASHED_FILE}`)) await removeTree(`${dir}/${TRASHED_FILE}`);
 }
 
-/** Keeps the project's cover in its folder, for every browser. Not for a project that's gone. */
+/** Not for a project that's gone. */
 export async function browserKeepCover(dir: string, cover: Blob): Promise<void> {
   if (!(await existsPath(`${dir}/package.json`))) return;
   await writeBytes(`${dir}/${COVER_FILE}`, new Uint8Array(await cover.arrayBuffer()));
 }
 
-/** Copies the project next to itself as `<name>-copy`, with a new id. */
+/** As `<name>-copy`, with a new id. */
 export async function browserDuplicateProject(dir: string): Promise<ProjectInfo> {
   const source = await describe(dir);
   if (!source) throw new Error("Not a project folder.");
@@ -233,8 +220,7 @@ export async function browserRenameProject(dir: string, displayName: string): Pr
 }
 
 export async function browserCompileProject(dir: string): Promise<CompileResult> {
-  // The saved stage wins over index.tsx. The web app writes the composition
-  // here, because it cannot compile the source file.
+  // The saved stage wins over index.tsx: the web app can't compile the source file.
   const saved = await readBrowserComposition(dir);
   if (saved) {
     // Its sources go on the stage now, so no insert may be given one.
@@ -251,16 +237,15 @@ export async function browserCompileProject(dir: string): Promise<CompileResult>
 }
 
 const CONFIG_FIELD = "planvideo" as const;
-/** The field's name before the app was renamed: still read, and dropped on the next write. */
+/** Still read, and dropped on the next write. */
 const LEGACY_CONFIG_FIELD = "diffusion" as const;
 
-/** The project's config (package.json `planvideo`), or null when it has none. */
 export async function browserReadConfig(dir: string): Promise<unknown> {
   const pkg = await readPackage(dir);
   return pkg?.[CONFIG_FIELD] ?? pkg?.[LEGACY_CONFIG_FIELD] ?? null;
 }
 
-/** Replaces the project's config. Null removes the field and leaves the rest of the record. */
+/** Null removes the field and leaves the rest of the record. */
 export async function browserWriteConfig(dir: string, config: unknown): Promise<void> {
   const pkg = (await readPackage(dir)) ?? {};
   const next: PackageJson = { ...pkg };
@@ -270,17 +255,8 @@ export async function browserWriteConfig(dir: string, config: unknown): Promise<
   await writeText(`${dir}/package.json`, `${JSON.stringify(next, null, 2)}\n`);
 }
 
-// Inserts are born with a pending source. A write that never answers with a
-// real one is treated as a refusal, and the canvas deletes the element. The
-// browser cannot rewrite the JSX, so each insert keeps a source of its own
-// and stays on the stage for this session.
-//
-// That source is saved with the composition and mounted again on every later
-// open, so it must miss every source the project already holds: undo, moves
-// and edits find an element by its source, and a new clip named like the
-// saved scene would be undone by deleting the scene. As on the desktop, a
-// fresh one is drawn until it misses everything taken: what this page
-// handed out, and what each composition it opened holds.
+// The browser can't rewrite JSX, so each insert keeps a source of its own. That source is saved and mounted on
+// every later open, so it must miss every source the project holds: a clash would make undo delete the wrong element.
 const ID_LENGTH = 6;
 const ID_SPACE = 36 ** ID_LENGTH;
 const takenSources = new Set<string>();
@@ -347,7 +323,7 @@ export function createBrowserProjectFS(dir: string): ProjectFS {
       const path = absolute(source);
       const data = await readBytes(path);
       if (!data) throw new Error(`No such file: ${path}`);
-      // File wants an ArrayBuffer-backed view. IndexedDB hands back ArrayBufferLike.
+      // File wants an ArrayBuffer-backed view; IndexedDB hands back ArrayBufferLike.
       const bytes = new Uint8Array(data.byteLength);
       bytes.set(data);
       return new File([bytes], baseName(path));

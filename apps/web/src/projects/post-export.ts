@@ -2,10 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// A project's video for a post, rendered without the editor: the project is
-// mounted into a world of its own, the way the editor would, and the scene is
-// encoded from there into memory. Nothing is drawn on screen and nothing is
-// written into the project's folder.
+// Rendered without the editor: nothing is drawn on screen and nothing is written
+// into the project's folder.
 
 import { createEncoder } from "@plan.video/encoder";
 import { mount } from "@plan.video/reconciler";
@@ -40,27 +38,20 @@ import type { Capture } from "@/engine/capture";
 import type { ProjectInfo } from "@desktop/main-channels";
 
 export type PostExportOptions = {
-  /** 0 to 100 as the frames are encoded. */
   onProgress?(percent: number): void;
   signal?: AbortSignal;
 };
 
 export type PostExport = {
   file: File;
-  /** The lines the scene's library tracks ask a post to carry, once each. */
   credits: string[];
-  /** The words the scene's captions show, in the order they come up; empty without captions. */
   words: string;
 };
 
 const canceled = () => new DOMException("The export was canceled", "AbortError");
 
-/**
- * Renders the project's scene (the one the editor opens on) to an MP4, with
- * the default export settings: H.264 and AAC at 1080p, what every platform a
- * post goes to takes. A scene's own export settings are for the file the
- * editor saves, and may name a container a platform turns away.
- */
+// Default export settings (H.264 + AAC, 1080p), not the scene's own: those are for the
+// editor's saved file and may name a container a platform turns away.
 export async function exportProjectVideo(project: ProjectInfo, options: PostExportOptions = {}): Promise<PostExport> {
   const { signal, onProgress } = options;
   const dir = project.dir;
@@ -114,7 +105,6 @@ export async function exportProjectVideo(project: ProjectInfo, options: PostExpo
   }
 }
 
-/** The credits of the assets anything in `scene` plays or shows, in the order they appear. */
 function sceneCredits(world: World, library: AssetLibrary, scene: Entity): string[] {
   const credits = new Set<string>();
   const visit = (entity: Entity) => {
@@ -127,10 +117,6 @@ function sceneCredits(world: World, library: AssetLibrary, scene: Entity): strin
   return [...credits];
 }
 
-/**
- * The words the captions in `scene` put on screen, in the order they come up.
- * A hidden caption, and the words a caption's trim keeps off screen, are left out.
- */
 async function sceneWords(world: World, library: AssetLibrary, scene: Entity): Promise<string> {
   const captions: Entity[] = [];
   const visit = (entity: Entity) => {

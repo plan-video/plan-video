@@ -2,10 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Views, likes and comments per platform. A connected account shows only the
-// numbers its network sent. The homepage's chart has no accounts, and guest
-// mode's demo accounts have no logins, so they draw sample data, generated
-// from the date so it stays put between visits.
+// A connected account shows only what its network sent. The homepage chart and guest demo draw sample data
+// seeded by the date, so it stays put between visits.
 
 import { createSignal } from "solid-js";
 
@@ -39,7 +37,6 @@ export const ANALYTICS_METRICS: readonly { id: AnalyticsMetric; label: string }[
 
 export type Totals = Record<AnalyticsMetric, number>;
 
-/** How long each point on the chart covers. */
 export type Interval = "hour" | "day" | "week" | "month";
 
 export const INTERVALS: readonly { id: Interval; label: string }[] = [
@@ -49,27 +46,24 @@ export const INTERVALS: readonly { id: Interval; label: string }[] = [
   { id: "month", label: msg("Monthly") },
 ];
 
-/** A stretch of time in milliseconds, end excluded. */
+/** In milliseconds, end excluded. */
 export type Span = { start: number; end: number };
 
-/** One account's numbers, or a platform's sample while it has no account connected. */
 export type AnalyticsSource = {
   key: string;
   platform: AnalyticsPlatformId;
-  /** The connected account's id. */
   account?: string;
   handle?: string;
-  /** An account that shows sample numbers, as in guest mode's demo. */
+  /** As in guest mode's demo. */
   sample?: boolean;
 };
 
 export type AnalyticsPost = Totals & {
   id: string;
-  /** The network's own id for it, for asking the network about this one post. */
+  /** For asking the network about this one post. */
   networkId?: string;
-  /** The network's picture of it. */
   cover?: string;
-  /** Where the network shows it, when it said. */
+  /** When the network said. */
   url?: string;
   title: string;
   platform: AnalyticsPlatformId;
@@ -85,16 +79,16 @@ export type AnalyticsReport = {
   buckets: readonly Span[];
   /** The last bucket is still filling up. */
   live: boolean;
-  /** One entry per bucket, for each source by `key`. */
+  /** Per source `key`. */
   series: Record<string, readonly Totals[]>;
-  /** The whole span, counted once, so rounding each bucket doesn't add up wrong. */
+  /** Counted once over the whole span, so rounding each bucket doesn't add up wrong. */
   totals: Record<string, Totals>;
   /** The same length of time just before. */
   previous: Record<string, Totals>;
   posts: readonly AnalyticsPost[];
 };
 
-/** What a network sent for one source: each day's numbers by day number, its posts, and how many follow it, when the network says. */
+/** `days` by day number. */
 export type SyncedNumbers = {
   days: ReadonlyMap<number, Totals>;
   posts: readonly (Totals & { id: string; title: string; postedAt: number; cover?: string; url?: string })[];
@@ -103,28 +97,26 @@ export type SyncedNumbers = {
 
 const [synced, setSynced] = createSignal<ReadonlyMap<string, SyncedNumbers>>(new Map());
 
-/** Keeps a source's real numbers, by `AnalyticsSource.key`. */
+/** By `AnalyticsSource.key`. */
 export function setSyncedNumbers(key: string, numbers: SyncedNumbers) {
   setSynced((current) => new Map(current).set(key, numbers));
 }
 
-/** How many follow a source's account now, when its network said. */
+/** Null when its network didn't say. */
 export function followersOf(key: string): number | null {
   return synced().get(key)?.followers ?? null;
 }
 
-/** Whether a source's network has sent its numbers yet. */
 export function hasSyncedNumbers(key: string) {
   return synced().has(key);
 }
 
-/** The day number of a YYYY-MM-DD date, counted the way the charts count days. */
+/** Counted the way the charts count days. */
 export function dayOfKey(key: string) {
   const [year, month, day] = key.split("-").map(Number);
   return Math.floor(Date.UTC(year!, month! - 1, day!) / DAY_MS);
 }
 
-/** How far back the sample goes. */
 export const HISTORY_DAYS = 730;
 
 type Profile = {
@@ -145,7 +137,6 @@ const PROFILES: Record<AnalyticsPlatformId, Profile> = {
   threads: { views: 3100, growth: 0.0042, likeRate: 0.048, commentRate: 0.0062, weekend: 1.02, postRate: 0.5, peak: 21 },
 };
 
-/** The sample's posts, named like the posts on the homepage's calendar and the demo's. */
 const TITLES = [
   msg("Founder Q&A"),
   msg("Studio tour"),
@@ -169,24 +160,23 @@ const TITLES = [
   msg("Captions, start to finish"),
 ];
 
-/** Stills from the site's own footage, for the sample's posts. */
 const COVERS = ["creator", "surf", "sunset", "vlogger", "wave", "ride", "golden", "shore"].map((name) => `/site/${name}.webp`);
 
 export const HOUR_MS = 3_600_000;
 export const DAY_MS = 86_400_000;
 
-/** The calendar day in the dashboard's time zone, counted from 1970. */
+/** In the dashboard's time zone, counted from 1970. */
 function dayNumber(date: Date) {
   const parts = zonedParts(date);
   return Math.floor(Date.UTC(parts.year, parts.month, parts.date) / DAY_MS);
 }
 
-/** YYYY-MM-DD of the day `time` falls on, in the dashboard's time zone. */
+/** In the dashboard's time zone. */
 export function dayKeyOf(time: number) {
   return new Date(dayNumber(new Date(time)) * DAY_MS).toISOString().slice(0, 10);
 }
 
-/** Midnight at the start of a YYYY-MM-DD day, in the dashboard's time zone. */
+/** In the dashboard's time zone. */
 export function startOfDayKey(key: string) {
   const [year, month, day] = key.split("-").map(Number);
   return zonedTime(year!, month! - 1, day!);
@@ -208,7 +198,7 @@ function advance(time: number, interval: Interval) {
   return zonedTime(parts.year, parts.month + 1, 1);
 }
 
-/** The chart's points: whole hours, days, weeks or months, cut to the span at either end. */
+/** Cut to the span at either end. */
 export function bucketsFor(span: Span, interval: Interval): Span[] {
   const list: Span[] = [];
   for (let cursor = startOf(span.start, interval); cursor < span.end; cursor = advance(cursor, interval)) {
@@ -217,7 +207,6 @@ export function bucketsFor(span: Span, interval: Interval): Span[] {
   return list;
 }
 
-/** The intervals that make a readable chart for a span this long. */
 export function intervalsFor(span: Span): Interval[] {
   const days = (span.end - span.start) / DAY_MS;
   const list: Interval[] = [];
@@ -236,7 +225,7 @@ export function defaultInterval(span: Span): Interval {
   return "month";
 }
 
-/** 0 to 1, the same every time for the same inputs. */
+/** 0 to 1, deterministic. */
 function noise(...parts: (string | number)[]) {
   let hash = 2166136261;
   for (const char of parts.join(":")) {
@@ -249,12 +238,11 @@ function noise(...parts: (string | number)[]) {
   return (hash >>> 0) / 4294967296;
 }
 
-/** A clip that took off: the extra views it brings that day. */
 function burst(seed: string, day: number) {
   return noise(seed, day, "burst") < 0.07 ? 1.4 + noise(seed, day, "size") * 2.4 : 0;
 }
 
-/** Growth that flattens out further back, so two years ago is smaller without being nothing. */
+/** Growth that flattens further back, so two years ago is smaller without being nothing. */
 function trend(profile: Profile, day: number, today: number) {
   return Math.exp(profile.growth * 180 * Math.tanh((day - today) / 180));
 }
@@ -265,7 +253,6 @@ function bell(value: number, center: number, width: number) {
 
 const ZERO: Totals = { views: 0, likes: 0, comments: 0 };
 
-/** Shows what its network sent, not a sample. */
 const fromNetwork = (source: AnalyticsSource) => !!source.account && !source.sample;
 const dayCache = new Map<string, Totals>();
 const hourCache = new Map<string, number[]>();
@@ -292,7 +279,7 @@ function dayStats(source: AnalyticsSource, day: number, today: number): Totals {
   return stats;
 }
 
-/** How a day's numbers spread over its 24 hours, adding up to 1. */
+/** Adds up to 1. */
 function hourShares(source: AnalyticsSource, day: number) {
   const key = `${source.key}:${day}`;
   const cached = hourCache.get(key);
@@ -321,7 +308,6 @@ function round(row: Totals): Totals {
   return { views: Math.round(row.views), likes: Math.round(row.likes), comments: Math.round(row.comments) };
 }
 
-/** Everything one source got between two moments. */
 function spanTotals(source: AnalyticsSource, span: Span, today: number): Totals {
   let total = ZERO;
   let cursor = span.start;
@@ -399,7 +385,7 @@ function posts(sources: readonly AnalyticsSource[], span: Span, today: number): 
   return list;
 }
 
-/** When the audience on these platforms is around: Monday first, hour 0 to 23, from 0 to 1. */
+/** Monday first, hour 0 to 23, from 0 to 1. */
 export function activityGrid(platforms: readonly AnalyticsPlatformId[]): number[][] {
   const grid = Array.from({ length: 7 }, (_, weekday) =>
     Array.from({ length: 24 }, (_, hour) => {
@@ -417,14 +403,13 @@ export function activityGrid(platforms: readonly AnalyticsPlatformId[]): number[
   return grid.map((row) => row.map((value) => (max ? value / max : 0)));
 }
 
-/** One sample source per platform, for the homepage's chart. */
+/** For the homepage's chart. */
 export function sampleSources(): AnalyticsSource[] {
   return ANALYTICS_PLATFORMS.map(({ id: platform }) => ({ key: platform, platform }));
 }
 
 type NumbersAccount = { platform: string; youtube?: unknown; tiktok?: unknown; instagram?: unknown; facebook?: unknown; threads?: unknown };
 
-/** Whether plan.video can read this account's numbers: a YouTube, TikTok, Instagram, Facebook Page or Threads one signed in to. */
 export function reportsNumbers(account: NumbersAccount) {
   const { platform } = account;
   return (
@@ -433,11 +418,7 @@ export function reportsNumbers(account: NumbersAccount) {
   );
 }
 
-/**
- * One source per connected account whose network sends its numbers. With
- * `sample`, as in guest mode's demo, the accounts have no logins, and each
- * shows sample numbers.
- */
+/** With `sample` (guest demo), the accounts have no logins and show sample numbers. */
 export function analyticsSources(
   accounts: readonly ({ id: string; handle: string } & NumbersAccount)[],
   { sample = false } = {},
@@ -449,7 +430,6 @@ export function analyticsSources(
   );
 }
 
-/** Every source's numbers over `span`, one point per `interval`. */
 export function analyticsReport(span: Span, interval: Interval, sources: readonly AnalyticsSource[], now = Date.now()): AnalyticsReport {
   const today = dayNumber(new Date(now));
   const clipped = { start: span.start, end: Math.max(span.start + 60_000, Math.min(span.end, now)) };
@@ -473,14 +453,10 @@ export type PostTimeline = {
   interval: Interval;
   buckets: readonly Span[];
   live: boolean;
-  /** One row per bucket, from the days the network counted. */
   series: readonly Totals[];
 };
 
-/**
- * How one post's views, likes and comments arrived, from the day it went out until now.
- * Networks count whole days, so the chart starts at the start of that day.
- */
+/** Networks count whole days, so the chart starts at the start of that day. */
 export function postTimeline(days: ReadonlyMap<number, Totals>, postedAt: number, now = Date.now()): PostTimeline {
   const start = startOf(postedAt, "day");
   const end = Math.max(postedAt + 60_000, now);
@@ -498,7 +474,7 @@ export function postTimeline(days: ReadonlyMap<number, Totals>, postedAt: number
   return { interval, buckets, live, series };
 }
 
-/** A sample post's numbers day by day, from the day it went out: most come in the first few days. */
+/** Most come in the first few days. */
 export function samplePostDays(post: AnalyticsPost, now = Date.now()): ReadonlyMap<number, Totals> {
   const first = dayNumber(new Date(post.postedAt));
   const last = Math.max(first, dayNumber(new Date(now)));
@@ -512,12 +488,11 @@ export function totals(rows: readonly Totals[]): Totals {
   return sum(rows);
 }
 
-/** Likes and comments for every view. */
 export function engagement(row: Totals) {
   return row.views ? (row.likes + row.comments) / row.views : 0;
 }
 
-/** From one period to the next, as a fraction. Undefined with nothing to compare. */
+/** As a fraction. Undefined with nothing to compare. */
 export function change(current: number, before: number) {
   return before ? (current - before) / before : undefined;
 }
@@ -535,7 +510,7 @@ export function fullNumber(value: number) {
 
 export function percent(value: number, digits = 1) {
   const locale = intlLocale();
-  // English writes it as it always has; other languages as they write a percentage.
+  // English keeps its fixed form; other languages write a percentage their way.
   if (!locale) return `${(value * 100).toFixed(digits)}%`;
   return new Intl.NumberFormat(locale, { style: "percent", minimumFractionDigits: digits, maximumFractionDigits: digits }).format(value);
 }

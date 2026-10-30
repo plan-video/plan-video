@@ -21,10 +21,8 @@ export interface SpeechWav {
 }
 
 /**
- * The clip's own audio as a wav, covering `[trimStart, trimEnd]` plus a short
- * lead-in. Sample 0 is `mediaStart` on the file's presentation clock, which is
- * the same clock the picture is seeked on. Null when the file has no audible
- * audio track.
+ * Sample 0 is `mediaStart` on the file's presentation clock, the clock the picture
+ * seeks on. Null when the file has no audible audio track.
  */
 export async function extractSpeechWav(file: Blob, trimStart: number, trimEnd: number): Promise<SpeechWav | null> {
   const windowStart = Math.max(0, trimStart - PREROLL_SECONDS);
@@ -51,8 +49,7 @@ export async function extractSpeechWav(file: Blob, trimStart: number, trimEnd: n
       }
 
       const gap = timestamp - (mediaStart + cursor / sampleRate);
-      // A jump this large is a bad timestamp, not a pause. Give up so the
-      // scene mix is used instead of a wav full of silence.
+      // A jump this large is a bad timestamp, not a pause: give up so the scene mix is used.
       if (gap > 30) return null;
       if (gap > GAP_SECONDS) {
         const missing = Math.round(gap * sampleRate);
@@ -109,7 +106,6 @@ function peak(samples: Float32Array): number {
   return max;
 }
 
-/** A 16-bit mono PCM header for `dataSize` bytes of samples. */
 function wavHeader(dataSize: number, sampleRate: number): ArrayBuffer {
   const buffer = new ArrayBuffer(44);
   const view = new DataView(buffer);

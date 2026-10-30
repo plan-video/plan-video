@@ -4,7 +4,6 @@
 
 import type { Transcript, TranscriptWord, TranscriptWordStyle } from "@plan.video/assets";
 
-/** One spoken word, plus how long it is allowed to stay before the next one. */
 export interface ListedWord {
   /** Its place in the whole transcript: the numbering the timeline picks by. */
   position: number;
@@ -14,7 +13,7 @@ export interface ListedWord {
   text: string;
   start: number;
   end: number;
-  /** Seconds this word currently occupies. */
+  /** Seconds. */
   length: number;
   /** Longest it can run without speaking over the next word. */
   maxLength: number;
@@ -92,12 +91,7 @@ export function removeWord(transcript: Transcript, segmentIndex: number, index: 
   return next;
 }
 
-/**
- * Inserts `words` after the word at `afterPosition` (`listWords` numbering),
- * or at the start when `afterPosition` is -1. They keep their timing relative
- * to each other and begin when the word before them ends. Later words move
- * forward so the paste does not speak over them.
- */
+/** `afterPosition` -1 is the start. Later words move forward so the paste doesn't speak over them. */
 export function insertWords(transcript: Transcript, afterPosition: number, words: TranscriptWord[]): Transcript {
   if (words.length === 0) return transcript;
 
@@ -142,12 +136,11 @@ export function insertWords(transcript: Transcript, afterPosition: number, words
   return next;
 }
 
-/** Removes words by their place in the whole transcript, the numbering `listWords` and the timeline use. */
+/** By their place in the whole transcript, as `listWords` and the timeline number them. */
 export function removeWords(transcript: Transcript, positions: ReadonlySet<number>): Transcript {
   return filterWords(transcript, (position) => !positions.has(position));
 }
 
-/** Only the words at `positions`, their place in the whole transcript. */
 export function keepWords(transcript: Transcript, positions: ReadonlySet<number>): Transcript {
   return filterWords(transcript, (position) => positions.has(position));
 }
@@ -165,7 +158,6 @@ function filterWords(transcript: Transcript, keep: (position: number) => boolean
   return next;
 }
 
-/** The text of words by their place in the whole transcript, in order. */
 export function wordsText(transcript: Transcript, positions: ReadonlySet<number>): string {
   let position = 0;
   const picked: string[] = [];
@@ -177,10 +169,10 @@ export function wordsText(transcript: Transcript, positions: ReadonlySet<number>
   return picked.join(" ");
 }
 
-/** A stretch of time, `[from, to)`. */
+/** `[from, to)`. */
 export type TimeRange = readonly [from: number, to: number];
 
-/** The ranges in order, with overlapping and touching ones joined and empty ones dropped. */
+/** Overlapping and touching ones joined, empty ones dropped. */
 export function mergeRanges(ranges: ReadonlyArray<TimeRange>): TimeRange[] {
   const sorted = ranges.filter(([from, to]) => to > from).sort((a, b) => a[0] - b[0]);
   const merged: [number, number][] = [];
@@ -192,12 +184,7 @@ export function mergeRanges(ranges: ReadonlyArray<TimeRange>): TimeRange[] {
   return merged;
 }
 
-/**
- * The transcript with `ranges` (seconds, in its own time) taken out, the way
- * cutting them from the video does: a word said mostly inside a range goes,
- * and every later word moves earlier by however much was cut before it. A
- * word only partly inside keeps the part outside.
- */
+/** As cutting the video does: a word said mostly inside a range goes; one only partly inside keeps the part outside. */
 export function cutTranscript(transcript: Transcript, ranges: ReadonlyArray<TimeRange>): Transcript {
   const cuts = mergeRanges(ranges);
   if (cuts.length === 0) return transcript;

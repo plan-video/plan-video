@@ -2,15 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Bold and italic for captions. Networks take plain text only, so the letters
-// are swapped for Unicode's sans-serif bold and italic ones, which every
-// network shows. Anything outside A–Z, a–z and 0–9 stays as it is.
+// Networks take plain text only, so letters are swapped for Unicode's sans-serif bold and italic ones.
 
 export type TextStyle = "bold" | "italic";
 
 type Look = { base: string; bold: boolean; italic: boolean };
 
-/** Where each look's A, a and 0 start. Unicode has no italic digits. */
+/** Unicode has no italic digits. */
 const STARTS: Record<"bold" | "italic" | "both", [number, number, number | null]> = {
   bold: [0x1d5d4, 0x1d5ee, 0x1d7ec],
   italic: [0x1d608, 0x1d622, null],
@@ -49,13 +47,12 @@ function draw(look: Look, bold: boolean, italic: boolean): string {
   return DRAWN.get(drawnKey(look.base, bold, italic)) ?? DRAWN.get(drawnKey(look.base, bold, false))!;
 }
 
-/** Whether every letter in the text that can take the style has it. */
 export function hasStyle(text: string, style: TextStyle): boolean {
   const looks = [...text].map((char) => LOOKS.get(char)).filter((look) => look && (style === "bold" || !/\d/.test(look.base)));
   return looks.length > 0 && looks.every((look) => look![style]);
 }
 
-/** Turns the style on for the whole text, or off when it's all styled already. Keeps the other style. */
+/** Off when it's all styled already. Keeps the other style. */
 export function toggleStyle(text: string, style: TextStyle): string {
   const on = !hasStyle(text, style);
   return [...text]

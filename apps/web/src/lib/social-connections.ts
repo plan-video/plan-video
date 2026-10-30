@@ -12,10 +12,7 @@ import { accountsLimit } from "@/lib/plans";
 import { hasSecrets, saveLogin, withoutSecrets } from "@/lib/publishing";
 import { activeScope, activeWorkspaceId, storageKeyFor, workspaceKey, workspaces, type TeamScope } from "@/lib/workspaces";
 
-/**
- * A TikTok login. Its tokens go to the publisher's server as soon as it's made
- * (see lib/publishing), so what's kept here and on the account is who it is.
- */
+/** Its tokens go to the publisher as soon as it's made (lib/publishing); only who it is stays here. */
 export type TikTokSession = {
   openId: string;
   /** Attaches the login the server got while connecting, once. */
@@ -27,11 +24,7 @@ export type TikTokSession = {
   scope: string;
 };
 
-/**
- * A YouTube login. Its tokens are kept on the server and never come to the
- * browser: connecting gives a `ticket`, the login sealed for the server, which
- * goes there like any other login.
- */
+/** Tokens stay on the server; connecting gives a `ticket`, the login sealed for the server. */
 export type YouTubeSession = {
   channelId: string;
   ticket?: string;
@@ -40,16 +33,16 @@ export type YouTubeSession = {
   refreshToken?: string;
   expiresAt: number;
   scope: string;
-  /** When the channel's name and picture were last read from YouTube, in ms. */
+  /** In ms. */
   checkedAt?: number;
 };
 
-/** A LinkedIn login, its tokens kept on the server. `expiresAt` is when LinkedIn wants the member to sign in again. */
+/** Tokens kept on the server. `expiresAt` is when LinkedIn wants the member to sign in again. */
 export type LinkedInSession = {
   personId: string;
   /** Attaches the login the server got while connecting, once. */
   ticket?: string;
-  /** LinkedIn gave a refresh token, so the server renews the login without the member. */
+  /** The server renews the login without the member. */
   renewable?: boolean;
   /** Only in logins made before LinkedIn's tokens stayed on the server. */
   accessToken?: string;
@@ -59,11 +52,7 @@ export type LinkedInSession = {
   scope: string;
 };
 
-/**
- * An X login. Its tokens are kept on the server and never come to the
- * browser: connecting gives a `ticket`, the login sealed for the server, which
- * goes there like any other login.
- */
+/** Tokens stay on the server; connecting gives a `ticket`, the login sealed for the server. */
 export type XSession = {
   xUserId: string;
   ticket?: string;
@@ -74,13 +63,7 @@ export type XSession = {
   scope: string;
 };
 
-/**
- * A login to one of Meta's networks: an Instagram professional account, a
- * Facebook Page or a Threads profile, by `accountId`, the network's id for it.
- * Its tokens are kept on the server and never come to the browser.
- * `expiresAt` is when the login runs out unless the server renews it, or 0
- * for a Page's, which doesn't.
- */
+/** Tokens stay on the server. `expiresAt` is when it runs out unless renewed, or 0 for a Page's, which doesn't. */
 export type MetaSession = {
   accountId: string;
   ticket?: string;
@@ -89,10 +72,8 @@ export type MetaSession = {
 };
 
 /**
- * A Bluesky login. With `oauth`, the person used "Sign in with Bluesky": with `server`, the
- * server keeps that login; without, it's an older one kept in the browser that made it, which
- * the server can't post with. Otherwise an app password gave tokens, kept on the server, and
- * `pds` is the server the account lives on. The app password itself isn't kept.
+ * `oauth` with `server`: the server keeps it; `oauth` without: an older browser-held login the server can't post with.
+ * Otherwise app-password tokens on the server, `pds` the account's server. The app password isn't kept.
  */
 export type BlueskySession = {
   did: string;
@@ -105,13 +86,12 @@ export type BlueskySession = {
   refreshJwt?: string;
 };
 
-/** An account on one network. A network can have many, and a post can go out from several of them. */
 export type SocialConnection = {
   id: string;
   platform: string;
   handle: string;
   connectedAt: string;
-  /** The account's picture. Empty when the network had none; missing until it has been asked. */
+  /** Empty when the network had none; missing until it has been asked. */
   avatarUrl?: string;
   tiktok?: TikTokSession;
   youtube?: YouTubeSession;
@@ -123,7 +103,7 @@ export type SocialConnection = {
   threads?: MetaSession;
 };
 
-/** Which accounts a post goes out from on each platform, by connection id. */
+/** By connection id. */
 export type AccountChoices = Partial<Record<string, readonly string[]>>;
 
 const PLATFORM_IDS = new Set<string>(PLATFORMS.map((platform) => platform.id));
@@ -146,16 +126,13 @@ function isConnection(value: unknown): value is SocialConnection {
   return PLATFORM_IDS.has(row.platform) && typeof row.handle === "string" && row.handle.length > 0;
 }
 
-/**
- * Older saves had one account per platform and no id. Give those an id. Drops
- * the daily TikTok totals one version saved, which nothing reads anymore.
- */
+/** Older saves had one account per platform and no id. Also drops TikTok daily totals nothing reads. */
 function withId(value: SocialConnection): SocialConnection {
   const { snapshots: _dropped, ...rest } = value as SocialConnection & { snapshots?: unknown };
   return rest.id ? rest : { ...rest, id: crypto.randomUUID() };
 }
 
-/** How an account is named on screen: "@handle", but a Facebook Page by its own name. */
+/** A Facebook Page goes by its own name rather than "@handle". */
 export function accountLabel(account: { platform: string; handle?: string }) {
   if (!account.handle) return "";
   return account.platform === "facebook" ? account.handle : `@${account.handle}`;
@@ -169,10 +146,7 @@ export function connectionsFor(platform: string) {
   return connections().filter((item) => item.platform === platform);
 }
 
-/**
- * Every account connected, in all the person's workspaces: what the plan's
- * social accounts are counted against. The open workspace's are read live.
- */
+/** Across all workspaces: what the plan's account limit counts. The open workspace's are read live. */
 export function connectedAccountCount(userId: string): number {
   loadSocialConnections(userId);
   const open = activeWorkspaceId();
@@ -192,20 +166,20 @@ export function connectedAccountCount(userId: string): number {
   return count;
 }
 
-/** Whether every social account the plan connects is in use. False until the plan is known. */
+/** False until the plan is known. */
 export function accountsFull(userId: string): boolean {
   const most = accountsLimit();
   return most !== undefined && connectedAccountCount(userId) >= most;
 }
 
-/** Why a new account can't be connected, or null when it can. A login for one already connected always can. */
+/** Null when it can. A login for one already connected always can. */
 function noRoomFor(userId: string): string | null {
-  // A shared workspace's accounts count against its owner's plan, which the publisher checks when the login reaches it.
+  // A shared workspace's accounts count against its owner's plan, which the publisher checks.
   if (activeScope()) return null;
   return accountsFull(userId) ? t("Your plan connects {count} social accounts, and they're all in use. Upgrade, or add accounts in Billing, to connect another.", { count: accountsLimit()! }) : null;
 }
 
-/** Reads the account copy again. `loadSocialConnections` does nothing when this key is already loaded. */
+/** `loadSocialConnections` does nothing when this key is already loaded. */
 export function reloadSocialConnections(userId: string | undefined) {
   loadedFor = undefined;
   loadSocialConnections(userId);
@@ -236,7 +210,7 @@ export function loadSocialConnections(userId: string | undefined) {
   }
 }
 
-/** Saves the list here and on the account, and hands any login that still has its tokens to the server. */
+/** Also hands any login that still has its tokens to the server. */
 function persist(userId: string, connected?: string) {
   stash(userId, connected);
   write(userId);
@@ -248,7 +222,7 @@ function write(userId: string) {
   queueAccountSync();
 }
 
-/** The login on a connection that the server keeps, if any. An older Bluesky sign-in stays in its browser. */
+/** An older Bluesky sign-in stays in its browser. */
 function loginOf(item: SocialConnection): object | undefined {
   if (item.platform === "bluesky") return item.bluesky && (!item.bluesky.oauth || item.bluesky.server) ? item.bluesky : undefined;
   return item.tiktok ?? item.youtube ?? item.linkedin ?? item.x ?? item.instagram ?? item.facebook ?? item.threads;
@@ -266,17 +240,14 @@ function withoutLogin(item: SocialConnection): SocialConnection {
   return item;
 }
 
-/** Connections as the account's synced copy keeps them: without tokens. */
+/** Without tokens. */
 export function shareableConnections(rows: readonly unknown[]): unknown[] {
   return rows.map((row) => (isConnection(row) ? withoutLogin(row) : row));
 }
 
 /**
- * Logins on their way to the server, by connection id, kept apart from the
- * connections so the account's sync, which rewrites those, can't drop one
- * before the server has it. `replace` marks a login just made, which replaces
- * the server's copy; an older copy, found in the account's synced list from
- * before logins moved, only fills a gap.
+ * Kept apart from the connections so the account sync, which rewrites those, can't drop one before the server has it.
+ * `replace` marks a login just made; an older copy only fills a gap.
  */
 type Pending = { platform: string; session: object; replace: boolean; nonce: string; team?: TeamScope };
 
@@ -296,7 +267,7 @@ function writePending(userId: string, pending: Record<string, Pending>) {
   else localStorage.removeItem(pendingKey(userId));
 }
 
-/** Moves tokens off the connections into the logins on their way to the server. Says whether any moved. */
+/** Says whether any moved. */
 function stash(userId: string, connected?: string): boolean {
   const pending = readPending(userId);
   let moved = false;
@@ -321,7 +292,7 @@ function stash(userId: string, connected?: string): boolean {
 const handing = new Map<string, Promise<void>>();
 let pendingFor: string | undefined;
 
-/** Sends the logins on their way to the server, and forgets each once the server has it. A failure waits for the next try. */
+/** Each is forgotten once the server has it. A failure waits for the next try. */
 function handOver(userId: string) {
   pendingFor = userId;
   for (const [id, entry] of Object.entries(readPending(userId))) {
@@ -347,7 +318,7 @@ function handOver(userId: string) {
   }
 }
 
-/** Waits for the account's login to reach the server, when it's on its way there, trying again if an earlier try failed. */
+/** Tries again if an earlier try failed. */
 export async function loginReady(accountId: string): Promise<void> {
   if (!handing.has(accountId) && pendingFor && readPending(pendingFor)[accountId]) handOver(pendingFor);
   await handing.get(accountId)?.catch(() => {
@@ -355,7 +326,7 @@ export async function loginReady(accountId: string): Promise<void> {
   });
 }
 
-/** Choices as saved, including older ones that held a single id per platform. */
+/** Including older ones that held a single id per platform. */
 export function readChoices(value: unknown): AccountChoices {
   const next: AccountChoices = {};
   if (!value || typeof value !== "object") return next;
@@ -367,10 +338,8 @@ export function readChoices(value: unknown): AccountChoices {
 }
 
 /**
- * The accounts a post goes out from on a platform: the connected ones it
- * named. Only a post that named none there goes out from the only one
- * connected. So a post is not silently sent from the wrong account: not when
- * several are connected, and not when the ones it named were removed.
+ * Only a post that named none goes out from the only one connected, so a post is never silently sent
+ * from the wrong account.
  */
 export function accountsFor(platform: string, choices?: AccountChoices): SocialConnection[] {
   const list = connectionsFor(platform);
@@ -380,11 +349,8 @@ export function accountsFor(platform: string, choices?: AccountChoices): SocialC
 }
 
 /**
- * Keeps a post's picks that are still connected, and starts a platform with no
- * pick on its first account. With `keepRemoved`, a platform whose picks were
- * all removed keeps them instead, so the post goes out from none there until
- * someone picks another: a change to a saved post that isn't a pick of
- * accounts doesn't move it to another account.
+ * With `keepRemoved`, a platform whose picks were all removed keeps them, so an unrelated edit to a saved post
+ * doesn't move it to another account.
  */
 export function accountsForPlatforms(platforms: readonly string[], previous: AccountChoices = {}, { keepRemoved = false } = {}): AccountChoices {
   const before = readChoices(previous);
@@ -399,7 +365,7 @@ export function accountsForPlatforms(platforms: readonly string[], previous: Acc
   return next;
 }
 
-/** The same accounts on the same platforms, in any order. */
+/** In any order. */
 export function sameChoices(a: AccountChoices, b: AccountChoices): boolean {
   const left = readChoices(a);
   const right = readChoices(b);
@@ -412,7 +378,7 @@ export function sameChoices(a: AccountChoices, b: AccountChoices): boolean {
   return true;
 }
 
-/** Adds or removes one account on a platform. The last one stays, so a picked platform always has an account. */
+/** The last one stays, so a picked platform always has an account. */
 export function toggleAccount(choices: AccountChoices, platform: string, accountId: string): AccountChoices {
   const current = readChoices(choices)[platform] ?? [];
   if (current.includes(accountId)) {
@@ -423,12 +389,11 @@ export function toggleAccount(choices: AccountChoices, platform: string, account
   return { ...choices, [platform]: [...current, accountId].sort((a, b) => order.indexOf(a) - order.indexOf(b)) };
 }
 
-/** Every account a post goes out from, across its platforms. */
 export function accountCount(platforms: readonly string[], choices?: AccountChoices): number {
   return platforms.reduce((sum, platform) => sum + Math.max(1, accountsFor(platform, choices).length), 0);
 }
 
-/** Adds an account. The same handle on the same platform is refused. */
+/** The same handle on the same platform is refused. */
 export function connectSocial(userId: string, platform: string, handle: string): string | null {
   const clean = cleanHandle(handle);
   if (!userId || !PLATFORM_IDS.has(platform) || !clean) return t("Enter an account name.");
@@ -447,7 +412,7 @@ export function connectSocial(userId: string, platform: string, handle: string):
   return null;
 }
 
-/** Saves a TikTok account after Login Kit. The same TikTok user replaces the old login. */
+/** The same TikTok user replaces the old login. */
 export function connectTikTok(userId: string, account: { handle: string; avatarUrl?: string } & TikTokSession): string | null {
   const clean = cleanHandle(account.handle) || account.openId;
   if (!userId || !clean || !account.ticket) return t("TikTok didn't return an account.");
@@ -479,7 +444,7 @@ export function connectTikTok(userId: string, account: { handle: string; avatarU
 }
 
 
-/** Saves a YouTube channel after OAuth. The same channel replaces the old login. */
+/** The same channel replaces the old login. */
 export function connectYouTube(userId: string, account: { handle: string; avatarUrl?: string } & YouTubeSession): string | null {
   const clean = cleanHandle(account.handle) || "YouTube";
   if (!userId || !account.ticket) return t("YouTube didn't return an account.");
@@ -515,7 +480,7 @@ export function connectYouTube(userId: string, account: { handle: string; avatar
 }
 
 
-/** Saves a LinkedIn member after OAuth. The same member replaces the old login. */
+/** The same member replaces the old login. */
 export function connectLinkedIn(userId: string, account: { handle: string; avatarUrl?: string } & LinkedInSession): string | null {
   const clean = cleanHandle(account.handle) || "LinkedIn";
   if (!userId || !account.ticket || !account.personId) return t("LinkedIn didn't return an account.");
@@ -551,7 +516,7 @@ export function connectLinkedIn(userId: string, account: { handle: string; avata
 }
 
 
-/** Saves an X account after OAuth. The same X user replaces the old login. */
+/** The same X user replaces the old login. */
 export function connectX(userId: string, account: { handle: string; avatarUrl?: string } & XSession): string | null {
   const clean = cleanHandle(account.handle);
   if (!userId || !clean || !account.ticket || !account.xUserId) return t("X didn't return an account.");
@@ -584,11 +549,7 @@ export function connectX(userId: string, account: { handle: string; avatarUrl?: 
   return null;
 }
 
-/**
- * Saves an Instagram account, Facebook Page or Threads profile after Meta's
- * login. The same account replaces its old login, and one added by name
- * before it could sign in takes the login.
- */
+/** The same account replaces its old login, and one added by name before it could sign in takes the login. */
 export function connectMeta(userId: string, platform: "instagram" | "facebook" | "threads", account: { handle: string; avatarUrl?: string } & MetaSession): string | null {
   const clean = cleanHandle(account.handle);
   if (!userId || !clean || !account.ticket || !account.accountId) return t("{network} didn't return an account.", { network: PLATFORMS.find((item) => item.id === platform)?.name ?? platform });
@@ -616,7 +577,7 @@ export function connectMeta(userId: string, platform: "instagram" | "facebook" |
   return null;
 }
 
-/** Saves a Bluesky account after sign-in. The same account replaces its old login. */
+/** The same account replaces its old login. */
 export function connectBluesky(userId: string, account: { handle: string; avatarUrl?: string } & BlueskySession): string | null {
   const clean = cleanHandle(account.handle);
   if (!userId || !clean || !account.did || (account.oauth ? !account.ticket : !account.accessJwt)) return t("Bluesky didn't return an account.");
@@ -647,7 +608,7 @@ export function connectBluesky(userId: string, account: { handle: string; avatar
 }
 
 
-/** Saves an account's picture. An empty one means the network had none, so it isn't asked again. */
+/** An empty one means the network had none, so it isn't asked again. */
 export function updateAccountAvatar(userId: string, accountId: string, avatarUrl: string) {
   if (!userId) return;
   loadSocialConnections(userId);
@@ -655,7 +616,6 @@ export function updateAccountAvatar(userId: string, accountId: string, avatarUrl
   persist(userId);
 }
 
-/** Saves a YouTube channel's name and picture as YouTube has them now, and when they were read. */
 export function updateYouTubeChannel(userId: string, accountId: string, channel: { handle: string; avatarUrl: string }) {
   if (!userId) return;
   loadSocialConnections(userId);

@@ -2,9 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The social platforms a post can go to, what each one accepts, and the
-// checks a post is held to before it is scheduled. Ids are the calendar's,
-// so a scheduled post shows its platforms there.
+// Ids are the calendar's, so a scheduled post shows its platforms there.
 
 import { intlLocale, localized, msg, t } from "./i18n";
 
@@ -19,7 +17,6 @@ export type PlatformId =
   | "bluesky"
   | "pinterest";
 
-/** What a post is, which decides where it can go and what it carries. */
 export type PostKind = "text" | "image" | "video" | "story";
 
 export const POST_KINDS: readonly { id: PostKind; name: string; plural: string }[] = [
@@ -35,21 +32,20 @@ export const STORY_MAX_SECONDS = 60;
 export type SocialPlatform = {
   id: PlatformId;
   name: string;
-  /** The tile behind the logo. */
   background: string;
   /** 24×24 path, from Simple Icons (CC0). */
   logo: string;
   captionLimit: number;
-  /** Platforms that title a post apart from its caption. `cutOff`: where search results cut it short. */
+  /** `cutOff`: where search results cut it short. */
   title?: { limit: number; required: boolean; cutOff?: number };
   maxVideoSeconds: number;
-  /** Pictures one post can carry. 0: video only. */
+  /** 0: video only. */
   maxImages: number;
   /** Pictures past this many are taken but never published. */
   publishedImages?: number;
   /** Width over height a picture can have before it is cropped to fit. */
   imageAspect?: { min: number; max: number };
-  /** Takes the cover picked from the video; the others choose their own. */
+  /** The others choose their own. */
   customCover?: boolean;
   kinds: readonly PostKind[];
   /** Plays full screen, 9:16. */
@@ -57,7 +53,7 @@ export type SocialPlatform = {
   maxHashtags?: number;
 };
 
-/** The platforms a post can be sent to from here. The rest can be planned for, and go out once they're added. */
+/** The rest can be planned for, and go out once they're added. */
 export const PUBLISHING_PLATFORMS: readonly string[] = ["tiktok", "youtube", "bluesky", "linkedin", "x", "instagram", "facebook", "threads"];
 
 export const SOCIAL_PLATFORMS: readonly SocialPlatform[] = [
@@ -177,7 +173,7 @@ export function socialPlatform(id: PlatformId): SocialPlatform {
   return SOCIAL_PLATFORMS.find((platform) => platform.id === id)!;
 }
 
-/** Joins names as the language does; en-GB's has no comma before "and". */
+/** en-GB's has no comma before "and". */
 const NAME_LIST = localized((locale) => new Intl.ListFormat(locale, { type: "conjunction" }), "en-GB");
 
 /** "TikTok", "TikTok and X", "TikTok, X and YouTube", "TikTok, X and 3 more". */
@@ -188,17 +184,15 @@ export function listNames(ids: readonly PlatformId[]): string {
   return NAME_LIST().format(names);
 }
 
-/** Every name, however many: "TikTok, YouTube, X, LinkedIn and Bluesky". */
 export function allNames(ids: readonly PlatformId[]): string {
   return NAME_LIST().format(ids.map((id) => socialPlatform(id).name));
 }
 
-/** Where a post of `kind` can go. */
 export function platformsFor(kind: PostKind): PlatformId[] {
   return SOCIAL_PLATFORMS.filter((platform) => platform.kinds.includes(kind)).map((platform) => platform.id);
 }
 
-/** Keeps the order the platforms are listed in, whatever order they were picked. */
+/** Whatever order they were picked in. */
 export function sortPlatforms(ids: Iterable<PlatformId>): PlatformId[] {
   const picked = new Set(ids);
   return PLATFORM_IDS.filter((id) => picked.has(id));
@@ -222,7 +216,6 @@ export function formatDuration(seconds: number): string {
   return hours ? `${hours}:${String(minutes).padStart(2, "0")}:${rest}` : `${minutes}:${rest}`;
 }
 
-/** What a post carries, as the checks need to know it. */
 export type MediaSummary =
   | { kind: "video"; duration: number; width: number; height: number }
   | { kind: "images"; count: number; width: number; height: number; mixedShapes: boolean };
@@ -234,7 +227,7 @@ export type PostIssue = {
   message: string;
 };
 
-/** Pictures a platform puts out. A post with more goes out with the first ones and skips the rest. */
+/** A post with more goes out with the first ones and skips the rest. */
 export function picturesOut(id: PlatformId): number {
   const platform = socialPlatform(id);
   return Math.min(platform.maxImages, platform.publishedImages ?? platform.maxImages);
@@ -245,7 +238,7 @@ export type PostCheckInput = {
   platforms: readonly PlatformId[];
   caption(platform: PlatformId): string;
   title(platform: PlatformId): string;
-  /** What goes to each platform: the shared media, or its own. */
+  /** The shared media, or its own. */
   media(platform: PlatformId): MediaSummary | null;
   settings?: PlatformSettings;
 };
@@ -362,18 +355,15 @@ export function checkPost(input: PostCheckInput): PostIssue[] {
   return issues;
 }
 
-/** Whether `width` by `height` is `ratio`, give or take a few pixels of rounding. */
+/** Give or take a few pixels of rounding. */
 export function isAspect(width: number, height: number, ratio: number): boolean {
   return width > 0 && height > 0 && Math.abs(width / height / ratio - 1) < 0.02;
 }
 
-/** How YouTube files a video: a Short is 9:16 and three minutes or less. */
+/** A Short is 9:16 and three minutes or less. */
 export function youtubeFormat(media: MediaSummary | null): "short" | "video" {
   return media?.kind === "video" && isAspect(media.width, media.height, 9 / 16) && media.duration <= 180 ? "short" : "video";
 }
-
-// Per-platform settings, as the composer offers them. TikTok and YouTube are
-// sent when the post goes out. The others ride along until publishing exists.
 
 export type TikTokPrivacy = "public" | "friends" | "followers" | "private";
 export type YouTubePrivacy = "public" | "unlisted" | "private";
@@ -386,11 +376,10 @@ export type PlatformSettings = {
     comments: boolean;
     duet: boolean;
     stitch: boolean;
-    /** The post promotes something. TikTok then wants to know whose. */
+    /** TikTok then wants to know whose. */
     disclose: boolean;
     yourBrand: boolean;
     brandedContent: boolean;
-    /** Sends the video to the TikTok inbox instead of posting it to the profile. */
     inbox: boolean;
   };
   instagram: { shareToFeed: boolean; collaborators: string[] };
@@ -400,7 +389,6 @@ export type PlatformSettings = {
   pinterest: { title: string; link: string; board: string };
 };
 
-/** What a TikTok post goes out with, once who can watch has been picked. */
 export type TikTokPostSettings = {
   privacy: TikTokPrivacy;
   comments: boolean;
@@ -408,11 +396,10 @@ export type TikTokPostSettings = {
   stitch: boolean;
   yourBrand: boolean;
   brandedContent: boolean;
-  /** The video went to the TikTok inbox. The creator finishes it in TikTok. */
+  /** The creator finishes it in TikTok. */
   inbox?: boolean;
 };
 
-/** What a YouTube video goes out with. */
 export type YouTubePostSettings = {
   title: string;
   description: string;
@@ -423,7 +410,7 @@ export type YouTubePostSettings = {
   short?: boolean;
 };
 
-/** The YouTube choices to store with a post. The description is the caption that platform gets. */
+/** The description is the caption that platform gets. */
 export function youtubePostSettings(
   settings: PlatformSettings,
   description = "",
@@ -440,7 +427,7 @@ export function youtubePostSettings(
   };
 }
 
-/** The TikTok choices to store with a post. Nothing, until who can watch is picked. */
+/** Nothing until who can watch is picked. */
 export function tiktokPostSettings(settings: PlatformSettings): TikTokPostSettings | undefined {
   const tiktok = settings.tiktok;
   if (tiktok.inbox) {
@@ -465,16 +452,12 @@ export function tiktokPostSettings(settings: PlatformSettings): TikTokPostSettin
   };
 }
 
-/** Whether an Instagram post is shared to the feed too, and who it's made with. */
 export type InstagramPostSettings = PlatformSettings["instagram"];
-/** Who can reply on X, and the community it goes to, as it was pasted. */
 export type XPostSettings = PlatformSettings["x"];
-/** A pin's title and board. Its link is the post's own. */
+/** Its link is the post's own. */
 export type PinterestPostSettings = Omit<PlatformSettings["pinterest"], "link">;
 
-// The Instagram, X and Pinterest choices to store with a post, so it opens in
-// New post as it was. The lists are copies: the form's are live store arrays,
-// which the browser can't save.
+// The lists are copies: the form's are live store arrays, which the browser can't save.
 
 export function instagramPostSettings(settings: PlatformSettings): InstagramPostSettings {
   return { shareToFeed: settings.instagram.shareToFeed, collaborators: [...settings.instagram.collaborators] };
@@ -501,24 +484,24 @@ export function defaultPlatformSettings(): PlatformSettings {
 export const INSTAGRAM_MAX_COLLABORATORS = 3;
 export const YOUTUBE_TAGS_LIMIT = 500;
 
-/** An Instagram username without its @, or null when it can't be one. */
+/** Null when it can't be one. */
 export function instagramHandle(raw: string): string | null {
   const handle = raw.trim().replace(/^@+/, "").toLowerCase();
   return /^[a-z0-9._]{1,30}$/.test(handle) ? handle : null;
 }
 
-/** A YouTube tag without a leading #, or null when there is nothing left. */
+/** Null when there is nothing left. */
 export function youtubeTag(raw: string): string | null {
   const tag = raw.trim().replace(/^#+/, "").replace(/\s+/g, " ");
   return tag || null;
 }
 
-/** How YouTube counts tags against its limit: commas between, and quotes around a tag with a space. */
+/** Commas between, and quotes around a tag with a space. */
 export function youtubeTagsLength(tags: readonly string[]): number {
   return tags.reduce((sum, tag, index) => sum + captionLength(tag) + (tag.includes(" ") ? 2 : 0) + (index ? 1 : 0), 0);
 }
 
-/** The community's number from `x.com/i/communities/123…`, or the number on its own. */
+/** From `x.com/i/communities/123…`, or the number on its own. */
 export function xCommunityId(raw: string): string | null {
   const text = raw.trim();
   if (/^\d{5,25}$/.test(text)) return text;

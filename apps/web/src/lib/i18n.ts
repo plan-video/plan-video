@@ -2,25 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The app's words in the language picked in the site's footer or the
-// dashboard's settings, else the browser's own when we have it (index.html
-// picks before the first paint and writes it on <html lang>).
-//
-// The English is the key: `t("Schedule post")` shows "Schedule post" in
-// English and looks the words up in locales/<language>.json otherwise, so
-// English needs no file and a string nobody has translated yet stays in
-// English. `node scripts/i18n.mjs` lists what each language is missing.
-//
-// - `t("Saved")` in JSX or a memo follows the language as it changes.
-// - `t("Delete {name}?", { name })` fills in values. Counts take ICU's plural:
-//   `t("{count, plural, one {# post} other {# posts}}", { count })`.
-// - `rich("Read the <docs>guide</docs>", { docs: (text) => <a>{text}</a> })`
-//   for words with links or emphasis inside them.
-// - `msg("Product")` marks words kept in a constant; show them with `t(item.label)`.
-// - Dates and numbers: `localized(...)` and `intlLocale(...)` below.
-//
-// Kept free of the browser, in its types too: the build imports the site's
-// page data (seo-pages.ts) in Node, and that data marks its words with `msg`.
+// Keep this file free of the browser, types included: the build imports seo-pages.ts in Node, which uses `msg`.
 
 /// <reference types="vite/client" />
 
@@ -28,11 +10,7 @@ import { batch, createSignal, type JSX } from "solid-js";
 
 export type Language = "en" | "es" | "fr" | "de" | "it" | "pt-BR" | "nl" | "pl" | "tr" | "ja" | "ko" | "zh-CN";
 
-/**
- * Every language, named in itself, in the order the pickers list them. The
- * code is also the locale dates and numbers are written in. index.html keeps
- * its own copy of the codes to pick one before the first paint.
- */
+/** index.html keeps its own copy of these codes to pick one before the first paint. */
 export const LANGUAGES: { code: Language; name: string }[] = [
   { code: "en", name: "English" },
   { code: "es", name: "Español" },
@@ -53,15 +31,13 @@ const STORAGE_KEY = "plan.language";
 type Catalog = Record<string, string>;
 
 const catalogs = import.meta.glob<Catalog>("../locales/*.json", { import: "default" });
-/** The website's own words (apps/web/site/locales), where the site is there (lib/site.ts). */
 const siteCatalogs = import.meta.glob<Catalog>("../../site/locales/*.json", { import: "default" });
 
 const isLanguage = (code: string | null | undefined): code is Language => LANGUAGES.some((entry) => entry.code === code);
 
-/** The page's <html>, where index.html writes the language. There's none when the build reads this in Node. */
+/** There's none when the build reads this in Node. */
 const page = () => (globalThis as { document?: { documentElement: { lang: string } } }).document?.documentElement;
 
-/** The language index.html picked before the first paint. */
 function startingLanguage(): Language {
   const code = page()?.lang;
   return isLanguage(code) ? code : "en";
@@ -70,7 +46,6 @@ function startingLanguage(): Language {
 const [language, setLanguageSignal] = createSignal<Language>(startingLanguage());
 const [catalog, setCatalog] = createSignal<Catalog | null>(null);
 
-/** The language the app is in. */
 export { language };
 
 async function loadCatalog(code: Language): Promise<Catalog | null> {
@@ -81,11 +56,7 @@ async function loadCatalog(code: Language): Promise<Catalog | null> {
   return words || siteWords ? { ...words, ...siteWords } : null;
 }
 
-/**
- * The starting language's words, before the app draws. Undefined in English,
- * which has nothing to wait for. Should they fail to arrive, the app draws in
- * English and the language stays picked for the next visit.
- */
+// Undefined in English. If the words fail to arrive, the app draws in English and the pick stays for the next visit.
 export function loadStartingLanguage(): Promise<void> | undefined {
   const code = language();
   if (code === "en") return undefined;
@@ -97,10 +68,6 @@ export function loadStartingLanguage(): Promise<void> | undefined {
 
 let switching = 0;
 
-/**
- * Switches the app to `code` once its words are here, and keeps the choice on
- * this device. Rejects, leaving the language as it was, if they can't be fetched.
- */
 export async function setLanguage(code: Language): Promise<void> {
   const ticket = ++switching;
   const words = await loadCatalog(code);
@@ -118,21 +85,15 @@ export async function setLanguage(code: Language): Promise<void> {
   }
 }
 
-/** Words with a context, for English that means two things ("Post" the verb and the noun). */
 export type Message = { message: string; context: string };
 
 const CONTEXT = "\u0004";
 
 const keyOf = (source: string | Message) => (typeof source === "string" ? source : `${source.context}${CONTEXT}${source.message}`);
 
-/** The words in the current language: the translation, else the English. */
 let english = 0;
 
-/**
- * Runs `read` with the words, dates and numbers in English: for what an AI
- * agent or a server reads, built by helpers that also make what people see.
- * Only what runs before `read` returns: after an await it's the app's language again.
- */
+// Only covers what runs before `read` returns: after an await it's the app's language again.
 export function inEnglish<T>(read: () => T): T {
   english++;
   try {
@@ -142,7 +103,6 @@ export function inEnglish<T>(read: () => T): T {
   }
 }
 
-/** The language words are looked up in right now. */
 const current = (): Language => (english ? "en" : language());
 
 function lookup(source: string | Message): string {
@@ -157,18 +117,12 @@ function lookup(source: string | Message): string {
 type Value = string | number | boolean | null | undefined;
 export type Values = Record<string, Value>;
 
-/**
- * Marks English kept in a constant for translating, and returns it as is.
- * Show it with `t(constant)`, which finds it in the language's words.
- * With a context, returns the key `t` looks up.
- */
 export function msg<T extends string>(source: T): T;
 export function msg(source: Message): string;
 export function msg(source: string | Message): string {
   return keyOf(source);
 }
 
-/** `source` in the app's language, with `values` filled in. Read in JSX or a memo, it follows the language. */
 export function t(source: string | Message, values?: Values): string {
   const message = lookup(source);
   return values ? format(message, values, (text) => text) : message;
@@ -176,30 +130,19 @@ export function t(source: string | Message, values?: Values): string {
 
 type Tag = (chunk: string) => JSX.Element;
 
-/**
- * Words with markup inside, as JSX: each `<name>…</name>` (or `<name/>`) in
- * the message is drawn by the function of that name, given the words inside;
- * other values fill in `{placeholders}` and may be elements.
- *
- *     rich("Agree to the <terms>Terms</terms>", { terms: (text) => <A href="/terms">{text}</A> })
- *     rich("Press {key} to search", { key: <Kbd>K</Kbd> })
- */
 export function rich(source: string | Message, parts: Record<string, Value | Tag | JSX.Element>): JSX.Element {
   const values: Values = {};
   const tags: Record<string, Tag> = {};
   const nodes: Record<string, JSX.Element> = {};
   for (const [name, part] of Object.entries(parts)) {
-    // A function taking the words draws a tag; one taking nothing is an element Solid made.
     if (typeof part === "function" && part.length > 0) tags[name] = part as Tag;
     else if (part === null || part === undefined || ["string", "number", "boolean"].includes(typeof part)) values[name] = part as Value;
     else nodes[name] = part as JSX.Element;
   }
 
-  // Values are set aside behind markers while the tags are found, so a value
-  // with a "<" in it (a file's name, a caption) is never read as markup.
-  // Elements stand in as their name until the words around them are cut up.
+  // Values sit behind markers while tags are found, so a value with a "<" (a file name, a caption) is never read as markup.
   const kept: string[] = [];
-  // The markers are private-use characters, which no text carries.
+  // Private-use characters, which no text carries.
   const keep = (text: string) => `${kept.push(text) - 1}`;
   const restore = (text: string) => text.replace(/(\d+)/g, (_, index: string) => kept[Number(index)]);
   for (const name of Object.keys(nodes)) values[name] = `${name}`;
@@ -227,9 +170,7 @@ export function rich(source: string | Message, parts: Record<string, Value | Tag
   return out;
 }
 
-// ICU's message format, the part the app uses: {name}, and {name, plural, …},
-// {name, selectordinal, …} and {name, select, …} with # for the number.
-// Anything else in braces is left as written.
+// Only {name}, plural, selectordinal and select are supported; anything else in braces is left as written.
 
 const pluralRules = new Map<string, Intl.PluralRules>();
 
@@ -312,27 +253,16 @@ function format(message: string, values: Values, insert: (text: string) => strin
   return out;
 }
 
-/**
- * The locale for Intl in the current language. In English each place keeps
- * the locale it was written with (`english`; undefined is the browser's own),
- * so English reads as it always has.
- */
+/** In English each caller keeps its own locale (`english`; undefined is the browser's own). */
 export function intlLocale(english?: string): string | undefined {
   const code = current();
   return code === "en" ? english : code;
 }
 
-/**
- * An Intl formatter (or anything made from a locale), made again when the
- * language changes. Read in JSX or a memo, what it formats follows the language.
- *
- *     const DAY = localized((locale) => new Intl.DateTimeFormat(locale, { weekday: "long" }));
- *     DAY().format(date)
- */
 export function localized<T>(make: (locale: string | undefined) => T, english?: string): () => T {
   const made = new Map<Language, T>();
   return () => {
-    // Read the language first, so JSX and memos calling this follow it.
+    // Read the language first, so JSX and memos calling this track it.
     const code = language() && current();
     if (!made.has(code)) made.set(code, make(code === "en" ? english : code));
     return made.get(code)!;

@@ -2,9 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Accounts connected before pictures were saved get theirs on first view.
-// A YouTube channel's name and picture are read again once a day, since
-// YouTube's rules let plan.video keep them only while they're kept fresh.
+// YouTube's rules let plan.video keep a channel's name and picture only while they're kept fresh, so read daily.
 
 import { updateAccountAvatar, updateYouTubeChannel, type SocialConnection } from "@/lib/social-connections";
 import { loadBlueskyAvatar } from "@/lib/bluesky";
@@ -15,7 +13,7 @@ import { loadYouTubeAvatar, loadYouTubeChannel } from "@/lib/youtube";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** Accounts already asked this visit, so a failure isn't retried on every render. */
+/** So a failure isn't retried on every render. */
 const asked = new Set<string>();
 
 async function avatarFor(account: SocialConnection): Promise<string | null> {
@@ -27,7 +25,6 @@ async function avatarFor(account: SocialConnection): Promise<string | null> {
   return null;
 }
 
-/** Fetches the picture for each logged-in account that has never had one looked up, and YouTube's again each day. */
 export function fillMissingAvatars(userId: string, accounts: readonly SocialConnection[]) {
   for (const account of accounts) {
     if (account.youtube && !asked.has(account.id) && Date.now() - (account.youtube.checkedAt ?? 0) > DAY_MS) {

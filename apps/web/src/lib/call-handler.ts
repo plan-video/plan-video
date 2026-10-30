@@ -7,11 +7,9 @@
 
 import type { JSX } from "solid-js"
 
-// Function assertions
 export const isFunction = (value: unknown): value is Function =>
   typeof value === "function"
 
-/** Call a JSX.EventHandlerUnion with the event. */
 export const callHandler = <T, E extends Event>(
   event: E & { currentTarget: T; target: Element },
   handler: JSX.EventHandlerUnion<T, E> | undefined,

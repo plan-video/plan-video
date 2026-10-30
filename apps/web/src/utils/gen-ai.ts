@@ -36,7 +36,6 @@ import type { FileRef } from "@plan.video/api-contract";
 import type { ExportResult } from "@plan.video/encoder";
 import type { Entity, World } from "koota";
 
-/** What a failed generation is called where the user reads about it. */
 const FAILURE_TITLES: Record<GenerateSpec["type"] | "transcript", string> = {
   image: msg("Image generation failed"),
   video: msg("Video generation failed"),
@@ -45,7 +44,6 @@ const FAILURE_TITLES: Record<GenerateSpec["type"] | "transcript", string> = {
   transcript: msg("Caption generation failed"),
 };
 
-/** What each generation is to become, for the partial that stands for it. */
 const ASSET_TYPES: Record<GenerateSpec["type"], AssetType> = {
   image: "IMAGE",
   video: "VIDEO",
@@ -53,7 +51,6 @@ const ASSET_TYPES: Record<GenerateSpec["type"], AssetType> = {
   audio: "AUDIO",
 };
 
-/** What each transform's failure is called where the user reads about it, and what names its result. */
 const TRANSFORMS: Record<TransformType, { title: string; suffix: string }> = {
   removeBackground: { title: msg("Background removal failed"), suffix: "Background removed" },
   upscale: { title: msg("Upscale failed"), suffix: "Upscaled" },
@@ -61,10 +58,8 @@ const TRANSFORMS: Record<TransformType, { title: string; suffix: string }> = {
 };
 
 /**
- * A spec with defaults applied and every `AssetInput` reduced to an asset id.
- * Field order is fixed, so `JSON.stringify` of it is a stable `generationKey`.
- * A transform's key is its type and input alone: the endpoints take no model
- * and no factor, so every call over the same asset is the same call.
+ * Field order is fixed, so `JSON.stringify` of it is a stable `generationKey`. A
+ * transform's key is its type and input alone: the endpoints take no model or factor.
  */
 type ResolvedGeneration =
   | { type: "image"; model: string; prompt: string; aspectRatio: AspectRatio; seed?: number; refIds: string[] }
@@ -76,18 +71,11 @@ type ResolvedSpec = ResolvedGeneration | ResolvedTransform;
 
 const isResolvedTransform = (spec: ResolvedSpec): spec is ResolvedTransform => isTransformType(spec.type);
 
-/** What the partial standing for a run is called and is to become, and what its failure is called. */
 type RunDescription = Omit<ReserveOptions, "key" | "folder"> & { title: string };
 
-/**
- * A failure the user has already been told of — as a toast when it happened,
- * and in the library's record from then on. It goes up the dependency graph
- * as it is: a declaration whose input failed is not a second thing gone
- * wrong.
- */
+/** Already told to the user; passed up the dependency graph as is, so it isn't reported twice. */
 class ReportedError extends Error {}
 
-/** Creates the project's GenAi over `library` and attaches it as the world's Ai. */
 export function attachAi(world: World, library: AssetLibrary, dir?: string): EditorGenAi {
   const ai = new EditorGenAi(library, world.get(Project)?.id ?? "project", dir);
   world.set(Ai, ai);
@@ -98,17 +86,13 @@ export class EditorGenAi extends GenAi {
   private readonly library: AssetLibrary;
   /** Prefixes upload keys, so referenced assets land project-unique in the bucket. */
   private readonly projectId: string;
-  /** The project's folder, so a transcription's capture compiles the sources as they are now. */
   private readonly dir?: string;
 
   /**
-   * Declarations already resolved, keyed by ref identity — a ref consumed by
-   * several elements resolves (and validates) once. A failed one is
-   * forgotten, so that asking again — once its record is gone from the
-   * library — asks the library again rather than this map.
+   * Keyed by ref identity, so a ref used by several elements resolves once. A failed one is
+   * forgotten, so asking again once its record is gone asks the library again.
    */
   private readonly memo = new Map<AssetRef, Promise<Asset>>();
-  /** Runs in flight, keyed by generation key. */
   private readonly inflight = new Map<string, Promise<Asset>>();
 
   public constructor(library: AssetLibrary, projectId: string, dir?: string) {
@@ -131,12 +115,7 @@ export class EditorGenAi extends GenAi {
     return promise;
   }
 
-  /**
-   * Transcribes the scene's audible mix for a `<captions>` element (see the
-   * runtime's asset system). Keyed by scene id + seed: the same pair is the
-   * same transcript asset across sessions, and a new seed transcribes the
-   * scene again.
-   */
+  /** Keyed by scene id + seed: the same pair is the same transcript across sessions; a new seed transcribes again. */
   public async transcribe(world: World, scene: Entity, seed: number): Promise<Asset> {
     await named(scene);
     const key = transcriptKey(scene, seed);
@@ -148,13 +127,9 @@ export class EditorGenAi extends GenAi {
   }
 
   /**
-   * The library's answer for `key`, or the run that produces one. An asset
-   * the key landed as is returned; a key standing in error rejects with the
-   * recorded reason — answered, not run or paid for again, and not toasted
-   * again either; a run in flight is joined. Otherwise the run starts, with
-   * a partial document reserved for it first (a pending one the last session
-   * never finished is taken over), and ends either as the asset that
-   * replaces the partial or as the partial's recorded failure.
+   * A key in error rejects with its recorded reason: not run, paid for or toasted again. A
+   * run in flight is joined, and a pending partial a previous session never finished is
+   * taken over.
    */
   private async generated(
     key: string,
@@ -190,8 +165,7 @@ export class EditorGenAi extends GenAi {
     const spec = getAssetSpec(ref);
     const title = isTransformSpec(spec) ? TRANSFORMS[spec.type].title : FAILURE_TITLES[spec.type];
 
-    // Inputs first: their ids are part of the key. An input that failed has
-    // said so already; anything else wrong with them is said here.
+    // Inputs first: their ids are part of the key. An input that failed has said so already.
     let resolved: ResolvedSpec;
     try {
       resolved = await this.resolveSpec(spec);
@@ -208,7 +182,6 @@ export class EditorGenAi extends GenAi {
     );
   }
 
-  /** What the partial standing for a run is called, and what it is to become. */
   private describe(spec: ResolvedSpec): { type: AssetType; name: string } {
     if (!isResolvedTransform(spec)) return { type: ASSET_TYPES[spec.type], name: provisionalName(spec.prompt) };
     const input = this.library.get(spec.inputId);
@@ -276,11 +249,7 @@ export class EditorGenAi extends GenAi {
     }
   }
 
-  /**
-   * Runs a generation and stores its first result in place of `partial`. A
-   * spec a model cannot take fails here rather than before the partial is
-   * reserved, so the refusal is recorded like any other and not asked again.
-   */
+  /** A spec a model can't take fails here, after the partial is reserved, so the refusal is recorded and not asked again. */
   private async runGeneration(spec: ResolvedGeneration, partial: PartialAsset): Promise<Asset> {
     if (spec.type === "video") checkVideoConstraints(spec);
 
@@ -315,13 +284,11 @@ export class EditorGenAi extends GenAi {
     }
   }
 
-  /** Transcribes the scene's clips and stores the transcript in place of `partial`. */
   private async runTranscription(world: World, scene: Entity, key: string, partial: PartialAsset): Promise<Asset> {
     assert(sceneHasAudio(world, scene), t("No audio found. Add an audio or video clip to the scene to generate captions."));
 
-    // Each clip's own audio, placed where that clip sits. A re-rendered mix
-    // resamples and reschedules the sound, and the word times come back off
-    // the picture.
+    // Each clip's own audio: a re-rendered mix resamples and reschedules the sound, and the
+    // word times come back off the picture.
     const clips = await speechClips(world, scene);
     const placed = (
       await Promise.all(clips.map(async (clip) => {
@@ -330,8 +297,7 @@ export class EditorGenAi extends GenAi {
           if (!extracted) return [];
           return placeClipWords(await hearSpeech(extracted), clip, extracted.mediaStart);
         } catch (error) {
-          // The server said no. Rendering the whole scene to ask again only
-          // keeps the caption on "generating" longer before the same answer.
+          // The server said no: rendering the whole scene to ask again only gets the same answer later.
           if (error instanceof TranscriptionRefused) throw error;
           console.warn("[gen-ai] clip transcription failed, using the scene mix", error);
           return [];
@@ -339,8 +305,7 @@ export class EditorGenAi extends GenAi {
       }))
     ).flat();
 
-    // A clip read that comes back empty must not win: the scene mix is what
-    // already produced captions for this video.
+    // An empty clip read must not win: the scene mix already produced captions for this video.
     const transcript = placed.length > 0
       ? segmentWords(placed)
       : await this.transcribeSceneMix(world, scene);
@@ -357,10 +322,7 @@ export class EditorGenAi extends GenAi {
     });
   }
 
-  /**
-   * The audible mix, for a clip whose file has no audio track we can read.
-   * Word times here follow the resampled render, which is the less exact path.
-   */
+  /** For clips whose audio track can't be read. Word times follow the resampled render, so they're less exact. */
   private async transcribeSceneMix(world: World, scene: Entity) {
     const capture = await createCapture(world, scene, { mode: "offline-audio", dir: this.dir });
     let result: ExportResult;
@@ -382,7 +344,7 @@ export class EditorGenAi extends GenAi {
     return speech ? hearSpeech(speech) : transcribeAudio(audioFile);
   }
 
-  /** The next free `Captions N`, counting the takes still in flight. */
+  /** Counts the takes still in flight. */
   private nextCaptionsName(): string {
     let max = 0;
     for (const entry of [...this.library.list(), ...this.library.partials()]) {
@@ -392,22 +354,16 @@ export class EditorGenAi extends GenAi {
     return `Captions ${max + 1}`;
   }
 
-  /** The asset a transform over `input` takes in, resolved the way the declaration resolves it. */
   public transformInput(input: AssetInput): Promise<Asset> {
     return this.resolveInput(input);
   }
 
-  /** What a transform over `input` has already landed as, if anything. */
   public transformed(type: TransformType, input: Asset): Asset | undefined {
     const known = this.library.generated(transformKey(type, input));
     return known && !isPartialAsset(known) ? known : undefined;
   }
 
-  /**
-   * Files a result made outside the asset system (the editor's background
-   * removal dialog) as the transform's, so the declaration then put on the
-   * element binds to it rather than running again.
-   */
+  /** Files a result made outside the asset system as the transform's, so the declaration binds to it instead of running again. */
   public async adoptTransform(type: TransformType, input: Asset, blob: Blob): Promise<Asset> {
     return this.transformed(type, input) ?? this.library.store(blob, {
       name: `${stem(input)} (${TRANSFORMS[type].suffix})${mimeTypeToExtension(blob.type)}`,
@@ -417,10 +373,8 @@ export class EditorGenAi extends GenAi {
   }
 
   /**
-   * Runs the transform and stores the result in place of `partial`: a
-   * background comes out on this device, the rest go to the server with the
-   * input uploaded. A transform over the wrong kind of asset fails here,
-   * like a spec a model cannot take: recorded, and not asked again.
+   * A background is removed on this device; the rest go to the server. A transform over the
+   * wrong kind of asset fails here, like a spec a model can't take: recorded, not asked again.
    */
   private async runTransform(spec: ResolvedTransform, partial: PartialAsset): Promise<Asset> {
     const asset = this.library.get(spec.inputId);
@@ -471,11 +425,7 @@ export class EditorGenAi extends GenAi {
     }
   }
 
-  /**
-   * Downloads what a model returned and files it in the library. The name is
-   * the model's, the extension the result's — what came back decides what the
-   * file is called, not what was asked for.
-   */
+  /** Named after what came back, not what was asked for. */
   private async store(url: string, name: string, generation: { key: string; id?: string | null }): Promise<Asset> {
     const response = await fetch(url);
     assert(response.ok, `Failed to fetch the generated asset: ${response.status}`);
@@ -544,7 +494,6 @@ export class EditorGenAi extends GenAi {
     }
   }
 
-  /** Uploads a referenced asset for the model to read; the bucket key is project-unique. */
   private async uploadInput(assetId: string) {
     const asset = this.library.get(assetId);
     assert(asset, `Referenced asset ${assetId} not found`);
@@ -554,16 +503,14 @@ export class EditorGenAi extends GenAi {
   }
 }
 
-/** Whether an asset type is footage, for the calls that only take footage. */
 const isMoving = (type: AssetType): boolean => type === "VIDEO" || type === "SEQUENCE";
 
-/** An asset's name without its extension: what a transform's result is named after. */
 const stem = (asset: Asset): string => assetName(asset).replace(/\.[^.]+$/, "");
 
-/** The generation key `generateFromRef` files a transform over `input` under. */
+/** Must match the key `generateFromRef` files a transform under. */
 const transformKey = (type: TransformType, input: Asset): string => JSON.stringify({ type, inputId: input.id } satisfies ResolvedTransform);
 
-/** What a transform can be put over; known only once the input has resolved. */
+/** Only checkable once the input has resolved. */
 function checkTransformInput(type: TransformType, input: Asset): void {
   switch (type) {
     case "removeBackground":
@@ -578,14 +525,8 @@ function checkTransformInput(type: TransformType, input: Asset): void {
   }
 }
 
-/** How much of a prompt names the partial standing for its generation. */
 const PROVISIONAL_NAME_LENGTH = 48;
 
-/**
- * What a generation is called before its result names it: the head of its
- * prompt, cut at a word. The model's own name takes over when the bytes
- * land (see `store`).
- */
 function provisionalName(prompt: string): string {
   const text = prompt.trim().replace(/\s+/g, " ").replace(/\//g, "-");
   if (text.length <= PROVISIONAL_NAME_LENGTH) return text || t("Generation");
@@ -594,12 +535,8 @@ function provisionalName(prompt: string): string {
 }
 
 /**
- * What to call a generated result: the extension its type implies, falling
- * back to the one its URL carries. Neither is guaranteed — some models hand
- * back a plain slug (`.../files/young-man-city-skyline`), some servers say
- * only `application/octet-stream` — so this can come back empty, and the
- * library reads the bytes instead. The name is what the file is identified
- * by once on disk, so getting it right saves that guess.
+ * Neither extension is guaranteed: some models return a plain slug, some servers say only
+ * `application/octet-stream`, so this can be empty and the library reads the bytes instead.
  */
 function resultExtension(url: string, blob: Blob): string {
   const fromType = blob.type ? mimeTypeToExtension(blob.type) : ".bin";
@@ -612,13 +549,9 @@ function resultExtension(url: string, blob: Blob): string {
 }
 
 /**
- * Says what a generation failed with, and hands the failure on as one
- * already reported. The message is what the library records on the partial
- * and what the element carries (the runtime's `SourceError`), so the
- * sentence in the asset panel, the one on the canvas and the one in the
- * toast are the same. The toast is keyed by it: variants that failed the
- * same way are one thing gone wrong rather than four, and a render that ran
- * into the same wall does not stack up.
+ * The message is what the library records and the element carries, so the asset panel,
+ * canvas and toast say the same. The toast is keyed by it, so variants that failed the same
+ * way show once.
  */
 function reportFailure(error: unknown, title: string): ReportedError {
   const message = error instanceof Error ? error.message : String(error);
@@ -632,21 +565,12 @@ function reportFailure(error: unknown, title: string): ReportedError {
   return new ReportedError(message);
 }
 
-/**
- * The transcript cache key: scene id + seed. The scene's durable name is the
- * id in its source stamp (`<file>:<id>`, stamped once by the compiler — the
- * same identity the project config keys by); a scene without one falls back
- * to its entity id, which only holds within the session.
- */
-/** How long a transcription waits for a write to name a scene the editor just made. */
 const NAMING_TIMEOUT = 5000;
 
 /**
- * Resolves once `scene` carries the source a write gave it. A scene the
- * editor has just made, or put back with an undo, holds a pending source
- * until then: the capture of its audio looks the scene up by source, and the
- * transcript is keyed by it, so starting earlier fails the capture ("rendered
- * nothing") and files the transcript under a name the next open won't find.
+ * A scene the editor just made, or put back with an undo, holds a pending source until a
+ * write names it. The audio capture looks the scene up by source and the transcript is keyed
+ * by it, so starting earlier fails the capture and files the transcript under the wrong name.
  */
 async function named(scene: Entity): Promise<void> {
   const started = performance.now();
@@ -659,6 +583,7 @@ async function named(scene: Entity): Promise<void> {
   }
 }
 
+/** A scene without a source stamp falls back to its entity id, which only holds within the session. */
 function transcriptKey(scene: Entity, seed: number): string {
   const source = scene.get(Source)?.value;
   const locator = source ? parseSource(source)?.locator : undefined;
@@ -670,16 +595,11 @@ interface SpeechClip extends ClipTiming {
   file: File;
 }
 
-/** Every word said in `speech`, with its edges moved onto the voice. */
 async function hearSpeech(speech: SpeechWav): Promise<Transcript> {
   return snapToSpeech(await transcribeAudio(speech.wav), speech.envelope);
 }
 
-/**
- * Audible clips in the scene, with where each one sits. The origin is the
- * scene time of media time 0, which is where the picture seeks that same
- * moment.
- */
+/** The origin is the scene time of media time 0, where the picture seeks the same moment. */
 async function speechClips(world: World, scene: Entity): Promise<SpeechClip[]> {
   const fps = world.get(FrameRate)?.value || 30;
   const clips: SpeechClip[] = [];
@@ -694,11 +614,9 @@ async function speechClips(world: World, scene: Entity): Promise<SpeechClip[]> {
     const asset = getAsset(world, entity.get(AssetId)!.value);
     if (!asset || (asset.type !== "AUDIO" && asset.type !== "VIDEO")) continue;
 
-    // A video paint is a child of the clip and never leaves the 16s length a
-    // new entity starts with. The clip on the timeline is the parent, and
-    // that is the window playback actually hears. A muted or hidden clip is
-    // not heard through its paint either (a stream layout's muted copies),
-    // and a clip is heard once, or every word would come back twice.
+    // A video paint is a child of the clip and keeps the 16s length a new entity starts with;
+    // the clip on the timeline is what playback hears. Muted or hidden clips aren't heard
+    // through their paint either, and each clip is heard once or every word comes back twice.
     const clip = isPaintEntity(entity) ? getParentNode(entity) ?? entity : entity;
     if (heard.has(clip) || clip.has(Muted) || clip.has(Hidden)) continue;
     heard.add(clip);
@@ -721,10 +639,6 @@ async function speechClips(world: World, scene: Entity): Promise<SpeechClip[]> {
   return clips;
 }
 
-/**
- * Whether anything in the scene contributes to its audible mix: an unmuted,
- * unhidden audio clip, video, or video paint with its asset bound.
- */
 function sceneHasAudio(world: World, scene: Entity): boolean {
   for (const entity of getEntityTree(world, scene)) {
     if (entity.has(Hidden) || entity.has(Muted) || !entity.has(AssetId)) continue;
@@ -735,9 +649,7 @@ function sceneHasAudio(world: World, scene: Entity): boolean {
   return false;
 }
 
-/**
- *  Per-model constraints (`planvideo models video`); unknown models are left to the server.
- */
+/** Per-model constraints (`planvideo models video`); unknown models are left to the server. */
 function checkVideoConstraints(spec: Extract<ResolvedGeneration, { type: "video" }>): void {
   const model = PROMPT_INPUT_VIDEO_MODEL_OPTIONS.find((option) => option.id === spec.model);
   if (!model) return;

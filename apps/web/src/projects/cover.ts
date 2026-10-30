@@ -9,10 +9,9 @@ import { rememberProjectCover } from '@/lib/db';
 import { browserKeepCover, isBrowserProjectDir } from './browser';
 import { markProjectsChanged } from './host';
 
-/** Wide enough for a project card on a retina screen, and no wider. */
 const COVER_WIDTH = 640;
 
-/** A cover already stored at card size. Anything larger is a full canvas shot. */
+/** Anything larger is a full canvas shot. */
 const isCardCover = (blob: Blob): boolean => blob.type === 'image/webp' && blob.size < 200_000;
 
 const ready = new Map<string, string>();
@@ -20,17 +19,11 @@ const pending = new Map<string, Promise<string | null>>();
 
 const coverId = (dir: string, blob: Blob): string => `${dir}:${blob.size}:${blob.type}`;
 
-/** The card-sized cover, when it has already been prepared this session. */
 export function cachedProjectCover(dir: string, blob: Blob): string | null {
 	return ready.get(coverId(dir, blob)) ?? null;
 }
 
-/**
- * A card-sized object URL for `blob`. A full-size cover is scaled down off
- * the main thread and the small copy replaces it on the record, so the next
- * visit does not decode the canvas shot again. The list is not told: the
- * card already on screen keeps showing this URL.
- */
+/** The small copy replaces the full one on the record so the next visit skips decoding it; the list isn't told. */
 export function loadProjectCover(dir: string, blob: Blob): Promise<string | null> {
 	const id = coverId(dir, blob);
 	const done = ready.get(id);
@@ -63,7 +56,6 @@ export function loadProjectCover(dir: string, blob: Blob): Promise<string | null
 	return job;
 }
 
-/** Prepares the covers that will be on screen, a few at a time. */
 export async function warmProjectCovers(projects: { dir: string; cover: Blob | null }[]): Promise<void> {
 	const queue = projects.filter((project): project is { dir: string; cover: Blob } => project.cover != null);
 	let index = 0;
@@ -78,14 +70,7 @@ export async function warmProjectCovers(projects: { dir: string; cover: Blob | n
 	await Promise.all(Array.from({ length: Math.min(3, queue.length) }, worker));
 }
 
-/**
- * Takes the cover of the project in `dir` from `snapshot` and puts it on the
- * project's record (see `ProjectRecord.cover`), where the dashboard reads it
- * from with the rest of the record — never from the folder, which it must
- * not touch at launch. Call it as the project closes, with the snapshot
- * already under way; the list is told once the cover has landed, so a card
- * for a project still closing picks it up.
- */
+/** Stored on the record, never read from the folder, which the dashboard must not touch at launch. */
 export async function captureProjectCover(dir: string, snapshot: Promise<Blob | null>): Promise<void> {
 	if (!dir) return;
 

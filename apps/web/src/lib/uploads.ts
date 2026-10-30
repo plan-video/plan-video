@@ -2,19 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/**
- * Getting bytes into the cloud bucket the API resolves a `FileRef` against.
- * A whole Blob goes in one signed PUT; anything produced as it is encoded
- * (a transcode feeding a generation) goes through a GCS resumable session so
- * the payload is never held in memory in full.
- */
-
 import { trpc } from "@/lib/trpc";
 
-/**
- * Upload a Blob to the cloud bucket via a signed URL under the asset id.
- * Returns the FileRef the API can resolve.
- */
 export async function uploadBlob(blob: Blob, id: string) {
   const contentType = blob.type || "application/octet-stream";
   const { uploadUrl, fileRef } = await trpc.getUploadUrl.mutate({ id, contentType });
@@ -38,10 +27,6 @@ export async function uploadBlob(blob: Blob, id: string) {
 /** GCS requires every resumable chunk except the last to be a multiple of 256 KiB. */
 const RESUMABLE_CHUNK_SIZE = 8 * 1024 * 1024;
 
-/**
- * Open a GCS resumable upload session against a signed "resumable" URL and
- * return the session URI that the bytes are streamed to.
- */
 export async function startResumableSession(uploadUrl: string, mimeType: string): Promise<string> {
   const res = await fetch(uploadUrl, {
     method: "POST",
@@ -57,10 +42,7 @@ export async function startResumableSession(uploadUrl: string, mimeType: string)
   return sessionUrl;
 }
 
-/**
- * Stream a ReadableStream into an open GCS resumable session, PUTting
- * fixed-size chunks as bytes arrive so the full payload is never buffered.
- */
+/** PUTs fixed-size chunks as bytes arrive, so the full payload is never buffered. */
 export async function uploadResumableStream(
   readable: ReadableStream<Uint8Array<ArrayBuffer>>,
   sessionUrl: string,
@@ -108,8 +90,7 @@ async function putResumableChunk(
     body: chunk,
   });
 
-  // 308 "Resume Incomplete" is expected while more chunks remain; the final
-  // chunk finalizes the object and returns 200/201.
+  // GCS answers 308 "Resume Incomplete" until the final chunk, which returns 200/201.
   if (total === null) {
     if (res.status !== 308) {
       throw new Error(`Unexpected status during resumable upload: ${res.status}`);

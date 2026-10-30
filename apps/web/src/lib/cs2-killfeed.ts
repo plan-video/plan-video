@@ -2,10 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// A Counter-Strike 2 death notice, drawn the way the CS2 KillFeed Generator
-// draws it (github.com/StrikerProd09/killfeed-generator): the same bar, type,
-// colors and pictures. One picture feeds both the builder's preview and the
-// element put on the scene.
+// Copies the bar, type, colours and pictures of github.com/StrikerProd09/killfeed-generator.
 
 import fontUrl from "@/assets/fonts/StratumNo2-Bold.otf?url";
 
@@ -18,11 +15,10 @@ export type Cs2Side = "ct" | "t";
 export type Cs2KillfeedSpec = {
   killer: string;
   victim: string;
-  /** Weapon id, as in assets/killfeed-cs2/weapons. */
   weapon: string;
-  /** The killer's side. CT is blue then gold, which is the generator's default. */
+  /** CT is blue then gold, the generator's default. */
   side: Cs2Side;
-  /** Extra ids, drawn in the generator's order. Fly sits before the weapon. */
+  /** Drawn in the generator's order. Fly sits before the weapon. */
   extras: string[];
 };
 
@@ -34,15 +30,12 @@ export const DEFAULT_CS2_KILLFEED: Cs2KillfeedSpec = {
   extras: [],
 };
 
-/** The default notice with names of a usual length: the narrowest a placed notice is. */
+/** The narrowest a placed notice is. */
 export const USUAL_CS2_KILLFEED: Cs2KillfeedSpec = { ...DEFAULT_CS2_KILLFEED, killer: USUAL_NAME, victim: USUAL_NAME };
 
 export const CS2_KILLFEED_FONT = "Stratum No2";
-/** The bar's height in picture pixels: icon, padding and the border. */
 export const CS2_KILLFEED_HEIGHT = 46;
-/** How tall a placed entry is at unit 1, matching the picture. */
 export const CS2_ENTRY_HEIGHT = CS2_KILLFEED_HEIGHT;
-/** Where the first in-game entry sits, near the top of a 1080 frame. */
 export const CS2_TOP = 72;
 
 const FONT_SIZE = 22;
@@ -99,11 +92,6 @@ function rounded(ctx: CanvasRenderingContext2D, x: number, y: number, width: num
   ctx.roundRect(x, y, width, height, Math.max(0, radius));
 }
 
-/**
- * Draws the notice `scale` times its natural size, which is
- * `CS2_KILLFEED_HEIGHT` tall and as wide as the names and icons make it, or
- * `fixedWidth` wide (at the natural size), its names fitted into it.
- */
 export async function renderCs2Killfeed(spec: Cs2KillfeedSpec, scale = 1, fixedWidth?: number): Promise<HTMLCanvasElement> {
   const weapon = cs2Weapon(spec.weapon) ?? cs2Weapon(DEFAULT_CS2_KILLFEED.weapon)!;
   const selected = new Set(spec.extras);
@@ -142,8 +130,7 @@ export async function renderCs2Killfeed(spec: Cs2KillfeedSpec, scale = 1, fixedW
     { kind: "text", text: spec.victim, color: victimColor, width: textWidth(spec.victim) },
   ];
 
-  // In a set width the names give way when too long, and the room to
-  // spare goes either side of what's between them.
+  // In a set width the names give way when too long, and the spare room goes either side of what's between them.
   const killerPart = parts[0] as TextPart;
   const victimPart = parts[parts.length - 1] as TextPart;
   const names: FittedName[] = [
@@ -198,7 +185,6 @@ export async function renderCs2Killfeed(spec: Cs2KillfeedSpec, scale = 1, fixedW
 
   let x = border + padX;
   for (const [index, part] of parts.entries()) {
-    // The victim's name, and half the room to spare, go after everything else.
     if (index === parts.length - 1) x += spare / 2;
     if (part.kind === "text") {
       const size = names[index === 0 ? 0 : 1]!.size;
@@ -215,7 +201,6 @@ export async function renderCs2Killfeed(spec: Cs2KillfeedSpec, scale = 1, fixedW
   return element;
 }
 
-/** A file name for the notice's picture. */
 export function cs2KillfeedFileName(spec: Cs2KillfeedSpec): string {
   const clean = (text: string) => text.replace(/[\\/:*?"<>|]+/g, "").trim() || "Player";
   return `${clean(spec.killer)} vs ${clean(spec.victim)}.png`;

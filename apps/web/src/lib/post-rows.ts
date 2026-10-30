@@ -2,10 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Reading a workspace's posts from the posts table, a page at a time, in the
-// order they changed (lib/post-sync.ts). Pages follow on from the last row's
-// change time and id, not an offset: a post changed while the pages are read
-// moves to the end, where it's read again, and no row is skipped.
+// Pages follow the last row's (updated_at, id), not an offset: a post changed
+// mid-read moves to the end and is read again, so no row is skipped.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -15,7 +13,6 @@ export const POST_COLUMNS = "id,version,data,deleted_at,updated_at,thumbnail_at"
 /** Rows asked for at a time, under PostgREST's cap of 1000. */
 const PAGE = 1000;
 
-/** Every post of `owner`'s `workspace` (since null), or the ones changed since `since`, oldest change first. */
 export async function readPostRows(db: SupabaseClient, owner: string, workspace: string, since: string | null, page = PAGE): Promise<PostRow[]> {
   const rows: PostRow[] = [];
   let after: { at: string; id: string } | null = null;

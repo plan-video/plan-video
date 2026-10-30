@@ -10,10 +10,9 @@ import { askNetwork, exchangeOnServer } from "@/lib/publishing";
 import { loginReady, type TikTokSession } from "@/lib/social-connections";
 import type { TikTokPrivacy } from "@/lib/social";
 
-/** Origins whose `/tiktok/callback` is saved on the TikTok app. */
 const TIKTOK_ORIGINS = new Set([...appOrigins(), "http://localhost:5173"]);
 
-/** The redirect for this tab. It has to match a URI saved on the TikTok app, exactly. */
+/** Must match a URI saved on the TikTok app exactly. */
 export function tiktokRedirect(): string {
   if (!TIKTOK_ORIGINS.has(window.location.origin)) throw new Error(atThisSite(t("Open https://plan.video to connect TikTok.")));
   return `${window.location.origin}/tiktok/callback`;
@@ -22,7 +21,7 @@ export function tiktokRedirect(): string {
 const STATE_KEY = "plan.video.tiktok.state";
 const VERIFIER_KEY = "plan.video.tiktok.verifier";
 
-/** What connecting an account gives back: who it is, and its login sealed for the server. Never TikTok's tokens. */
+/** Never TikTok's tokens. */
 type Exchanged = {
   openId?: string;
   displayName?: string;
@@ -54,7 +53,7 @@ export async function tiktokAuthorizeUrl(state: string): Promise<string> {
   return url;
 }
 
-/** Finishes connecting an account. The publisher swaps the code for its login and keeps that; this gets a ticket to attach it. */
+/** The publisher swaps the code for the login and keeps it; this gets a ticket to attach it. */
 export async function exchangeTikTokCode(code: string): Promise<TikTokSession & { displayName: string; avatarUrl: string }> {
   const codeVerifier = takeFromLogin(VERIFIER_KEY);
   const found = await exchangeOnServer<Exchanged>("tiktok/exchange", { code, redirectUri: tiktokRedirect(), codeVerifier }, t("Couldn't reach TikTok. Try again in a moment."));
@@ -69,22 +68,21 @@ export async function exchangeTikTokCode(code: string): Promise<TikTokSession & 
   };
 }
 
-/** Asks the publisher, which keeps the account's login, to read from TikTok with it, once the login has reached it. */
+/** The publisher keeps the account's login and reads with it once the login has reached it. */
 async function askTikTok<T>(route: "tiktok/profile" | "tiktok/videos" | "tiktok/creator", accountId: string): Promise<T> {
   await loginReady(accountId);
   return askNetwork<T>(route, accountId, t("Couldn't reach TikTok. Try again in a moment."));
 }
 
-/** A video's views, likes and comments so far, with its title and post time. */
 export type TikTokVideoStats = { id: string; title: string; postedAt: number; cover?: string; views: number; likes: number; comments: number };
 
-/** The account's newest videos and their numbers so far. TikTok keeps no numbers per day. */
+/** TikTok keeps no numbers per day. */
 export async function loadTikTokVideos(accountId: string): Promise<TikTokVideoStats[]> {
   const result = await askTikTok<{ videos?: TikTokVideoStats[] }>("tiktok/videos", accountId);
   return result.videos ?? [];
 }
 
-/** The account's picture, as a small image saved on the connection. Empty when TikTok has none. */
+/** Empty when TikTok has none. */
 export async function loadTikTokAvatar(accountId: string): Promise<string> {
   const result = await askTikTok<{ avatarUrl?: string }>("tiktok/profile", accountId);
   return result.avatarUrl || "";
@@ -94,7 +92,7 @@ export type TikTokCreator = {
   nickname: string;
   username: string;
   avatarUrl: string;
-  /** Who this account is allowed to show the post to. The picker lists these and nothing else. */
+  /** The picker lists these and nothing else. */
   privacy: TikTokPrivacy[];
   commentDisabled: boolean;
   duetDisabled: boolean;
@@ -109,7 +107,7 @@ const PRIVACY_FROM_API: Record<string, TikTokPrivacy> = {
   SELF_ONLY: "private",
 };
 
-/** The account's nickname, avatar, and what TikTok will let this post do. Read again each time the post screen opens. */
+/** Read again each time the post screen opens. */
 export async function loadTikTokCreator(accountId: string): Promise<TikTokCreator> {
   const result = await askTikTok<{ data?: Record<string, unknown> }>("tiktok/creator", accountId);
   const data = result.data ?? {};
@@ -132,12 +130,12 @@ export async function loadTikTokCreator(accountId: string): Promise<TikTokCreato
   };
 }
 
-/** The login includes this scope. An older connection has to be made again. */
+/** An older connection has to be made again. */
 export function tiktokAllows(scope: string, name: string): boolean {
   return scope.split(/[,\s]+/).includes(name);
 }
 
-/** 32 random bytes, which is 43 characters and inside TikTok's 43–128 range. */
+/** 43 characters, inside TikTok's 43–128 range. */
 function codeVerifier(): string {
   const bytes = new Uint8Array(32);
   crypto.getRandomValues(bytes);

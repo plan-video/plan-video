@@ -2,10 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The words a creator reuses across posts: whole captions, hashtag sets, and
-// shorter snippets such as a call to action or a sign-off. Saved on the
-// account, one list per workspace.
-
 import { createSignal } from "solid-js";
 
 import { queueAccountSync } from "@/lib/account-sync-bus";
@@ -42,16 +38,15 @@ export function vaultKind(id: VaultKind) {
 const KIND_IDS = new Set<string>(VAULT_KINDS.map((kind) => kind.id));
 
 const [items, setItems] = createSignal<VaultItem[]>([]);
-/** The item every caption ends with, by id. One per workspace, like the items. */
+/** One per workspace, like the items. */
 const [signatureId, setSignatureId] = createSignal<string | null>(null);
-/** The storage key the shown items came from: the user's, in the active workspace. */
 let loadedKey: string | undefined;
 
 export { items as vaultItems };
 
 const signatureKey = (key: string) => key.replace("plan.video.vault", "plan.video.signature");
 
-/** The vault item set as the signature, while it still exists. */
+/** While it still exists. */
 export function vaultSignature(): VaultItem | null {
   const id = signatureId();
   return (id && items().find((item) => item.id === id)) || null;
@@ -70,7 +65,7 @@ export function setVaultSignature(id: string | null) {
   queueAccountSync();
 }
 
-/** Text with the signature at the end, once. */
+/** Added once. */
 export function appendSignature(text: string, signature: string | undefined): string {
   const body = signature?.trim();
   if (!body) return text;
@@ -85,7 +80,7 @@ function isItem(value: unknown): value is VaultItem {
   return typeof row.id === "string" && KIND_IDS.has(row.kind) && typeof row.title === "string" && typeof row.body === "string";
 }
 
-/** Reads the account copy again. `loadVault` does nothing when this key is already loaded. */
+/** `loadVault` does nothing when this key is already loaded. */
 export function reloadVault(userId: string | undefined) {
   loadedKey = undefined;
   loadVault(userId);
@@ -153,7 +148,6 @@ function clean(draft: VaultDraft): VaultDraft {
   return { kind: draft.kind, title: draft.title.trim() || fallbackTitle(body), body };
 }
 
-/** The first line, cut to a title's length. */
 export function fallbackTitle(body: string): string {
   const line = body.trim().split("\n")[0]?.trim() ?? "";
   if (!line) return t("Untitled");
@@ -202,7 +196,6 @@ export function markVaultUsed(id: string) {
   write((current) => current.map((item) => (item.id === id ? { ...item, uses: item.uses + 1, lastUsedAt: now } : item)));
 }
 
-/** Pinned first, then the ones used or edited most recently. */
 export function sortVault(list: readonly VaultItem[]): VaultItem[] {
   const recency = (item: VaultItem) => (item.lastUsedAt && item.lastUsedAt > item.updatedAt ? item.lastUsedAt : item.updatedAt);
   return [...list].sort((a, b) => Number(b.pinned) - Number(a.pinned) || recency(b).localeCompare(recency(a)));
@@ -219,10 +212,7 @@ export function searchVault(list: readonly VaultItem[], query: string, kind: Vau
   );
 }
 
-/**
- * Text with an item added at the end. Hashtags already in the text are left
- * out, so a set can be added twice without repeating a tag.
- */
+/** Hashtags already in the text are left out, so a set can be added twice without repeating a tag. */
 export function insertVaultText(text: string, item: VaultItem): string {
   let body = item.body;
   if (item.kind === "hashtags") {
@@ -237,8 +227,6 @@ export function insertVaultText(text: string, item: VaultItem): string {
   return base ? `${base}\n\n${body}` : body;
 }
 
-// The New post page opens with a vault item already in its caption when one
-// is waiting here.
 const [pendingInsert, setPendingInsert] = createSignal<VaultItem | null>(null);
 
 export function queueVaultInsert(item: VaultItem) {

@@ -4,37 +4,28 @@
 
 import type { SpeechEnvelope } from "./speech-timing";
 
-/** One punch-in: zoomed from `start` until `end`, in seconds. */
 export interface PunchIn {
   start: number;
   end: number;
 }
 
-/** Loudness is read in blocks this long, so a single plosive is not a moment. */
+/** So a single plosive is not a moment. */
 const BLOCK_SECONDS = 0.05;
-/** How far back a rise in level is measured from. */
 const RISE_SECONDS = 0.3;
 /** Speech this close to its noise floor is under music or noise; its peaks say nothing. */
 const MIN_CONTRAST_DB = 12;
-/** A moment must be at least this far up from the floor towards the loud end. */
 const LOUD_SHARE = 0.55;
-/** A phrase lasts while the level stays this far up, allowing short dips. */
+/** Allowing short dips. */
 const PHRASE_SHARE = 0.35;
 const PHRASE_DIP_SECONDS = 0.25;
 export const MIN_HOLD_SECONDS = 1;
 export const MAX_HOLD_SECONDS = 2.5;
-/** Kept clear at the clip's end, so a punch never lands on the last frame. */
+/** So a punch never lands on the last frame. */
 const EDGE_SECONDS = 0.3;
-/** The opening is left to breathe: a punch this early reads as a glitch, not emphasis. */
+/** A punch this early reads as a glitch, not emphasis. */
 const LEAD_SECONDS = 1;
 
-/**
- * The moments in the audio worth punching in on: where the voice comes in
- * loud after a quieter stretch (a new phrase, a stressed word), at least
- * `minGap` seconds apart, each held to the end of its phrase. Seconds are
- * the envelope's own, 0 being its first sample. Null when the voice does not
- * stand clear of the background, so the caller can fall back to a rhythm.
- */
+/** Seconds are the envelope's own. Null when the voice doesn't stand clear of the background, so the caller can fall back to a rhythm. */
 export function findPunchIns(envelope: SpeechEnvelope, minGap: number): PunchIn[] | null {
   const per = Math.max(1, Math.round(BLOCK_SECONDS / envelope.step));
   const step = per * envelope.step;
@@ -51,8 +42,7 @@ export function findPunchIns(envelope: SpeechEnvelope, minGap: number): PunchIn[
   const back = Math.max(1, Math.round(RISE_SECONDS / step));
   const duration = levels.length * step;
 
-  // Each loud block scored by how far it rose over the stretch before it,
-  // plus how loud it is: the start of a phrase out of a pause scores high.
+  // Scored by rise over the stretch before plus loudness: a phrase start out of a pause scores high.
   const candidates: { index: number; score: number }[] = [];
   for (let i = 1; i < levels.length; i++) {
     const level = levels[i]!;
@@ -81,7 +71,6 @@ export function findPunchIns(envelope: SpeechEnvelope, minGap: number): PunchIn[
   });
 }
 
-/** Punch-ins on a steady beat, for a clip with no voice to follow. */
 export function evenPunchIns(duration: number, minGap: number): PunchIn[] {
   const every = minGap * 1.25;
   const hold = clamp(every / 2.5, MIN_HOLD_SECONDS, MAX_HOLD_SECONDS);
@@ -92,11 +81,7 @@ export function evenPunchIns(duration: number, minGap: number): PunchIn[] {
   return punches;
 }
 
-/**
- * Puts punch-ins from several clips in one order and keeps them apart: one
- * closer than `minGap` to the one before is dropped, and each ends at least
- * `room` before the next begins, so their ramps never overlap.
- */
+/** Each ends at least `room` before the next begins, so their ramps never overlap. */
 export function mergePunchIns(punches: PunchIn[], minGap: number, room: number): PunchIn[] {
   const sorted = [...punches].sort((a, b) => a.start - b.start);
   const kept: PunchIn[] = [];
@@ -112,7 +97,7 @@ export function mergePunchIns(punches: PunchIn[], minGap: number, room: number):
   return kept.filter((punch) => punch.end > punch.start);
 }
 
-/** The levels averaged in power over blocks of `per` frames, back in dB. */
+/** Averaged in power, back in dB. */
 function blocks(levels: Float32Array, per: number): Float32Array {
   const count = Math.floor(levels.length / per);
   const out = new Float32Array(count);
@@ -124,7 +109,6 @@ function blocks(levels: Float32Array, per: number): Float32Array {
   return out;
 }
 
-/** The block where the phrase starting at `from` falls quiet for longer than `dip` blocks. */
 function endOfPhrase(levels: Float32Array, from: number, line: number, dip: number): number {
   let quiet = 0;
   for (let i = from; i < levels.length; i++) {

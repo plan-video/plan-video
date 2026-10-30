@@ -1,7 +1,3 @@
-// Projects in the browser live in IndexedDB. A project is still a folder of
-// files (package.json, index.tsx, the asset library); the folder is just
-// not on the computer's disk.
-
 import { openDB } from "idb";
 import type * as idb from "idb";
 
@@ -40,11 +36,8 @@ interface ChangedDB extends idb.DBSchema {
   };
 }
 
-/**
- * Files written since their last cloud backup, and when. A database of its
- * own, so adding it didn't need a version change that an open older tab
- * would block. Marked before the file is written, so a closed tab loses none.
- */
+// A database of its own, so adding it needed no version change an open older tab
+// would block. Marked before the file is written, so a closed tab loses none.
 const changedPromise = openDB<ChangedDB>("plan-studio-changed", 1, {
   upgrade(db) {
     db.createObjectStore("changed", { keyPath: "path" });
@@ -54,11 +47,8 @@ const changedPromise = openDB<ChangedDB>("plan-studio-changed", 1, {
 const listeners = new Set<() => void>();
 const outsideListeners = new Set<(paths: readonly string[]) => void>();
 
-/**
- * The other tabs of this browser, which share these files: each write is
- * announced to them, so a tab with the same project open can take it up
- * rather than save over it.
- */
+// Writes are announced to other tabs, so one with the same project open takes them up
+// rather than saving over them.
 const tabs = typeof BroadcastChannel === "undefined" ? null : new BroadcastChannel(DB_NAME);
 
 tabs?.addEventListener("message", (event: MessageEvent<{ paths?: unknown }>) => {
@@ -66,23 +56,17 @@ tabs?.addEventListener("message", (event: MessageEvent<{ paths?: unknown }>) => 
   if (Array.isArray(paths)) changedElsewhere(paths.filter((path): path is string => typeof path === "string"));
 });
 
-/** Calls back after any project file is written, copied, moved or removed. */
 export function onFilesChanged(listener: () => void): () => void {
   listeners.add(listener);
   return () => listeners.delete(listener);
 }
 
-/**
- * Calls back with the project files changed outside this tab: written by
- * another tab of this browser, or brought down from another browser by the
- * cloud sync (see `changedElsewhere`). This tab's own writes are not reported.
- */
+/** Changes from other tabs or the cloud sync (`changedElsewhere`); this tab's own writes aren't reported. */
 export function onFilesChangedElsewhere(listener: (paths: readonly string[]) => void): () => void {
   outsideListeners.add(listener);
   return () => outsideListeners.delete(listener);
 }
 
-/** Reports files that came from somewhere else, as another tab's write is reported. */
 export function changedElsewhere(paths: readonly string[]): void {
   if (!paths.length) return;
   for (const listener of outsideListeners) listener(paths);
@@ -99,7 +83,6 @@ function announce(paths: readonly string[]) {
   if (paths.length) tabs?.postMessage({ paths });
 }
 
-/** Every path stored, files and folders. */
 export async function allPaths(): Promise<string[]> {
   return (await dbPromise).getAllKeys("files");
 }
@@ -152,18 +135,13 @@ export async function writeText(path: string, text: string): Promise<void> {
   await writeBytes(path, new TextEncoder().encode(text));
 }
 
-/**
- * Writes `text` to `path`, or removes the file for null, only if it still
- * holds `expected` (null: no file). The check and the write are one
- * transaction, so no other tab's write can land between them. Answers whether
- * the file was written.
- */
+/** The check and the write are one transaction, so no other tab's write can land between them. */
 export async function replaceText(path: string, expected: string | null, text: string | null): Promise<boolean> {
   if (text !== null) await ensureDirectory(parentPath(path));
   const db = await dbPromise;
   const mtime = Date.now();
-  // Marked first, as every write is. A replace that is refused leaves its mark
-  // on a file it did not write, where the next backup finds nothing new.
+  // Marked first, as every write is. A refused replace leaves a mark on a file it didn't
+  // write, where the next backup just finds nothing new.
   if (text !== null) await markChanged([{ path, at: mtime }]);
 
   const tx = db.transaction("files", "readwrite");
@@ -183,12 +161,7 @@ export async function replaceText(path: string, expected: string | null, text: s
 
 const sameBytes = (a: Uint8Array, b: Uint8Array) => a.byteLength === b.byteLength && a.every((byte, index) => byte === b[index]);
 
-/**
- * `replaceText` for any file: writes `data` to `path` only if it still holds
- * `expected`, or with `expected` null only if nothing is there yet, in one
- * transaction. Answers the time it was written at, or null when the file had
- * changed.
- */
+/** Like `replaceText` for bytes, in one transaction; null when the file had changed, else the write time. */
 export async function replaceBytes(path: string, expected: Uint8Array | null, data: Uint8Array): Promise<number | null> {
   await ensureDirectory(parentPath(path));
   const db = await dbPromise;
@@ -259,7 +232,6 @@ export async function removeTree(path: string): Promise<void> {
   announce(removing);
 }
 
-/** Copies every file under `from` to the same place under `to`. `keepTimes` keeps each file's time, for the same files in another place. */
 export async function copyTree(from: string, to: string, { keepTimes = false } = {}): Promise<void> {
   const db = await dbPromise;
   const prefix = `${from}/`;
@@ -278,7 +250,6 @@ export async function copyTree(from: string, to: string, { keepTimes = false } =
   announce(copying.map((record) => target(record.path)));
 }
 
-/** Moves every file under `from` to the same place under `to`. */
 export async function moveTree(from: string, to: string): Promise<void> {
   const db = await dbPromise;
   const prefix = `${from}/`;

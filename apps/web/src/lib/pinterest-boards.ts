@@ -2,9 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The Pinterest boards posts went to, newest first, so the next pin can pick
-// one in a click. Until Pinterest is connected these are names as typed.
-
 import { createSignal } from "solid-js";
 
 import { queueAccountSync } from "@/lib/account-sync-bus";
@@ -21,7 +18,7 @@ export function cleanBoardName(raw: string): string {
   return raw.trim().replace(/\s+/g, " ").slice(0, 50);
 }
 
-/** Reads the account copy again. `loadPinterestBoards` does nothing when this key is already loaded. */
+/** `loadPinterestBoards` does nothing when this key is already loaded. */
 export function reloadPinterestBoards(userId: string | undefined) {
   loadedKey = undefined;
   loadPinterestBoards(userId);

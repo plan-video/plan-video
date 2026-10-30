@@ -25,23 +25,14 @@ function sanitizeRoute(route: string): string | null {
   return qs ? `${path}?${qs}` : path;
 }
 
-/**
- * Desktop loads index.html with a bare URL on every launch, so unlike the
- * browser the hash route (and the ?project= param inside it) is lost across
- * restarts. Restores the last saved route at boot — call before the router
- * mounts.
- */
+/** Desktop loads a bare URL on every launch, losing the hash route. Call before the router mounts. */
 export function restoreLastRoute() {
   if (window.location.hash) return;
   const saved = store.get<string>(ROUTE_KEY);
   if (saved) window.location.hash = saved;
 }
 
-/**
- * Keeps the saved route in sync with router navigation. HashRouter navigates
- * via pushState, which fires no hashchange event, so this has to live inside
- * the router tree. Desktop only.
- */
+/** Must live inside the router: HashRouter navigates via pushState, which fires no hashchange. Desktop only. */
 export function PersistRoute() {
   const location = useLocation();
 

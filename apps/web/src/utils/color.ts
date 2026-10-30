@@ -51,31 +51,7 @@ const NAMED_COLORS: Record<string, string> = {
   mint: "3EB489",
 };
 
-/**
- * Parses any colord-compatible input (hex with or without `#`, short hex,
- * `rgb()`, `hsl()`, named colors, etc.) into a numeric hex color (0xRRGGBB).
- *
- * For string input, applies a hex input fallback — normalizes
- * arbitrary input to a valid 6-char hex string.
- *
- * Rules (matches Figma's behavior):
- *   1. Strip all non-hex characters [^0-9A-Fa-f].
- *   2. Normalize the surviving hex string by length:
- *        0 chars → null (revert to previous color, no change)
- *        1 char  → repeat 6×              "A"     → "AAAAAA"
- *        2 chars → repeat 3×              "AB"    → "ABABAB"
- *        3 chars → CSS shorthand, double  "ABC"   → "AABBCC"
- *        4 chars → pad right with 0s      "ABCD"  → "ABCD00"
- *        5 chars → pad right with 0       "ABCDE" → "ABCDE0"
- *        6 chars → use as-is             "ABCDEF" → "ABCDEF"
- *        7+ chars → truncate to first 6  "ABCDEFG" → "ABCDEF"
- *   3. Return the result uppercased.
- *
- * This means typing gibberish still produces a deterministic color:
- *   "redredred"    → strip non-hex → "ededed" (6) → "EDEDED"
- *   "blueblueblue" → strip non-hex → "bebebe" (6) → "BEBEBE"
- *   "hello"        → strip non-hex → "e"      (1) → "EEEEEE"
- */
+/** Matches Figma's hex input: non-hex characters are stripped, then 1-2 chars repeat, 3 double, 4-5 pad with 0, 7+ truncate. */
 export function parseColor(input: string): number | null {
   const trimmed = input.trim();
   if (trimmed.length === 0) return null;
@@ -106,13 +82,6 @@ export function parseColor(input: string): number | null {
   return parseInt(normalized.toUpperCase(), 16);
 }
 
-/**
- * Converts RGB values to HSL values.
- * @param r - Red value (0-255)
- * @param g - Green value (0-255)
- * @param b - Blue value (0-255)
- * @returns An object with h (0-360), s (0-100), l (0-100) values
- */
 export function rgbToHsl(r: number, g: number, b: number): { h: number; s: number; l: number } {
   const nr = r / 255;
   const ng = g / 255;
@@ -146,12 +115,6 @@ export function rgbToHsl(r: number, g: number, b: number): { h: number; s: numbe
   };
 }
 
-/**
- * Converts HSL values to RGB channel values (0-255).
- * @param h - Hue value (0-360)
- * @param s - Saturation value (0-100)
- * @param l - Lightness value (0-100)
- */
 export function hslToRgb(h: number, s: number, l: number): { r: number; g: number; b: number } {
   const sat = s / 100;
   const light = l / 100;
@@ -191,13 +154,6 @@ export function hslToRgb(h: number, s: number, l: number): { r: number; g: numbe
   };
 }
 
-/**
- * Converts RGB values to HSV values.
- * @param r - Red value (0-255)
- * @param g - Green value (0-255)
- * @param b - Blue value (0-255)
- * @returns An object with h (0-360), s (0-100), v (0-100) values
- */
 export function rgbToHsv(
   r: number,
   g: number,
@@ -224,13 +180,6 @@ export function rgbToHsv(
   return { h: Math.round(h), s, v };
 }
 
-/**
- * Converts HSV values to RGB values.
- * @param h - Hue value (0-360)
- * @param s - Saturation value (0-100)
- * @param v - Value value (0-100)
- * @returns An object with r, g, b values (0-255)
- */
 export function hsvToRgb(
   h: number,
   s: number,
@@ -273,12 +222,6 @@ export function hsvToRgb(
   };
 }
 
-/**
- * Merges a numeric hex color (0xRRGGBB) with an opacity to create a rgba string.
- * @param color - The numeric hex color to merge with the opacity
- * @param opacity - The opacity to merge with the color
- * @returns A rgba string representing the color with the opacity merged
- */
 export function mergeColorWithOpacity(color: number = 0xFFFFFF, opacity: number = 1) {
   const clampedOpacity = Math.round(clamp(opacity, 0, 1) * 100) / 100;
   const r = (color >> 16) & 0xFF;
@@ -287,16 +230,10 @@ export function mergeColorWithOpacity(color: number = 0xFFFFFF, opacity: number 
   return `rgba(${r}, ${g}, ${b}, ${clampedOpacity})`;
 }
 
-/**
- * Converts a numeric hex color (0xRRGGBB) to a CSS hex string (#RRGGBB).
- */
 export function colorToHex(color: number): string {
   return "#" + ((1 << 24) | (color & 0xFFFFFF)).toString(16).slice(1).toUpperCase();
 }
 
-/**
- * Packs RGB channel values (0-255) into a numeric hex color (0xRRGGBB).
- */
 export function rgbToColor(r: number, g: number, b: number): number {
   const rc = clamp(Math.round(r), 0, 255);
   const gc = clamp(Math.round(g), 0, 255);
@@ -304,9 +241,6 @@ export function rgbToColor(r: number, g: number, b: number): number {
   return (rc << 16) | (gc << 8) | bc;
 }
 
-/**
- * Unpacks a numeric hex color (0xRRGGBB) into RGB channel values (0-255).
- */
 export function colorToRgb(color: number): { r: number; g: number; b: number } {
   return {
     r: (color >> 16) & 0xFF,

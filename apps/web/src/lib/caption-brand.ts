@@ -2,12 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// A caption look saved once and put on any caption after: the preset and its
-// colors, font, paints, position, pacing and animations, and the color
-// keywords are highlighted in. New auto-captions start from it. Saved on the
-// account, one per workspace, like the templates. Reading a look off a
-// caption and putting one on is caption-look.ts: the account's copy loads
-// this file on every dashboard page, and the editor's runtime stays out of it.
+// Applying a look lives in caption-look.ts: the account copy loads this file on every dashboard page,
+// so the editor's runtime must stay out of it.
 
 import { createSignal } from "solid-js";
 
@@ -18,9 +14,7 @@ import { workspaceKey } from "@/lib/workspaces";
 import type { PropValue } from "@plan.video/jsx";
 import type { AuthoredTree } from "@plan.video/reconciler";
 
-/** A caption's look, as the file spells it. */
 export type CaptionLook = {
-  /** The caption's own props that make its look. */
   props: Record<string, PropValue>;
   /** Paints, strokes, shadows and animations under it. */
   children: AuthoredTree[];
@@ -28,12 +22,11 @@ export type CaptionLook = {
 
 export type CaptionBrandStyle = CaptionLook & {
   id: string;
-  /** What keywords are highlighted in. */
   highlight: number;
   updatedAt: string;
 };
 
-/** One brand style per workspace, kept as a list so the account merges it like the rest. */
+/** Kept as a list so the account merges it like the rest. */
 const BRAND_ID = "brand";
 
 /** Yellow reads on light and dark footage alike. */
@@ -42,7 +35,6 @@ export const DEFAULT_HIGHLIGHT = 0xffd60a;
 const [items, setItems] = createSignal<CaptionBrandStyle[]>([]);
 let loadedKey: string | undefined;
 
-/** The brand style of the active workspace, if one was saved. */
 export const captionBrandStyle = () => items().find((item) => item.id === BRAND_ID);
 
 function readStyle(value: unknown): CaptionBrandStyle | null {
@@ -58,7 +50,7 @@ function readStyle(value: unknown): CaptionBrandStyle | null {
   };
 }
 
-/** Reads the account copy again. `loadCaptionStyles` does nothing when this key is already loaded. */
+/** `loadCaptionStyles` does nothing when this key is already loaded. */
 export function reloadCaptionStyles(userId: string | undefined) {
   loadedKey = undefined;
   loadCaptionStyles(userId);
@@ -97,13 +89,13 @@ function write(next: CaptionBrandStyle[]): boolean {
   return true;
 }
 
-/** Saves `look` as the brand style. False when it could not be kept. */
+/** False when it could not be kept. */
 export function saveCaptionBrandStyle(look: CaptionLook, highlight = captionBrandStyle()?.highlight ?? DEFAULT_HIGHLIGHT): boolean {
   const style: CaptionBrandStyle = { id: BRAND_ID, ...look, highlight, updatedAt: new Date().toISOString() };
   return write([...items().filter((item) => item.id !== BRAND_ID), style]);
 }
 
-/** Keeps the highlight color with the brand style, when there is one. */
+/** Only when there is one. */
 export function setBrandHighlight(highlight: number): void {
   const style = captionBrandStyle();
   if (!style || style.highlight === highlight) return;

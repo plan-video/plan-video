@@ -11,7 +11,7 @@ import type { DocumentEditor } from "@/engine/editor";
 import type { CaptionLook } from "@/lib/caption-brand";
 import type { Entity, World } from "koota";
 
-/** Props that say which caption this is, where it sits in time or what it says, not how it looks. */
+/** Props about which caption this is, its time or its words, not how it looks. */
 const NOT_LOOK = new Set([
   "name",
   "selected",
@@ -31,12 +31,11 @@ const NOT_LOOK = new Set([
   SOURCE_ATTR,
 ]);
 
-/** Children that play at a time of their own, which another caption does not share. */
+/** They play at a time of their own, which another caption does not share. */
 const TIMED = new Set(["keyframeTrack"]);
 
 const isLookProp = (name: string) => !NOT_LOOK.has(name);
 
-/** `caption`'s look, as plain data a brand style keeps. */
 export function readCaptionLook(world: World, caption: Entity): CaptionLook | null {
   const tree = authoredTree(world, caption);
   if (!tree) return null;
@@ -47,11 +46,7 @@ export function readCaptionLook(world: World, caption: Entity): CaptionLook | nu
   return JSON.parse(JSON.stringify({ props, children: tree.children.filter((child) => !TIMED.has(child.tag)) })) as CaptionLook;
 }
 
-/**
- * Puts `look` on `caption`: look props it does not have go, its own are
- * written, and the caption's paints and animations are replaced by its.
- * One undo step, since the edits land in one task.
- */
+/** Look props it lacks are removed, its paints and animations replaced. One undo step: the edits land in one task. */
 export function applyCaptionLook(world: World, editor: DocumentEditor, caption: Entity, look: CaptionLook): void {
   const current = authoredTree(world, caption);
   if (!current) return;

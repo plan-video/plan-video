@@ -16,8 +16,7 @@ import { mainBridge } from "./ipc";
 import { MAIN_CHANNELS } from "@desktop/main-channels";
 
 function toastMessage(err: unknown, fallback: string): string {
-  // Empty / non-JSON 500 bodies (e.g. upstream crashed before tRPC could
-  // serialize the error) surface as a SyntaxError — not useful to display.
+  // Empty or non-JSON 500 bodies (upstream crashed before tRPC serialized the error) surface as a SyntaxError.
   if (err instanceof TRPCClientError && err.cause instanceof SyntaxError) {
     return fallback;
   }
@@ -53,7 +52,7 @@ function parseCredits(tier: string): number {
   return parseInt(tier.replace("_", ""), 10);
 }
 
-/** Monthly display price (USD) for a subscription tier. */
+/** USD. */
 export function getSubscriptionPrice(
   tier: SubscriptionCredits,
   billing: BillingPeriod,
@@ -65,7 +64,7 @@ export function getSubscriptionPrice(
   return Math.round(price);
 }
 
-/** One-time topup price (USD) for a topup tier. */
+/** USD. */
 export function getTopupPrice(tier: TopupCredits): number {
   const credits = parseCredits(tier);
   const markup = TOPUP_MARKUP[tier];
@@ -89,7 +88,7 @@ function successAndCancelUrls(): { successUrl: string; cancelUrl: string } {
   return { successUrl: success.toString(), cancelUrl };
 }
 
-/** Hands the URL to the system browser on desktop; navigates in place on web. */
+/** The system browser on desktop; in place on web. */
 async function openCheckoutUrl(url: string): Promise<void> {
   if (window.desktop) {
     await mainBridge.call(MAIN_CHANNELS.APP_OPEN_EXTERNAL, { url });

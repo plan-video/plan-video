@@ -1,5 +1,4 @@
-// lib/post-rows.ts against a local Supabase (supabase start), skipped when none answers: pages follow on from
-// the last row, so posts changed while the pages are read are never skipped.
+// Needs a local Supabase (supabase start); skipped when none answers.
 
 import { randomUUID } from "node:crypto";
 
@@ -28,7 +27,7 @@ describe.skipIf(!reachable)("reading posts a page at a time", () => {
       );
       expect(error).toBeNull();
     }
-    // Pages of 100, and while they're read, posts from early pages change, which moves them to the end.
+    // Posts from early pages change while they're read, which moves them to the end.
     let pages = 0;
     const paging = { from: db.from.bind(db) };
     const touched: string[] = [];
@@ -49,10 +48,8 @@ describe.skipIf(!reachable)("reading posts a page at a time", () => {
     const rows = await readPostRows(watched, owner, "default", null, 100);
     const seen = new Set(rows.map((row) => row.id));
     expect([...ids].filter((id) => !seen.has(id))).toEqual([]);
-    // In change order throughout.
     const times = rows.map((row) => row.updated_at);
     expect([...times].sort()).toEqual(times);
-    // Only what changed since a time.
     const since = rows[rows.length - 1]!.updated_at;
     await db.from("posts").update({ data: { id: "p0001", title: "later", status: "draft" } }).match({ owner_id: owner, id: "p0001" });
     const later = await readPostRows(db, owner, "default", since);

@@ -2,9 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Deleting a workspace, with what it kept on the server: the logins of its
-// accounts, its posts' and media library's files, and the shared previews of
-// its posts (see workspace-leftovers.ts for why these can't stay behind).
+// Also deletes the server's logins, files and shared previews (see workspace-leftovers.ts for why these can't stay).
 
 import { everyFileOf, readCalendarSnapshot } from "@/components/calendar/store";
 import { flushAccountSync, readSlice } from "@/lib/account-sync";
@@ -18,11 +16,11 @@ import { flushAllPosts } from "@/lib/post-sync";
 import { leftoversOf, type WorkspaceParts } from "@/lib/workspace-leftovers";
 import { deleteWorkspace, workspaces } from "@/lib/workspaces";
 
-/** Deletes the owner's workspace `id` and what it kept on the server. Returns why it couldn't, for the user. */
+/** Returns why it couldn't, for the user. */
 export async function deleteWorkspaceEverywhere(userId: string, id: string): Promise<string | undefined> {
   // The demo has nothing on the server.
   if (inGuestMode()) return deleteWorkspace(id);
-  // What each workspace has, as the account has it: an id the other workspaces list stays.
+  // Flushed first, so what each workspace has matches the account: an id the other workspaces list stays.
   if (!(await flushAccountSync()) || !(await flushAllPosts())) return t("Couldn't reach the server. Try again in a moment.");
   let parts: { gone: WorkspaceParts; kept: WorkspaceParts[] } | null = null;
   try {
@@ -43,7 +41,7 @@ export async function deleteWorkspaceEverywhere(userId: string, id: string): Pro
     const files = libraryFiles.flatMap((file) => [file, posterId(file)]);
     queueCloud(`media-delete:${libraryFiles.join(",")}`, () => deleteFromCloud("media", files, null));
   }
-  // Its posts' links stop working. forget_workspace_team does the same on the server.
+  // forget_workspace_team does the same on the server.
   void supabase
     ?.from("post_previews")
     .delete()
@@ -54,7 +52,6 @@ export async function deleteWorkspaceEverywhere(userId: string, id: string): Pro
     });
 }
 
-/** A workspace's accounts and library from its lists, and its posts and their files from this browser's copy of them. */
 async function partsOf(userId: string, id: string): Promise<WorkspaceParts> {
   const [slice, posts] = await Promise.all([readSlice(userId, id), readCalendarSnapshot(userId, id)]);
   if (!posts) throw new Error("Could not read posts");

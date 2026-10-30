@@ -2,12 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The dashboard's Assistant: a chat that writes and schedules posts. Each step goes
-// to services/agent, which holds the model; the tools it asks for run here
-// (see ./agent-tools), and the browser loops until it answers. Chats are kept
-// per workspace, so an earlier one can be opened again: in this browser, and
-// on the account when the agent_chats table is there, which is the copy other
-// browsers see.
+// Tool calls run here (./agent-tools); services/agent holds the model. Chats are kept in this browser,
+// and on the account when the agent_chats table is there.
 
 import { openDB, type IDBPDatabase } from "idb";
 import { createSignal } from "solid-js";
@@ -32,13 +28,12 @@ type ToolResultBlock = { type: "tool_result"; tool_use_id: string; content: stri
 /** Thinking and the rest are sent back exactly as they came. */
 type OtherBlock = { type: string; [key: string]: unknown };
 type Block = TextBlock | ToolUseBlock | ToolResultBlock | OtherBlock;
-/** `sig` is the server's signature on a step the model wrote; the server won't take the step back without it. */
+/** `sig` is the server's signature on a model step; the server won't take the step back without it. */
 type ApiMessage = { role: "user" | "assistant"; content: Block[]; sig?: string };
 
 export type Rating = "up" | "down";
 export type ChatSummary = { id: string; title: string; updatedAt: string };
 
-/** What the chat shows: each message sent, and the answer to it. */
 export type ChatItem =
   | { kind: "user"; text: string; media: string[] }
   | { kind: "answer"; key: string; parts: AnswerPart[]; changed: boolean };
@@ -47,7 +42,6 @@ export type AnswerPart =
   | { kind: "text"; text: string }
   | { kind: "tool"; name: string; status: "running" | "done" | "error" };
 
-/** A post the agent wants to publish, delete, send within minutes or put on a TikTok profile, as the person is asked about it. */
 export type Confirmation = ConfirmRequest;
 
 type State = {
@@ -60,9 +54,7 @@ type State = {
   feedback: Record<string, Rating>;
   busy: boolean;
   opening: boolean;
-  /** The step being written: its words so far, and the tool it's calling. */
   live: { text: string; tool: string | null };
-  /** Set while a call waits for the person's yes. */
   confirm: Confirmation | null;
   error: string | null;
 };
@@ -95,34 +87,23 @@ let controller: AbortController | null = null;
 /** Once the table turns out to be missing, chats are kept in this browser only. */
 let historyOff = false;
 
-// --- the page in view ----------------------------------------------------
-
-/** The dashboard page the panel was opened over, by its English name. Null on the Assistant page. */
+/** By its English name. Null on the Assistant page. */
 let openPage: string | null = null;
 
-/** Called by the corner panel, so "this" and "here" in a message can be read against the page. */
+/** So "this" and "here" in a message can be read against the page. */
 export function setAssistantPage(page: string | null) {
   openPage = page;
 }
 
-// --- the message being written ------------------------------------------
-
-/**
- * The words in the box and the media inserted for them. Kept here rather than
- * in the box, so the panel and the page show one draft: opening the full page
- * from the panel brings it along, and sending from either clears both.
- */
+/** Kept here, not in the box, so the panel and the page share one draft. */
 const [draftText, setDraftText] = createSignal("");
 const [draftMedia, setDraftMedia] = createSignal<MediaItem[]>([]);
 
 export { draftMedia, draftText, setDraftMedia, setDraftText };
 
-// --- channels -------------------------------------------------------------
-
 const [picked, setPicked] = createSignal<string[]>([]);
 let pickedKey: string | undefined;
 
-/** The channels the agent writes for, by connection id. */
 export function pickedChannels(): string[] {
   const connected = new Set(socialConnections().map((account) => account.id));
   return picked().filter((id) => connected.has(id));
@@ -148,9 +129,7 @@ function loadPicked(userId: string) {
   }
 }
 
-// --- history --------------------------------------------------------------
-
-/** A saved chat, the same in this browser and in the agent_chats table. */
+/** The same in this browser and in the agent_chats table. */
 type ChatRow = {
   id: string;
   user_id: string;
@@ -165,7 +144,7 @@ const LOCAL_DB = "plan-video-agent-chats";
 const LOCAL_STORE = "chats";
 const databases = new Map<string, Promise<IDBPDatabase | null>>();
 
-/** This workspace's chats in this browser. Null where IndexedDB is refused, such as some private windows. */
+/** Null where IndexedDB is refused, such as some private windows. */
 function localChats(): Promise<IDBPDatabase | null> {
   const name = workspaceDatabase(LOCAL_DB);
   let database = databases.get(name);
@@ -190,13 +169,11 @@ async function localRows(userId: string): Promise<ChatRow[]> {
 }
 
 /**
- * YouTube's rules let plan.video keep what it read from YouTube for 30 days,
- * so a chat whose Analytics answer included a YouTube channel is deleted 30
- * days after its last message, here and (services/publisher) on the account.
+ * YouTube's terms allow keeping its data 30 days: a chat holding YouTube Analytics is deleted 30 days after
+ * its last message, here and on the account (services/publisher).
  */
 export const YOUTUBE_CHAT_DAYS = 30;
 
-/** Whether the chat holds YouTube numbers or video titles the Analytics tool returned. */
 export function chatHoldsYouTube(messages: readonly ApiMessage[]): boolean {
   const analytics = new Set<string>();
   for (const message of messages) {
@@ -222,7 +199,6 @@ function historyFailed(error: { code?: string; message?: string }) {
 }
 
 const remoteOn = () => !!supabase && !!user && !historyOff;
-/** Of two copies of a chat, the one saved last. */
 function newer<T extends { updated_at: string }>(a: T | undefined, b: T | undefined): T | undefined {
   if (!a || !b) return a ?? b;
   return Date.parse(b.updated_at) > Date.parse(a.updated_at) ? b : a;
@@ -232,7 +208,7 @@ function freshChat() {
   setState({ id: null, title: "", messages: [], feedback: {}, live: { text: "", tool: null }, confirm: null, error: null });
 }
 
-/** Loads the chats of the user's active workspace. Reads the workspace, so an effect reloads after a switch. */
+/** Reads the workspace, so an effect reloads after a switch. */
 export function loadAgentChats(current: User | null | undefined) {
   user = current ?? null;
   const key = user ? `${user.id}:${activeWorkspaceId()}` : undefined;
@@ -259,7 +235,7 @@ onWorkspaceChange(() => {
   loadAgentChats(user);
 });
 
-/** The chats in this browser and on the account, together, newest first. */
+/** Newest first. */
 async function fetchList(key: string) {
   if (!user) return;
   const userId = user.id;
@@ -293,7 +269,7 @@ async function fetchList(key: string) {
 
 let saving: Promise<void> = Promise.resolve();
 
-/** Saves the open chat. Calls run in order, so an older copy never lands last. */
+/** Calls run in order, so an older copy never lands last. */
 function save() {
   const id = state.id;
   if (!id || !user) return;
@@ -370,13 +346,10 @@ export function rateAnswer(key: string, rating: Rating) {
   save();
 }
 
-// --- what the chat shows --------------------------------------------------
-
 const isText = (block: Block): block is TextBlock => block.type === "text" && typeof (block as TextBlock).text === "string";
 const isContext = (block: TextBlock) => block.text.startsWith(CONTEXT_OPEN);
 const MEDIA_ID = /^media:(\S+)/gm;
 
-/** The conversation as messages sent and answers, with each tool call's outcome. */
 export function chatItems(): ChatItem[] {
   const items: ChatItem[] = [];
   const outcome = new Map<string, boolean>();
@@ -418,8 +391,6 @@ export function chatItems(): ChatItem[] {
   return items;
 }
 
-// --- sending --------------------------------------------------------------
-
 function channelLine(): string {
   const chosen = pickedChannels()
     .map((id) => socialConnections().find((account) => account.id === id))
@@ -460,7 +431,6 @@ function titleOf(text: string): string {
 type Step = { content: Block[]; stop_reason: string | null; sig?: string };
 type Line = { type: "text"; text: string } | { type: "tool"; name: string } | ({ type: "done" } & Step) | { type: "error"; error: string };
 
-/** One model step, streamed: its words show as they come. */
 async function ask(signal: AbortSignal): Promise<Step> {
   const session = supabase ? (await supabase.auth.getSession()).data.session : null;
   if (!session) throw new Error(t("Sign in to use the Assistant."));
@@ -513,12 +483,11 @@ function pushResult(result: ToolResultBlock, first: boolean) {
 
 let answerConfirm: ((yes: boolean) => void) | null = null;
 
-/** The person's answer to the call waiting in the chat. */
 export function confirmAgentAction(yes: boolean) {
   answerConfirm?.(yes);
 }
 
-/** Shows the post a call is about, and waits for a yes or a no. Stopping the turn is a no. */
+/** Stopping the turn is a no. */
 async function confirmInChat(request: ConfirmRequest, signal: AbortSignal): Promise<boolean> {
   if (signal.aborted) return false;
   setState("confirm", request);
@@ -533,7 +502,6 @@ async function confirmInChat(request: ConfirmRequest, signal: AbortSignal): Prom
   }
 }
 
-/** Runs the turn to its end: every tool the model asks for, until it answers. */
 async function run() {
   const running = new AbortController();
   controller = running;
@@ -563,7 +531,6 @@ async function run() {
           pushResult({ type: "tool_result", tool_use_id: call.id, content: text, is_error: true }, index === 0);
           continue;
         }
-        // Publishing, deleting, a post due within minutes or one for a TikTok profile waits for the person's yes.
         const output = await runAgentTool(call.name, call.input, { user: () => user, signal, confirm: (request) => confirmInChat(request, signal) });
         if (state.id !== chat) return;
         pushResult({ type: "tool_result", tool_use_id: call.id, content: output.text, ...(output.error ? { is_error: true } : {}) }, index === 0);
@@ -585,7 +552,6 @@ async function run() {
   }
 }
 
-/** Sends a message with the media inserted for it, and runs the turn. */
 export async function sendToAgent(text: string, media: readonly MediaItem[] = []) {
   const prompt = text.trim() || (media.length ? "Use the attached media." : "");
   if (!prompt || state.busy || !user) return;
@@ -618,13 +584,12 @@ export async function sendToAgent(text: string, media: readonly MediaItem[] = []
   await run();
 }
 
-/** Runs the turn again after it failed before any answer came. */
 export async function retryAgent() {
   if (state.busy || state.messages[state.messages.length - 1]?.role !== "user") return;
   await run();
 }
 
-/** Writes the last answer again. Only offered when that answer changed nothing on the calendar. */
+/** Only offered when that answer changed nothing on the calendar. */
 export async function regenerateLast() {
   if (state.busy) return;
   const items = chatItems();

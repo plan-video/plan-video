@@ -2,12 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Fetches connected accounts' real numbers for the analytics pages. Each
-// account is asked once per visit; until it answers, it shows no numbers.
-//
-// YouTube sends each day's numbers. TikTok, Instagram, Facebook and Threads
-// only send each post's totals so far, so those count on the day the post
-// went out. The last three also say how many follow the account.
+// Only YouTube sends daily numbers; the others send post totals, counted on the day the post went out.
 
 import { createSignal } from "solid-js";
 
@@ -19,16 +14,11 @@ import { socialConnections, type SocialConnection } from "@/lib/social-connectio
 import { loadTikTokVideos, tiktokAllows } from "@/lib/tiktok";
 import { loadYouTubeAnalytics } from "@/lib/youtube";
 
-/**
- * Each account's request for its numbers, by `AnalyticsSource.key`: once per
- * visit, and again when the account is connected anew with other permissions,
- * so reconnecting clears what was missing without a reload.
- */
+/** Asked again when the account reconnects with other permissions, so that clears without a reload. */
 const asked = new Map<string, { scope: string; run: Promise<void> }>();
-/** "loading" for a source whose numbers are on the way, or what went wrong. Gone once they arrive. */
+/** Gone once they arrive. */
 const [pending, setPending] = createSignal<ReadonlyMap<string, string>>(new Map());
 
-/** "loading", or why a source has no numbers, by `AnalyticsSource.key`. Undefined once it has them. */
 export function syncState(key: string) {
   return pending().get(key);
 }
@@ -48,7 +38,7 @@ function byDay(days: readonly { date: string; views: number; likes: number; comm
   return map;
 }
 
-/** YYYY-MM-DD in UTC, which is close enough to the Pacific days YouTube counts in. */
+/** UTC is close enough to the Pacific days YouTube counts in. */
 function isoDay(time: number) {
   return new Date(time).toISOString().slice(0, 10);
 }
@@ -59,10 +49,7 @@ async function syncYouTube(account: SocialConnection) {
   setSyncedNumbers(`youtube:${account.id}`, { days: byDay(days), posts: videos });
 }
 
-/**
- * TikTok only reports each video's numbers so far, so they count on the day the video went out:
- * a range shows what the videos posted in it have drawn, the same as its post list.
- */
+/** TikTok only reports each video's totals, so they count on the day it went out. */
 async function syncTikTok(account: SocialConnection, session: NonNullable<SocialConnection["tiktok"]>) {
   if (!tiktokAllows(session.scope, "video.list")) {
     throw new Error(t("Disconnect TikTok in Connections and connect it again, so plan.video can read its numbers."));
@@ -81,7 +68,6 @@ async function syncTikTok(account: SocialConnection, session: NonNullable<Social
   setSyncedNumbers(`tiktok:${account.id}`, { days, posts: videos });
 }
 
-/** Totals per day, from posts' totals so far, each on the day it went out. */
 function onPostingDays(posts: readonly (Totals & { postedAt: number })[]) {
   const days = new Map<number, Totals>();
   for (const post of posts) {
@@ -98,14 +84,14 @@ function onPostingDays(posts: readonly (Totals & { postedAt: number })[]) {
 
 type MetaNumbers = { followers?: number | null; videos?: (Totals & { id: string; title: string; postedAt: number; cover?: string; url?: string })[] };
 
-/** An Instagram account's, Facebook Page's or Threads profile's recent posts and followers, read by the publisher. */
+/** Read by the publisher. */
 async function syncMeta(account: SocialConnection, network: MetaNetwork) {
   const found = await askMeta<MetaNumbers>(network, "analytics", { connectionId: account.id }, t("Couldn't load its numbers. Try again later."));
   const posts = (found.videos ?? []).filter((post) => post.postedAt > 0);
   setSyncedNumbers(`${network}:${account.id}`, { days: onPostingDays(posts), posts, followers: found.followers ?? null });
 }
 
-/** One post's numbers for each day since it went out. Only YouTube counts a post's days. */
+/** Only YouTube counts a post's days. */
 export async function loadPostDays(userId: string | undefined, post: AnalyticsPost): Promise<ReadonlyMap<number, Totals>> {
   const account = socialConnections().find((item) => `${item.platform}:${item.id}` === post.source);
   if (!userId || !account?.youtube || !post.networkId) throw new Error(t("This post's account isn't connected anymore."));
@@ -113,7 +99,7 @@ export async function loadPostDays(userId: string | undefined, post: AnalyticsPo
   return byDay(days);
 }
 
-/** Asks every connected account that can report its numbers, once each. */
+/** Once each. */
 export function syncAnalytics(userId: string | undefined, accounts: readonly SocialConnection[]) {
   if (!userId) return;
   for (const account of accounts) {
@@ -142,7 +128,6 @@ export function syncAnalytics(userId: string | undefined, accounts: readonly Soc
   }
 }
 
-/** Asks every account that can report its numbers, and waits until each has answered or failed. */
 export async function analyticsSynced(userId: string | undefined, accounts: readonly SocialConnection[]) {
   syncAnalytics(userId, accounts);
   await Promise.all(accounts.map((account) => asked.get(`${account.platform}:${account.id}`)?.run));

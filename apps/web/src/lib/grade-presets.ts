@@ -2,9 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Colour grades the person saved to use again, in any project: listed beside
-// the looks in the editor's colour panel. They belong to the person, like
-// project folders, and sync with the account (lib/account-sync.ts).
+// They belong to the person, not a workspace, like project folders.
 
 import { createSignal } from "solid-js";
 import { GRADE_KEYS, NEUTRAL_GRADE } from "@plan.video/runtime";
@@ -17,14 +15,13 @@ import type { GradeValues } from "@plan.video/runtime";
 export type GradePreset = {
   id: string;
   name: string;
-  /** What the grade says, neutral values left out. */
+  /** Neutral values left out. */
   grade: Partial<GradeValues>;
   createdAt: string;
 };
 
 const MAX_NAME = 40;
 
-/** Where `userId`'s saved grades are kept in this browser. */
 export const gradePresetsKey = (userId: string) => `plan.video.grade-presets.${userId}`;
 
 const [presets, setPresets] = createSignal<GradePreset[]>([]);
@@ -45,7 +42,7 @@ export function isGradePreset(value: unknown): value is GradePreset {
   );
 }
 
-/** Reads the account copy again. `loadGradePresets` does nothing when this person's are already loaded. */
+/** `loadGradePresets` does nothing when this person's are already loaded. */
 export function reloadGradePresets(userId: string | undefined) {
   loadedKey = undefined;
   loadGradePresets(userId);
@@ -87,7 +84,6 @@ function cleanName(name: string) {
   return name.trim().replace(/\s+/g, " ").slice(0, MAX_NAME);
 }
 
-/** `values` without what is neutral: what a preset keeps, and what it writes back. */
 export function definedGrade(values: GradeValues): Partial<GradeValues> {
   const grade: Partial<GradeValues> = {};
   for (const key of GRADE_KEYS) {
@@ -96,10 +92,10 @@ export function definedGrade(values: GradeValues): Partial<GradeValues> {
   return grade;
 }
 
-/** Whether saving is possible here: signed in, or a guest with a store. */
+/** Signed in, or a guest with a store. */
 export const canSaveGradePresets = () => loadedKey !== undefined;
 
-/** Saves `values` under `name` and returns the preset; undefined when the name is empty or nothing is loaded. */
+/** Undefined when the name is empty or nothing is loaded. */
 export function saveGradePreset(name: string, values: GradeValues): GradePreset | undefined {
   const clean = cleanName(name);
   if (!loadedKey || !clean) return;

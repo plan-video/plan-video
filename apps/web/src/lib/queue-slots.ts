@@ -2,10 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The posting queue: a standing weekly pattern, like Monday, Wednesday and
-// Friday at 18:00. A queued post takes the next slot no other post holds.
-// Slots belong to the workspace they were made in, and are read in the
-// dashboard's time zone.
+// A queued post takes the next slot no other post holds. Slots belong to the
+// workspace they were made in, and are read in the dashboard's time zone.
 
 import { createSignal } from "solid-js";
 
@@ -23,7 +21,7 @@ export type QueueSlot = {
   time: string;
 };
 
-/** Monday first, the way the calendar shows a week. */
+/** Monday first, as the calendar shows a week. */
 export const QUEUE_WEEKDAYS = [
   { weekday: 1, short: msg("Mon"), name: msg("Monday") },
   { weekday: 2, short: msg("Tue"), name: msg("Tuesday") },
@@ -52,7 +50,7 @@ function isSlot(value: unknown): value is QueueSlot {
 const order = (slot: QueueSlot) => ((slot.weekday + 6) % 7) * 1440 + Number(slot.time.slice(0, 2)) * 60 + Number(slot.time.slice(3));
 const sorted = (list: QueueSlot[]) => [...list].sort((a, b) => order(a) - order(b));
 
-/** Reads the account copy again. `loadQueueSlots` does nothing when this key is already loaded. */
+/** Forces a reread; `loadQueueSlots` skips a key already loaded. */
 export function reloadQueueSlots(userId: string | undefined) {
   loadedKey = undefined;
   loadQueueSlots(userId);
@@ -60,7 +58,6 @@ export function reloadQueueSlots(userId: string | undefined) {
 
 /** Reads the active workspace, so calling this in an effect reloads after a switch. */
 export function loadQueueSlots(userId: string | undefined) {
-  // A guest has the demo's (see lib/guest.ts).
   userId = ownerOf(userId);
   if (!userId) {
     loadedKey = undefined;
@@ -91,7 +88,6 @@ function write(next: QueueSlot[]) {
   queueAccountSync();
 }
 
-/** Adds `time` on each of `weekdays`, skipping ones already there. Returns how many were added. */
 export function addQueueSlots(userId: string, weekdays: readonly number[], time: string): number {
   loadQueueSlots(userId);
   if (!isTime(time)) return 0;
@@ -114,10 +110,7 @@ export function clearQueueSlots(userId: string) {
   write([]);
 }
 
-/**
- * The next `count` slot times after `from`, up to `until`, that `taken`
- * says are free. A slot taken by one post is free for none after it.
- */
+/** A slot taken by one post is free for none after it. */
 export function openQueueTimes(
   count: number,
   options: { from?: Date; until: Date; taken(day: string, time: string): boolean; list?: readonly QueueSlot[] },
@@ -146,7 +139,6 @@ export function openQueueTimes(
 /** Joins weekdays as the language does; en-GB's has no comma before "and". */
 const DAY_LIST = localized((locale) => new Intl.ListFormat(locale, { type: "conjunction" }), "en-GB");
 
-/** "Mon, Wed and Fri at 18:00", or a count when the pattern is too varied to read in a line. */
 export function describeQueue(list: readonly QueueSlot[] = slots()): string {
   if (!list.length) return t("No slots yet");
   const byTime = new Map<string, number[]>();

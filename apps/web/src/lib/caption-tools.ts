@@ -2,10 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Caption upgrades: emoji, keyword highlights, translation and SRT export.
-// The first three ask the server (services/agent/captions.mjs), sending only
-// the words; the answer is fitted back onto the transcript here, so every
-// word keeps its timing. SRT export is worked out in the browser.
+// The server (services/agent/captions.mjs) gets only the words; its answer is fitted
+// back onto the transcript here, so every word keeps its timing.
 
 import { groupBy } from "@plan.video/runtime";
 
@@ -25,13 +23,11 @@ type Answer = {
   translate: { lines: string[] };
 };
 
-/** Languages offered for translation, by BCP 47 code. Names are shown in the reader's language. */
 export const TRANSLATE_LANGUAGES = [
   "en", "es", "pt", "fr", "de", "it", "nl", "pl", "tr", "ru", "uk", "ar",
   "hi", "id", "vi", "th", "ja", "ko", "zh-Hans", "zh-Hant", "sv", "ro", "el", "he",
 ] as const;
 
-/** What a language is called, in `locale`. */
 export function languageLabel(code: string, locale: string): string {
   try {
     return new Intl.DisplayNames([locale], { type: "language" }).of(code) ?? code;
@@ -42,7 +38,6 @@ export function languageLabel(code: string, locale: string): string {
 
 export class CaptionToolRefused extends Error {}
 
-/** The words, line by line, as the server reads them. */
 const linesOf = (transcript: Transcript) => transcript.map((segment) => segment.words.map((word) => word.text));
 
 async function ask<T extends CaptionTask>(task: T, transcript: Transcript, language?: string): Promise<Answer[T]> {
@@ -80,17 +75,13 @@ const retitle = (segment: { text: string; words: TranscriptWord[] }) => {
   segment.text = segment.words.map((word) => word.text).join(" ");
 };
 
-/**
- * Emoji, with the joiners and variation marks that build them, one code point
- * at a time. Alternatives rather than one character class, where the marks
- * would read as joined to what's before them.
- */
+// Alternatives rather than one character class, where the joiners and variation
+// marks would read as joined to what's before them.
 const EMOJI = /\p{Extended_Pictographic}|[\u{1F3FB}-\u{1F3FF}]|\u{FE0F}|\u{200D}|\u{20E3}/gu;
 
 export const hasEmoji = (transcript: Transcript) =>
   transcript.some((segment) => segment.words.some((word) => /\p{Extended_Pictographic}/u.test(word.text)));
 
-/** `transcript` with emoji after the words the server picked. Words that already have one are left. */
 export async function addEmoji(transcript: Transcript): Promise<Transcript> {
   const { emoji } = await ask("emoji", stripEmoji(transcript));
   const numbering = keptPositions(transcript);
@@ -112,7 +103,6 @@ export async function addEmoji(transcript: Transcript): Promise<Transcript> {
   return next;
 }
 
-/** `transcript` without emoji. A word that was only an emoji goes. */
 export function stripEmoji(transcript: Transcript): Transcript {
   const next: Transcript = [];
   for (const segment of clone(transcript)) {
@@ -127,7 +117,7 @@ export function stripEmoji(transcript: Transcript): Transcript {
   return next;
 }
 
-/** The words the server picks as keywords, by their place in the whole transcript. */
+/** Positions count across the whole transcript. */
 export async function pickKeywords(transcript: Transcript): Promise<Set<number>> {
   const { keywords } = await ask("keywords", stripEmoji(transcript));
   // Emoji-only words were left out of what the server saw; count them back in.
@@ -140,7 +130,6 @@ export async function pickKeywords(transcript: Transcript): Promise<Set<number>>
   return positions;
 }
 
-/** For each line `stripEmoji` keeps, the whole-transcript place of each word it keeps. */
 function keptPositions(transcript: Transcript): number[][] {
   const lines: number[][] = [];
   let position = 0;
@@ -155,7 +144,7 @@ function keptPositions(transcript: Transcript): number[][] {
   return lines;
 }
 
-/** Colors the words at `positions` in `color`; every other word that wore `previous` is let go of it. */
+/** Words that wore `previous` but aren't at `positions` lose it. */
 export function highlightWords(transcript: Transcript, positions: ReadonlySet<number>, color: number, previous?: number): Transcript {
   let position = 0;
   return transcript.map((segment) => ({
@@ -178,7 +167,7 @@ export function highlightWords(transcript: Transcript, positions: ReadonlySet<nu
 const KANA_ONLY = /^[\p{Script=Hiragana}ー]+$/u;
 const DIGITS_ONLY = /^[\d０-９.,]+$/u;
 
-/** Words a line splits into for timing: by spaces, or for scripts written without them, by the language's word breaks. */
+/** Split by spaces, or by the language's word breaks for scripts written without them. */
 function splitLine(text: string, language: string): string[] {
   const trimmed = text.trim();
   if (!trimmed) return [];
@@ -197,9 +186,8 @@ function splitLine(text: string, language: string): string[] {
 }
 
 /**
- * `transcript` in `language`. Each line is translated whole and its words
- * share the time the original line was spoken, longer words for longer. The
- * words' own looks don't carry over: a translation has other words.
+ * Each line is translated whole; its words share the original line's time, longer words
+ * for longer. The words' own looks don't carry over.
  */
 export async function translateTranscript(transcript: Transcript, language: string): Promise<Transcript> {
   const { lines } = await ask("translate", transcript, language);
@@ -226,14 +214,10 @@ export async function translateTranscript(transcript: Transcript, language: stri
 
 const round = (value: number) => Math.round(value * 1000) / 1000;
 
-/** Readable subtitle lines: what fits two short lines, broken at sentences and pauses as captions are. */
+/** About two short subtitle lines per cue. */
 const SRT_GROUPING = { length: 42, words: 10 };
 
-/**
- * `transcript` as an SRT file. `toSeconds` turns a word time into a time in
- * the video, or null when the caption is not on screen then; words it drops
- * are left out of their cue.
- */
+/** `toSeconds` returns null while the caption is off screen; those words are left out of their cue. */
 export function transcriptToSrt(transcript: Transcript, toSeconds: (time: number) => number | null): string {
   const cues: string[] = [];
   for (const group of groupBy(transcript, SRT_GROUPING)) {
@@ -254,7 +238,6 @@ function srtTime(seconds: number): string {
   return `${pad(Math.floor(ms / 3_600_000))}:${pad(Math.floor(ms / 60_000) % 60)}:${pad(Math.floor(ms / 1000) % 60)},${pad(ms % 1000, 3)}`;
 }
 
-/** What a failed caption tool is called where the user reads about it. */
 export const TOOL_FAILURES: Record<CaptionTask, string> = {
   emoji: msg("Could not add emoji"),
   keywords: msg("Could not highlight keywords"),

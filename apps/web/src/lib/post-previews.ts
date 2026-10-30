@@ -2,11 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Post previews shared by link: the owner shares a post, and anyone with the
-// link sees it and comments under a name. The link shows a copy of the post
-// that this app keeps up to date while it is shared; its video or pictures
-// play from the post's cloud copies.
-
 import { createSignal } from "solid-js";
 
 import { ownCaptions, postFileStates } from "@/components/calendar/store";
@@ -21,9 +16,9 @@ import { activeScope, activeWorkspaceId } from "@/lib/workspaces";
 export type PreviewSnapshot = {
   title: string;
   caption: string;
-  /** Words networks go out with in place of `caption`, by platform id. YouTube's are its description. Absent on older previews. */
+  /** YouTube's are its description. Absent on older previews. */
   captions?: Partial<Record<string, string>>;
-  /** `avatars` are the accounts' pictures, in the order of `handles`, "" for one without. Absent on older previews. */
+  /** `avatars` follow `handles`' order, "" for one without. Absent on older previews. */
   platforms: { id: string; name: string; handles: string[]; avatars?: string[] }[];
   day: string;
   start: string;
@@ -32,17 +27,15 @@ export type PreviewSnapshot = {
   status: PostStatus;
   /** Null when the post has no file, or its file has no cloud copy to play from. */
   media: "video" | "image" | null;
-  /** The ids of the files that show, in order, when there are several. Absent: the one file under the post's id. */
+  /** Absent: the one file under the post's id. */
   files?: string[];
-  /** A story: its picture or video alone, with no caption. */
   story?: boolean;
   youtubeTitle: string | null;
-  /** The pin's title, when the post goes to Pinterest with one. */
   pinterestTitle?: string;
-  /** The follow-ups that go out under it, in order. Absent when it has none, and on older previews. */
+  /** Absent when it has none, and on older previews. */
   thread?: string[];
   link: string | null;
-  /** The workspace the post is in, so a sync from another workspace leaves it alone. Its owner's id for it, in a shared one. */
+  /** So a sync from another workspace leaves it alone. In a shared workspace, its owner's id. */
   workspaceId: string;
 };
 
@@ -64,21 +57,18 @@ export type SharedPreview = {
   comments: PreviewComment[];
 };
 
-/**
- * One of the signed-in person's shared posts, as the dashboard lists them, or
- * one of a shared workspace's, which are its owner's (`ownerId`).
- */
+/** A shared workspace's previews are its owner's (`ownerId`). */
 export type OwnPreview = { id: string; ownerId: string; postId: string; snapshot: PreviewSnapshot; comments: number };
 
 export const PREVIEW_PATH = "/p/";
 
-/** The link to send. The desktop app shares the website's address. */
+/** The desktop app shares the website's address. */
 export function previewLink(id: string): string {
   const origin = window.desktop ? APP_ORIGIN : window.location.origin;
   return `${origin}${PREVIEW_PATH}${id}`;
 }
 
-/** The post as the link shows it: with the files every network shares, those that have a cloud copy. */
+/** Only files with a cloud copy are included. */
 export async function snapshotOf(post: StoredEvent): Promise<PreviewSnapshot> {
   const files = (await postFileStates(post).catch(() => [])).filter((file) => file.inCloud);
   const captions = ownCaptions(post);
@@ -111,13 +101,9 @@ export async function snapshotOf(post: StoredEvent): Promise<PreviewSnapshot> {
   };
 }
 
-/** Whether the post has a file that the link can't show, because it isn't backed up. */
 export async function mediaLeftOut(post: StoredEvent): Promise<boolean> {
   return (await postFileStates(post).catch(() => [])).some((file) => !file.inCloud);
 }
-
-// ---------------------------------------------------------------------------
-// The owner's side.
 
 const [own, setOwn] = createSignal<OwnPreview[]>([]);
 export { own as ownPreviews };
@@ -131,7 +117,6 @@ async function ownerId(): Promise<string | null> {
   return (await supabase.auth.getSession()).data.session?.user.id ?? null;
 }
 
-/** Whose previews the open workspace's posts are shared as: the person's, or a shared workspace's owner's. */
 async function subjectOf(): Promise<{ owner: string; workspace: string; shared: boolean } | null> {
   const team = activeScope();
   if (team) return { owner: team.owner, workspace: team.workspace, shared: true };
@@ -139,7 +124,7 @@ async function subjectOf(): Promise<{ owner: string; workspace: string; shared: 
   return me ? { owner: me, workspace: activeWorkspaceId(), shared: false } : null;
 }
 
-/** Reads which posts are shared, with how many comments each has. Quiet when the table isn't there yet. */
+/** Quiet when the table isn't there yet. */
 export async function loadOwnPreviews(): Promise<void> {
   if (!supabase || !(await ownerId())) {
     setOwn([]);
@@ -158,7 +143,6 @@ export async function loadOwnPreviews(): Promise<void> {
   );
 }
 
-/** Shares the post, or brings its shared copy up to date. Returns the preview id, or an error for the user. */
 export async function sharePost(post: StoredEvent): Promise<{ id: string } | { error: string }> {
   // A shared workspace's post is its owner's, and so is its preview: its files are theirs.
   const subject = await subjectOf();
@@ -179,7 +163,7 @@ export async function sharePost(post: StoredEvent): Promise<{ id: string } | { e
   return { id };
 }
 
-/** Turns the link off. Its comments go with it. */
+/** Its comments go with it. */
 export async function stopSharing(postId: string): Promise<string | undefined> {
   const preview = previewOf(postId);
   if (!supabase || !preview) return;
@@ -201,20 +185,17 @@ function stable(value: unknown): string {
   return JSON.stringify(value) ?? "null";
 }
 
-/**
- * Brings the shared copies of the open workspace's posts up to date, and stops
- * sharing the ones whose post was deleted. Call once its calendar has loaded.
- */
+/** Call once the workspace's calendar has loaded. */
 export async function syncOwnPreviews(posts: readonly StoredEvent[]): Promise<void> {
   if (!supabase) return;
   const open = activeWorkspaceId();
   const subject = await subjectOf();
   if (!subject || activeWorkspaceId() !== open) return;
   for (const preview of own()) {
-    // A switch while this runs leaves `posts` from the last workspace.
+    // A workspace switch while this runs leaves `posts` from the last workspace.
     if (activeWorkspaceId() !== open) return;
     if (preview.ownerId !== subject.owner) continue;
-    // One saved before previews named their workspace counts as the person's open one, never as a shared one's.
+    // One saved before previews named their workspace counts as the person's open one, never a shared one's.
     if ((preview.snapshot.workspaceId ?? (subject.shared ? undefined : subject.workspace)) !== subject.workspace) continue;
     const post = posts.find((item) => item.id === preview.postId);
     if (!post) {
@@ -237,10 +218,6 @@ export async function setCommentResolved(id: string, resolved: boolean): Promise
   if (error) return t("Could not change the comment. Try again.");
 }
 
-// ---------------------------------------------------------------------------
-// Anyone with the link.
-
-/** The shared post and its comments. Null when the link isn't shared (any more). */
 export async function loadPreview(id: string): Promise<SharedPreview | null> {
   if (!supabase) throw new Error(t("Previews aren't available here."));
   const { data, error } = await supabase.rpc("get_post_preview", { preview: id });
@@ -248,14 +225,12 @@ export async function loadPreview(id: string): Promise<SharedPreview | null> {
   return (data as SharedPreview | null) ?? null;
 }
 
-/** Adds a comment, or a reply under `parent`. Returns an error for the user. */
 export async function addComment(id: string, name: string, body: string, parent?: string): Promise<string | undefined> {
   if (!supabase) return t("Comments aren't available here.");
   const { error } = await supabase.rpc("add_post_preview_comment", { preview: id, name, body, parent: parent ?? null });
   if (error) return error.message || t("Could not post the comment.");
 }
 
-/** A short-lived link to one of the shared post's files: `file`, or its only one. */
 export async function previewMediaUrl(id: string, file?: string): Promise<string | null> {
   const response = await fetch("/api/storage/preview-url", {
     method: "POST",
@@ -279,7 +254,6 @@ function savedReviewerName(): string {
 
 const [reviewer, setReviewer] = createSignal(savedReviewerName());
 
-/** The name someone without an account comments under: asked once, then kept in this browser. Empty until given. */
 export const reviewerName = reviewer;
 
 export function setReviewerName(name: string) {

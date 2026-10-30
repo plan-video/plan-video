@@ -2,21 +2,18 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// "Sign in with Bluesky". The person approves plan.video on their own Bluesky
-// server and comes back; plan.video's server finishes the sign-in and keeps
-// the login (services/publisher/bluesky-oauth.mjs), so posts go out while
-// plan.video is closed. This browser gets a short ticket for attaching the
-// account to its connection, and nothing that can post.
+// The server keeps the login (services/publisher/bluesky-oauth.mjs); this browser only gets a short ticket
+// for attaching the account, and nothing that can post.
 
 import { APP_ORIGIN } from "@/lib/app-url";
 import { t } from "@/lib/i18n";
 import { supabase } from "@/lib/supabase";
 import { activeScope, type TeamScope } from "@/lib/workspaces";
 
-/** The shared workspace a sign-in was started in, if any: it finishes for the same owner. */
+/** The sign-in finishes for the same owner. */
 const TEAM_KEY = "plan.video.bluesky-team";
 
-/** Whether this page can use Bluesky's sign-in. Elsewhere, like a local dev server, it's app passwords. */
+/** Elsewhere, like a local dev server, it's app passwords. */
 export function blueskySignInAvailable() {
   return window.location.origin === APP_ORIGIN;
 }
@@ -34,7 +31,7 @@ async function call<T>(route: string, body: unknown): Promise<T> {
   return payload;
 }
 
-/** Sends the person to their Bluesky server to approve plan.video. A handle picks the server; without one, it's Bluesky's. */
+/** A handle picks the server; without one, it's Bluesky's. */
 export async function beginBlueskySignIn(handle: string): Promise<void> {
   if (!blueskySignInAvailable()) throw new Error(t("Open {origin} to sign in with Bluesky.", { origin: APP_ORIGIN }));
   const team = activeScope();
@@ -48,7 +45,6 @@ export async function beginBlueskySignIn(handle: string): Promise<void> {
   window.location.assign(url);
 }
 
-/** Finishes the sign-in with what Bluesky sent back to the callback page: the account, and the ticket to attach it. */
 export async function finishBlueskySignIn(params: URLSearchParams): Promise<{ did: string; ticket: string }> {
   if (!params.get("code")) throw new Error(t("Bluesky sent the sign-in back without a code. Try again."));
   let team: TeamScope | null = null;

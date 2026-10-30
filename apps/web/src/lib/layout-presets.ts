@@ -68,5 +68,4 @@ export const PRESET_CATEGORIES: LayoutPresetCategory[] = [
   },
 ];
 
-/** Flat list of all layout presets for quick lookup. */
 export const ALL_PRESETS: LayoutPreset[] = PRESET_CATEGORIES.flatMap((g) => g.items);

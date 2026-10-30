@@ -2,12 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Folders the person sorts their projects into, listed in the Projects
-// sidebar. A project is in one folder at most, by its key (projectKey), which
-// stays the same through a rename. Projects belong to a person rather than a
-// workspace (projects/owners.ts), so their folders do too, and sync with the
-// account (lib/account-sync.ts). Taking a project out of every folder, or
-// deleting the folder, leaves the project itself as it is.
+// Keyed by projectKey, which survives a rename. Folders belong to a person, like projects (projects/owners.ts).
 
 import { createSignal } from "solid-js";
 
@@ -18,20 +13,19 @@ import { t } from "@/lib/i18n";
 export type ProjectFolder = {
   id: string;
   name: string;
-  /** Project keys, sorted, each in this folder only. */
+  /** Each in this folder only. */
   projects: string[];
   createdAt: string;
 };
 
 const MAX_NAME = 40;
 
-/** Where `userId`'s folders are kept in this browser. */
 export const projectFoldersKey = (userId: string) => `plan.video.project-folders.${userId}`;
 
 const [folders, setFolders] = createSignal<ProjectFolder[]>([]);
 let loadedKey: string | undefined;
 
-/** By name, as the sidebar lists them: the synced copy keeps its rows in id order. */
+/** Sorted here: the synced copy keeps its rows in id order. */
 export const projectFolders = () => [...folders()].sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
 
 export function isProjectFolder(value: unknown): value is ProjectFolder {
@@ -45,7 +39,7 @@ export function isProjectFolder(value: unknown): value is ProjectFolder {
   );
 }
 
-/** Reads the account copy again. `loadProjectFolders` does nothing when this person's are already loaded. */
+/** `loadProjectFolders` does nothing when this person's are already loaded. */
 export function reloadProjectFolders(userId: string | undefined) {
   loadedKey = undefined;
   loadProjectFolders(userId);
@@ -87,7 +81,6 @@ function cleanName(name: string) {
   return name.trim().replace(/\s+/g, " ").slice(0, MAX_NAME);
 }
 
-/** "New folder", or "New folder 2" and on while that is taken. */
 function freeName() {
   const base = t("New folder");
   const taken = new Set(folders().map((folder) => folder.name.toLowerCase()));
@@ -98,7 +91,6 @@ function freeName() {
   }
 }
 
-/** Makes a folder holding `projects`, taken out of the folders they were in, and returns it. */
 export function createProjectFolder(projects: readonly string[] = []): ProjectFolder | undefined {
   if (!loadedKey) return;
   const folder: ProjectFolder = { id: crypto.randomUUID(), name: freeName(), projects: [...new Set(projects)].sort(), createdAt: new Date().toISOString() };
@@ -119,7 +111,7 @@ export function deleteProjectFolder(id: string) {
   write((current) => current.filter((folder) => folder.id !== id));
 }
 
-/** Puts a deleted folder back, as Undo does. Projects moved elsewhere since stay where they went. */
+/** Projects moved elsewhere since stay where they went. */
 export function restoreProjectFolder(folder: ProjectFolder) {
   write((current) => {
     if (current.some((row) => row.id === folder.id)) return current;
@@ -128,7 +120,7 @@ export function restoreProjectFolder(folder: ProjectFolder) {
   });
 }
 
-/** Moves the projects into the folder, out of any other; `null` takes them out of every folder. */
+/** `null` takes them out of every folder. */
 export function moveProjectsToFolder(keys: readonly string[], folderId: string | null) {
   const moving = new Set(keys);
   if (!moving.size) return;
@@ -141,7 +133,6 @@ export function moveProjectsToFolder(keys: readonly string[], folderId: string |
   );
 }
 
-/** The folder a project is in, if any. */
 export function folderOfProject(key: string): ProjectFolder | undefined {
   return folders().find((folder) => folder.projects.includes(key));
 }

@@ -2,9 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The killfeed pictures shipped with the app, under assets/killfeed: an
-// agent's square icon is what the builder shows, its 2:1 portrait is what
-// the entry draws.
+// An agent's square icon is what the builder shows; its 2:1 portrait is what the entry draws.
 
 import { msg } from "@/lib/i18n";
 
@@ -13,7 +11,7 @@ export type KillfeedWeaponGroup = "weapons" | "abilities" | "special";
 export type KillfeedAgent = { name: string; icon: string; portrait: string };
 
 export type KillfeedWeapon = {
-  /** `weapons/Ares.png`: the folder decides whether it is drawn mirrored. */
+  /** The folder decides whether it is drawn mirrored. */
   id: string;
   group: KillfeedWeaponGroup;
   /** A buy-menu class, or the agent an ability belongs to. */
@@ -24,7 +22,7 @@ export type KillfeedWeapon = {
 
 export type KillfeedCategory = { id: string; label: string };
 
-/** Guns in buy-menu order. A file that isn't listed still shows, under Other. */
+/** Buy-menu order. A file that isn't listed still shows, under Other. */
 const WEAPON_CATEGORIES: { id: string; label: string; names: string[] }[] = [
   { id: "sidearms", label: msg("Sidearms"), names: ["Classic", "Shorty", "Frenzy", "Ghost", "Sheriff", "Bandit"] },
   { id: "smgs", label: msg("SMGs"), names: ["Stinger", "Spectre"] },
@@ -35,7 +33,6 @@ const WEAPON_CATEGORIES: { id: string; label: string; names: string[] }[] = [
   { id: "melee", label: msg("Melee"), names: ["Knife"] },
 ];
 
-/** Damaging abilities, grouped by who throws them. */
 const ABILITY_CATEGORIES: { id: string; label: string; names: string[] }[] = [
   { id: "breach", label: "Breach", names: ["Aftershock"] },
   { id: "brimstone", label: "Brimstone", names: ["Incendiary"] },
@@ -102,7 +99,7 @@ export const KILLFEED_WEAPONS: KillfeedWeapon[] = Object.entries(weapons)
   .sort((a, b) => a.order - b.order || byLabel(a, b))
   .map(({ order: _order, ...weapon }) => weapon);
 
-/** The classes under a group. Special has none: it is already a short list. */
+/** Special has none: it is already a short list. */
 export function killfeedCategories(group: KillfeedWeaponGroup): KillfeedCategory[] {
   if (CATEGORIES[group].length === 0) return [];
   const present = new Set(KILLFEED_WEAPONS.filter((weapon) => weapon.group === group).map((weapon) => weapon.category));
@@ -124,7 +121,7 @@ export function killfeedWeapons(group: KillfeedWeaponGroup, category?: string): 
   return KILLFEED_WEAPONS.filter((weapon) => weapon.group === group && (category === undefined || weapon.category === category));
 }
 
-/** A picture from assets/killfeed/ui, by file stem (`headshot`, `Rev_Numeral_3`). */
+/** By file stem (`headshot`, `Rev_Numeral_3`). */
 export function killfeedUi(stem: string): string {
   const entry = Object.entries(ui).find(([path]) => stemOf(path) === stem);
   if (!entry) throw new Error(`No killfeed UI picture ${stem}`);

@@ -2,12 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The tab's side of the hosted connector (services/mcp). Every signed-in tab
-// keeps a socket to the connector, signed in as its user, and runs the tool
-// calls agents make there: the posting tools, with the dashboard agent's own
-// handlers (see lib/agent-connector), and, once agentic editing is back, the
-// editor's tools on the project open in the tab, one undo step each. Calls
-// run one at a time, in the order they came.
+// Calls run one at a time, in the order they came.
 
 import { supabase } from "@/lib/supabase";
 
@@ -15,13 +10,9 @@ const PATH = "/api/mcp/tab";
 const RETRY_MIN_MS = 1_000;
 const RETRY_MAX_MS = 60_000;
 
-/**
- * Off until agentic editing launches: agents schedule posts, and the editor's
- * tools stay unserved. Turned back on, an open project answers them too.
- */
+/** Off until agentic editing launches: agents only schedule posts. */
 export const AGENTIC_EDITING = false;
 
-/** In production builds of the website, and in dev when asked for. */
 export const connectorEnabled =
   (import.meta.env.PROD || import.meta.env.VITE_CONNECTOR_DEV === "true") && !window.desktop && supabase !== null;
 
@@ -30,17 +21,15 @@ export type ConnectorOutput = {
   images?: { mediaType: "image/png"; data: string }[];
 };
 
-/** Runs one call, or throws what to tell the agent. `arrived` is when the call reached the tab, which may be before it starts. */
+/** `arrived` is when the call reached the tab, which may be before it starts. */
 export type ConnectorRunner = (tool: string, args: Record<string, unknown>, call?: { arrived: number }) => Promise<ConnectorOutput>;
 
 let editorRunner: ConnectorRunner | null = null;
 
-/** The open project's tools while one is open, then null again. */
 export function setEditorRunner(run: ConnectorRunner | null) {
   editorRunner = run;
 }
 
-/** The open project's tools, when agentic editing is on and a project is open. */
 export function openEditor(): ConnectorRunner | null {
   return AGENTIC_EDITING ? editorRunner : null;
 }
@@ -48,7 +37,6 @@ export function openEditor(): ConnectorRunner | null {
 type Call = { type: "call"; id: string; tool: string; args?: Record<string, unknown> };
 type Incoming = Call | { type: "ready" };
 
-/** Opens the tab's connection; returns what closes it for good. */
 export function connectClaude(run: ConnectorRunner): () => void {
   const auth = supabase?.auth;
   if (!auth) return () => {};
@@ -114,7 +102,6 @@ export function connectClaude(run: ConnectorRunner): () => void {
     };
   };
 
-  /** The user is back on this tab, so the next call should land here. */
   const onActive = () => {
     if (document.visibilityState === "visible" && socket) send(socket, { type: "active" });
   };

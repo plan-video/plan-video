@@ -8,15 +8,10 @@ import { MAIN_CHANNELS } from "@desktop/main-channels";
 import type { StreamTargetChunk } from "mediabunny";
 import type { WritableFileTarget } from "@plan.video/encoder";
 
-// A write-only, FileSystemFileHandle-shaped target backed by the main process.
-// `createWritable()` returns a stream whose positioned chunks are forwarded to
-// main and written to disk via an open fd — letting mediabunny's StreamTarget
-// stream encoder output straight to a path without buffering the whole file in
-// the renderer. Desktop only (relies on the main bridge).
+// Streams encoder output to disk through main without buffering the whole file in the renderer. Desktop only.
 export class ElectronWritableFileHandle implements WritableFileTarget {
   readonly path: string;
-  // Tracks the in-flight write so callers can abort + clean up a partial file
-  // on error paths mediabunny doesn't surface through the stream itself.
+  // Lets callers clean up a partial file on errors mediabunny doesn't surface through the stream.
   private openId: string | null = null;
 
   constructor(path: string) {
@@ -48,7 +43,6 @@ export class ElectronWritableFileHandle implements WritableFileTarget {
     });
   }
 
-  // Close + delete the partial file if a write is still open (error cleanup).
   async dispose(): Promise<void> {
     const id = this.openId;
     if (id === null) return;

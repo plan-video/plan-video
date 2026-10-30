@@ -2,20 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Keeps the signed-in person's browser projects (their own folder, see
-// ./owners) in the account's cloud storage, and every browser signed in to
-// the account up to date with it. A project is filed
-// under its projectId, so a renamed folder is still the same project.
-//
-// Each pass looks at every file three ways: as it is here, as it is in the
-// cloud, and as both last agreed. A project changed here uploads what changed
-// and deletes from the cloud what was deleted here. A project left alone here
-// takes what changed in the cloud: one new to this browser comes down whole,
-// changed files are replaced, and one erased in another browser goes from
-// this one too. A file changed in both takes the cloud's copy, the newer
-// save from another browser, and this browser's is set aside under
-// `.conflicts/` (see `settleClashes`). Trash and covers travel as files in the
-// project's folder (see `browserMarkTrashed`).
+// Filed under projectId, so a renamed folder is still the same project. Each file is compared here, in the cloud,
+// and as last agreed. A file changed on both sides takes the cloud's copy and sets this browser's aside under
+// `.conflicts/` (see `settleClashes`). Trash and covers travel as files in the project's folder.
 
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 import { toast } from "somoto";
@@ -72,15 +61,15 @@ import {
 import { markProjectsChanged } from "./host";
 import { SYNCED_DB_PREFIX, claimSharedProjects, isProjectIn, ownerRoot, sharedProjects } from "./owners";
 
-/** A file as this browser and the cloud last agreed on it. `remoteAt` is the cloud's time for it, once known. */
+/** `remoteAt` is the cloud's time for it, once known. */
 type Synced = { id: string; projectId: string; path: string; size: number; mtime: number; remoteAt?: number };
 
 interface SyncedDB extends DBSchema {
-  /** What's in the cloud, by `projectId/path`, as it was when uploaded or downloaded. */
+  /** By `projectId/path`, as it was when uploaded or downloaded. */
   synced: { key: string; value: Synced };
 }
 
-/** Each account its own list, so two people signed in on one browser each get a whole copy. */
+/** Per account, so two people on one browser each get a whole copy. */
 const syncedDb = (userId: string) =>
   openDB<SyncedDB>(`${SYNCED_DB_PREFIX}${userId}`, 1, {
     upgrade(database) {
@@ -91,7 +80,6 @@ const syncedDb = (userId: string) =>
 const PROJECT_ID = /^[A-Za-z0-9_-]{1,100}$/;
 /** Waits for typing and autosave to settle before looking. */
 const SETTLE_MS = 15_000;
-/** How often an open tab looks for changes made in other browsers. */
 const LOOK_EVERY_MS = 5 * 60_000;
 /** Coming back to the tab looks again, but not more often than this. */
 const LOOK_GAP_MS = 60_000;
@@ -109,7 +97,6 @@ async function projectIdOf(dir: string): Promise<string | null> {
   }
 }
 
-/** Every project in `home` with a usable id, by id, and every file of them, by `projectId/path`. */
 async function localProjects(home: string): Promise<{ dirs: Map<string, string>; files: Map<string, LocalFile> }> {
   const root = `${home}/`;
   const paths = (await allPaths()).filter((path) => path.startsWith(root));
@@ -144,10 +131,10 @@ function groupBy<T>(rows: Iterable<T>, key: (row: T) => string): Map<string, T[]
   return groups;
 }
 
-/** A path the cloud handed back that stays inside its project. The server only stores these; this checks again. */
+/** The server only stores these; this checks again. */
 const safePath = (path: string) => !!path && path.split("/").every((part) => part !== "" && part !== "." && part !== "..");
 
-/** Covers are stored as their bytes; the type comes back from the first few. */
+/** Covers are stored as bytes; the type is sniffed from the first few. */
 function imageType(bytes: Uint8Array): string {
   if (bytes[0] === 0x89 && bytes[1] === 0x50) return "image/png";
   if (bytes[0] === 0xff && bytes[1] === 0xd8) return "image/jpeg";
@@ -155,28 +142,26 @@ function imageType(bytes: Uint8Array): string {
   return "";
 }
 
-/** Files the server turned down for good this visit, so they aren't offered again until the next. */
+/** Not offered again until the next visit. */
 const refused = new Set<string>();
 
 type Pass = {
-  /** Whose pass it is, and the folder their projects are in. */
   userId: string;
   home: string;
   database: IDBPDatabase<SyncedDB>;
   changed: Map<string, number>;
   copies: Map<string, Synced>;
-  /** Files uploaded this pass, whose time in the cloud is read once the pass is done. */
+  /** Their cloud time is read once the pass is done. */
   uploaded: Set<string>;
-  /** The projects list changed, so the dashboard should look again. */
   listChanged: boolean;
-  /** When the pass read what changed here: a file saved since is newer than it knows. */
+  /** A file saved since is newer than the pass knows. */
   startedAt: number;
 };
 
-/** The person signed out, or someone else signed in, during a pass: the rest of it isn't theirs. */
+/** The rest of the pass isn't theirs. */
 class SomeoneElse extends Error {}
 
-/** Before each upload, download or delete: the files here and in the cloud must both be the pass's person's. */
+/** Run before each upload, download or delete. */
 async function stillSignedIn(pass: Pass) {
   if ((await cloudUserId()) !== pass.userId) throw new SomeoneElse();
 }
@@ -194,7 +179,6 @@ async function forget(pass: Pass, entries: readonly Synced[]) {
 
 type Upload = { file: LocalFile; id: string; size: number; mtime: number };
 
-/** The files of a project written here since the cloud last had them. */
 async function changedHere(pass: Pass, files: readonly LocalFile[]): Promise<Upload[]> {
   const uploads: Upload[] = [];
   for (const file of files) {
@@ -213,10 +197,8 @@ async function changedHere(pass: Pass, files: readonly LocalFile[]): Promise<Upl
 }
 
 /**
- * Uploads whose file another browser saved since this one last agreed with
- * the cloud, or saved first where this one never shared it: uploading them
- * would put this browser's copy over the other's. A file agreed on before the
- * cloud's times were kept can't be told apart, and goes up as before.
+ * Uploading these would overwrite another browser's save. A file agreed on before cloud times were kept
+ * can't be told apart, and goes up as before.
  */
 function clashes(pass: Pass, uploads: readonly Upload[], there: readonly CloudProjectFile[]): Upload[] {
   const at = new Map(there.map((file) => [file.path, file.at]));
@@ -229,27 +211,22 @@ function clashes(pass: Pass, uploads: readonly Upload[], there: readonly CloudPr
 }
 
 const CONFLICTS = ".conflicts";
-/** How many clashes a project keeps this browser's side of, newest first. */
 const KEEP_CONFLICTS = 5;
 
-/** Files the app writes again by itself: a clash on one takes the cloud's copy, with nothing set aside. */
+/** A clash on one takes the cloud's copy, with nothing set aside. */
 const madeByApp = (rel: string) => rel === COVER_FILE || rel === TRASHED_FILE || rel.startsWith("cache/") || rel.startsWith(`${CONFLICTS}/`);
 
 const sameBytes = (a: Uint8Array, b: Uint8Array) => a.byteLength === b.byteLength && a.every((byte, index) => byte === b[index]);
 
-/** Named for when this browser saved its side, so a pass that tries again keeps the same copy. */
+/** Named for when this browser saved its side, so a retried pass keeps the same copy. */
 const stampOf = (mtime: number) => new Date(mtime).toISOString().replace(/[:.]/g, "-");
 
-/** This browser's side of a clash, kept at `aside`; the file now holds the other browser's. */
+/** The file now holds the other browser's copy. */
 type Kept = { path: string; aside: string; stamp: string; mine: Uint8Array };
 
 /**
- * Settles files changed here and in another browser since they last agreed.
- * Each comes down first: the same bytes are agreement (an upload whose answer
- * was lost, or another tab's), else the cloud's copy, the newer save, takes
- * the file's place and this browser's is kept under `.conflicts/<when>/`. A
- * file written again meanwhile, or that didn't come down, waits for the next
- * pass. Answers the files settled and what was kept aside.
+ * Each comes down first: identical bytes are agreement (a lost upload answer, or another tab's).
+ * A file written again meanwhile, or that didn't come down, waits for the next pass.
  */
 async function settleClashes(pass: Pass, projectId: string, dir: string, clashing: readonly Upload[], there: readonly CloudProjectFile[]) {
   const at = new Map(there.map((file) => [file.path, file.at]));
@@ -297,14 +274,13 @@ async function settleClashes(pass: Pass, projectId: string, dir: string, clashin
   return { settled, kept };
 }
 
-/** Keeps the newest few clashes a project set aside. */
 async function pruneConflicts(dir: string) {
   const root = `${dir}/${CONFLICTS}/`;
   const stamps = [...new Set((await allPaths()).filter((path) => path.startsWith(root)).map((path) => path.slice(root.length).split("/")[0]!))].sort();
   for (const stamp of stamps.slice(0, -KEEP_CONFLICTS)) await removeTree(`${root}${stamp}`);
 }
 
-/** Puts this browser's side of a clash back, keeping the other browser's aside in its place. It goes up as any edit does. */
+/** Keeps the other browser's aside in its place. It goes up as any edit does. */
 async function useMine(kept: readonly Kept[]) {
   for (const { path, aside, stamp, mine } of kept) {
     const theirs = await readBytes(path);
@@ -337,14 +313,14 @@ async function push(pass: Pass, projectId: string, uploads: readonly Upload[], d
   }
 }
 
-/** Gone from this browser for good: emptied from the trash, or its 30 days ran out. */
+/** Emptied from the trash, or its 30 days ran out. */
 async function eraseFromCloud(pass: Pass, projectId: string, agreed: readonly Synced[]) {
   await stillSignedIn(pass);
   await deleteProjectFromCloud(projectId);
   await forget(pass, agreed);
 }
 
-/** A project's folder for one new to this browser, named as it's named elsewhere. Null until its package.json is up. */
+/** Named as it's named elsewhere. Null until its package.json is up. */
 async function newFolder(pass: Pass, projectId: string, there: readonly CloudProjectFile[]): Promise<string | null> {
   const pkg = there.find((file) => file.path === "package.json");
   if (!pkg) return null;
@@ -372,7 +348,6 @@ async function pull(
 ) {
   if (dir && !there.length) {
     if (!agreed.length) return;
-    // Erased in another browser.
     await removeTree(dir);
     await forgetProject(dir);
     await forgetProjectBundle(projectId);
@@ -388,7 +363,7 @@ async function pull(
     if (!safePath(file.path)) continue;
     const copy = pass.copies.get(`${projectId}/${file.path}`);
     if (copy?.remoteAt === file.at) continue;
-    // Backed up before files synced, so the cloud's time for it isn't known: the same size is taken as the same file.
+    // Backed up before cloud times were kept: the same size is taken as the same file.
     if (copy && copy.remoteAt === undefined && copy.size === file.size) {
       await agree(pass, { ...copy, remoteAt: file.at });
       continue;
@@ -403,8 +378,7 @@ async function pull(
   keepBrowserStorage();
   // The package.json first, so a pass cut short leaves a folder the next one knows as this project.
   downloads.sort((a, b) => Number(b.path === "package.json") - Number(a.path === "package.json"));
-  // Another browser's changes: an editor open on the project here takes them
-  // up (see `watchProject`), even those of a pass cut short.
+  // An editor open on the project here takes these up (see `watchProject`), even from a pass cut short.
   const arrived: string[] = [];
   try {
     for (let start = 0; start < downloads.length; start += DOWNLOAD_BATCH) {
@@ -414,7 +388,7 @@ async function pull(
       for (const [index, file] of batch.entries()) {
         const path = `${target}/${file.path}`;
         const id = `${projectId}/${file.path}`;
-        // What's here before the download, read ahead of its time so a save in between shows.
+        // Read before the download so a save in between shows.
         const before = await readBytes(path);
         const saved = before ? await statPath(path) : null;
         // Saved here since the pass looked: the next pass settles it as a clash.
@@ -444,7 +418,6 @@ async function pull(
   pass.listChanged = true;
 }
 
-/** Puts a project that came down on the dashboard, with its cover and in or out of the trash as it is elsewhere. */
 async function listProject(dir: string) {
   const project = await browserGetProject(dir);
   if (!project) return;
@@ -460,10 +433,7 @@ async function listProject(dir: string) {
   else if (!trashed && record?.trashedAt) await restoreProjectRecord(dir);
 }
 
-/**
- * Records the cloud's time for what this pass uploaded, so the next pass can
- * tell another browser's change to it apart, even one of the same size.
- */
+/** So the next pass can tell another browser's change apart, even one of the same size. */
 async function learnTimes(pass: Pass) {
   for (const file of await listCloudProjects()) {
     const id = `${file.id}/${file.path}`;
@@ -474,7 +444,7 @@ async function learnTimes(pass: Pass) {
 
 const carried = new Set<string>();
 
-/** Once a visit for each person: puts the trash and covers kept before they synced into their projects' folders. */
+/** Once a visit per person: moves trash and covers kept before they synced into the projects' folders. */
 async function carryOver(home: string) {
   if (carried.has(home)) return;
   carried.add(home);
@@ -502,7 +472,7 @@ async function syncProjects(userId: string) {
       listCloudProjects(),
       sharedProjects(),
     ]);
-    // Still in the folder everyone used to share, waiting to be handed over: not taken as erased here.
+    // Still in the old shared folder waiting to be handed over: not taken as erased here.
     const waiting = new Set(shared.map((project) => project.projectId));
     const pass: Pass = { userId, home, database, changed, copies: new Map(synced.map((entry) => [entry.id, entry])), uploaded: new Set(), listChanged: false, startedAt };
     const hereBy = groupBy(local.files.values(), (file) => file.projectId);
@@ -530,8 +500,7 @@ async function syncProjects(userId: string) {
       const deleted = agreed.filter((entry) => !present.has(entry.path));
       if (clashing.length) {
         const { settled, kept } = await settleClashes(pass, projectId, dir, clashing, there);
-        // The rest of the other browser's save comes down with it, so the project
-        // isn't left half one save and half the other. What changed here stays.
+        // The rest of the other browser's save comes down too, so the project isn't half one save and half the other.
         const mine = new Set([...uploads.map((upload) => upload.file.rel), ...deleted.map((entry) => entry.path)]);
         for (const upload of clashing) if (!settled.has(upload.file.rel)) mine.add(upload.file.rel);
         const theirs = there.filter((file) => !mine.has(file.path));
@@ -561,11 +530,7 @@ let started = false;
 let timer: ReturnType<typeof setTimeout> | undefined;
 let lastRun = 0;
 
-/**
- * Starts syncing browser projects for whoever is signed in: now, after each
- * change, and when the tab comes back. Called again for each sign-in, which
- * looks at once, so the next person's projects come down.
- */
+/** Called again for each sign-in, which looks at once, so the next person's projects come down. */
 export function startProjectSync() {
   if (!cloudEnabled) return;
   if (started) return run();

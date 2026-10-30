@@ -2,10 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// A saved set of connected accounts, picked in one click when writing a post.
-// A group can hold several accounts on one platform, like three TikToks and
-// two Instagrams. Groups belong to the workspace they were made in.
-
 import { createSignal } from "solid-js";
 
 import { queueAccountSync } from "@/lib/account-sync-bus";
@@ -17,7 +13,7 @@ import { workspaceKey } from "@/lib/workspaces";
 export type AccountGroup = {
   id: string;
   name: string;
-  /** Connection ids, any number per platform. */
+  /** Any number per platform. */
   accounts: string[];
   createdAt: string;
 };
@@ -33,7 +29,7 @@ function isGroup(value: unknown): value is AccountGroup {
   return typeof row.id === "string" && typeof row.name === "string" && Array.isArray(row.accounts);
 }
 
-/** Reads the account copy again. `loadAccountGroups` does nothing when this key is already loaded. */
+/** `loadAccountGroups` does nothing when this key is already loaded. */
 export function reloadAccountGroups(userId: string | undefined) {
   loadedKey = undefined;
   loadAccountGroups(userId);
@@ -72,20 +68,18 @@ function write(update: (current: AccountGroup[]) => AccountGroup[]) {
   queueAccountSync();
 }
 
-/** The group's accounts that are still connected, in the order they were connected. */
+/** Only those still connected, in the order they were connected. */
 export function groupAccounts(group: AccountGroup): SocialConnection[] {
   const ids = new Set(group.accounts);
   return socialConnections().filter((account) => ids.has(account.id));
 }
 
-/** What picking the group sets on a post: its platforms, and every account of the group on each. */
 export function groupSelection(group: AccountGroup): { platforms: string[]; accounts: AccountChoices } {
   const accounts: Record<string, string[]> = {};
   for (const account of groupAccounts(group)) (accounts[account.platform] ??= []).push(account.id);
   return { platforms: Object.keys(accounts), accounts };
 }
 
-/** The ids still connected, each once. */
 function connectedOnly(ids: readonly string[]): string[] {
   const connected = new Set(socialConnections().map((row) => row.id));
   return [...new Set(ids)].filter((id) => connected.has(id));
@@ -119,7 +113,6 @@ export function deleteAccountGroup(userId: string, id: string) {
   write((current) => current.filter((group) => group.id !== id));
 }
 
-/** Puts a deleted group back where it was, as Undo does. */
 export function restoreAccountGroup(userId: string, group: AccountGroup, index: number) {
   loadAccountGroups(userId);
   write((current) => (current.some((row) => row.id === group.id) ? current : [...current.slice(0, index), group, ...current.slice(index)]));

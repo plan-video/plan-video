@@ -2,11 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Connecting X. services/x starts the sign-in, since the client secret has to
-// stay on the server, and the publisher (services/publisher) swaps the code X
-// sends back for the login, keeps it, and posts to the member's own account.
-// X bills plan.video for each post, so only paid plans post there, and X's
-// tokens never come to the browser: it gets a ticket for the publisher instead.
+// The client secret and X's tokens stay on the server (services/x, services/publisher);
+// the browser only gets a ticket for the publisher. X bills per post, so only paid plans post.
 
 import { appOrigins, atThisSite } from "@/lib/app-url";
 import { t } from "@/lib/i18n";
@@ -15,19 +12,18 @@ import { supabase } from "@/lib/supabase";
 import { exchangeXOnServer } from "@/lib/publishing";
 import type { XSession } from "@/lib/social-connections";
 
-/** Origins whose `/x/callback` is saved on the X app. X won't take localhost. */
+/** Must match the X app's saved callbacks exactly. X won't take localhost. */
 const X_ORIGINS = new Set([...appOrigins(), "http://127.0.0.1:5173"]);
 
 const STATE_KEY = "plan.video.x.state";
 const VERIFIER_KEY = "plan.video.x.verifier";
 
-/** The redirect for this tab. It has to match a URL saved on the X app, exactly. */
 export function xRedirect(): string {
   if (!X_ORIGINS.has(window.location.origin)) throw new Error(atThisSite(t("Open https://plan.video to connect X.")));
   return `${window.location.origin}/x/callback`;
 }
 
-/** What connecting an account gives back: who it is, and its login sealed for the server. Never X's tokens. */
+/** Never X's tokens: who it is, and its login sealed for the server. */
 type Exchanged = {
   xUserId?: string;
   username?: string;

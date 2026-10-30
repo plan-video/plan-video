@@ -16,12 +16,7 @@ const ZERO_LEVELS: ChannelLevels[] = [
 
 type Listener = (levels: ChannelLevels[]) => void;
 
-/**
- * A single shared AudioWorkletNode tapped onto a GainNode. Multiple
- * `useVolumeMeter` consumers pointing at the same GainNode reuse the same
- * worklet — the meter math runs once and the result fans out to every
- * subscribed listener.
- */
+/** One worklet per GainNode, shared by every meter on it. */
 type SharedMeter = {
   workletNode: AudioWorkletNode;
   listeners: Set<Listener>;
@@ -43,24 +38,17 @@ function parseLevels(data: Float32Array): ChannelLevels[] {
   for (let ch = 0; ch < Math.min(channels, 2); ch++) {
     out.push({ rms: data[ch * 2], peak: data[ch * 2 + 1] });
   }
-  // Pad mono → stereo for the meter UI.
   while (out.length < 2) {
     out.push(out[0] ?? { rms: 0, peak: 0 });
   }
   return out;
 }
 
-/**
- * Attach `listener` to the meter for `gainNode`, creating the worklet on
- * demand. Returns a teardown function — when the last listener detaches the
- * worklet is disconnected and the shared entry is dropped.
- */
 async function subscribe(gainNode: GainNode, listener: Listener): Promise<() => void> {
   const existing = sharedMeters.get(gainNode);
   if (existing) {
     existing.listeners.add(listener);
-    // Replay the last value so a freshly-attached consumer doesn't render
-    // ZERO_LEVELS for one frame.
+    // Replay the last value so a new consumer doesn't render ZERO_LEVELS for one frame.
     listener(existing.lastLevels);
     return () => detach(gainNode, listener);
   }
@@ -96,8 +84,7 @@ async function subscribe(gainNode: GainNode, listener: Listener): Promise<() => 
     for (const l of shared.listeners) l(levels);
   };
 
-  // Tap the gain node's output. The worklet's output is left disconnected
-  // so it doesn't double the signal into the audio destination.
+  // The worklet's output stays disconnected so it doesn't double the signal into the destination.
   gainNode.connect(workletNode);
 
   sharedMeters.set(gainNode, shared);
@@ -119,20 +106,12 @@ function detach(gainNode: GainNode, listener: Listener) {
   sharedMeters.delete(gainNode);
 }
 
-/**
- * Returns reactive per-channel RMS + peak levels for the given GainNode.
- * Multiple callers pointing at the same node share a single worklet — the
- * audio-thread work runs once regardless of how many meters are mounted.
- *
- * Call `connect(gainNode)` to wire it up and `disconnect()` to tear down.
- */
 export function useVolumeMeter() {
   const [levels, setLevels] = createSignal<ChannelLevels[]>(ZERO_LEVELS);
 
   let currentGainNode: GainNode | null = null;
   let teardown: (() => void) | null = null;
-  // Tracks the latest subscription request so an in-flight subscribe() that
-  // resolves after a newer connect()/disconnect() can be discarded.
+  // Lets an in-flight subscribe() that resolves after a newer connect()/disconnect() be discarded.
   let subscriptionToken = 0;
 
   const handleLevels: Listener = (next) => setLevels(next);
@@ -156,8 +135,6 @@ export function useVolumeMeter() {
 
     const release = await subscribe(gainNode, handleLevels);
 
-    // A newer connect()/disconnect() landed while we were awaiting — drop
-    // this subscription instead of leaking it.
     if (token !== subscriptionToken) {
       release();
       return;
@@ -171,16 +148,7 @@ export function useVolumeMeter() {
   return { levels, connect, disconnect };
 }
 
-/**
- * AudioWorklet processor for volume metering.
- *
- * Computes per-channel RMS and peak values with smoothing and peak-hold,
- * all on the audio thread. Posts ready-to-display values to the main thread
- * via MessagePort so the UI just writes them into a signal.
- *
- * The processor is a pass-through — input is copied to output so it can be
- * inserted anywhere in the audio graph without affecting playback.
- */
+/** Pass-through: input is copied to output so it can sit anywhere in the graph without affecting playback. */
 function volumeMeterWorkletCode() {
   /* global AudioWorkletProcessor, registerProcessor, sampleRate */
   const SMOOTHING_DOWN = 0.85;
@@ -188,7 +156,6 @@ function volumeMeterWorkletCode() {
   const PEAK_SMOOTHING_UP = 0.2;
   const PEAK_DECAY = 0.97;
   const MAX_CHANNELS = 2;
-  /** Levels below this read as silence (-80 dB). */
   const SILENCE = 1e-4;
 
   class VolumeMeterProcessor extends AudioWorkletProcessor {
@@ -196,7 +163,6 @@ function volumeMeterWorkletCode() {
     private postedSilence = false;
     private readonly updateInterval: number;
 
-    // Per-channel smoothing state
     private smoothedRms: number[] = [0, 0];
     private smoothedPeak: number[] = [0, 0];
     private peakHoldValues: number[] = [0, 0];
@@ -214,7 +180,6 @@ function volumeMeterWorkletCode() {
       const input = inputs[0];
       if (!input || input.length === 0) return true;
 
-      // Pass-through
       const output = outputs[0];
       for (let ch = 0; ch < input.length; ch++) {
         if (output[ch]) {
@@ -225,7 +190,6 @@ function volumeMeterWorkletCode() {
       const blockSize = input[0].length;
       const channels = Math.min(input.length, MAX_CHANNELS);
 
-      // Accumulate RMS and peak per block for smoothing
       for (let ch = 0; ch < channels; ch++) {
         const samples = input[ch];
         let sumSq = 0;
@@ -240,11 +204,9 @@ function volumeMeterWorkletCode() {
 
         const rawRms = Math.sqrt(sumSq / samples.length);
 
-        // Smooth RMS (fast attack, slow release)
         const rmsFactor = rawRms > this.smoothedRms[ch] ? SMOOTHING_UP : SMOOTHING_DOWN;
         this.smoothedRms[ch] = this.smoothedRms[ch] * rmsFactor + rawRms * (1 - rmsFactor);
 
-        // Peak hold with decay
         if (peak >= this.peakHoldValues[ch]) {
           this.peakHoldValues[ch] = peak;
           this.peakHoldFrames[ch] = 0;
@@ -255,7 +217,6 @@ function volumeMeterWorkletCode() {
           }
         }
 
-        // Smooth peak for display
         const peakFactor = peak > this.smoothedPeak[ch] ? PEAK_SMOOTHING_UP : SMOOTHING_DOWN;
         this.smoothedPeak[ch] = this.smoothedPeak[ch] * peakFactor + peak * (1 - peakFactor);
       }
@@ -265,7 +226,6 @@ function volumeMeterWorkletCode() {
       if (this.framesSinceLastPost >= this.updateInterval) {
         this.framesSinceLastPost = 0;
 
-        // Layout: [rms0, peak0, rms1, peak1, ...]
         const data = new Float32Array(channels * 2);
         let silent = true;
         for (let ch = 0; ch < channels; ch++) {
@@ -274,9 +234,7 @@ function volumeMeterWorkletCode() {
           if (data[ch * 2] > SILENCE || data[ch * 2 + 1] > SILENCE) silent = false;
         }
 
-        // Silence is posted once: sent 60 times a second while nothing plays,
-        // it re-rendered the meters for nothing the whole time the editor
-        // sat open.
+        // Silence is posted once: posting it 60 times a second re-rendered the meters for nothing.
         if (!(silent && this.postedSilence)) this.port.postMessage(data);
         this.postedSilence = silent;
       }

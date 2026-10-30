@@ -2,9 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// PostHog product analytics for the public site. The library loads only after
-// a visitor accepts, and only on plan.video. The project token is public by
-// design. Session replay stays off.
+// The project token is public by design.
 
 import type { PostHog } from "posthog-js";
 
@@ -22,7 +20,6 @@ function enabled() {
   return !window.desktop && HOSTS.has(location.hostname);
 }
 
-/** Starts PostHog after the visitor accepts analytics. */
 export function startPostHog() {
   if (!enabled()) return;
   allowed = true;
@@ -49,7 +46,6 @@ export function startPostHog() {
   })();
 }
 
-/** Stops PostHog when the visitor rejects analytics. */
 export function stopPostHog() {
   allowed = false;
   client?.opt_out_capturing();

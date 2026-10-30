@@ -2,9 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The chat's building blocks, after AI Elements (elements.ai-sdk.dev):
-// Conversation, Message, Reasoning and Chain of Thought steps, in Solid and
-// on the editor's own tokens and icons.
+// After AI Elements (elements.ai-sdk.dev), in Solid.
 
 import { Show, createEffect, createSignal, on, onCleanup, onMount, type JSX } from "solid-js";
 import { Collapsible } from "@kobalte/core/collapsible";
@@ -14,8 +12,7 @@ import { t } from "@/lib/i18n";
 
 import "@/agent-chat/activity.css";
 
-/** Keeps to the newest message while the reader is at the bottom, and offers the way back when they are not. */
-/** `fade` dissolves the messages at the scroller's ends, so they slip under what sits above and below rather than being cut. */
+/** `fade` dissolves the messages at the scroller's ends rather than cutting them. */
 export function Conversation(props: { children: JSX.Element; pin: () => unknown; fade?: boolean }) {
   let scroller!: HTMLDivElement;
   let content!: HTMLDivElement;
@@ -97,10 +94,7 @@ export function Shimmer(props: { children: string }) {
 
 const AUTO_CLOSE_DELAY_MS = 1000;
 
-/**
- * The AI's working, folded under one line: open while it works, closed a
- * moment after it finishes, and reopenable at any time.
- */
+/** Open while it works, closed a moment after it finishes, and reopenable at any time. */
 export function Reasoning(props: { streaming: boolean; seconds?: number; children: JSX.Element }) {
   const [open, setOpen] = createSignal(props.streaming);
   let streamed = props.streaming;
@@ -143,7 +137,6 @@ export function Reasoning(props: { streaming: boolean; seconds?: number; childre
 
 export type StepStatus = "active" | "complete" | "error";
 
-/** One line of Chain of Thought, joined to the next by a rule. */
 export function ChainStep(props: {
   icon: string;
   status: StepStatus;

@@ -2,15 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Connecting Meta's networks: Instagram (professional accounts, with
-// Instagram's own login), Facebook Pages and Threads. The publisher
-// (services/publisher, meta-logins.mjs) starts the login, since the app
-// secrets stay on the server, swaps the code Meta sends back for the login,
-// keeps it, and posts and reads numbers with it. The browser gets who the
-// account is and a ticket to attach the login with, never Meta's tokens.
-//
-// Facebook's login asks which Pages to share, and each one shared becomes an
-// account here.
+// The publisher starts the login, since the app secrets stay on the server, and keeps it
+// (services/publisher/meta-logins.mjs). The browser only gets a ticket, never Meta's tokens.
 
 import { APP_ORIGIN, appOrigins, atThisSite } from "@/lib/app-url";
 import { t } from "@/lib/i18n";
@@ -26,18 +19,17 @@ export const isMetaNetwork = (id: string): id is MetaNetwork => (META_NETWORKS a
 
 export const META_NAMES: Record<MetaNetwork, string> = { instagram: "Instagram", facebook: "Facebook", threads: "Threads" };
 
-/** Origins whose `/<network>/callback` is saved on the Meta app. Instagram and Threads take https only. */
+/** Saved on the Meta app. Instagram and Threads take https only. */
 const META_ORIGINS = new Set(appOrigins());
 
 const stateKey = (network: MetaNetwork) => `plan.video.${network}.state`;
 
-/** The redirect for this tab. It has to match a URL saved on the Meta app, exactly. */
+/** Must match a URL saved on the Meta app exactly. */
 export function metaRedirect(network: MetaNetwork): string {
   if (!META_ORIGINS.has(window.location.origin)) throw new Error(atThisSite(t("Open https://plan.video to connect {network}.", { network: META_NAMES[network] })));
   return `${APP_ORIGIN}/${network}/callback`;
 }
 
-/** One account a login came back with: who it is, and its login sealed for the server. */
 export type MetaAccount = MetaSession & { handle: string; avatarUrl: string };
 
 export function rememberMetaState(network: MetaNetwork): string {
@@ -56,11 +48,7 @@ export async function metaAuthorizeUrl(network: MetaNetwork, state: string): Pro
   return url;
 }
 
-/**
- * Finishes connecting. The publisher swaps the code for the login and keeps
- * it; this gets each account it reaches, with a ticket to attach its login.
- * Instagram and Threads give one account, Facebook one per Page shared.
- */
+/** Instagram and Threads give one account, Facebook one per Page shared. */
 export async function exchangeMetaCode(network: MetaNetwork, code: string): Promise<MetaAccount[]> {
   const found = await askMeta<{ accounts?: Partial<MetaAccount>[] }>(
     network,
@@ -82,7 +70,7 @@ export async function exchangeMetaCode(network: MetaNetwork, code: string): Prom
   }));
 }
 
-/** The account's current name and picture, which Meta's picture links don't keep for long. */
+/** Meta's picture links don't keep for long. */
 export async function loadMetaProfile(network: MetaNetwork, connectionId: string): Promise<{ handle?: string; avatarUrl?: string }> {
   return askMeta(network, "profile", { connectionId }, t("Couldn't reach {network}. Try again in a moment.", { network: META_NAMES[network] }));
 }

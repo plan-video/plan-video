@@ -24,7 +24,7 @@ function initSupabase(): SupabaseClient | null {
 
 export const supabase = initSupabase();
 
-/** A client that keeps no session, for checking an emailed link without signing this tab in or out. */
+/** Keeps no session, for checking an emailed link without signing this tab in or out. */
 export function detachedClient(): SupabaseClient | null {
   if (!supabaseUrl || !supabaseAnonKey) return null;
   return createClient(supabaseUrl, supabaseAnonKey, {

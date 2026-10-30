@@ -2,9 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// A death notice drawn the way the KillFeed Generator draws Call of Duty,
-// PUBG and Rust: one bar, the game's type, colors and pictures. One picture
-// feeds both the builder's preview and the element put on the scene.
+// Copies how the KillFeed Generator draws Call of Duty, PUBG and Rust.
 
 import { barGame, type BarGame, type BarStyle } from "./bar-killfeed-assets";
 import { fitName, shareRoom, type FittedName } from "./killfeed-fit";
@@ -14,7 +12,7 @@ export type BarSpec = {
   killer: string;
   victim: string;
   weapon: string;
-  /** Extra ids, drawn in the game's order, after the weapon. */
+  /** Drawn in the game's order, after the weapon. */
   extras: string[];
 };
 
@@ -22,7 +20,7 @@ export function defaultBarSpec(game: BarGame): BarSpec {
   return { killer: "Player1", victim: "Player2", weapon: game.defaultWeapon, extras: [] };
 }
 
-/** The game's default notice with names of a usual length: the narrowest a placed notice is. */
+/** The narrowest a placed notice is. */
 export function usualBarSpec(game: BarGame): BarSpec {
   return { ...defaultBarSpec(game), killer: USUAL_NAME, victim: USUAL_NAME };
 }
@@ -72,7 +70,7 @@ function rounded(ctx: CanvasRenderingContext2D, x: number, y: number, width: num
   ctx.roundRect(x, y, width, height, Math.max(0, radius));
 }
 
-/** Draws the notice `scale` times its natural size, or `fixedWidth` wide (at the natural size), its names fitted into it. */
+/** `fixedWidth` is at the natural size; names are fitted into it. */
 export async function renderBarKillfeed(game: BarGame, spec: BarSpec, scale = 1, fixedWidth?: number): Promise<HTMLCanvasElement> {
   const style = game.style;
   const weapon = game.weapons.find((item) => item.id === spec.weapon) ?? game.weapons.find((item) => item.id === game.defaultWeapon);
@@ -108,8 +106,7 @@ export async function renderBarKillfeed(game: BarGame, spec: BarSpec, scale = 1,
     { kind: "text", text: spec.victim, color: style.victim, width: textWidth(spec.victim) },
   ];
 
-  // In a set width the names give way when too long, and the room to
-  // spare goes either side of what's between them.
+  // In a set width the names give way when too long, and the spare room goes either side of what's between them.
   const killerPart = parts[0] as TextPart;
   const victimPart = parts[parts.length - 1] as TextPart;
   const names: FittedName[] = [
@@ -169,7 +166,6 @@ export async function renderBarKillfeed(game: BarGame, spec: BarSpec, scale = 1,
 
   let x = border + padX;
   for (const [index, part] of parts.entries()) {
-    // The victim's name, and half the room to spare, go after everything else.
     if (index === parts.length - 1) x += spare / 2;
     if (part.kind === "text") {
       const size = names[index === 0 ? 0 : 1]!.size;
@@ -192,7 +188,6 @@ export async function renderBarKillfeed(game: BarGame, spec: BarSpec, scale = 1,
   return element;
 }
 
-/** A file name for the notice's picture. */
 export function barKillfeedFileName(spec: BarSpec): string {
   const clean = (text: string) => text.replace(/[\\/:*?"<>|]+/g, "").trim() || "Player";
   return `${clean(spec.killer)} vs ${clean(spec.victim)}.png`;

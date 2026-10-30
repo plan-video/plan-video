@@ -2,10 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Extensions are tools that live in the left sidebar's Extensions tab: the
-// market lists them, and opening one swaps the market for its panel until
-// you go back.
-
 import type { Component } from "solid-js";
 
 import { msg } from "@/lib/i18n";
@@ -22,14 +18,13 @@ export { CUTOUT_EXTENSION, setOpenExtension } from "./state";
 export type Extension = {
   id: string;
   name: string;
-  /** The game it is made for, shown as a tag. The market filters by it. */
+  /** Shown as a tag. The market filters by it. */
   tag?: string;
   summary: string;
   author: string;
-  /** The picture on its market card. */
   Cover: Component;
   Panel: Component;
-  /** Left out of the market: it only opens from elsewhere (the asset menu). */
+  /** It only opens from elsewhere (the asset menu). */
   unlisted?: boolean;
 };
 
@@ -99,5 +94,5 @@ export const EXTENSIONS: Extension[] = [
   },
 ];
 
-/** The extension whose panel is open, or none: the market shows. */
+/** Undefined: the market shows. */
 export const openExtension = (): Extension | undefined => EXTENSIONS.find((extension) => extension.id === openExtensionId());

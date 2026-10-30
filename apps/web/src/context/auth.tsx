@@ -38,18 +38,18 @@ type AuthContextValue = {
   session: Accessor<Session | null>;
   user: Accessor<User | null>;
   isAuthenticated: Accessor<boolean>;
-  /** Signed out, trying the dashboard in guest mode: work is kept in this browser (see lib/guest.ts). */
+  /** Work is kept in this browser (see lib/guest.ts). */
   isGuest: Accessor<boolean>;
-  /** Whose work this browser's stores read and write: the signed-in person's, else the guest's. */
+  /** The signed-in person's, else the guest's. */
   ownerId: Accessor<string | undefined>;
   isLoading: Accessor<boolean>;
   /** Let in from the waitlist. Always true once the app is open to everyone. */
   hasAccess: Accessor<boolean>;
   isCheckingAccess: Accessor<boolean>;
   accessLevel: Accessor<number>;
-  /** Social accounts bought past the ones Agency includes. */
+  /** Bought past the ones Agency includes. */
   extraAccounts: Accessor<number>;
-  /** The plan and credits below are read. Before that they hold their defaults. */
+  /** Until then the plan and credits hold their defaults. */
   hasUserData: Accessor<boolean>;
   remainingCredits: Accessor<number>;
   creditLimit: Accessor<number>;
@@ -58,11 +58,10 @@ type AuthContextValue = {
   hasStripeCustomer: Accessor<boolean>;
   productUpdatesEnabled: Accessor<boolean>;
   marketingAnnouncementsEnabled: Accessor<boolean>;
-  /** Emails from the publisher when a post didn't go out or a login runs out. */
   postAlertsEnabled: Accessor<boolean>;
   setEmailPreference: (column: EmailPreferenceColumn, enabled: boolean) => Promise<{ error: string | null }>;
   signInWithOAuth: (provider: OAuthProvider) => Promise<void>;
-  /** Adds a sign-in method to the signed-in account. Comes back to the account settings. */
+  /** Comes back to the account settings. */
   linkOAuth: (provider: OAuthProvider) => Promise<void>;
   signInWithOtp: (email: string) => Promise<{ error: string | null }>;
   signInWithEmailCode: (email: string, token: string) => Promise<{ error: string | null }>;
@@ -92,10 +91,9 @@ const APP_URL = import.meta.env.VITE_APP_URL || window.location.origin;
 const ELECTRON_AUTH_REDIRECT = `${APP_URL}/auth/electron-callback.html`;
 const USER_DATA_QUERY = "lifetime_credit_balance,monthly_credit_balance,monthly_credit_quota,access_level,stripe_customer_id,last_credit_reset_at,product_updates_enabled,marketing_announcements_enabled" as const;
 
-/** Set while a Google account is being connected to this one, so the return says how it went. */
+/** So the return says how it went. */
 const LINKING_KEY = 'plan.video.linking';
 
-/** The OAuth return parameters on this page's address, if it is one. */
 function readOAuthReturn(): { error: string | null; cleanUrl: string } | null {
   const query = new URLSearchParams(window.location.search);
   const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
@@ -117,12 +115,9 @@ export function AuthProvider(props: { children: JSX.Element }) {
       return;
     }
 
-    // A Google sign-in comes back to the site root with ?code=… (or with an
-    // error when the provider or Supabase refused it). Supabase finishes it on
-    // load; when that ends without a session, say so instead of quietly showing
-    // the signed-out site, and drop the spent parameters from the address.
+    // Supabase finishes a Google sign-in returning to / on load; if it ends without a session, say so
+    // and drop the spent parameters from the address.
     const returned = !window.desktop && window.location.pathname === '/' ? readOAuthReturn() : null;
-    // Connecting an account comes back to the account settings instead.
     let linking: string | null = null;
     try {
       linking = sessionStorage.getItem(LINKING_KEY);
@@ -177,8 +172,7 @@ export function AuthProvider(props: { children: JSX.Element }) {
 
 
 
-  // Supabase sends a new session on every SIGNED_IN, refocusing the tab
-  // included. Work keyed on the user waits for the id to change instead.
+  // Supabase sends a new session on every SIGNED_IN, refocusing the tab included, so key work on the id.
   const sessionUserId = createMemo(() => session()?.user.id);
   createRenderEffect(() => noteSignedIn(sessionUserId()));
 
@@ -202,7 +196,7 @@ export function AuthProvider(props: { children: JSX.Element }) {
     },
   );
 
-  // Read apart from the rest, so the plan still loads before the column is there. Again when the plan changes.
+  // Read apart from the rest, so the plan still loads before the column exists.
   const [extraAccounts, setExtraAccounts] = createSignal(0);
   createEffect(
     on([sessionUserId, () => userData.latest?.access_level], ([userId]) => {
@@ -254,8 +248,7 @@ export function AuthProvider(props: { children: JSX.Element }) {
 
   onMount(() => {
     if (!window.desktop) return;
-    // Must live in AuthProvider — ElectronProvider only mounts after sign-in,
-    // but the OAuth deep link arrives while the user is still signed out.
+    // Must live in AuthProvider: ElectronProvider mounts only after sign-in, but the OAuth deep link arrives before.
     const handleAuthCallbackUrl = async (url: string | null) => {
       if (!supabase || !url) return;
 
@@ -321,9 +314,8 @@ export function AuthProvider(props: { children: JSX.Element }) {
 
   const signInWithOAuth = async (provider: OAuthProvider) => {
     if (!supabase) return;
-    // The provider creates an account on the first success, and the address
-    // is not known until after that. While the app is closed, email is the
-    // only way in, and only for an address that was already invited.
+    // The provider creates an account on first success, before the address is known, so while invite-only,
+    // email is the only way in, and only for an invited address.
     if (INVITE_ONLY) {
       toast.error(t("Google sign-in opens once you're invited. Use the email on your invite."));
       return;
@@ -366,7 +358,6 @@ export function AuthProvider(props: { children: JSX.Element }) {
   const linkOAuth = async (provider: OAuthProvider) => {
     if (!supabase) return;
 
-    // The desktop app opens the provider in the browser, like signing in does.
     if (window.desktop) {
       const { data, error } = await supabase.auth.linkIdentity({
         provider,
@@ -428,8 +419,7 @@ export function AuthProvider(props: { children: JSX.Element }) {
     const code = token.replace(/\s/g, '');
     if (!code) return { error: t('Enter the code from the email.') };
 
-    // A first sign-in is a signup confirmation. A later one is a magic-link code.
-    // The wrong type does not use up the code.
+    // A first sign-in is a signup confirmation, a later one a magic-link code. The wrong type does not use up the code.
     let message = t('That code did not work.');
     for (const type of ['email', 'signup'] as const) {
       const { error } = await supabase.auth.verifyOtp({ email, token: code, type });

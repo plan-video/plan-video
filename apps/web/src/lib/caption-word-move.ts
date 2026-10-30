@@ -95,7 +95,7 @@ function rangeForWord(ranges: readonly Entity[], word: TranscriptWord): Entity |
   });
 }
 
-/** Puts `offsets` on the spoken words and on the ranges that are drawn now. */
+/** Also on the ranges drawn now. */
 function applyOffsets(world: World, caption: Entity, offsets: ReadonlyMap<number, WordOffset>): void {
   const words = listedWords(world, caption);
   const ranges = caption.get(Cache)?.textRanges ?? [];
@@ -152,7 +152,7 @@ function pointerInCaption(world: World, caption: Entity, clientX: number, client
   return transformPoint(invert2D(entityWorldMat(world, caption)), clientX, clientY);
 }
 
-/** The spoken word under the pointer, or null when the press missed the glyphs. */
+/** Null when the press missed the glyphs. */
 function pickCaptionWordAt(world: World, caption: Entity, clientX: number, clientY: number): number | null {
   const lines = caption.get(TextCache)?.tokens ?? [];
   if (lines.length === 0) return null;
@@ -201,10 +201,7 @@ function dragDelta(world: World, caption: Entity, clientX: number, clientY: numb
   return { x: current.x - origin.x, y: current.y - origin.y };
 }
 
-/**
- * Starts a canvas move of the words picked on `caption`. False when this
- * press is a move of the captions layer itself.
- */
+/** False when this press is a move of the captions layer itself. */
 export function beginCaptionWordMove(world: World, caption: Entity, clientX: number, clientY: number): boolean {
   if (!caption.isAlive() || !isCaption(caption)) return false;
   const indices = pickWordsForMove(world, caption, clientX, clientY);
@@ -218,7 +215,6 @@ export function beginCaptionWordMove(world: World, caption: Entity, clientX: num
   return true;
 }
 
-/** Drags the picked words in the caption's local space. */
 export function dragCaptionWords(world: World, clientX: number, clientY: number, originX: number, originY: number): boolean {
   if (!move || !move.caption.isAlive()) return false;
   const delta = dragDelta(world, move.caption, clientX, clientY, originX, originY);
@@ -232,7 +228,6 @@ export function dragCaptionWords(world: World, clientX: number, clientY: number,
   return true;
 }
 
-/** Writes the moved words into the transcript. */
 export function endCaptionWordMove(world: World): boolean {
   const pending = move;
   move = null;
@@ -246,15 +241,11 @@ export function endCaptionWordMove(world: World): boolean {
   return true;
 }
 
-/** Whether a canvas gesture is currently moving picked caption words. */
 export function isCaptionWordMove(): boolean {
   return move !== null;
 }
 
-/**
- * Nudges the picked words by `dx`, `dy`. False when no words are picked,
- * so the caller can nudge the selected nodes instead.
- */
+/** False when no words are picked, so the caller can nudge the selected nodes instead. */
 export function nudgeCaptionWords(world: World, dx: number, dy: number): boolean {
   const picked = captionWordSelection();
   if (!picked || !picked.entity.isAlive() || picked.indices.size === 0) return false;

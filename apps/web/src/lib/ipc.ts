@@ -20,9 +20,7 @@ type Pending = {
   reject: (error: Error) => void;
 };
 
-// Renderer↔main bridge: `handle` registers a
-// single-subscriber receiver for inbound channels (events from main); `call`
-// sends a request to main and awaits the reply.
+// `handle` allows one receiver per inbound channel.
 class MainBridge {
   private pending = new Map<string, Pending>();
   private eventHandlers = new Map<MainEventChannel, EventHandler<MainEventChannel>>();

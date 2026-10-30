@@ -2,9 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Pictures and the default look for the killfeeds that share one bar layout:
-// Call of Duty, PUBG and Rust, as the KillFeed Generator draws them.
-
 import conduitUrl from "@/assets/fonts/ConduitITC.otf?url";
 import robotoUrl from "@/assets/fonts/Roboto-Medium.ttf?url";
 import robotoCondensedUrl from "@/assets/fonts/RobotoCondensed.ttf?url";
@@ -37,7 +34,6 @@ export type BarAnchor = "top-right" | "bottom-left";
 
 export type BarGame = {
   id: string;
-  /** The name on the market badge. */
   game: string;
   summary: string;
   /** Entries of one game stack with each other, and not with another game's. */
@@ -48,9 +44,9 @@ export type BarGame = {
   extras: BarExtra[];
   defaultWeapon: string;
   anchor: BarAnchor;
-  /** First entry's inset from the top, at unit 1, for a top-right feed. */
+  /** At unit 1, for a top-right feed. */
   top: number;
-  /** First entry's inset from the bottom, at unit 1, for a bottom-left feed. */
+  /** At unit 1, for a bottom-left feed. */
   bottom: number;
   entryHeight: number;
   coverExtras: string[];

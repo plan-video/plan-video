@@ -2,9 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// What the editor's AI can do, and how each of those runs against the world
-// on screen. Every change goes through the document editor, one undo step per
-// tool call, so an AI edit is the same edit a user would make by hand.
+// Every change goes through the document editor, one undo step per tool call, like an edit by hand.
 
 import { createImageEncoder } from "@plan.video/encoder";
 import { TIME_FPS } from "@plan.video/jsx";
@@ -36,15 +34,12 @@ import { editCaptionWords, readCaptionWords, type WordEdit, type WordInsert } fr
 import type { AuthoredTree } from "@plan.video/reconciler";
 import type { Entity, World } from "koota";
 
-/** What a tool hands back: text for the model, and any frames it should look at. */
 export type ToolOutput = {
   text: string;
   images?: { mediaType: "image/png"; data: string }[];
 };
 
 export type ToolContext = { world: World; dir: string };
-
-// --- ids ------------------------------------------------------------------
 
 const idOf = (entity: Entity): string => `e${entity.id()}`;
 
@@ -68,8 +63,6 @@ function activeScene(world: World): Entity {
 
 const frameRate = (world: World): number => world.get(FrameRate)?.value || 30;
 const round = (value: number): number => Math.round(value * 1000) / 1000;
-
-// --- reading ------------------------------------------------------------
 
 const HIDDEN_PROPS = new Set(["children", "ref", "selected", "timeline", "playhead", "expanded", "clipHeight"]);
 const MAX_STRING = 400;
@@ -149,8 +142,6 @@ function listAssets(world: World): unknown {
     }));
 }
 
-// --- editing ------------------------------------------------------------
-
 function toTree(value: unknown): AuthoredTree {
   if (!value || typeof value !== "object") throw new Error("An element must be an object with a tag and props.");
   const entry = value as { tag?: unknown; props?: unknown; text?: unknown; children?: unknown };
@@ -175,7 +166,6 @@ function collectIds(world: World, entities: Entity[]): string[] {
   return out;
 }
 
-/** Runs `edit` as one undo step. */
 function gesture<T>(world: World, edit: () => T): T {
   const history = getEditHistory(world);
   history.beginGesture();

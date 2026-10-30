@@ -2,15 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// A workspace someone shared with the signed-in person lives in its owner's
-// account. This keeps this browser's copy of its lists (accounts, calendars,
-// library and the rest) in step with the owner's, as lib/account-sync.ts does
-// for the person's own workspaces; its posts sync on their own, through the
-// posts table (lib/post-sync.ts). For its lists, it reads the workspace, merges it with what changed
-// here since the last copy both sides had, and saves the result back. The
-// server lets someone reach only the workspaces they're in, and refuses a save
-// made over a copy that changed since it was read, so two people's edits merge
-// rather than one replacing the other.
+// Shared workspaces' lists merge against the last copy both sides had. The server lets
+// people reach only workspaces they're in and refuses a save over a copy that changed
+// since it was read, so two people's edits merge rather than one replacing the other.
+// Posts sync on their own (lib/post-sync.ts).
 
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { openDB, type IDBPDatabase } from "idb";
@@ -37,24 +32,22 @@ import { supabase } from "@/lib/supabase";
 import { refreshTeam, refreshTeamSoon } from "@/lib/team";
 import { activeShared, isActiveWorkspace, onWorkspaceChange, sharedWorkspace, sharedWorkspaces, workspaceDatabaseFor, type SharedWorkspace } from "@/lib/workspaces";
 
-/** The workspace as both this browser and the owner's account last had it, at the owner's revision then. */
+/** The last copy both sides had, at the owner's revision then. */
 type Copy = { revision: string; slice: Slice };
 
-/** Waits before trying again after a read or save failed, longer each time in a row. */
 const RETRY_MS = [5_000, 15_000, 60_000, 5 * 60_000];
-/** How often the open shared workspace is read again, in case a live update was missed. */
+/** Read again this often in case a live update was missed. */
 const POLL_MS = 60_000;
 const PUSH_MS = 400;
 
 const [problem, setProblem] = createSignal<{ message: string; since: number } | null>(null);
 
-/** Why changes made here aren't reaching the shared workspace's owner, and since when, while they aren't. */
 export const teamSyncProblem = problem;
 
 let person: string | undefined;
 let channel: RealtimeChannel | null = null;
 let channelFor = "";
-/** Each subscription gets a topic of its own: one made again under the topic of one still closing can miss changes. */
+/** A topic per subscription: one made again under the topic of one still closing can miss changes. */
 let channels = 0;
 let failures = 0;
 let retryTimer: ReturnType<typeof setTimeout> | undefined;
@@ -62,17 +55,10 @@ let lastRead = 0;
 const timers = new Map<string, ReturnType<typeof setTimeout>>();
 const running = new Map<string, Promise<boolean>>();
 const again = new Set<string>();
-/** The owner's revision each shared workspace was last read or saved at here, so the echo of a save isn't read again. */
+/** So the echo of a save isn't read again. */
 const seen = new Map<string, string>();
-/**
- * The revision this tab's stores show of each shared workspace. Another tab in
- * this browser can write a newer copy into the storage they share, which then
- * already matches; this tab's stores are read again all the same.
- */
+/** Another tab can write a newer copy into the shared storage; this tab's stores are read again all the same. */
 const shown = new Map<string, string>();
-
-// ---------------------------------------------------------------------------
-// The last copy both sides had, kept in this browser for the next merge.
 
 const COPY_BASE = "plan-video-team-copy";
 
@@ -101,7 +87,7 @@ async function readCopy(userId: string, id: string): Promise<Copy | null> {
 async function keepCopy(userId: string, id: string, copy: Copy) {
   try {
     await withCopies(userId, id, async (database) => {
-      // The posts of a copy from before posts moved stay with it, for post-sync's first run (readTeamCopyPosts).
+      // A copy from before the posts table keeps its posts for post-sync's first run (readTeamCopyPosts).
       const before = (await database.get("copy", "last")) as { slice?: { events?: unknown }; posts?: unknown } | undefined;
       const posts = before?.posts ?? before?.slice?.events;
       await database.put("copy", Array.isArray(posts) ? { ...copy, posts } : copy, "last");
@@ -111,11 +97,7 @@ async function keepCopy(userId: string, id: string, copy: Copy) {
   }
 }
 
-/**
- * A shared workspace's posts as this browser and the owner last agreed on
- * them before posts moved to their own table, for post-sync's first run: what
- * it measures changes made here against. Null when there's no such copy.
- */
+/** Posts as last agreed before they moved to their own table, for post-sync's first run. */
 export async function readTeamCopyPosts(userId: string, id: string): Promise<StoredEvent[] | null> {
   try {
     const found = (await withCopies(userId, id, (database) => database.get("copy", "last"))) as { slice?: { events?: unknown }; posts?: unknown } | undefined;
@@ -126,10 +108,7 @@ export async function readTeamCopyPosts(userId: string, id: string): Promise<Sto
   }
 }
 
-// ---------------------------------------------------------------------------
-// When to sync
-
-/** Starts keeping the person's open shared workspace in step. A second call for the same person does nothing. */
+/** Does nothing when already running for this person. */
 export function beginTeamSync(userId: string | undefined) {
   if (person === userId) return;
   person = userId;
@@ -142,8 +121,8 @@ export function beginTeamSync(userId: string | undefined) {
   clearTimeout(retryTimer);
   setProblem(null);
   opened();
-  // Changes made in another shared workspace that a closed tab didn't get to save go now, one at a time.
-  // Only one this browser has a copy of can have any; the rest are read when they're opened.
+  // Unsaved changes a closed tab left in other shared workspaces go now, one at a time;
+  // only ones with a copy here can have any.
   if (userId) {
     const rest = sharedWorkspaces().filter((row) => row.state === "active" && row.id !== activeShared()?.id);
     void (async () => {
@@ -152,7 +131,7 @@ export function beginTeamSync(userId: string | undefined) {
   }
 }
 
-/** On a switch, or a start: the shared workspace now open is read before its posts show. */
+/** The open shared workspace is read before its posts show. */
 function opened() {
   follow();
   const open = person ? activeShared() : undefined;
@@ -201,7 +180,6 @@ function schedule(id: string, delay = PUSH_MS) {
   );
 }
 
-/** Hears when the open shared workspace changes on its owner's account, from anyone. */
 function follow() {
   const open = person ? activeShared() : undefined;
   const key = open ? `${person}:${open.scope.owner}` : "";
@@ -217,19 +195,19 @@ function follow() {
       const row = payload.new as { workspace_id?: string; revision?: string } | undefined;
       const current = activeShared();
       if (!current || current.scope.owner !== owner || row?.workspace_id !== current.scope.workspace) return;
-      // Renamed, or given another picture, by its owner: the list of shared workspaces has it, even when the posts didn't change.
+      // Renamed or given another picture: the shared list has it, even when posts didn't change.
       refreshTeamSoon();
       if (row.revision && row.revision === seen.get(current.id)) return;
       schedule(current.id, 0);
     })
     .subscribe((status) => {
-      // Back after a dropped connection: read again, in case something changed meanwhile.
+      // Back after a dropped connection: read again in case something changed meanwhile.
       const current = activeShared();
       if (status === "SUBSCRIBED" && current && Date.now() - lastRead > 5_000) schedule(current.id, 0);
     });
 }
 
-/** Saves this browser's changes to the open shared workspace now, for "Post now", which the publisher reads next. */
+/** For "Post now", which the publisher reads next. */
 export async function flushTeamSync(): Promise<boolean> {
   const open = activeShared();
   if (!open || !person) return true;
@@ -238,13 +216,12 @@ export async function flushTeamSync(): Promise<boolean> {
   return syncShared(open.id);
 }
 
-/** Tries again now, rather than at the next retry. */
 export function retryTeamSync() {
   const open = activeShared();
   if (open) void syncShared(open.id);
 }
 
-/** Brings one shared workspace in step. Asked again while it runs, it runs once more after. True when both sides agree. */
+/** Asked again while running, it runs once more after. True when both sides agree. */
 export function syncShared(id: string): Promise<boolean> {
   const userId = person;
   const share = sharedWorkspace(id);
@@ -270,9 +247,6 @@ export function syncShared(id: string): Promise<boolean> {
   return work;
 }
 
-// ---------------------------------------------------------------------------
-// Syncing
-
 function choose(remote: Copy, local: Slice, last: Copy | null): Slice {
   // Never in step here: a copy with nothing made in it takes the owner's, and one with work in it keeps both sides' rows.
   if (!last) return sliceHasContent(local) ? unionSlice(remote.slice, local) : remote.slice;
@@ -280,11 +254,8 @@ function choose(remote: Copy, local: Slice, last: Copy | null): Slice {
   return mergeSlice(last.slice, local, remote.slice);
 }
 
-/**
- * This browser's copy, unless what it keeps the library in is gone while the
- * last copy still names its items: a database cleared or made again reads as
- * everything deleted, which must never reach the owner's account.
- */
+// A cleared or recreated library database reads as everything deleted, which must never
+// reach the owner's account.
 function lostLocally(local: Slice, last: Copy | null, remote: Copy): Slice {
   if (!last) return local;
   if (!local.library.length && last.slice.library.length) return { ...local, library: remote.slice.library };
@@ -301,7 +272,7 @@ async function reconcile(userId: string, share: SharedWorkspace): Promise<boolea
       if (read.error) return await refused(userId, share, read.error);
       if (person !== userId) return false;
       const last = await readCopy(userId, share.id);
-      // The workspace's posts as read now: what changes here before the merged copy is written back is kept.
+      // Posts as read now, so ones changed here before the write-back are kept.
       const reads = new Map<string, CalendarRead>();
       const stored = canonicalSlice(await readSlice(userId, share.id, reads));
       const found = read.data as { revision?: unknown; slice?: unknown };
@@ -345,10 +316,7 @@ async function reconcile(userId: string, share: SharedWorkspace): Promise<boolea
   }
 }
 
-/**
- * Writes the merged copy into this browser, where the open workspace's stores
- * read it. True when posts changed here since `read` were kept as they are.
- */
+/** True when posts changed here since `read` were kept as they are. */
 async function apply(userId: string, id: string, slice: Slice, read?: CalendarRead): Promise<boolean> {
   setAccountApplying(true);
   try {
@@ -368,7 +336,7 @@ function settled(): true {
   return true;
 }
 
-/** Not in the workspace anymore, or it's gone: the list of shared workspaces is read again, which closes it. */
+/** Reading the shared list again closes a workspace the person left or that's gone. */
 async function refused(userId: string, share: SharedWorkspace, error: { code?: string; message?: string }): Promise<false> {
   if (error.code === "42501" || error.code === "P0002") {
     void refreshTeam();
@@ -379,7 +347,6 @@ async function refused(userId: string, share: SharedWorkspace, error: { code?: s
   return failed(userId, share);
 }
 
-/** Tried again on its own, soon at first. */
 async function failed(userId: string, share: SharedWorkspace): Promise<false> {
   failures++;
   const message = navigator.onLine === false ? t("This browser is offline") : t("plan.video can't reach {workspace} right now", { workspace: share.name });

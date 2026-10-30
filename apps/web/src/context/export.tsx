@@ -43,9 +43,7 @@ export function ExportProvider(props: { children: JSX.Element }) {
     const format = config.format ?? "mp4";
     const mimeType = format === "wav" ? "audio/wav" : MIME_TYPES[format];
 
-    // Fail before the save picker: an unencodable configuration is known
-    // right away, and the encoder would only find out after a file was
-    // picked and the render machinery spun up.
+    // Fail before the save picker: the encoder would only find out after a file was picked.
     const videoEnabled = format !== "ogg" && format !== "wav" && config.video?.enabled !== false;
     if (videoEnabled) {
       const computed = scene.get(Computed);
@@ -135,11 +133,7 @@ export function ExportProvider(props: { children: JSX.Element }) {
     void exportScene(scene, getDefaultExportTemplate());
   };
 
-  /**
-   * Export is the provider's command, so its keys are bound here rather than
-   * in the engine's shortcut table: ⌘E writes the active scene, ⇧⌘E the frame
-   * on screen — the same two the File menu lists.
-   */
+  // Bound here, not in the engine's shortcut table: export is this provider's command.
   const handleShortcut = (event: KeyboardEvent) => {
     if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "e") return;
     if (isInputTarget(event)) return;

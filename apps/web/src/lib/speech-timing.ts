@@ -4,7 +4,6 @@
 
 import type { Transcript } from "@plan.video/assets";
 
-/** How loud the audio is in short frames: where speech starts and stops. */
 export interface SpeechEnvelope {
   /** Seconds per frame. */
   step: number;
@@ -18,22 +17,17 @@ const FLOOR_DB = -100;
 
 /** Shorter quiet stretches are stops inside a word, like the closure before a "p". */
 const MIN_SILENCE_SECONDS = 0.1;
-/**
- * Speech this close to its noise floor is under music or noise. Its quiet
- * stretches are not pauses, so the reported times are left as they are.
- */
+/** Speech this close to its noise floor is under music or noise: its quiet stretches aren't pauses. */
 const MIN_CONTRAST_DB = 20;
 /** Below this contrast, soft consonants sink into the noise and only longer pauses count. */
 const NOISY_CONTRAST_DB = 30;
 const NOISY_MIN_SILENCE_SECONDS = 0.15;
-/** How far a word edge may move to reach the silence next to it. */
 const SNAP_SECONDS = 0.3;
 /** Reported ends run late into a pause by more than starts run early. */
 const SNAP_END_SECONDS = 0.45;
 /** A word shows this much before its voice starts, so it is never late. */
 const LEAD_SECONDS = 0.03;
 const MIN_WORD_SECONDS = 0.06;
-/** How long a word may be held past its reported end. */
 const MAX_HOLD_SECONDS = 1.5;
 /** A held vowel stays within this much of the word's own level. */
 const HOLD_DROP_DB = 10;
@@ -68,7 +62,7 @@ interface Silence {
   end: number;
 }
 
-/** The pauses in the audio, or null when speech does not stand clear of the background. */
+/** Null when speech doesn't stand clear of the background. */
 export function findSilences(envelope: SpeechEnvelope): Silence[] | null {
   const { levels, step } = envelope;
   if (levels.length === 0) return null;
@@ -97,10 +91,9 @@ export function findSilences(envelope: SpeechEnvelope): Silence[] | null {
 }
 
 /**
- * Moves word edges onto the pauses in the audio. Recognizers place words on
- * a coarse grid and close every gap, so a word shows before it is said after
- * a breath and stays after the voice stops. An edge only moves when a pause
- * lies right next to it; words run together stay as they were heard.
+ * Recognizers place words on a coarse grid and close every gap, so a word shows before
+ * it's said and stays after the voice stops. An edge only moves when a pause lies right
+ * next to it; words run together stay as heard.
  */
 export function snapToSpeech(transcript: Transcript, envelope: SpeechEnvelope): Transcript {
   const silences = findSilences(envelope);
@@ -115,7 +108,6 @@ export function snapToSpeech(transcript: Transcript, envelope: SpeechEnvelope): 
     let start = word.start;
     let end = word.end;
 
-    // The voice starts where a pause that covers the reported start ends.
     const onset = closest(
       silences.filter((silence) => (
         silence.start <= word.start + 0.05
@@ -127,8 +119,8 @@ export function snapToSpeech(transcript: Transcript, envelope: SpeechEnvelope): 
     );
     if (onset) start = Math.max(0, previous?.end ?? 0, onset.end - LEAD_SECONDS);
 
-    // A word that runs across a pause was given the time of whatever is said
-    // next. It ends where the pause starts, so it stays with the words before it.
+    // A word that runs across a pause was given the time of what's said next: end it where
+    // the pause starts, so it stays with the words before it.
     const gap = silences.find((silence) => (
       silence.end - silence.start >= INTERIOR_PAUSE_SECONDS
       && silence.start >= start + MIN_WORD_SECONDS
@@ -136,8 +128,7 @@ export function snapToSpeech(transcript: Transcript, envelope: SpeechEnvelope): 
     ));
     if (gap) end = gap.start;
 
-    // It stops where a pause begins that runs on to the reported end, or to
-    // the next word. An end never grows into the word after it.
+    // An end never grows into the word after it.
     const reach = Math.min(end, next?.start ?? Infinity) - 0.1;
     const offset = closest(
       silences.filter((silence) => (
@@ -149,8 +140,8 @@ export function snapToSpeech(transcript: Transcript, envelope: SpeechEnvelope): 
       word.end,
     );
     if (offset) end = offset.start;
-    // A drawn-out word ("hoollyyy") is reported at its usual length. It
-    // lasts as long as the voice holds, up to the next word.
+    // A drawn-out word ("hoollyyy") is reported at its usual length: hold it as long as the
+    // voice does, up to the next word.
     else {
       const pause = silences.find((silence) => silence.end > end);
       const limit = Math.min(end + MAX_HOLD_SECONDS, next?.start ?? Infinity, pause ? Math.max(end, pause.start) : Infinity);
@@ -176,11 +167,7 @@ export function snapToSpeech(transcript: Transcript, envelope: SpeechEnvelope): 
   }));
 }
 
-/**
- * Where the voice of a word said over `[start, end]` stops holding: the
- * audio stays within a few dB of the word's loud part, across brief dips,
- * until `limit`. `end` when it drops right away.
- */
+/** Holding means staying within a few dB of the word's loud part, across brief dips. */
 function heldUntil(envelope: SpeechEnvelope, start: number, end: number, limit: number): number {
   const { levels, step } = envelope;
   const from = Math.floor(start / step);

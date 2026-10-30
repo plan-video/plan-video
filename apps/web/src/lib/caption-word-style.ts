@@ -25,9 +25,8 @@ import type { Entity, World } from "koota";
 import type { EntityRecord } from "@plan.video/runtime";
 import type { Transcript, TranscriptWordLayer, TranscriptWordStyle, TranscriptWordText } from "@plan.video/assets";
 
-/** Paints a word draws with instead of the caption's. */
 const PAINTS = ["fills", "strokes", "shadows"] as const;
-/** What only a word has: the caption's own apply to its whole layer. */
+/** The caption's own apply to its whole layer. */
 const OWN = ["effects", "animations"] as const;
 const LAYERS = [...PAINTS, ...OWN] as const;
 const TEXT_FIELDS = ["fontFamily", "fontWeight", "fontSize", "fontStyle", "letterSpacing", "textCase", "textBaseline"] as const;
@@ -36,12 +35,10 @@ const SCALARS = ["color", "opacity", "blendMode", "hidden", "offsetX", "offsetY"
 type LayerKind = (typeof LAYERS)[number];
 type Scalar = (typeof SCALARS)[number];
 
-/** A setting of a word's look, as `mixedSettings` names them. */
 export type WordSetting = (typeof TEXT_FIELDS)[number] | Scalar | LayerKind;
 
 const DEFAULT_COLOR = 0xffffff;
 
-/** Everything a word can look like, whether it is the caption's or its own. */
 export type WordLook = {
   text: TranscriptWordText;
   color?: number;
@@ -54,12 +51,7 @@ export type WordLook = {
 
 let proxies = 0;
 
-/**
- * How `entity` draws its glyphs: its typography, color, compositing and
- * paints, and its effects and animations. For the caption itself only what
- * a word takes from it is read: the rest applies to the caption's whole
- * layer, so a word starts from none.
- */
+/** For the caption itself, only what a word takes from it is read: the rest applies to its whole layer. */
 export function readLook(world: World, entity: Entity, caption = false): WordLook {
   const style = entity.get(TextStyle);
   const text: Record<string, unknown> = {};
@@ -87,7 +79,6 @@ export function readLook(world: World, entity: Entity, caption = false): WordLoo
   };
 }
 
-/** How a word with `style` looks over a caption that looks like `caption`. */
 export function wordLook(style: TranscriptWordStyle | undefined, caption: WordLook): WordLook {
   return {
     text: { ...caption.text, ...style?.text },
@@ -105,7 +96,6 @@ export function wordLook(style: TranscriptWordStyle | undefined, caption: WordLo
   };
 }
 
-/** The settings that are not the same on every one of `looks`. */
 export function mixedSettings(looks: readonly WordLook[]): ReadonlySet<WordSetting> {
   const mixed = new Set<WordSetting>();
   const [first, ...rest] = looks;
@@ -118,11 +108,7 @@ export function mixedSettings(looks: readonly WordLook[]): ReadonlySet<WordSetti
   return mixed;
 }
 
-/**
- * The entities in `list` and what is under them, numbered from 1 with 0 for
- * the node they belong to. Their order is written into `ItemIndex`, so two
- * lists that look the same compare the same.
- */
+/** Their order is written into `ItemIndex`, so two lists that look the same compare the same. */
 function layerRecords(world: World, list: readonly Entity[]): TranscriptWordLayer[] {
   const ids = new Map<Entity, number>();
   const members: Entity[] = [];
@@ -146,12 +132,7 @@ function layerRecords(world: World, list: readonly Entity[]): TranscriptWordLaye
   });
 }
 
-/**
- * A `<text>` outside the scene that looks like the picked words: the
- * caption's look with the first word's own over it. The panels edit it like
- * any node; `readLook` reads the result back. Its every entity carries a
- * source, so the editor reports what happens to it (see `DocumentEditor.aside`).
- */
+/** Every entity carries a source, so the editor reports what happens to it (see `DocumentEditor.aside`). */
 export function createWordProxy(world: World, caption: Entity, style: TranscriptWordStyle | undefined, text: string): Entity {
   const document = getRuntimeDocument(world);
   const node = document.createElement("Text");
@@ -159,8 +140,7 @@ export function createWordProxy(world: World, caption: Entity, style: Transcript
   document.setProperty(node, SOURCE_ATTR, source);
 
   const proxy = node.entity;
-  // Kept out of the motion system: its animations are the word's, and the
-  // panels read the values they would otherwise move.
+  // Kept out of the motion system: its animations are the word's, and the panels read the values it would move.
   proxy.add(Culled);
 
   const look = wordLook(style, readLook(world, caption, true));
@@ -204,18 +184,13 @@ export function createWordProxy(world: World, caption: Entity, style: Transcript
   return proxy;
 }
 
-/** Removes a proxy and everything under it. */
 export function disposeWordProxy(proxy: Entity): void {
   if (proxy.isAlive()) proxy.destroy();
 }
 
 const sameLayers = (a: TranscriptWordLayer[], b: TranscriptWordLayer[]) => JSON.stringify(a) === JSON.stringify(b);
 
-/**
- * `style` with what changed from `before` to `after` written over it, and
- * nothing else: another picked word keeps what it had that nobody touched.
- * What comes back to the caption's own look stops being the word's.
- */
+/** Only changed fields are written, so other picked words keep theirs; a field back at the caption's look is dropped. */
 export function restyleWord(
   style: TranscriptWordStyle | undefined,
   before: WordLook,
@@ -250,7 +225,6 @@ export function restyleWord(
   return isStyledWord(next) ? next : undefined;
 }
 
-/** Restyles the words at `positions`, their place in the whole transcript. */
 export function restyleWords(
   transcript: Transcript,
   positions: ReadonlySet<number>,

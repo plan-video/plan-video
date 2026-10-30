@@ -38,10 +38,8 @@ export function createRootMemo<T>(fn: () => T): [Accessor<T>, () => void] {
 }
 
 /**
- * The resource's last loaded value, read without suspending: undefined until
- * the first load lands, the previous value while a refetch runs. Calling the
- * resource itself registers with the nearest Suspense, which for the editor
- * is the app's root one — a thumbnail loading would blank the whole page.
+ * Read without suspending: calling the resource registers with the nearest Suspense, which in the editor is the
+ * app's root one, so a thumbnail loading would blank the whole page.
  */
 export function settled<T>(resource: Resource<T>): T | undefined {
   const state = resource.state;
@@ -59,7 +57,6 @@ type Simplify<T> = { [K in keyof T]: T[K] } & {};
 
 type MergeTwo<A, B> = Simplify<Omit<A, keyof B> & B>;
 
-// Merge in order: MergeMany<[A, B, C]> = MergeTwo<MergeTwo<A, B>, C>
 type MergeMany<T extends readonly unknown[]> =
   T extends readonly [infer A, infer B, ...infer R]
   ? MergeMany<readonly [MergeTwo<A & object, B & object>, ...R]>
@@ -69,13 +66,7 @@ type MergeMany<T extends readonly unknown[]> =
 
 type Nullable<T> = T | null | undefined;
 
-/**
- * Object.assign semantics for *enumerable own props* (string + symbol),
- * but preserves property descriptors (getters/setters/etc).
- *
- * Return type matches ordered object spread:
- *   { ...target, ...sources }
- */
+/** Like Object.assign over enumerable own props (strings and symbols), but keeps property descriptors. */
 export function mergeProps<
   T extends object,
   const S extends readonly object[]
@@ -88,13 +79,11 @@ export function mergeProps<
 
     const descriptors: PropertyDescriptorMap = {};
 
-    // enumerable string keys
     for (const key of Object.keys(source)) {
       const d = Object.getOwnPropertyDescriptor(source, key);
       if (d) descriptors[key] = d;
     }
 
-    // enumerable symbol keys
     for (const sym of Object.getOwnPropertySymbols(source)) {
       const d = Object.getOwnPropertyDescriptor(source, sym);
       if (d?.enumerable) (descriptors as any)[sym] = d;

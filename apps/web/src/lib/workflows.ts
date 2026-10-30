@@ -2,12 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Workflows: how a person sets up a clip, kept to do again on the next one.
-// Each is a list of steps (the size, a stream layout, captions and what goes
-// on them, auto zoom, a colour grade, a progress bar, where it is posted)
-// with the settings each was saved with, never the clips or the words. They
-// belong to the person, like saved grades, and sync with the account
-// (lib/account-sync.ts). The starters are built in and never stored.
+// Only settings are saved, never the clips or the words. The starters are built in and never stored.
 
 import { createSignal } from "solid-js";
 import { NEUTRAL_GRADE } from "@plan.video/runtime";
@@ -23,14 +18,14 @@ import type { CaptionLook } from "@/lib/caption-brand";
 import type { AutoZoomOptions } from "@/engine/auto-zoom";
 import type { ProgressBarOptions } from "@/engine/progress-bar";
 
-/** The steps, in the order a run takes them. */
+/** In the order a run takes them. */
 export const WORKFLOW_STEPS = ["size", "layout", "grade", "autoZoom", "captions", "keywords", "emoji", "progressBar", "post"] as const;
 
 export type WorkflowStepId = (typeof WORKFLOW_STEPS)[number];
 
 export type WorkflowLayout = {
   id: string;
-  /** Where each crop sits on the footage, as fractions. Without them the run asks. */
+  /** As fractions. Without them the run asks. */
   crops?: Crops;
   styles?: CropStyles;
 };
@@ -41,11 +36,10 @@ export type WorkflowSteps = {
   grade?: Partial<GradeValues>;
   autoZoom?: AutoZoomOptions;
   captions?: { look: CaptionLook };
-  /** Keywords in the caption picked out in `color`. */
   keywords?: { color: number };
   emoji?: { on: true };
   progressBar?: ProgressBarOptions;
-  /** The post it goes out as, a copy of a post template. */
+  /** A copy of a post template. */
   post?: PostTemplate;
 };
 
@@ -53,9 +47,9 @@ export type Workflow = {
   id: string;
   name: string;
   steps: WorkflowSteps;
-  /** Steps it has but leaves out, kept so turning one back on brings its settings back. */
+  /** Kept so turning one back on brings its settings back. */
   off: WorkflowStepId[];
-  /** A still of what the first project looked like, small, as a data URL. */
+  /** Small, as a data URL. */
   thumb?: string;
   createdAt: string;
   updatedAt: string;
@@ -68,7 +62,7 @@ export type StarterWorkflow = Workflow & { starter: true; art: StarterArt };
 export const isStarter = (workflow: Workflow): workflow is StarterWorkflow => "starter" in workflow;
 
 const MAX_NAME = 40;
-/** A still bigger than this is not kept: the whole account copy has a size limit. */
+/** The whole account copy has a size limit. */
 const MAX_THUMB = 24_000;
 
 const SHORT = { width: 1080, height: 1920 };
@@ -85,7 +79,6 @@ const starter = (id: string, name: string, art: StarterArt, steps: WorkflowSteps
   updatedAt: EPOCH,
 });
 
-/** Built in: a start for the clips most people make. */
 export const STARTER_WORKFLOWS: StarterWorkflow[] = [
   starter("stream", msg("Stream highlight"), "stream", {
     layout: { id: "split" },
@@ -109,22 +102,19 @@ export const STARTER_WORKFLOWS: StarterWorkflow[] = [
   }),
 ];
 
-/** Where `userId`'s workflows are kept in this browser. */
 export const workflowsKey = (userId: string) => `plan.video.workflows.${userId}`;
 
 const [items, setItems] = createSignal<Workflow[]>([]);
 let loadedKey: string | undefined;
 
-/** The person's own, newest first. */
+/** Newest first. */
 export const workflows = () => [...items()].sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id));
 
-/** A workflow by id, own or starter. */
 export function findWorkflow(id: string | undefined): Workflow | undefined {
   if (!id) return undefined;
   return items().find((item) => item.id === id) ?? STARTER_WORKFLOWS.find((item) => item.id === id);
 }
 
-/** The steps a workflow runs: those it has, less those turned off. */
 export function activeSteps(workflow: Workflow): WorkflowStepId[] {
   return WORKFLOW_STEPS.filter((id) => {
     if (workflow.off.includes(id) || workflow.steps[id] === undefined) return false;
@@ -136,8 +126,6 @@ export function activeSteps(workflow: Workflow): WorkflowStepId[] {
 }
 
 const hasStep = (workflow: Workflow, id: WorkflowStepId) => workflow.steps[id] !== undefined && !workflow.off.includes(id);
-
-/* Reading back what was stored */
 
 const isRecord = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
 const isNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
@@ -206,7 +194,6 @@ function readProgressBar(value: unknown): ProgressBarOptions | undefined {
   return { position, thickness, color, track: track === true };
 }
 
-/** `value`'s steps, with any that don't hold up left out. */
 export function readSteps(value: unknown): WorkflowSteps {
   const steps: WorkflowSteps = {};
   if (!isRecord(value)) return steps;
@@ -231,7 +218,6 @@ export function readSteps(value: unknown): WorkflowSteps {
   return steps;
 }
 
-/** A stored workflow as it should be, or null. */
 export function readWorkflow(value: unknown): Workflow | null {
   if (!isRecord(value) || typeof value.id !== "string" || typeof value.name !== "string") return null;
   if (value.id.startsWith("starter:")) return null;
@@ -252,9 +238,7 @@ export function isWorkflow(value: unknown): value is Workflow {
   return readWorkflow(value) !== null;
 }
 
-/* The person's list */
-
-/** Reads the account copy again. `loadWorkflows` does nothing when this person's are already loaded. */
+/** `loadWorkflows` does nothing when this person's are already loaded. */
 export function reloadWorkflows(userId: string | undefined) {
   loadedKey = undefined;
   loadWorkflows(userId);
@@ -280,7 +264,7 @@ export function loadWorkflows(userId: string | undefined) {
   }
 }
 
-/** Whether saving is possible here: signed in, or a guest with a store. */
+/** Signed in, or a guest with a store. */
 export const canSaveWorkflows = () => loadedKey !== undefined;
 
 function write(update: (current: Workflow[]) => Workflow[]): boolean {
@@ -302,7 +286,7 @@ export function cleanName(name: string) {
 
 const keptThumb = (thumb: string | undefined) => (thumb && thumb.length <= MAX_THUMB ? thumb : undefined);
 
-/** Saves a new workflow and returns it; undefined when the name is empty or nothing is loaded. */
+/** Undefined when the name is empty or nothing is loaded. */
 export function createWorkflow(name: string, steps: WorkflowSteps, thumb?: string): Workflow | undefined {
   const clean = cleanName(name);
   if (!clean || !loadedKey) return;
@@ -313,7 +297,6 @@ export function createWorkflow(name: string, steps: WorkflowSteps, thumb?: strin
   return write((current) => [...current, workflow]) ? workflow : undefined;
 }
 
-/** Writes over `id`'s steps (and name and still) with what a project has now. */
 export function replaceWorkflow(id: string, name: string, steps: WorkflowSteps, thumb?: string): boolean {
   const clean = cleanName(name);
   if (!clean) return false;
@@ -336,7 +319,6 @@ export function renameWorkflow(id: string, name: string): boolean {
   return true;
 }
 
-/** Writes `id`'s steps and which are off. */
 export function updateWorkflow(id: string, change: Pick<Workflow, "steps" | "off">) {
   write((current) => current.map((item) => (item.id === id ? { ...item, steps: change.steps, off: change.off, updatedAt: new Date().toISOString() } : item)));
 }
@@ -345,7 +327,6 @@ export function deleteWorkflow(id: string) {
   write((current) => current.filter((item) => item.id !== id));
 }
 
-/** Puts a deleted workflow back, for an undo. */
 export function restoreWorkflow(workflow: Workflow) {
   write((current) => (current.some((item) => item.id === workflow.id) ? current : [...current, workflow]));
 }

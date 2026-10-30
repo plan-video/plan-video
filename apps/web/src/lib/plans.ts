@@ -2,12 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The plans, shared by the pricing page and the dashboard's Plans tab.
-// Scheduling is free, with the video editor built in; Creator adds unlimited
-// posts, X and the tools for posting at scale, and the plans above it add
-// social accounts, storage and a team. Each plan lists what it adds to the one
-// before it.
-
 import { createSignal } from "solid-js";
 import { featurePath } from "./site-links";
 import { msg, t } from "./i18n";
@@ -15,55 +9,41 @@ import { msg, t } from "./i18n";
 export type Billing = "monthly" | "yearly";
 
 export type Plan = {
-  /** As the billing service names it; the plan's access level is its place in PLANS plus one. */
+  /** As the billing service names it; the access level is the index in PLANS plus one. */
   id: "free" | "creator" | "pro" | "agency";
   name: string;
   text: string;
-  /** Dollars a month, billed monthly and billed yearly. */
+  /** Dollars a month, for each billing period. */
   price: Record<Billing, number>;
-  /** The plan whose features this one has too, named over the list. */
   builds?: string;
   /**
-   * What the plan adds to the one it builds on. Every plan lists the same
-   * things in the same order, so the pricing page sets them side by side:
-   * social accounts and storage, then posts, then networks, then what's
-   * posted and the editor, then the rest. Caption hours are only in the comparison.
+   * Every plan lists the same things in the same order, so the pricing page sets them side
+   * by side: accounts and storage, posts, networks, posting and the editor, then the rest.
    */
   features: string[];
   popular?: boolean;
-  /** Social accounts the plan connects, across all workspaces. services/publisher/accounts.mjs holds the same. */
+  /** Across all workspaces. services/publisher/accounts.mjs must match. */
   accounts: number;
-  /** Social accounts the price includes, when more can be added for `price` dollars a month each. */
   extraAccounts?: { included: number; price: number };
 };
 
 /** Networks only paid plans can connect: X charges for posting through its API. */
 export const PAID_NETWORKS: ReadonlySet<string> = new Set(["x"]);
 
-/** Scheduled posts each account can have waiting on the Free plan. Paid plans have no limit. */
 export const FREE_SCHEDULED_PER_ACCOUNT = 10;
 
 const [scheduledLimit, setScheduledLimit] = createSignal<number | undefined>();
 
-/**
- * Scheduled posts each account can have waiting for the person signed in:
- * Free's limit, or none on a paid plan, and none until their plan is known.
- * context/auth.tsx sets it.
- */
+/** Undefined means no limit: a paid plan, or a plan not known yet. context/auth.tsx sets it. */
 export { scheduledLimit, setScheduledLimit };
 
 const [accountsLimit, setAccountsLimit] = createSignal<number | undefined>();
 
-/**
- * Social accounts the person signed in can connect: their plan's, with any
- * extra ones paid for, or none until their plan is known. context/auth.tsx sets it.
- */
+/** Undefined until the plan is known. context/auth.tsx sets it. */
 export { accountsLimit, setAccountsLimit };
 
-/** What paying yearly takes off every paid plan. */
 export const YEARLY_PERCENT = "20%";
 
-/** That saving as the billing switch says it, in grey after "Yearly". */
 export const YEARLY_SAVING = msg("(-20% off)");
 
 export const PLANS: Plan[] = [
@@ -128,51 +108,40 @@ export function planOfLevel(level: number): Plan {
   return PLANS[Math.min(PLANS.length, Math.max(1, Math.trunc(level) || 1)) - 1];
 }
 
-/** Social accounts a plan connects, with the extra ones paid for. */
 export function accountLimit(level: number, extra = 0): number {
   return planOfLevel(level).accounts + Math.max(0, Math.trunc(extra) || 0);
 }
 
-/**
- * Dollars a month for a plan with `accounts` social accounts. Accounts past
- * the ones included cost the same billed monthly or yearly.
- */
+/** Accounts past the included ones cost the same billed monthly or yearly. */
 export function planPrice(plan: Plan, billing: Billing, accounts?: number): number {
   const extra = plan.extraAccounts;
   const added = extra && accounts ? Math.max(0, accounts - extra.included) * extra.price : 0;
   return plan.price[billing] + added;
 }
 
-/** "$15 billed yearly"-style line under a price. */
 export function priceNote(plan: Plan, billing: Billing, accounts?: number): string {
   const price = planPrice(plan, billing, accounts);
   if (!price) return t("Free forever, no card needed");
   return billing === "yearly" ? t("{price} billed yearly", { price: `$${price * 12}` }) : t("Billed monthly");
 }
 
-/** A plan's cell in the comparison: included, left out, or how much it gets. */
 export type PlanCell = boolean | string;
 
-/**
- * One line of the comparison, its cells in the order of PLANS. `href` links
- * the name to the feature's own page; `tag` marks one that isn't finished.
- */
 export type ComparisonRow = { name: string; cells: PlanCell[]; href?: string; tag?: "Beta" | "Soon" };
 
-/** The comparison's groups. The first has no name: it is what each plan gets how much of. */
+/** The first group has no name. */
 export type ComparisonGroup = { name?: string; rows: ComparisonRow[] };
 
 const ALL: PlanCell[] = [true, true, true, true];
 const PAID: PlanCell[] = [false, true, true, true];
 
-/** Every feature, plan by plan, for the table under the pricing page's cards. */
 export const COMPARISON: ComparisonGroup[] = [
   {
     rows: [
       { name: msg("Social accounts"), cells: ["3", "15", "40", msg("100, then $1 each")] },
       { name: msg("Scheduled posts"), cells: [msg("10 per account"), msg("Unlimited"), msg("Unlimited"), msg("Unlimited")] },
       { name: msg("Networks"), cells: [msg("8, all but X"), msg("All 9"), msg("All 9"), msg("All 9")], href: "/integrations" },
-      // As X_POSTS_BY_LEVEL and X_LINK_POSTS_BY_LEVEL in services/publisher/plans.mjs: X bills plan.video for each post, and far more for one with a link.
+      // Must match X_POSTS_BY_LEVEL and X_LINK_POSTS_BY_LEVEL in services/publisher/plans.mjs.
       { name: msg("Posts to X a month"), cells: [false, msg("150, 10 with links"), msg("400, 25 with links"), msg("800, 40 with links")] },
       { name: msg("Multiple accounts per network"), cells: ALL },
       { name: msg("Storage"), cells: [msg("5 GB"), msg("50 GB"), msg("150 GB"), msg("250 GB")] },

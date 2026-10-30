@@ -2,9 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// A new project made from clips in one go: the clips go into its library, and
-// the post built from them becomes its composition before the editor opens it.
-
 import { AssetLibrary } from "@plan.video/assets";
 
 import { importFiles } from "@/engine/asset-actions";
@@ -35,11 +32,7 @@ function toSaved(entry: PostNode, next: () => string): SavedNode {
   };
 }
 
-/**
- * Creates a project holding `files` as a post. Clips are imported one at a
- * time so the post keeps the order they were given in; a file that is not a
- * video is left out. Null when there is no projects folder to put it in.
- */
+/** Clips import one at a time to keep their order; non-video files are left out. Null with no projects folder. */
 export async function createPostProject(files: ReadonlyArray<File>, options: PostOptions): Promise<ProjectInfo | null> {
   if (!(await ensureProjectsRoot())) return null;
 

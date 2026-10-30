@@ -1,7 +1,5 @@
-// The rules of lib/post-sync-core.ts, between devices and a server that keeps
-// posts the way the posts table does: a version raised on every change, a
-// write only over the version read, deletion markers, a time per change, and
-// thumbnails apart.
+// The fake server keeps posts like the posts table: a version per change, writes only over the version read,
+// deletion markers, a time per change, and thumbnails apart.
 
 import { describe, expect, test } from "vitest";
 
@@ -14,7 +12,6 @@ const filesOf = (post: Pick<StoredEvent, "id" | "files" | "ownFiles" | "thread">
   ...new Set([...(post.files ?? [post.id]), ...Object.values(post.ownFiles ?? {}).flatMap((ids) => ids ?? []), ...(post.thread ?? []).flatMap((reply) => reply.files ?? [])]),
 ];
 
-/** The posts table, for one workspace. */
 class Server {
   rows = new Map<string, PostRow>();
   thumbnails = new Map<string, string>();
@@ -22,7 +19,7 @@ class Server {
   calls: string[] = [];
   /** A post with this title is turned down, as one naming another workspace's file is. */
   refuse = "refused by the server";
-  /** Ids of posts in another of the owner's workspaces: taken, but not to be read from this one. */
+  /** Ids in another of the owner's workspaces: taken, but not readable from this one. */
   elsewhere = new Set<string>();
 
   tick() {
@@ -45,20 +42,18 @@ class Server {
     return structuredClone(next);
   }
 
-  /** Someone else's edit, straight to the server. */
   edit(id: string, change: (data: PostData) => PostData) {
     return this.write(id, change(structuredClone(this.rows.get(id)!.data!)));
   }
 }
 
-/** A browser: its posts, file details and what it last agreed with the server. */
 class Device {
   events = new Map<string, StoredEvent>();
   media = new Map<string, AccountMedia>();
   cursor: string | null = null;
   bases = new Map<string, Base>();
   known: Record<string, string> | null = null;
-  /** Runs while a sync is between reading this device's posts and writing them back, like an edit made meanwhile. */
+  /** Runs between reading this device's posts and writing them back, like an edit made meanwhile. */
   meanwhile: (() => void) | null = null;
 
   constructor(readonly server: Server) {}
@@ -147,7 +142,6 @@ class Device {
     return syncPosts(this.io());
   }
 
-  /** Runs until it has nothing left to do, at most a few times. */
   async settle() {
     for (let run = 0; run < 5; run++) {
       const result = await this.sync();
@@ -186,7 +180,6 @@ function post(id: string, change: Partial<StoredEvent> = {}): StoredEvent {
   };
 }
 
-/** Each device's posts, as the publisher would read them. */
 const posts = (device: Device) =>
   Object.fromEntries([...device.events.values()].sort((a, b) => a.id.localeCompare(b.id)).map((event) => [event.id, { ...event, deliveries: undefined, thumbnail: undefined }]));
 const onServer = (server: Server) =>
@@ -314,7 +307,6 @@ describe("between two devices", () => {
     a.put(post("p1"));
     await a.sync();
     a.edit("p1", { title: "Mine" });
-    // Someone else saves just after this device read what changed.
     a.meanwhile = () => server.edit("p1", (data) => ({ ...data, description: "Theirs" }));
     const result = await a.sync();
     expect(result.ok).toBe(true);
@@ -344,7 +336,6 @@ describe("edits made while a run writes back", () => {
     a.put(post("p1", { title: "A" }));
     a.put(post("p2"));
     await a.sync();
-    // Another post changes elsewhere, so this run writes back; meanwhile the title goes back to A.
     server.edit("p2", (data) => ({ ...data, title: "Elsewhere" }));
     a.edit("p1", { title: "B" });
     a.meanwhile = () => a.edit("p1", { title: "A" });
@@ -411,7 +402,6 @@ describe("files, refusals and ids", () => {
     await a.sync();
     a.edit("p1", { title: "Changed while paused" });
     const row = server.rows.get("p1")!;
-    // Hidden: not to be read or written from here, though it's there.
     server.rows.delete("p1");
     server.elsewhere.add("p1");
     await expect(a.sync()).rejects.toThrow(/can't be reached/);
@@ -444,7 +434,6 @@ describe("what isn't sent as the post", () => {
     await b.sync();
     expect(b.events.get("p1")?.thumbnail).toBe("data:image/jpeg;base64,AAA");
     expect(b.events.get("p1")?.deliveries).toBeUndefined();
-    // A's delivery state changing sends nothing.
     server.calls = [];
     a.edit("p1", { deliveries: { x: { state: "failed", attempts: 2, at: "2026-10-26T10:00:00Z" } } });
     await a.sync();
@@ -487,7 +476,6 @@ describe("keeping posts safe", () => {
     const { server, a } = pair();
     for (const id of ["p1", "p2", "p3"]) a.put(post(id));
     await a.sync();
-    // The posts and what was agreed on are kept together, and go together.
     a.events.clear();
     a.media.clear();
     a.bases.clear();
@@ -521,7 +509,7 @@ describe("keeping posts safe", () => {
     a.put(post("p1"));
     await a.sync();
     await b.sync();
-    // Saved with a time a minute before B's newest change, as a write that got its time before an earlier one was saved.
+    // Timed a minute before B's newest change, as a write that got its time before an earlier one was saved.
     expect(OVERLAP_MS).toBeGreaterThan(60_000);
     const row = server.rows.get("p1")!;
     server.rows.set("p1", { ...row, version: row.version + 1, data: { ...row.data!, title: "Late" }, updated_at: new Date(Date.parse(b.cursor!) - 60_000).toISOString() });
@@ -538,7 +526,6 @@ describe("keeping posts safe", () => {
     a.events.delete("gone");
     a.events.delete("edited");
     await a.sync();
-    // Both markers pruned while B was away; B changed one meanwhile.
     server.rows.delete("gone");
     server.rows.delete("edited");
     b.events.delete("gone");
@@ -554,7 +541,6 @@ describe("the first run after posts moved", () => {
     const server = new Server();
     const old = [post("same"), post("changed"), post("edited-elsewhere")];
     for (const event of old) server.write(event.id, { ...(event as unknown as PostData) });
-    // Since the copy, another device edited one on the new site.
     server.edit("edited-elsewhere", (data) => ({ ...data, title: "Newer on the server" }));
     const device = new Device(server);
     for (const event of old) device.put(event);
@@ -574,7 +560,7 @@ describe("the first run after posts moved", () => {
     server.write("p1", { ...(post("p1") as unknown as PostData) });
     server.edit("p1", (data) => ({ ...data, title: "Edited on the new site" }));
     const device = new Device(server);
-    // This browser's copy only shows a newer delivery state than the old fingerprint had, so it reads as changed here.
+    // Only a newer delivery state than the old fingerprint had, so it reads as changed here.
     device.put(post("p1", { deliveries: { x: { state: "sent", attempts: 1, at: "2026-10-26T09:00:00Z" } } }));
     device.known = { p1: stable(post("p1")) };
     await device.settle();
@@ -622,7 +608,6 @@ describe("many devices at random", () => {
         expect(posts(device), `seed ${seed}`).toEqual(onServer(server));
         expect(device.cursor).not.toBeNull();
       }
-      // Nothing is gone that no device deleted, and nothing made anywhere is lost.
       for (let id = 0; id < made; id++) {
         if (!deletedSomewhere.has(`p${id}`)) expect(server.rows.get(`p${id}`)?.data, `seed ${seed}: p${id}`).toBeTruthy();
       }

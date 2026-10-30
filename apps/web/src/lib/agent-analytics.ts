@@ -2,9 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The agent's analytics tool: the numbers the Analytics page shows, summed up
-// so the model can pick days and times from how the person's posts did.
-
 import { DapiError, type analyticsTool } from "@plan.video/dapi";
 import type { z } from "zod";
 
@@ -27,7 +24,6 @@ const pad = (value: number) => String(value).padStart(2, "0");
 
 const platformName = (id: string) => ((PLATFORM_IDS as readonly string[]).includes(id) ? socialPlatform(id as PlatformId).name : id);
 
-/** A slot's numbers as the model reads them. */
 const shown = <T extends { posts: number; medianViews: number; averageViews: number; engagement: number }>(slot: T) => ({
   posts: slot.posts,
   medianViews: slot.medianViews,

@@ -7,10 +7,7 @@ import { createEffect, createMemo, createSignal, on, onCleanup, Show, type Acces
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context";
 
-/**
- * Resolves a user's avatar_url (either a direct HTTP URL from OAuth
- * or a Supabase Storage path) into a displayable image URL.
- */
+/** `avatar_url` is either an OAuth URL or a Supabase Storage path. */
 export function useAvatar(): Accessor<string | null> {
   const auth = useAuth();
   const [displayUrl, setDisplayUrl] = createSignal<string | null>(null);
@@ -19,8 +16,7 @@ export function useAvatar(): Accessor<string | null> {
     const metadata = auth.user()?.user_metadata;
     const saved = typeof metadata?.avatar_url === "string" ? metadata.avatar_url : "";
     const picture = typeof metadata?.picture === "string" ? metadata.picture : "";
-    // An uploaded photo is a storage path in `avatar_url` and wins. A Google
-    // sign-in often leaves the photo only in `picture`.
+    // An uploaded photo (a storage path in `avatar_url`) wins. A Google sign-in often leaves the photo only in `picture`.
     const url = saved || (picture.startsWith("http") ? picture : "");
     if (!url) {
       setDisplayUrl(null);
@@ -32,7 +28,6 @@ export function useAvatar(): Accessor<string | null> {
       return;
     }
 
-    // Storage path — download the blob
     if (!supabase) return;
     void supabase.storage
       .from("avatars")
@@ -54,14 +49,10 @@ export function useAvatar(): Accessor<string | null> {
   return displayUrl;
 }
 
-/**
- * A profile photo. Google's picture host rejects the request when this site
- * is named as the referrer, so the request goes out without one. A photo
- * that still cannot load shows `fallback` instead of a broken image.
- */
+/** Google's picture host rejects requests naming this site as referrer, so none is sent. */
 export function AvatarPhoto(props: { url: string | null; class: string; fallback: JSX.Element }) {
   const [failed, setFailed] = createSignal(false);
-  // Tried again only for another address: one that didn't load stays on the fallback when the list around it is drawn again.
+  // Retried only for another address: one that failed stays on the fallback when the list redraws.
   const url = createMemo(() => props.url);
   createEffect(on(url, () => setFailed(false), { defer: true }));
 

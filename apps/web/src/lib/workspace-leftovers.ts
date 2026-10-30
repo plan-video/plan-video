@@ -2,12 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// What a deleted workspace leaves on the server that none of the owner's other
-// workspaces uses: the logins of its accounts, its posts' files and its media
-// library's files. Each of the server's checks between workspaces asks which
-// workspace lists an id, so one no workspace lists anymore could be taken up
-// by another; these go with the workspace instead. An id another workspace
-// lists too, as a post copied across, stays.
+// The server's checks ask which workspace lists an id, so an id no workspace lists could be taken up by another:
+// these go with the deleted workspace. An id another workspace lists too stays.
 
 import type { StoredEvent } from "@/components/calendar/types";
 

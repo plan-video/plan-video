@@ -9,10 +9,9 @@ import { supabase } from "@/lib/supabase";
 import { askYouTube } from "@/lib/publishing";
 import { loginReady, type YouTubeSession } from "@/lib/social-connections";
 
-/** Origins whose `/youtube/callback` is saved on the Google client. */
 const YOUTUBE_ORIGINS = new Set([...appOrigins(), "http://localhost:5173"]);
 
-/** The redirect for this tab. It has to match a URI saved on the Google client, exactly. */
+/** Must match a URI saved on the Google client exactly. */
 export function youtubeRedirect(): string {
   if (!YOUTUBE_ORIGINS.has(window.location.origin)) throw new Error(atThisSite(t("Open https://plan.video to connect YouTube.")));
   return `${window.location.origin}/youtube/callback`;
@@ -21,7 +20,7 @@ export function youtubeRedirect(): string {
 const STATE_KEY = "plan.video.youtube.state";
 const VERIFIER_KEY = "plan.video.youtube.verifier";
 
-/** What connecting a channel gives back: who it is, and its login sealed for the server. Never YouTube's tokens. */
+/** Never YouTube's tokens. */
 type Exchanged = {
   channelId: string;
   handle: string;
@@ -53,7 +52,7 @@ export async function youtubeAuthorizeUrl(state: string): Promise<string> {
   return url;
 }
 
-/** Finishes connecting a channel. The server swaps the code for its login and keeps that; this gets a ticket to attach it. */
+/** The server swaps the code for the login and keeps it; this gets a ticket to attach it. */
 export async function exchangeYouTubeCode(code: string): Promise<YouTubeSession & { handle: string; avatarUrl: string }> {
   const codeVerifier = takeFromLogin(VERIFIER_KEY);
   const found = await askYouTube<Exchanged>("youtube/exchange", { code, redirectUri: youtubeRedirect(), codeVerifier });
@@ -68,16 +67,12 @@ export async function exchangeYouTubeCode(code: string): Promise<YouTubeSession 
   };
 }
 
-/** One day of a channel's numbers. `date` is YYYY-MM-DD, as YouTube counts days. */
+/** `date` is YYYY-MM-DD, as YouTube counts days. */
 export type YouTubeDay = { date: string; views: number; likes: number; comments: number };
 
-/** A video's numbers over the days asked for, with its title and upload time. */
 export type YouTubeVideoStats = { id: string; title: string; postedAt: number; cover?: string; views: number; likes: number; comments: number };
 
-/**
- * A channel's numbers for each day from `startDate` to `endDate`, and its most watched videos then.
- * With `videoId`, that one video's days, and no videos.
- */
+/** With `videoId`, that one video's days, and no videos. */
 export async function loadYouTubeAnalytics(
   accountId: string,
   startDate: string,
@@ -94,20 +89,19 @@ export async function loadYouTubeAnalytics(
   return { days: result.days ?? [], videos: result.videos ?? [] };
 }
 
-/** The channel's name and picture as YouTube has them now. Null when the login can't read the channel. */
+/** Null when the login can't read the channel. */
 export async function loadYouTubeChannel(accountId: string): Promise<{ handle: string; avatarUrl: string } | null> {
   await loginReady(accountId);
   const channel = await askYouTube<{ channelId?: string; handle?: string; avatarUrl?: string }>("youtube/profile", { connectionId: accountId });
   return channel.channelId ? { handle: channel.handle ?? "", avatarUrl: channel.avatarUrl ?? "" } : null;
 }
 
-/** The channel's picture. Empty when the login can't read the channel. */
+/** Empty when the login can't read the channel. */
 export async function loadYouTubeAvatar(accountId: string): Promise<string> {
   await loginReady(accountId);
   return (await askYouTube<{ avatarUrl?: string }>("youtube/profile", { connectionId: accountId })).avatarUrl || "";
 }
 
-/** 32 random bytes, which is 43 characters of base64url. */
 function codeVerifier(): string {
   const bytes = new Uint8Array(32);
   crypto.getRandomValues(bytes);

@@ -16,17 +16,10 @@ import type { Capture } from "@/engine/capture";
 import type { Engine } from "@/engine";
 import type { ExportConfig } from "@/components/sidebar-right/inspector/export-progress";
 
-/**
- * Unified scene render path, used by the UI export (`ExportProvider.exportScene`)
- * and the agent's export tool (`dapi/handlers/export`): the "Exporting
- * Composition" overlay, the engine stop/start lifecycle, the capture world the
- * encode runs against, progress reporting, cancel wiring, and the export
- * analytics events all live in {@link renderScene}.
- */
+// The one scene render path, for both the UI export and the agent's export tool.
 
 export type RenderOverlayState = {
   config?: Partial<ExportConfig>;
-  /** The encode's actual pixel size, from the scene's own aspect ratio. */
   width: number;
   height: number;
   duration: number;
@@ -39,24 +32,17 @@ const PROGRESS_LOG_STEP = 2;
 const [overlay, setOverlay] = createSignal<RenderOverlayState | null>(null);
 let cancelActive: (() => void) | undefined;
 
-/** Reactive overlay state; `null` when no render is in flight. Read by `<ExportProgress>`. */
 export const renderOverlay = overlay;
 
-/** Cancel the render currently in flight, if any. Wired to the overlay's Cancel button. */
 export function cancelRender() {
   cancelActive?.();
 }
 
 export type RenderSceneOptions = {
-  /** Scene entity to encode. */
   scene: Entity;
-  /** Where to write the output (a save-picker handle in the UI, a file path handle from the CLI). */
   target: NonNullable<EncoderConfig["target"]>;
-  /** Encoder settings (resolution, codecs, format, ...). */
   config?: Partial<EncoderConfig>;
-  /** The project's folder, so the encode compiles the sources as they are now. */
   dir?: string;
-  /** Who asked for the render: the in-app export, or an agent through the export tool. */
   source: "ui" | "agent";
 };
 
@@ -73,8 +59,7 @@ export async function renderScene(
     : computed?.duration ?? 0;
   const duration = frames / (world.get(FrameRate)?.value || 30);
 
-  // The same size the encoder works out for itself, so the overlay reports
-  // the dimensions actually encoded — the scene's aspect ratio, not 16:9.
+  // The size the encoder works out itself (the scene's aspect, not 16:9), so the overlay matches.
   const { width, height } = computeOutputSize(
     computed?.width || 1920,
     computed?.height || 1080,
@@ -155,7 +140,6 @@ export async function renderScene(
 
     return result;
   } catch (error) {
-    // Setup failures (capture, encoder) as well as a throwing encode.
     failed(error);
     throw error;
   } finally {
