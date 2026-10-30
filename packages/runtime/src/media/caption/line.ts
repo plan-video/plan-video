@@ -21,21 +21,12 @@ import type { CaptionPacing, GroupByOptions } from './utils';
 
 type Ctx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 
-/** How far into a motion `seconds` of `length` is, eased out, 0 to 1. */
 export function easeOutAt(seconds: number, length: number): number {
 	const t = Math.min(1, Math.max(0, seconds / length));
 	return 1 - (1 - t) ** 3;
 }
 
-/**
- * The common ground of the presets that show a line at a time and treat the
- * word being said apart from the rest: Box, Marker, Deep, Rise and Focus.
- * A line is up from its first word until it has lingered past its last; the
- * spoken word is the latest one said, kept through the breath before the
- * next. Each preset says how it groups, where it sits, and what it does to
- * the spoken word (`markSpoken`), to every word as time passes (`poseWords`)
- * and behind the glyphs (`underlay`).
- */
+/** A line is up from its first word until it has lingered past its last; the spoken word is the latest said, kept through the breath before the next. */
 export abstract class LineCaptionDecoder implements CaptionDecoder {
 	public abstract readonly type: CaptionType;
 	public groups: ReturnType<typeof paceGroups> = [];
@@ -50,9 +41,7 @@ export abstract class LineCaptionDecoder implements CaptionDecoder {
 
 	/** The caption's own time at the last seek, in seconds. */
 	protected time = 0;
-	/** When the spoken word began; its motions are timed from here. */
 	protected spokenStart = 0;
-	/** The range over the spoken word's glyphs, when the preset marks it. */
 	protected spoken: Entity | null = null;
 
 	private readonly asset: Asset;
@@ -66,12 +55,10 @@ export abstract class LineCaptionDecoder implements CaptionDecoder {
 		this.loaded = this.load();
 	}
 
-	/** Re-reads the transcript after its words change. */
 	public reload(): Promise<void> {
 		return this.load();
 	}
 
-	/** Groups the words again for new `words`, `chars` or `linger`. */
 	public repace(pacing: CaptionPacing): Promise<void> {
 		this.pacing = pacing;
 		return this.load();
@@ -94,15 +81,13 @@ export abstract class LineCaptionDecoder implements CaptionDecoder {
 	public applyStyles(world: World, entity: Entity): boolean {
 		if (!this.reposition(world, entity)) return false;
 		this.decorate(world, entity);
-		// Every preset sets its words in one of the bundled web fonts.
 		loadWebFont(world, this.textStyle.fontFamily as Parameters<typeof loadWebFont>[1]);
 		return true;
 	}
 
-	/** Children the preset draws with for as long as it is on, such as a shadow. */
 	protected decorate(_world: World, _entity: Entity): void {}
 
-	/** Styles the range over the spoken word of `entity`, made afresh each time the word changes. Null leaves it unmarked. */
+	/** Made afresh each time the spoken word changes. */
 	protected markSpoken?(world: World, range: Entity, entity: Entity): void;
 
 	/** Poses each word for this moment, through its range's Opacity, Offset, Blur and Scale. */
@@ -170,10 +155,8 @@ export abstract class LineCaptionDecoder implements CaptionDecoder {
 	}
 }
 
-/** A word on the line and the range its glyphs are styled through. */
 export type WordRange = { range: Entity; word: TranscriptWord };
 
-/** The line's word ranges (see `applyWordStyles`), each with the word it is. */
 function wordRanges(world: World, entity: Entity, group: readonly TranscriptWord[]): WordRange[] {
 	const out: WordRange[] = [];
 	for (const range of world.query(ChildOf(entity), TextRange, WordTiming)) {
@@ -184,7 +167,6 @@ function wordRanges(world: World, entity: Entity, group: readonly TranscriptWord
 	return out;
 }
 
-/** Sets how opaque a word is, adding the trait the first time. */
 export function setWordOpacity(world: World, range: Entity, value: number): void {
 	if (!range.has(Opacity)) range.add(Opacity);
 	store(world, Opacity).value[range.id()] = value;
@@ -196,7 +178,6 @@ export function setWordBlur(world: World, range: Entity, value: number): void {
 	store(world, Blur).value[range.id()] = value;
 }
 
-/** Sets the size a word rests at, about its center. */
 export function setWordScale(world: World, range: Entity, value: number): void {
 	if (!range.has(Scale)) range.add(Scale);
 	const scale = store(world, Scale);

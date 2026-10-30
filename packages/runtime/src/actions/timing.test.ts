@@ -15,7 +15,6 @@ import type { Entity } from 'koota';
 
 const seconds = (value: number) => value * 30;
 
-/** A scene on a fresh stage, and ways to fill it, at the default 30 fps. */
 function setup() {
 	const world = createRuntimeWorld('timing');
 	const scene = createEntity(world);

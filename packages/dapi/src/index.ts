@@ -35,8 +35,7 @@ export { ISSUE_LOG_TAIL } from "./tools/report";
 export { LOG_TAIL, LOG_MESSAGE_MAX } from "./tools/logs";
 export { FONT_LIMIT } from "./tools/fonts";
 
-// Named request and result types, for handlers that spell out their
-// signature. Each is the parsed (output) side of the tool's schema.
+// The parsed (output) side of each tool's schema.
 import type { ImageRef as ImageRefSchema, LogEntry as LogEntrySchema, LogLevel as LogLevelSchema, TimecodedImage as TimecodedImageSchema } from "./schemas";
 import type { GenerationRow as GenerationRowType } from "./tools/context";
 import type { CheckIssue as CheckIssueSchema, CheckIssueCode as CheckIssueCodeSchema } from "./tools/check";

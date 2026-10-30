@@ -17,7 +17,6 @@ const baseGenerationInput = z.object({
 	seed: z.number().int().optional()
 });
 const imageGenerationInput = baseGenerationInput.extend({
-	/** Reference images or images to edit */
 	images: z.array(fileRef).optional(),
 	aspectRatio: z.enum([
 		"1:1",
@@ -43,7 +42,6 @@ const videoGenerationInput = baseGenerationInput.extend({
 	generateAudio: z.boolean().optional()
 });
 const soundGenerationInput = baseGenerationInput.extend({ 
-/** Requested duration  */
 duration: z.number().positive().optional() });
 const transcriptionInput = z.object({
 	audio: fileRef,
@@ -93,10 +91,8 @@ const stripeMetadataSchema = z.object({
 });
 const ttsInput = baseGenerationInput.extend({
 	/**
-	* Voice identifier. Interpretation is model-dependent:
-	*   ElevenLabs → voice_id  (e.g. "EXAVITQu4vr4xnSDxMaL")
-	*   OpenAI TTS → "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer"
-	*   GCP TTS   → BCP-47 + SSML gender, e.g. "en-US-Neural2-A"
+	* Model-dependent: ElevenLabs voice_id (e.g. "EXAVITQu4vr4xnSDxMaL"), OpenAI TTS "alloy" | "echo" |
+	* "fable" | "onyx" | "nova" | "shimmer", or GCP BCP-47 + SSML gender (e.g. "en-US-Neural2-A").
 	*/
 	voice: z.string().optional(),
 	outputFormat: z.enum([

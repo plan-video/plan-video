@@ -2,10 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Canvas gradient construction from paint sub-entities (was part of
-// systems/render.ts; split out because text rendering needs it before the
-// render system moves in).
-
 import { store } from '../world/store';
 import { ChildOf, ColorStop, Position, Computed } from '../traits';
 import { colorToCss } from '../utils/color';
@@ -32,7 +28,6 @@ function addStopsTo(world: World, fill: Entity, gradient: CanvasGradient): void 
 	}
 }
 
-/** Create a canvas linear gradient from a gradient paint sub-entity. */
 export function createLinearGradient(
 	world: World,
 	fill: Entity,
@@ -43,10 +38,8 @@ export function createLinearGradient(
 	const computed = store(world, Computed);
 	const fid = fill.id();
 
-	// (px, py) is the gradient center in normalized shape-local space. Fills
-	// without a Position trait (the default for stock gradient fills) get
-	// (0.5, 0.5) so the gradient spans the shape. With Position present, the
-	// motion-system-sampled Computed values are used (keyframeable).
+	// Fills without a Position trait span the shape (0.5, 0.5); with one, the motion-sampled Computed
+	// values are used, so the centre is keyframeable.
 	const hasPos = fill.has(Position);
 	const px = hasPos ? computed.positionX[fid]! : 0.5;
 	const py = hasPos ? computed.positionY[fid]! : 0.5;
@@ -56,7 +49,6 @@ export function createLinearGradient(
 	const cos = Math.cos(angle);
 	const sin = Math.sin(angle);
 
-	// Transform normalized start (0, 0.5) and end (1, 0.5) points
 	const startLocalX = (0 - 0.5) * sx;
 	const startLocalY = (0.5 - 0.5) * sy;
 	const x0 = (px + startLocalX * cos - startLocalY * sin) * w;
@@ -73,7 +65,6 @@ export function createLinearGradient(
 	return gradient;
 }
 
-/** Create a canvas radial gradient from a gradient paint sub-entity. */
 export function createRadialGradient(
 	world: World,
 	fill: Entity,
@@ -93,11 +84,9 @@ export function createRadialGradient(
 	const cos = Math.cos(angle);
 	const sin = Math.sin(angle);
 
-	// Center point (0.5, 0.5) in normalized space
 	const cx = px * w;
 	const cy = py * h;
 
-	// Edge points to determine radius
 	const edgeXLocalX = (1 - 0.5) * sx;
 	const edgeXLocalY = (0.5 - 0.5) * sy;
 	const edgeXAbsX = (px + edgeXLocalX * cos - edgeXLocalY * sin) * w;

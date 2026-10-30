@@ -35,7 +35,6 @@ export function useTrait<T extends Trait>(
 			return;
 		}
 
-		// Use the context world unless the target is a world itself
 		const world = isWorld(currentTarget) ? currentTarget : contextWorld;
 		const entity = isWorld(currentTarget) ? currentTarget[$internal].worldEntity : currentTarget;
 

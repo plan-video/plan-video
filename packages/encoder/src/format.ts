@@ -5,9 +5,6 @@
 import type { TargetBuffer } from './buffer';
 import type { ContainerFormat } from './types';
 
-/**
- * Lazily imports the output format based on the format specified
- */
 export async function createOutputFormat(buffer: TargetBuffer, format?: ContainerFormat) {
   if (format == 'webm') {
     const { WebMOutputFormat } = await import('mediabunny');

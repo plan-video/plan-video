@@ -9,11 +9,7 @@ import { assert } from '../utils/assert';
 
 import type { Entity, World } from 'koota';
 
-/**
- * Per-entity audio bus. Each clip and each scene gets its own gain node.
- * Child buses connect directly into the parent bus's input; there is no
- * per-track sub-mix anymore (each clip is its own layer).
- */
+/** One gain node per clip and per scene; child buses connect directly into the parent bus's input. */
 export class AudioBus {
 	public context: BaseAudioContext;
 

@@ -19,7 +19,6 @@ export const Hovering = trait();
 
 export const Dragging = trait();
 
-// Timeline canvas view state (scroll/zoom).
 export const Timeline = trait({
 	scrollX: 0,
 	scrollY: 0,
@@ -27,15 +26,7 @@ export const Timeline = trait({
 	transform: () => new DOMMatrix(),
 });
 
-// What a clip's timing was when a drag of it began, so every frame of the
-// drag places it at origin + delta rather than nudging it by the last
-// frame's movement — a slow drag and a fast one over the same distance then
-// land in the same place, and nothing accumulates.
-//
-// `authored` is the Start the clip was written with, which is what the drag
-// rewrites. `start`/`end` are the absolute bounds it had, which a group needs
-// separately: a group's edges come from its children, not from its own Start,
-// so they cannot be worked out from `authored` alone.
+/** Each drag frame places the clip at origin + delta, so nothing accumulates. A group's `start`/`end` come from its children, so they can't be derived from `authored`. */
 export const ClipDragOrigin = trait({ authored: 0, start: 0, end: 0 });
 
 // What a keyframe's time was when a drag of it began. Same reason.

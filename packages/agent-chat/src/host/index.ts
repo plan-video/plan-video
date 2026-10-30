@@ -2,10 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The Node side, in one call: `startAgentHost(config)` hydrates the
-// environment, opens the store, wires the harnesses and listens. Electron
-// runs this in a utility process, a sandbox runs it under plain `node`;
-// neither is imported here.
+// Electron runs this in a utility process and a sandbox under plain `node`; neither is imported here.
 
 import { hydrateEnv } from "./env";
 import { AgentHost } from "./host";

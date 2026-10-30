@@ -43,9 +43,6 @@ const DRAIN_FRAMES = 8;
  */
 const DISPLAY_TOLERANCE_FRAMES = 4;
 
-/**
- * Total pixel budget of the preview frame cache
- */
 const CACHE_PIXEL_BUDGET = 768 * 432 * 81; // 81 tiles at 768x432
 
 /**
@@ -74,10 +71,7 @@ const MAX_CACHE_COUNT = 81;
 
 const frameListeners = new Set<() => void>();
 
-/**
- * Calls `listener` whenever a decoded frame lands in a preview's cache, so a
- * loop that idles between passes can draw it at once. Returns the unsubscribe.
- */
+/** Fires whenever a decoded frame lands in a preview's cache, so an idling loop can draw it at once. */
 export function onVideoFrame(listener: () => void): () => void {
 	frameListeners.add(listener);
 	return () => {
@@ -102,7 +96,6 @@ export class VideoBuffer {
 	public readonly cache: FrameCache;
 	public readonly queue = new VideoDecoderQueue(this.frameCallback.bind(this));
 
-	// user facing display canvas
 	public readonly canvas = new OffscreenCanvas(0, 0);
 	public readonly ctx = this.canvas.getContext('2d')!;
 
@@ -141,11 +134,7 @@ export class VideoBuffer {
 		this.initialized = this.initialize();
 	}
 
-	/**
-	 * Decode into frames sized for a preview drawn at `quality` of full
-	 * resolution. Smaller frames also leave room to hold more of them. The
-	 * frame on screen stays up until the first new one lands.
-	 */
+	/** Smaller frames also leave room to hold more; the frame on screen stays up until the first new one lands. */
 	public setQuality(quality: number) {
 		if (quality === this.quality) return;
 		this.quality = quality;
@@ -181,11 +170,8 @@ export class VideoBuffer {
 		const timestampSeconds = frame.timestamp / 1e6;
 		const frameIndex = this.secondsToFrames(timestampSeconds);
 
-		// A frame the window has already left behind (on the way from a keyframe to
-		// the frame sought, or from a decoder running late) is only scaled when the
-		// workers have nothing else to do. Scaling every one is the most a machine
-		// without hardware acceleration spends on a frame, yet when it runs late
-		// they are the frames that keep its preview moving.
+		// A frame the window already left behind is only scaled when the workers are free; without
+		// hardware acceleration those are still the frames that keep a late preview moving.
 		const stale = frameIndex < this.cache.leftFrameIndex && !this.pendingScrub.has(frameIndex);
 		if (stale && this.cache.scalingCount > 0) return;
 
@@ -289,9 +275,6 @@ export class VideoBuffer {
 		}
 	}
 
-	/**
-	 * Re-runs the seek for real once the drag stops.
-	 */
 	private scheduleSettle() {
 		if (this.settleTimer !== null) {
 			clearTimeout(this.settleTimer);
@@ -347,9 +330,6 @@ export class VideoBuffer {
 		return Math.max(0, Math.round((seconds - this.firstPacketTimestamp) * this.asset.frameRate));
 	}
 
-	/**
-	 * Whether `frame` is already taken care of — decoded into the cache, or still in-flight.
-	 */
 	private isBlockedFrame(frame: number) {
 		if (this.cache.has(frame) || this.cache.isScaling(frame)) return true;
 
@@ -365,7 +345,6 @@ export class VideoBuffer {
 	private computeWindow(targetFrame: number, forward: boolean): [number, number] {
 		const span = this.cache.config.count - 2;
 
-		// Whole video fits in the cache — keep all of it.
 		if (this.lastFrameIndex <= span) {
 			return [0, this.lastFrameIndex];
 		}
@@ -376,7 +355,6 @@ export class VideoBuffer {
 		let left = targetFrame - (forward ? behind : ahead);
 		let right = targetFrame + (forward ? ahead : behind);
 
-		// Push budget that falls outside the boundaries onto the other side.
 		if (left < 0) {
 			right -= left;
 			left = 0;
@@ -416,7 +394,7 @@ export class VideoBuffer {
 		if (reuse && cursor!.timestamp < fromSecs - biasSecs) {
 			keyTimestamp ??= (await this.packetSink?.getKeyPacket(fromSecs))?.timestamp ?? null;
 			if (keyTimestamp !== null && keyTimestamp - cursor!.timestamp > biasSecs) {
-				reuse = false; // jumping to the keyframe
+				reuse = false;
 			}
 		}
 
@@ -557,9 +535,7 @@ class VideoDecoderQueue {
 		return this.decoder?.state === 'configured';
 	}
 
-	/**
-	 * Synchronously discard all in-flight work and re-arm the decoder for a fresh keyframe
-	 */
+	/** Synchronously discards in-flight work and re-arms the decoder for a fresh keyframe. */
 	public reseed() {
 		if (!this.decoder) return;
 		this.decoder.reset();
@@ -653,9 +629,7 @@ class VideoDecoderQueue {
 	}
 }
 
-/**
- * Dedicated, full-resolution video decoder for export.
- */
+/** Full resolution, for export. */
 export class VideoExporter {
 	public errored = false;
 	public asset: VideoAsset;
@@ -705,7 +679,6 @@ export class VideoExporter {
 		}
 		if (!this.iterator) return;
 
-		// Walk forward while the lookahead frame still starts at/before target.
 		while (true) {
 			const { value, done } = await this.iterator.next();
 			if (done || !value) break;
@@ -743,13 +716,7 @@ export class VideoExporter {
 	}
 }
 
-/**
- * What a video paint decodes through. Three implementations of one interface
- * — `seekTo`, `toBitmap`, `idle`, `dispose` — picked by what the source turns
- * out to be and what the world is doing with it: a demuxed buffer for playing
- * a file, an exact-seeking reader for encoding one, and a frames directory
- * read off disk. Nothing downstream of `resolveVideoDecoder` asks which.
- */
+/** A demuxed buffer for playing a file, an exact-seeking reader for encoding, or a frames directory; nothing downstream of `resolveVideoDecoder` asks which. */
 export type VideoDecoderInstance = VideoBuffer | VideoExporter | SequenceDecoder;
 
 const videoTrackCache = new Map<string, Promise<InputVideoTrack | null>>();
@@ -782,14 +749,7 @@ export function getVideoTrack(source: VideoAsset) {
 	return promise;
 }
 
-/**
- * The decoder `entity`'s video paint draws from, built on first use and kept
- * until the asset it was built for is no longer the one asked for.
- *
- * A sequence's rate is the element's to set, so it is pushed on every call
- * rather than fixed at construction — re-reading a folder to play it slower
- * would be a rebuild for nothing.
- */
+/** A sequence's rate is pushed on every call rather than fixed at construction, so playing it slower isn't a rebuild. */
 export function resolveVideoDecoder(world: World, entity: Entity): VideoDecoderInstance | null {
 	const assetId = entity.get(AssetId)?.value;
 	if (!assetId) return null;
@@ -814,7 +774,6 @@ export function resolveVideoDecoder(world: World, entity: Entity): VideoDecoderI
 		return existing;
 	}
 
-	// Asset changed — dispose old decoder and create a new one.
 	existing?.dispose();
 
 	const asset = getAsset(world, assetId);

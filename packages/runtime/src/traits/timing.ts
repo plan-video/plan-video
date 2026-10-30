@@ -12,19 +12,10 @@ import { TransitionDirection, TransitionEasing, TransitionType } from '../consta
 // frame. Absent is 0 (the node's time begins with its parent's).
 export const Delay = trait({ value: 0 });
 
-// The slice of the node's own source that plays, in source frames. A null
-// `end` is no fixed out point: the clip runs to its source's natural end (or
-// the 16s default for a node with no source). Absent entirely, `start` is 0
-// and scenes/groups fit their children; `resolveSourceOut` in actions/
-// timing.ts fills the gaps.
+/** In source frames. A null `end` runs to the source's natural end (16s with no source); absent, `start` is 0 and scenes/groups fit their children. */
 export const Trim = trait({ start: 0, end: null as number | null });
 
-// Frames per second a frames-directory source is played at, which is the only
-// thing that says how long it lasts: a folder of pictures has a count, not a
-// duration. Absent means the rate the library gave the asset. Nothing for
-// encoded media to read — a video file carries its own rate — and unrelated to
-// PlaybackRate, which retimes whatever the source's natural speed turns out to
-// be; this is what that speed is.
+/** The only thing that says how long a frames directory lasts; absent means the library's rate. Unrelated to PlaybackRate. */
 export const SourceFrameRate = trait({ value: 0 });
 
 // Speed multiplier for the node's local time (1 = normal). Scales the source
@@ -35,7 +26,6 @@ export const PlaybackRate = trait({ value: 1 });
 // Explicit playback/export window on a scene.
 export const Workarea = trait({ start: 0, end: 0 });
 
-// Playback state of an entity.
 export const Playback = trait({
 	playing: false,
 	loop: true,
@@ -46,9 +36,7 @@ export const Playback = trait({
 // Drag/trim of any direct child clamps at the neighbour's edge.
 export const Sequential = trait();
 
-// How a clip goes out. Inside a Sequential parent, where the next clip starts
-// as this one ends, it blends the two, centred on the cut; anywhere else the
-// clip plays out on its own, ending as it ends.
+/** In a Sequential parent it blends into the next clip, centred on the cut; elsewhere the clip plays out on its own. */
 export const Transition = trait({
 	type: TransitionType.DISSOLVE as TransitionType,
 	duration: 0, // frames

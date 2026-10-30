@@ -22,7 +22,6 @@ const HEIGHT = 120;
 const FILL = 0xFFCC00;
 const POP_SECONDS = 0.22;
 
-// Extra-bold yellow with a thick black outline: the TikTok caption look.
 export const POP_TEXT_STYLE = {
 	fontFamily: 'Montserrat',
 	fontWeight: '900',
@@ -57,7 +56,6 @@ export class PopCaptionDecoder implements CaptionDecoder {
 		return this.load();
 	}
 
-	/** Groups the words again for new `words`, `chars` or `linger`. */
 	public repace(pacing: CaptionPacing): Promise<void> {
 		this.pacing = pacing;
 		return this.load();
@@ -127,7 +125,7 @@ export class PopCaptionDecoder implements CaptionDecoder {
 	}
 }
 
-/** A pop on each shown word, so it scales on as it is said. A word with an animation of its own keeps it. */
+/** A word with an animation of its own keeps it. */
 function popWords(world: World, entity: Entity): void {
 	const fps = world.get(FrameRate)?.value ?? 30;
 	for (const range of [...world.query(ChildOf(entity), TextRange, WordTiming)]) {

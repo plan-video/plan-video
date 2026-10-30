@@ -30,11 +30,7 @@ import type { Entity, World } from 'koota';
 import type { EncoderConfig } from './interfaces';
 import type { ExportResult } from './types';
 
-/**
- * The scene a capture world holds. An encoder takes the world as it is —
- * what to encode is the whole of what is in it — so a stage with anything
- * else under it is a caller that has not finished preparing the world.
- */
+/** Anything else under the stage means the caller has not finished preparing the world. */
 export function captureScene(world: World): Entity {
 	const roots = [...world.query(ChildOf(world.get(Root)!))];
 	assert(roots.length === 1, `A capture world holds one scene, this one holds ${roots.length}`);
@@ -45,18 +41,9 @@ export function captureScene(world: World): Entity {
 }
 
 /**
- * Encodes the scene a capture world holds into a file.
- *
- * `world` is not the editor's: it is a world built for this encode, holding
- * the composition as it is to be written and nothing else — see the app's
- * capture builder, which renders the project into a fresh world and reduces
- * its stage to the one scene. Everything the encode needs is read from there:
- * the scene is the stage's only child, the frame rate is the world's, the
- * camera is the view it is drawn with, and the canvas the DOM-backed paints
- * attached themselves to is the one drawn into.
- *
- * The world stays the caller's — it built it, it disposes it. What is created
- * here is the audio context, the output, and the frames.
+ * `world` is built for this encode (see the app's capture builder): the scene is the stage's only
+ * child, and the frame rate, camera and canvas are read from it. The caller disposes the world;
+ * only the audio context, the output and the frames are created here.
  */
 export async function createEncoder(world: World, config: EncoderConfig) {
 	const scene = captureScene(world);
@@ -71,8 +58,6 @@ export async function createEncoder(world: World, config: EncoderConfig) {
 	const sceneHeight = computed.height[sceneId]!;
 	const sceneEnd = computed.end[sceneId]!;
 
-	// Honor the scene's Workarea trait: render only the frames between
-	// Workarea.start and Workarea.end instead of the full scene duration.
 	const workarea = scene.get(Workarea);
 	const workareaStart = workarea ? Math.max(0, Math.min(sceneEnd, workarea.start)) : 0;
 	const workareaEnd = workarea
@@ -82,9 +67,7 @@ export async function createEncoder(world: World, config: EncoderConfig) {
 	const playheadStartSeconds = framesToSeconds(workareaStart, frameRate);
 	const duration = framesToSeconds(workareaEnd - workareaStart, frameRate);
 
-	// Before the two below read them: ogg and wav hold audio only, so asking
-	// for one is asking for the audio alone — and with `videoEnabled` derived
-	// first, it would still have gone looking for pictures to put in it.
+	// Before `videoEnabled` is derived: ogg and wav hold audio only.
 	if (config.format === 'ogg' || config.format === 'wav') {
 		config.audio = { ...config.audio, enabled: true };
 		config.video = { ...config.video, enabled: false };
@@ -103,10 +86,8 @@ export async function createEncoder(world: World, config: EncoderConfig) {
 	const { scale, width, height } = computeOutputSize(sceneWidth, sceneHeight, resolution);
 	const frameDuration = 1 / frameRate;
 
-	// Fail before anything is written: mediabunny would reject the config on
-	// the first frame anyway, with a message in codec strings; this one names
-	// the size the resolution setting worked out to, which is what the user
-	// can change.
+	// Fail before anything is written: mediabunny would reject the config on the first frame, but in
+	// codec strings; this names the size the resolution setting worked out to.
 	if (videoEnabled) {
 		const encodable = await canEncodeVideo(videoCodec, { width, height, bitrate: videoBitrate });
 		assert(
@@ -144,7 +125,6 @@ export async function createEncoder(world: World, config: EncoderConfig) {
 	audioPlayback.contextOffsetInSeconds[sceneId] = 0;
 	audioPlayback.timelineOffsetInSeconds[sceneId] = playheadStartSeconds;
 
-	// Set up mediabunny output
 	const buffer = await TargetBuffer.create(config.target);
 	const format = await createOutputFormat(buffer, config.format);
 	const output = new Output({ format, target: buffer.target });
@@ -200,7 +180,6 @@ export async function createEncoder(world: World, config: EncoderConfig) {
 	mixNode.connect(sinkNode);
 	sinkNode.connect(offlineAudioCtx.destination);
 
-	// connect the scene bus to the mix node
 	const sceneBus = new AudioBus(world, scene);
 	scene.add(AudioBusHandle);
 	scene.set(AudioBusHandle, sceneBus);
@@ -239,7 +218,7 @@ export async function createEncoder(world: World, config: EncoderConfig) {
 		sampleIndex += sampleCount;
 	};
 
-	const emitProgress = createThrottledCallback(config.onProgress, 1000 / 3); // 3 times per second
+	const emitProgress = createThrottledCallback(config.onProgress, 1000 / 3);
 
 	let canceled = false;
 	const cancel = () => (canceled = true);

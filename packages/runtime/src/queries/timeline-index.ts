@@ -84,10 +84,7 @@ export function buildTimelineLayers(world: World, parent: Entity): TimelineNode[
 	return nodes;
 }
 
-/**
- * Build one row node. Expanded nodes get their subtree; collapsed ones stay
- * empty and only probe whether a subtree exists.
- */
+/** Collapsed nodes stay empty and only probe whether a subtree exists. */
 function buildNode(world: World, entity: Entity, kind: TimelineNodeKind): TimelineNode {
 	if (!entity.has(Expanded)) {
 		return {
@@ -109,9 +106,6 @@ function buildNode(world: World, entity: Entity, kind: TimelineNodeKind): Timeli
 	};
 }
 
-/**
- * Early-exit probe: check if a layer could be expanded.
- */
 function isExpandable(world: World, parent: Entity): boolean {
 	const sequence = isSequence(parent);
 
@@ -133,10 +127,7 @@ function isExpandable(world: World, parent: Entity): boolean {
 	return false;
 }
 
-/**
- * Deep probe: does the subtree contain a live KeyframeTrack? Tracks are
- * deleted with their last keyframe, so track presence implies keyframes.
- */
+/** Tracks are deleted with their last keyframe, so track presence implies keyframes. */
 function hasKeyframes(world: World, entity: Entity): boolean {
 	for (const child of world.query(ChildOf(entity))) {
 		if (child.has(KeyframeTrack)) return true;

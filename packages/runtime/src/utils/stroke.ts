@@ -10,11 +10,7 @@ import type { Entity, World } from 'koota';
 
 type Ctx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 
-/**
- * Sets the context's line style from a stroke sub-entity's StrokeStyle. The
- * width comes from Computed (animatable); a stroke without the trait draws
- * as the trait's defaults.
- */
+/** The width comes from Computed (animatable); a stroke without StrokeStyle draws with its defaults. */
 export function applyStrokeStyle(ctx: Ctx, world: World, stroke: Entity): void {
 	const style = store(world, StrokeStyle);
 	const sid = stroke.id();
@@ -25,10 +21,7 @@ export function applyStrokeStyle(ctx: Ctx, world: World, stroke: Entity): void {
 	ctx.miterLimit = style.miterLimit[sid] ?? 10;
 }
 
-/**
- * The visible stroke of `strokes` drawn widest, or null when none is: what a
- * shadow of a stroked shape takes its silhouette from.
- */
+/** What a shadow of a stroked shape takes its silhouette from. */
 export function findWidestStroke(world: World, strokes: Entity[]): Entity | null {
 	const computed = store(world, Computed);
 	let widest: Entity | null = null;

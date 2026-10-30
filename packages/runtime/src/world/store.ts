@@ -6,12 +6,8 @@ import { getStore } from 'koota';
 
 import type { ExtractStore, Trait, World } from 'koota';
 
-/**
- * Direct SoA store access for hot paths (array indexing by entity.id(), no
- * snapshots, no change events). koota registers a trait's
- * store lazily on first add/query and bare getStore throws before that, so
- * this wrapper registers the trait once per world.
- */
+// Direct SoA access for hot paths (no snapshots, no change events). koota registers a trait's store
+// lazily on first add/query and bare getStore throws before that, so this registers it once per world.
 export function store<T extends Trait>(world: World, trait: T): ExtractStore<T> {
 	try {
 		return getStore(world, trait);

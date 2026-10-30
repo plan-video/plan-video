@@ -2,20 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/**
- * Pulse animation for entities with the Generating tag, and the still fill
- * that takes its place when the wait ends in an error. Everything that draws
- * one reads it from here — the stage and the timeline both — so a node
- * waiting on a generation pulses in step wherever it is shown.
- *
- * Easing:     cubic-bezier(0.52, 0.18, 0.56, 0.88)
- * Duration:   0.6s per half-cycle (alternating)
- * Delay:      0.2s before the first transition
- * Full cycle: 0.2 delay + 0.6 forward + 0.6 reverse = 1.4s
- *             repeats ∞ for the entire gen phase (~4.5s)
- *
- * Pulses between --background (#1c1c1c) and --secondary (#292929).
- */
+// Every surface that draws the pulse (stage, timeline) reads it here, so a node pulses in step
+// wherever it is shown. cubic-bezier(0.52, 0.18, 0.56, 0.88), 0.2 s delay, 0.6 s per alternating half-cycle.
 
 import { cubicBezier } from 'animejs';
 
@@ -30,12 +18,7 @@ const GEN_DURATION = 600;  // ms per half-cycle
 const GEN_CYCLE = GEN_DURATION * 2; // full forward+reverse cycle
 
 
-/**
- * Whether the node is waiting on a generation. The wait sits wherever the
- * src does: on the node itself where the paint is intrinsic (`<image>`,
- * `<video>`, `<audio>`, `<captions>`), or on one of its paints where it is
- * authored as a child (`<rect><imagePaint src /></rect>`).
- */
+/** The wait sits wherever the src does: on the node for intrinsic paints, or on a child paint (`<rect><imagePaint src /></rect>`). */
 export function isGenerating(entity: Entity): boolean {
 	if (entity.has(Generating)) return true;
 	for (const fill of entity.get(Cache)?.fills ?? []) {
@@ -44,10 +27,6 @@ export function isGenerating(entity: Entity): boolean {
 	return false;
 }
 
-/**
- * The reason the node's source failed, from wherever the src sits — the
- * counterpart of `isGenerating`, and what a still red fill is drawn for.
- */
 export function getSourceFailure(entity: Entity): string | undefined {
 	const own = entity.get(SourceError)?.value;
 	if (own) return own;
@@ -62,7 +41,6 @@ export function getSourceFailure(entity: Entity): string | undefined {
 function generatingFactor(world: World): number {
 	const t = world.get(Time)?.now ?? 0;
 
-	// Before initial delay → show base color
 	const elapsed = t % (GEN_DELAY + GEN_CYCLE);
 	if (elapsed < GEN_DELAY) return 0;
 
@@ -70,18 +48,12 @@ function generatingFactor(world: World): number {
 	const half = cycleT % GEN_DURATION;
 	const eased = generatingEase(half / GEN_DURATION);
 
-	// Alternate direction: first half forward, second half reverse
 	return cycleT >= GEN_DURATION ? 1 - eased : eased;
 }
 
-/**
- * The fill a node whose source failed is left with: the pulse gone still and
- * turned toward red, so a node that will never fill itself in is not mistaken
- * for one that still might.
- */
+/** Still and turned toward red, so a node that will never fill in isn't mistaken for one that still might. */
 export const FAILED_COLOR = '#2e1d1d';
 
-/** The fill a node in generation is painted with this frame. */
 export function getGeneratingColor(world: World): string {
 	const { from, to } = world.get(GeneratingPulse) ?? DEFAULT_GENERATING_PULSE;
 	const factor = generatingFactor(world);

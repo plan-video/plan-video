@@ -2,12 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Write-path actions (was api/*). Plain world-first functions, matching the
-// queries/systems convention, rather than koota createActions: actions here
-// return entities/records and call each other freely, which the bound-record
-// pattern only obscures. No history or persistence layer: the app records
-// undo entries and schedules writes by observing koota add/remove/change
-// events on the traits these actions touch.
+// Plain world-first functions rather than koota createActions: actions return entities and call each
+// other freely. No history or persistence here: the app observes koota events on these traits.
 
 export * from './entities';
 export * from './camera';

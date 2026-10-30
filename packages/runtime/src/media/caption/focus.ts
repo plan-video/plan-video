@@ -9,12 +9,10 @@ import type { World } from 'koota';
 import type { CaptionPresetStyle } from './types';
 import type { WordRange } from './line';
 
-/** How blurred and faint a word is before it is said. */
 const BLUR = 7;
 const FAINT = 0.35;
 const FOCUS_SECONDS = 0.18;
 
-// The whole line up from the start, each word coming into focus as it is said.
 export const FOCUS_TEXT_STYLE = {
 	fontFamily: 'Montserrat',
 	fontWeight: '700',

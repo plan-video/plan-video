@@ -15,39 +15,15 @@ import type {
 	GenerateVoiceOptions,
 } from '@plan.video/jsx';
 
-/**
- * The generation service a host attaches to its world. Where a generation
- * stands is the library's to hold, as partial documents (see
- * `PartialAsset` in @plan.video/assets): a run that starts is
- * `pending` there, one that lands is the asset, one that fails stays as
- * `error` with its reason — and a key standing in error resolves to that
- * error rather than to another run, in this session and the next. Nothing
- * here writes to the source that declared the generation.
- */
+/** Where a generation stands is the library's, as partial documents: a key standing in error resolves to that error rather than another run. Nothing here writes to the source. */
 export abstract class GenAi {
-	/**
-	 * The declaration, made real: an asset whose bytes the model produced —
-	 * from a prompt (`generate.*`) or from another asset (`transform.*`), its
-	 * inputs resolved first. Content-addressed — the fully-resolved spec's
-	 * hash is the asset's `generation.key`, so the same spec is the same
-	 * asset in this session and the next, and identical concurrent
-	 * declarations share one run. Rejects with the recorded reason when the
-	 * key stands in error.
-	 */
+	/** Content-addressed: the resolved spec's hash is `generation.key`, so the same spec is the same asset across sessions and concurrent declarations share one run. Rejects with the recorded reason when the key stands in error. */
 	public abstract resolve(ref: AssetRef): Promise<Asset>;
 
-	/**
-	 * The transcript of `scene`'s audible mix, as a TRANSCRIPT asset of the
-	 * project's library. Cached by scene id + seed: the same pair resolves to
-	 * the same asset, in this session and the next, and a new seed transcribes
-	 * the scene again. Identical concurrent requests share one run.
-	 */
+	/** Cached by scene id + seed across sessions; a new seed transcribes again. Identical concurrent requests share one run. */
 	public abstract transcribe(world: World, scene: Entity, seed: number): Promise<Asset>;
 
-	/**
-	 * The imperative surface: `ai.generate.image({...})` declares and resolves
-	 * in one call, returning the finished asset.
-	 */
+	/** Declares and resolves in one call, returning the finished asset. */
 	public readonly generate = {
 		image: (options: GenerateImageOptions): Promise<Asset> => this.resolve(generate.image(options)),
 		video: (options: GenerateVideoOptions): Promise<Asset> => this.resolve(generate.video(options)),
@@ -55,7 +31,6 @@ export abstract class GenAi {
 		audio: (options: GenerateAudioOptions): Promise<Asset> => this.resolve(generate.audio(options)),
 	};
 
-	/** The same for `transform.*`: `ai.transform.upscale(input)` is the upscaled asset. */
 	public readonly transform = {
 		upscale: (input: AssetInput): Promise<Asset> => this.resolve(transform.upscale(input)),
 		removeBackground: (input: AssetInput): Promise<Asset> => this.resolve(transform.removeBackground(input)),

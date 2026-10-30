@@ -16,7 +16,6 @@ import { encodePng } from './png';
 import type { World } from 'koota';
 import type { ImageEncoderConfig } from './interfaces';
 
-/** One capture: the PNG bytes plus the timecode of the frame rendered, e.g. `01s15f`. */
 export type CapturedImage = { png: Uint8Array; timecode: string };
 
 export type ImageExportResult =
@@ -25,18 +24,9 @@ export type ImageExportResult =
 	| { type: 'error'; error: Error };
 
 /**
- * Renders single frames of the scene a capture world holds into standalone
- * PNGs.
- *
- * `world` is the caller's, built for this capture and holding the scene as
- * the stage's only child — the same arrangement `createEncoder` takes, and
- * for the same reason. A frame here is the frame an export would encode: the
- * canvas is the scene's own size, frame 0 is the workarea's first frame, and
- * the world is stepped the way an export steps it — the same systems, in the
- * same order, forward only. Seeking runs the project's own code, and a
- * DOM-backed node keeps what a seek did to it, so requested frames are
- * rendered in ascending order whatever order they were asked in, and never
- * measured or pre-rolled ahead of the first one drawn.
+ * `world` is the caller's, arranged as for `createEncoder`, and stepped the way an export steps it.
+ * Seeking runs the project's own code and DOM-backed nodes keep what a seek did, so frames render
+ * in ascending order whatever order they were asked in, never pre-rolled ahead of the first.
  */
 export async function createImageEncoder(world: World, config: ImageEncoderConfig) {
 	assert(config.frames.length > 0, 'No frames requested');
@@ -51,10 +41,8 @@ export async function createImageEncoder(world: World, config: ImageEncoderConfi
 	// for the lazy audio-bus wiring to have something to bind to.
 	world.set(AudioEngine, { context: new OfflineAudioContext(2, 1, 48000) });
 
-	// Silence the world so the playback system never initializes audio
-	// decoders. On the world rather than as a `Muted` on every node: what the
-	// scene holds is still audio, and a `<captions>` that has to transcribe
-	// its scene during the warmup below asks exactly that question.
+	// Silence the world so the playback system never initializes audio decoders. Not `Muted` per
+	// node: a `<captions>` transcribing its scene during warmup still needs the scene to hold audio.
 	world.add(Silent);
 
 	await warmupAssets(world);

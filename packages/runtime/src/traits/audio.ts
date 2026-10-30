@@ -7,10 +7,9 @@ import { trait } from 'koota';
 // Audio volume in decibels (0 dB = unity, -Infinity = silence).
 export const Volume = trait({ value: 0 });
 
-// Presence means muted.
 export const Muted = trait();
 
-// Runtime-only solo tag (not serialized).
+/** Runtime-only, not serialized. */
 export const Soloed = trait();
 
 // Runtime-only: maps timeline time to AudioContext time while playing.

@@ -2,18 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/**
- * Scales decoded video frames down to their cache tile on worker threads,
- * for browsers that draw them slowly on the page's own thread.
- *
- * With hardware acceleration on, drawing a frame into the cache is a GPU copy
- * of a fraction of a millisecond. Without it (Chrome's "Use graphics
- * acceleration" off, a blocklisted GPU), the browser converts every 1080p
- * frame from YUV and scales it on the CPU, ~4 ms on a fast laptop and several
- * times that on an ordinary PC: playing a 60 fps clip then takes most of the
- * main thread and the whole editor stutters or freezes. Which browser this is
- * is not asked but measured, from the draws the cache does itself.
- */
+// Without hardware acceleration (Chrome's setting off, a blocklisted GPU) the browser converts and
+// scales every 1080p frame on the CPU, ~4 ms or more each, freezing the editor at 60 fps. So the
+// slow path is measured from the cache's own draws, and frames then go to worker threads.
 
 /** A frame drawn on the main thread slower than this counts as a slow draw. */
 const SLOW_DRAW_MS = 1.5;
@@ -69,10 +60,7 @@ let next = 0;
 let nextId = 0;
 const jobs = new Map<number, Job>();
 
-/**
- * Counts how long one main-thread draw of a video frame took. Once enough of
- * them are slow, `scaleFrame` takes the frames from then on.
- */
+/** Once enough draws are slow, `scaleFrame` takes the frames from then on. */
 export function recordFrameDraw(ms: number): void {
 	if (offload || broken) return;
 	timed++;
@@ -90,12 +78,7 @@ export function recordFrameDraw(ms: number): void {
 	}
 }
 
-/**
- * `frame` drawn upright into a `width` × `height` bitmap on a worker, or null
- * when the main thread should draw it: draws there are fast, the workers are
- * full, or they cannot be had. A frame handed over is the worker's, and
- * closed by it; the promise gives null if it could not be drawn.
- */
+/** Null when the main thread should draw it (draws are fast, workers full or unavailable). A frame handed over is the worker's to close. */
 export function scaleFrame(frame: VideoFrame, width: number, height: number, rotation: number): Promise<ImageBitmap | null> | null {
 	if (!offload || broken || jobs.size >= MAX_IN_FLIGHT || width <= 0 || height <= 0) return null;
 
@@ -118,7 +101,6 @@ export function scaleFrame(frame: VideoFrame, width: number, height: number, rot
 	});
 }
 
-/** Whether frames are being sent to the workers. */
 export function isScalingOffThread(): boolean {
 	return offload && !broken;
 }
@@ -162,8 +144,7 @@ function onMessage({ data }: MessageEvent<{ id: number; bitmap?: ImageBitmap; er
 }
 
 function onError(): void {
-	// A worker that will not run (a blocked blob: URL) leaves the frames to
-	// the page, as before.
+	// A worker that will not run (a blocked blob: URL) leaves the frames to the page.
 	broken = true;
 	for (const worker of workers) worker.terminate();
 	workers = [];

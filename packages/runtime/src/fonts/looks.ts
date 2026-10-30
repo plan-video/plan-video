@@ -4,14 +4,7 @@
 
 import type { WebFonts } from './fixtures';
 
-/**
- * A text look: a face, a fill (a colour or a gradient), outlines and shadows.
- * The editor's Text tab puts one on a `<text>` as plain props and children;
- * a `<captions look>` wears one over its preset, which keeps how it groups,
- * places and marks the words but gives up its own face, colour, outline and
- * shadow. Lengths are in ems of the font size, so a look is the same at any
- * size.
- */
+/** Lengths are in ems of the font size, so a look is the same at any size. A `<captions look>` keeps its preset's grouping and motion but gives up its face, colour, outline and shadow. */
 export type TextLook = {
 	font: keyof typeof WebFonts;
 	weight: number;
@@ -30,7 +23,7 @@ export type TextLook = {
 const WHITE = '#FFFFFF';
 const BLACK_SHADOW = { color: '#000000', blur: 0.24, y: 0.04, opacity: 0.6 };
 
-/** Every look, in the order the editor shows them, two to a row. */
+/** In the order the editor shows them, two to a row. */
 export const TEXT_LOOKS = {
 	commentary: {
 		font: 'Montserrat', weight: 800, size: 1,
@@ -174,7 +167,6 @@ export const TEXT_LOOKS = {
 
 export type TextLookId = keyof typeof TEXT_LOOKS;
 
-/** The look `id` names, or null for anything else. */
 export function getTextLook(id: string | undefined): TextLook | null {
 	return id !== undefined && Object.hasOwn(TEXT_LOOKS, id) ? TEXT_LOOKS[id as TextLookId] : null;
 }

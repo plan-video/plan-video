@@ -2,11 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The waveform of a media file, computed off the main thread: the peak
-// amplitude of each slice of its audio (across channels, gamma-lifted so
-// quiet passages still show), as a byte. WebCodecs decodes elsewhere already,
-// but PCM formats (WAV) are unpacked in JS and would stall the UI. One worker
-// per request: a file and a resolution in, the whole waveform out.
+// A worker because PCM formats (WAV) are unpacked in JS and would stall the UI. One worker per
+// request; peaks are gamma-lifted so quiet passages still show.
 
 import { ALL_FORMATS, AudioSampleSink, BlobSource, Input } from 'mediabunny';
 
@@ -32,13 +29,7 @@ scope.onmessage = async ({ data: { file, peaksPerSecond } }) => {
 	}
 };
 
-/**
- * The waveform of `file`'s primary audio track, or null when it has none.
- *
- * Every peak is written where it belongs rather than appended, so a track
- * that starts at a timestamp of its own or has a gap in it still lines up
- * with the time it is drawn against.
- */
+/** Every peak is written at its own time rather than appended, so a track with its own start timestamp or a gap still lines up. */
 async function computeWaveform(file: Blob, peaksPerSecond: number): Promise<Uint8ClampedArray | null> {
 	const input = new Input({ formats: ALL_FORMATS, source: new BlobSource(file) });
 	try {

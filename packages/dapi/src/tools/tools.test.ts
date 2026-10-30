@@ -12,7 +12,6 @@ import { mediaGrab } from "./media-grab";
 import { mediaListen } from "./media-listen";
 import { mediaTranscribe } from "./media-transcribe";
 
-/** The messages of a failed parse, keyed by the path they point at. */
 function issues(result: { success: boolean; error?: { issues: Array<{ path: PropertyKey[]; message: string }> } }) {
   expect(result.success).toBe(false);
   return Object.fromEntries((result.error?.issues ?? []).map((issue) => [issue.path.join("."), issue.message]));

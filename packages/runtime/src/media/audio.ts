@@ -114,27 +114,23 @@ export class AudioDecoder {
 		let offset = 0;
 		let duration = newBuffer.duration;
 
-		// Check if the buffer goes beyond the clip's end, and if so, truncate it
 		if (newBufferTimestamp + duration > trimEnd) {
 			duration = trimEnd - newBufferTimestamp;
 		}
 
-		// Check if the buffer starts before the clip's start, and if so, trim the start
 		if (newBufferTimestamp < trimStart) {
 			start += trimStart - newBufferTimestamp;
 			offset += trimStart - newBufferTimestamp;
 		}
 
-		// Check if the start is before the context's current time (which is illegal)
+		// Starting before the context's current time is illegal.
 		if (start < context.currentTime) {
 			offset += context.currentTime - start;
 			start = context.currentTime;
 		}
 
-		// Dumb, DIRTY hack. For some reason (probably due to some bug in the Web Audio API), sometimes a clicking noise
-		// can be heard on the boundary between two audio clips. By shifting all audio buffers by half a sample, this is
-		// typically avoided. My guess is that it forces the renderer into a sub-sample rendering algorithm which doesn't
-		// have the buggy behavior.
+		// Web Audio quirk: a click can be heard on the boundary between two clips; shifting every buffer by
+		// half a sample typically avoids it.
 		start += 0.5 / context.sampleRate;
 
 		duration -= offset;
@@ -151,7 +147,6 @@ export class AudioDecoder {
 
 	public async playTo(bus: AudioBus | null, options: PlayOptions) {
 		if (!this.asset.channels || !this.asset.sampleRate || !bus) {
-			// Asset has no audio data
 			return;
 		}
 
@@ -175,7 +170,6 @@ export class AudioDecoder {
 
 			while (true) {
 				const nextBuffer = (await this.iterator.next()).value;
-				// Use the actual decoded sample rate if available
 				const sampleRate = nextBuffer?.buffer.sampleRate ?? this.asset.sampleRate;
 				const numberOfChannels = nextBuffer?.buffer.numberOfChannels ?? this.asset.channels;
 				const stretch = 1 / (options.playbackRate || 1);
@@ -269,7 +263,6 @@ export function resolveAudioDecoder(world: World, entity: Entity): ResolvedAudio
 		};
 	}
 
-	// Asset changed: reset old decoder and create a new one.
 	if (existing) existing.reset();
 
 	const asset = getAsset(world, assetId);

@@ -2,8 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Effects as CSS canvas filters, for a node and for a caption word alike.
-
 import { store } from '../world/store';
 import { EffectType } from '../constants';
 import { Hidden, Effect, Computed, Cache } from '../traits';
@@ -14,7 +12,7 @@ import type { Entity, World } from 'koota';
 
 const EPSILON = 1e-4;
 
-/** Build a single CSS filter fragment from an effect sub-entity. Returns null if hidden or no-op. */
+/** Null if hidden or no-op. */
 export function effectFilter(world: World, sub: Entity): string | null {
 	if (sub.has(Hidden)) return null;
 
@@ -55,7 +53,6 @@ export function effectFilter(world: World, sub: Entity): string | null {
 	return null;
 }
 
-/** CSS filter string from the entity's own blur, its effect sub-entities and those of the adjustment layers acting on it. */
 export function buildEffects(world: World, entity: Entity): string | null {
 	const parts: string[] = [];
 

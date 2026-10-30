@@ -2,10 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Subtree walkers releasing live runtime handles (was part of api/utils.ts).
-// Deletion needs none of these: destroy removes every handle trait and the
-// onRemove hooks in world/observers dispose the values. These cover the
-// still-alive cases (culling, re-parenting an audio subtree).
+// Deletion needs none of these: destroy removes every handle trait and the onRemove hooks in
+// world/observers dispose the values. These cover still-alive cases (culling, re-parenting audio).
 
 import {
 	ChildOf,

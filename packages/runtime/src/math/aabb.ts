@@ -2,22 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/**
- * Axis-Aligned Bounding Box utilities.
- */
-
 import type { Mat2D } from './matrix2d';
 
 export type AABB = { minX: number; minY: number; maxX: number; maxY: number };
 
-/**
- * Compute the world-space AABB of a rectangle [0,0]→[w,h]
- * transformed by a 2D affine matrix.
- */
 export function aabbFromTransformedRect(mat: Mat2D, w: number, h: number): AABB {
 	const { a, b, c, d, e, f } = mat;
 
-	// Transform 4 corners: (0,0), (w,0), (w,h), (0,h)
 	const x0 = e,                 y0 = f;
 	const x1 = a * w + e,         y1 = b * w + f;
 	const x2 = a * w + c * h + e, y2 = b * w + d * h + f;
@@ -31,7 +22,6 @@ export function aabbFromTransformedRect(mat: Mat2D, w: number, h: number): AABB 
 	};
 }
 
-/** Test whether two AABBs overlap. */
 export function aabbsIntersect(a: AABB, b: AABB): boolean {
 	return !(
 		a.maxX < b.minX ||
@@ -41,17 +31,13 @@ export function aabbsIntersect(a: AABB, b: AABB): boolean {
 	);
 }
 
-// ─── Polygon geometry ───────────────────────────────────────────
-
 export type Point = { x: number; y: number };
 
-/** An axis-aligned rectangle by origin and size (AABB by min/max corners). */
 export type Rect = { x: number; y: number; width: number; height: number };
 
 /** Four corners of a transformed rect: [TL, TR, BR, BL]. */
 export type Quad = [Point, Point, Point, Point];
 
-/** Get the four world-space corners of a rect [0,0]→[w,h] through a Mat2D. */
 export function rectToQuad(mat: Mat2D, w: number, h: number): Quad {
 	const { a, b, c, d, e, f } = mat;
 	return [
@@ -62,7 +48,6 @@ export function rectToQuad(mat: Mat2D, w: number, h: number): Quad {
 	];
 }
 
-/** Transform a single point through a Mat2D. */
 export function transformPoint(mat: Mat2D, px: number, py: number): Point {
 	return {
 		x: mat.a * px + mat.c * py + mat.e,
@@ -70,7 +55,6 @@ export function transformPoint(mat: Mat2D, px: number, py: number): Point {
 	};
 }
 
-/** Invert a Mat2D. */
 export function invert2D(m: Mat2D): Mat2D {
 	const { a, b, c, d, e, f } = m;
 	const det = a * d - b * c;
@@ -86,7 +70,6 @@ export function invert2D(m: Mat2D): Mat2D {
 	};
 }
 
-/** Point-in-polygon test (ray casting). */
 export function pointInQuad(px: number, py: number, q: Quad): boolean {
 	let inside = false;
 	for (let i = 0, j = 3; i < 4; j = i++) {
@@ -99,9 +82,6 @@ export function pointInQuad(px: number, py: number, q: Quad): boolean {
 	return inside;
 }
 
-/** 
- * Test whether two quads intersect (vertex containment check).
- */
 export function quadsIntersect(a: Quad, b: Quad): boolean {
 	for (let i = 0; i < 4; i++) {
 		if (pointInQuad(a[i].x, a[i].y, b)) return true;
@@ -121,7 +101,6 @@ export function quadContainsQuad(outer: Quad, inner: Quad): boolean {
 	return true;
 }
 
-/** Center point of a quad. */
 export function quadCenter(q: Quad): Point {
 	return {
 		x: (q[0].x + q[1].x + q[2].x + q[3].x) / 4,

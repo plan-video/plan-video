@@ -2,11 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// A clip's speed as a function of its source time. Keyframes name source
-// frames, the same clock as every other track. The timeline distance to a
-// source frame is the integral of 1/rate up to it, so a stretch played at 2×
-// occupies half as much of the timeline. With no track the rate is the
-// constant `playbackRate` prop and both directions reduce to multiply/divide.
+// Keyframes name source frames. The timeline distance to a source frame is the integral of 1/rate
+// up to it, so a stretch at 2× takes half the timeline; with no track it's the constant `playbackRate`.
 
 import { cubicBezier, spring, steps } from 'animejs';
 
@@ -167,10 +164,7 @@ function marksUpTo(curve: SpeedCurve, sourceFrame: number): number[] {
 	return marks;
 }
 
-/**
- * Timeline frames after the clip's origin at which source frame `sourceFrame`
- * is on screen. Constant speed divides; a curve integrates 1/rate.
- */
+/** Constant speed divides; a curve integrates 1/rate. */
 export function timelineOffsetAtSource(curve: SpeedCurve, sourceFrame: number): number {
 	if (curve.keys.length === 0) return sourceFrame / curve.base;
 	if (sourceFrame <= 0) return sourceFrame / rateAtSource(curve, 0);
@@ -212,13 +206,11 @@ export function sourceFrameAtOffset(curve: SpeedCurve, offset: number): number {
 	return cursor + remaining * rateAtSource(curve, cursor);
 }
 
-/** Scene frame at which `sourceFrame` of `entity` plays. */
 export function timelineFrameAtSource(entity: Entity, sourceFrame: number): number {
 	const origin = entity.get(Computed)?.origin ?? 0;
 	return origin + timelineOffsetAtSource(readSpeedCurve(entity), sourceFrame);
 }
 
-/** Source frame `entity` is playing at scene frame `frame`. */
 export function sourceFrameAtTimeline(entity: Entity, frame: number): number {
 	const origin = entity.get(Computed)?.origin ?? 0;
 	return sourceFrameAtOffset(readSpeedCurve(entity), frame - origin);

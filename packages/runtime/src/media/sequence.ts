@@ -21,12 +21,7 @@ export class SequenceDecoder {
 	public mode: SequenceBufferMode = 'alive';
 	public initialized: Promise<void>;
 
-	/**
-	 * Frames per second the folder is played at (see the SourceFrameRate
-	 * trait). Read on every seek rather than baked in, so an element retiming
-	 * its sequence does not cost a rebuild — and the frames the decoder holds
-	 * are the right ones either way.
-	 */
+	/** Read on every seek rather than baked in, so retiming the sequence does not cost a rebuild. */
 	public frameRate: number;
 
 	private frames: File[] = [];
@@ -56,7 +51,6 @@ export class SequenceDecoder {
 				entries.push({ name, getFile: entry.getFile.bind(entry) });
 			}
 
-			// Natural-order sort so frame_2 comes before frame_10.
 			entries.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
 			this.frames = await Promise.all(entries.map(e => e.getFile()));
 			assert(this.frames.length > 0, 'No frames found');
@@ -105,7 +99,6 @@ export class SequenceDecoder {
 		const span = this.cache.config.count - 2;
 		const lastFrameIndex = this.frames.length - 1;
 
-		// Whole video fits in the cache — keep all of it.
 		if (lastFrameIndex <= span) {
 			return [0, lastFrameIndex];
 		}
@@ -116,7 +109,6 @@ export class SequenceDecoder {
 		let left = targetFrame - (forward ? behind : ahead);
 		let right = targetFrame + (forward ? ahead : behind);
 
-		// Push budget that falls outside the boundaries onto the other side.
 		if (left < 0) {
 			right -= left;
 			left = 0;
@@ -151,7 +143,6 @@ export class SequenceDecoder {
 	public async seekTo(frame: number, frameRate: number) {
 		const targetFrame = Math.round((frame / frameRate) * this.frameRate);
 
-		// Path without cache
 		if (!this.hasCache) {
 			return this.updateBitmapAsync(targetFrame);
 		}

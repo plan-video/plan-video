@@ -2,11 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The browser side of the wire: one WebSocket, request/response by id,
-// per-chat subscriptions, and reconnection with backoff. The endpoint is
-// re-resolved on every attempt, which covers a host that came back on a
-// new port. On reconnect every subscribed chat is re-opened, and its
-// listener gets the fresh snapshot — there is no replay protocol.
+// The endpoint is re-resolved on every reconnect attempt (the host may be on a new port), and each
+// subscribed chat is re-opened for a fresh snapshot: there is no replay protocol.
 
 import type {
   ChatEvent,
@@ -92,7 +89,7 @@ export class AgentChatClient {
     return () => void this.harnessListeners.delete(listener);
   }
 
-  /** Starts connecting; idempotent. */
+  /** Idempotent. */
   connect(): void {
     if (!this.stopped) return;
     this.stopped = false;

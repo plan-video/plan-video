@@ -2,8 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Resize and layout actions (was api/resize.ts).
-
 import { store } from '../world/store';
 import { ConstraintType } from '../constants';
 import {
@@ -17,12 +15,7 @@ import type { Entity, World } from 'koota';
 
 type ResizeParams = { width?: number; height?: number };
 
-/**
- * The ratio a locked entity's resize keeps: the pinned dimensions, or — when
- * the pin is empty because neither bound was authored (see the reconciler's
- * `syncAspectLock`) — the ratio the box currently has. Undefined without a
- * lock, or before the box has dimensions to keep.
- */
+/** The pinned dimensions, or with an empty pin (neither bound authored), the box's current ratio. */
 function lockedRatio(entity: Entity): number | undefined {
 	const aspect = entity.get(KeepAspectRatio);
 	if (!aspect) return undefined;
@@ -35,18 +28,8 @@ function lockedRatio(entity: Entity): number | undefined {
 }
 
 /**
- * Resize an entity. Enforces aspect ratio, writes the final Size, propagates
- * Computed size down the subtree and reapplies sibling constraints.
- * Group/Sequential entities don't own a Size so calling this on one strips
- * the trait instead.
- *
- * Keyframes are not this function's business, for all that `width` and
- * `height` can carry a track: a keyframe belongs to the document that spelled
- * the track, and one minted here would exist only in the world — never
- * written back to the project. The editing surfaces that resize (the canvas
- * gesture, the inspector's layout rows) write the keyframe themselves, before
- * the size, and everything else that resizes — a reframe, a caption preset —
- * means the size alone.
+ * Group/Sequential entities don't own a Size, so this strips it from them. Doesn't write keyframes:
+ * one minted here would never reach the project, so the editing surfaces write them themselves.
  */
 export function resizeEntity(world: World, entity: Entity, params: ResizeParams): void {
 	if (entity.has(Group)) {
@@ -56,7 +39,6 @@ export function resizeEntity(world: World, entity: Entity, params: ResizeParams)
 
 	let { width, height } = params;
 
-	// Enforce aspect ratio
 	const ratio = lockedRatio(entity);
 	if (ratio !== undefined) {
 		if (width !== undefined && height === undefined) {
@@ -74,7 +56,6 @@ export function resizeEntity(world: World, entity: Entity, params: ResizeParams)
 		...(height !== undefined && { height: Math.round(height) }),
 	});
 
-	// handle DOM nodes
 	const element = entity.get(Host)?.element;
 
 	if (element instanceof HTMLCanvasElement) {
@@ -151,13 +132,11 @@ function resolveConstraintOffsetsAgainst(world: World, entity: Entity, dims: Ent
 		const prevChildW = cache.childWidth[cid]!;
 		const prevChildH = cache.childHeight[cid]!;
 
-		// Update caches
 		cache.parentWidth[cid] = curParentW;
 		cache.parentHeight[cid] = curParentH;
 		cache.childWidth[cid] = curChildW;
 		cache.childHeight[cid] = curChildH;
 
-		// No change
 		if (prevParentW === curParentW && prevParentH === curParentH) continue;
 
 		const constraint = child.get(Constraint)!;
@@ -181,13 +160,9 @@ function resolveConstraintOffsetsAgainst(world: World, entity: Entity, dims: Ent
 		} else if (constraint.horizontal === ConstraintType.CENTER) {
 			child.set(Position, { x: positionX + dpW / 2 - dcW / 2 });
 		} else if (constraint.horizontal === ConstraintType.STRETCH) {
-			// Pin both left and right edges: hold the left edge in place and grow
-			// the child by the parent's width delta so the right margin stays
-			// constant.
+			// Hold the near edge and grow the child by the parent's delta so the far margin stays constant.
 			newChildW = curChildW + dpW;
 		} else if (constraint.horizontal === ConstraintType.SCALE && prevParentW !== 0) {
-			// Scale offset and width by the parent's horizontal ratio so the child
-			// keeps its relative position and proportion.
 			const scale = curParentW / prevParentW;
 			newChildW = Math.round(curChildW * scale);
 			child.set(Position, { x: positionX * scale });
@@ -198,13 +173,8 @@ function resolveConstraintOffsetsAgainst(world: World, entity: Entity, dims: Ent
 		} else if (constraint.vertical === ConstraintType.CENTER) {
 			child.set(Position, { y: positionY + dpH / 2 - dcH / 2 });
 		} else if (constraint.vertical === ConstraintType.STRETCH) {
-			// Pin both top and bottom edges: hold the top edge in place and grow
-			// the child by the parent's height delta so the bottom margin stays
-			// constant.
 			newChildH = curChildH + dpH;
 		} else if (constraint.vertical === ConstraintType.SCALE && prevParentH !== 0) {
-			// Scale offset and height by the parent's vertical ratio so the child
-			// keeps its relative position and proportion.
 			const scale = curParentH / prevParentH;
 			newChildH = Math.round(curChildH * scale);
 			child.set(Position, { y: positionY * scale });

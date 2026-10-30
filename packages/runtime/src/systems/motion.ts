@@ -21,12 +21,9 @@ import { getLocalWindow } from '../utils/time';
 import type { Entity, Trait, TraitRecord, World } from 'koota';
 
 /**
- * Reset an entity's Computed values back to its authored trait values.
- * Motion (animations + keyframes) then layers on top each frame. A trait
- * the entity does not carry counts as its default: koota leaves store slots
- * as they were when a trait is removed, so the slot alone cannot say.
- * `ignore` treats one more trait as absent, for onRemove handlers (koota
- * fires them before the trait is cleared).
+ * Motion then layers on top each frame. A trait the entity lacks counts as its default: koota leaves
+ * store slots as they were when a trait is removed. `ignore` treats one more trait as absent, for
+ * onRemove handlers (koota fires them before the trait is cleared).
  */
 export function resetAnimatedValues(world: World, entity: Entity | null, ignore?: Trait) {
 	if (entity === null) return;
@@ -67,7 +64,6 @@ export function resetAnimatedValues(world: World, entity: Entity | null, ignore?
 	}
 }
 
-/** What a preset animation moves, as it stands before and after one plays. */
 export type AnimationPose = {
 	opacity: number;
 	volume: number;
@@ -80,10 +76,7 @@ export type AnimationPose = {
 	chars: string;
 };
 
-/**
- * Moves `pose` the way a preset animation does at the given normalized
- * progress. `text` is what the text presets reveal.
- */
+/** `text` is what the text presets reveal. */
 export function poseAnimation(pose: AnimationPose, type: AnimationType | undefined, phase: AnimationPhase | undefined, progress: number, text: string): void {
 	switch (type) {
 		case AnimationType.FADE: {
@@ -196,17 +189,13 @@ export function poseAnimation(pose: AnimationPose, type: AnimationType | undefin
 	}
 }
 
-/**
- * Scale a word on the way TikTok captions do: grow past 1, settle back.
- * `overshoot` is how far past 1 it goes. Out shrinks to nothing.
- */
+/** Grow past 1 by `overshoot` and settle back, as TikTok captions do; out shrinks to nothing. */
 function popScale(progress: number, phase: AnimationPhase | undefined, overshoot: number): number {
 	const t = clamp01(progress);
 	if (phase === AnimationPhase.OUT) {
 		const u = 1 - t;
 		return u * u;
 	}
-	// Ease out to the overshoot, dip under 1, then settle — TikTok caption pop.
 	if (t < 0.55) {
 		const u = t / 0.55;
 		const eased = 1 - (1 - u) * (1 - u) * (1 - u);
@@ -216,9 +205,6 @@ function popScale(progress: number, phase: AnimationPhase | undefined, overshoot
 	return 0.92 + ((t - 0.82) / 0.18) * 0.08;
 }
 
-/**
- * Apply a preset animation to a node at the given normalized progress.
- */
 function applyAnimation(world: World, entity: Entity, anim: Entity, progress: number) {
 	const computed = store(world, Computed);
 	const animation = store(world, Animation);
@@ -254,7 +240,6 @@ function isWordPop(type: AnimationType | undefined): boolean {
 	return type === AnimationType.POP || type === AnimationType.BOUNCE;
 }
 
-/** Plays one animation into `pose` for the window a word is spoken in. */
 function playWordAnimation(
 	pose: AnimationPose,
 	type: AnimationType | undefined,
@@ -279,12 +264,7 @@ function playWordAnimation(
 	poseAnimation(pose, type, phase, progress, '');
 }
 
-/**
- * Plays each caption word's own animations against the window it is spoken
- * in (see `WordTiming`), plus a pop or bounce authored on the caption itself
- * when the word has none of its own. Writes the pose into the range's
- * Computed. `time` is the caption's own, in seconds.
- */
+/** Plays each word's animations over the window it is spoken in, plus a caption-level pop or bounce for words with none. `time` is the caption's own, in seconds. */
 export function animateCaptionWords(world: World, caption: Entity, time: number, fps: number): void {
 	const cache = store(world, Cache);
 	const ranges = cache.textRanges[caption.id()];
@@ -363,14 +343,7 @@ export function animateCaptionWords(world: World, caption: Entity, time: number,
 	}
 }
 
-/**
- * Whether a node's in and out animations hold at rest this frame: in the
- * editor, while it is selected and its scene is paused, so it stays where it
- * sits, seen, and its box and a drag land where it is — not where a slide
- * has it at that frame, or invisible at a fade's first one. The playback
- * system shows such a node outside its time too. Playing and exports
- * animate it as ever.
- */
+/** In the editor, while selected and its scene paused, so it sits where a drag lands rather than mid-slide or invisible at a fade's first frame. Playing and exports animate as ever. */
 export function holdsAtRest(world: World, entity: Entity): boolean {
 	if (!entity.has(Selected) || world.get(Mode)?.value !== 'realtime') return false;
 	return !getSceneAncestor(entity)?.get(Playback)?.playing;
@@ -400,7 +373,6 @@ export function motionSystem(world: World): void {
 
 		const localFrame = computed.localTime[eid];
 
-		// 1: Preset animations (FADE/GAIN/GROW/SHRINK/BLUR/SLIDE)
 		for (const anim of holdsAtRest(world, entity) ? [] : animations) {
 			const aid = anim.id();
 			// Pop / bounce on a caption play per word (see animateCaptionWords).
@@ -420,7 +392,6 @@ export function motionSystem(world: World): void {
 			applyAnimation(world, entity, anim, progress);
 		}
 
-		// 2: Keyframe tracks
 		let uniformScale = entity.has(UniformScale);
 		for (const track of keyframeTracks) {
 			const tid = track.id();
@@ -442,10 +413,7 @@ export function motionSystem(world: World): void {
 	}
 }
 
-/**
- * Keyframeable properties: dot-path string to the computed (per-frame
- * resolved) and authored (document) store arrays.
- */
+/** Dot-path to the computed (per-frame) and authored store arrays. */
 export function getPropertyPaths(world: World) {
 	const computed = store(world, Computed);
 	return {
@@ -558,20 +526,11 @@ export function getPropertyPaths(world: World) {
 
 export type PropertyPath = keyof ReturnType<typeof getPropertyPaths>;
 
-// ─── Easing ─────────────────────────────────────────────────
-
 type EasingFunction = (t: number) => number;
 
 const easingCache = new Map<string, EasingFunction>();
 
-/**
- * Parse an easing descriptor string and return an easing function.
- * Returns null for empty/undefined (= default linear interpolation).
- * Supported formats:
- *   "steps(9)"  or "steps(9,true)"        → animejs steps(n, fromStart?)
- *   "cubicBezier(0.25,0.1,0.25,1)"       → animejs cubicBezier(x1,y1,x2,y2)
- *   "spring(0.5,500)"                     → animejs spring({ bounce, duration })
- */
+/** Null for empty (linear). "steps(9[,true])", "cubicBezier(x1,y1,x2,y2)" and "spring(bounce,duration)" map onto animejs. */
 function resolveEasing(descriptor: string | undefined): EasingFunction | null {
 	if (!descriptor || descriptor === '') return null;
 
@@ -611,10 +570,7 @@ function resolveEasing(descriptor: string | undefined): EasingFunction | null {
 	return null;
 }
 
-/**
- * Sample a presorted aggregated keyframe track at a local frame.
- * Returns null only if the track has no keyframes.
- */
+/** `track` must be presorted; null only when it has no keyframes. */
 function sampleTrack(
 	world: World,
 	keyframes: Entity[],
@@ -664,7 +620,6 @@ function sampleTrack(
 			return lerpColor(startValue, endValue, progress);
 		}
 
-		// Linear interpolation
 		return startValue + (endValue - startValue) * progress;
 	}
 

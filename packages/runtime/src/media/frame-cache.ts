@@ -76,11 +76,9 @@ export class FrameCache {
     this.tileWidth = Math.floor(sourceWidth * factor);
     this.tileHeight = Math.floor(sourceHeight * factor);
 
-    // Where video frames are scaled on workers (drawing them here is slow: no
-    // hardware acceleration), each is kept as a bitmap of its own. Writing into
-    // one big atlas would cost a copy of all of it on every frame the preview
-    // had read from it since, which on the CPU is 100 MB a frame at full size.
-    // A sequence's pictures still go into the atlas.
+    // Where frames are scaled on workers (drawing here is slow without hardware acceleration) each is
+    // its own bitmap: writing into one big atlas would copy all of it on every frame the preview read
+    // from it since, 100 MB a frame on the CPU. A sequence's pictures still go into the atlas.
     if (frame instanceof VideoFrame && isScalingOffThread()) {
       if (this.tileWidth !== previousWidth || this.tileHeight !== previousHeight) this.clearTiles();
       if (this.atlas.width && this.tiles.every((t) => t.bitmap)) {
@@ -90,7 +88,6 @@ export class FrameCache {
       return;
     }
 
-    // Lay tiles in a 2D grid
     this.columns = Math.ceil(Math.sqrt(this.config.count));
     const rows = Math.ceil(this.config.count / this.columns);
 
@@ -153,7 +150,6 @@ export class FrameCache {
     this.lastInserted = frameIndex;
   }
 
-  /** `frame` scaled upright to a bitmap of the tile's size, on this thread. */
   private scaleHere(frame: VideoFrame): ImageBitmap {
     const canvas = new OffscreenCanvas(this.tileWidth, this.tileHeight);
     const ctx = canvas.getContext('2d')!;
@@ -182,10 +178,7 @@ export class FrameCache {
     ctx.drawImage(image, x, y, this.tileWidth, this.tileHeight);
   }
 
-  /**
-   * Holds tiles of a new size and count from here on. Every tile held is
-   * dropped, as none of them fit the new grid. Returns whether anything changed.
-   */
+  /** Every tile held is dropped, as none fit the new grid. Returns whether anything changed. */
   public configure(config: FrameCacheConfig): boolean {
     if (config.pixels === this.config.pixels && config.count === this.config.count) return false;
     this.config = config;
@@ -220,10 +213,6 @@ export class FrameCache {
     return best;
   }
 
-  /**
-   * Frame index of the latest cached frame at or before `frameIndex` and no
-   * earlier than `from`, or `undefined` when there is none.
-   */
   public findLatest(frameIndex: number, from: number): number | undefined {
     let best: number | undefined;
 
@@ -235,14 +224,10 @@ export class FrameCache {
     return best;
   }
 
-  /**
-   * Whether `frameIndex` is on its way into the cache: out at a worker.
-   */
   public isScaling(frameIndex: number) {
     return this.scaling.has(frameIndex);
   }
 
-  /** How many frames are out at a worker. */
   public get scalingCount() {
     return this.scaling.size;
   }
@@ -260,13 +245,7 @@ export class FrameCache {
     });
   }
 
-  /**
-   * Puts `frame` in the cache and calls `done` once it is there: at once, or,
-   * where drawing a video frame on this thread is slow (no hardware
-   * acceleration), when a worker has scaled it. `done` is not called for a
-   * frame that never made it in. A frame sent to a worker goes with it (closing
-   * it after is a no-op); any other stays the caller's to close.
-   */
+  /** `done` fires once `frame` is in (never for one that didn't make it). A frame sent to a worker goes with it; any other stays the caller's to close. */
   public insert(frame: VideoFrame | ImageBitmap, index: number, done?: () => void) {
     if (this.has(index)) {
       done?.();

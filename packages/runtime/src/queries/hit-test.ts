@@ -2,10 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Document-space hit testing and coordinate mapping, for the tools that work
-// in the camera's space rather than the canvas's. LocalTransform is written
-// straight into the SoA store by the transform system (never added as a
-// trait), so it is read by entity id here, like WorldBounds in ./camera.
+// LocalTransform lives only in the SoA store (never added as a trait), so it is read by entity id here.
 
 import { Not } from 'koota';
 
@@ -34,11 +31,7 @@ function localMatrix(world: World, entity: Entity): Mat2D {
 	};
 }
 
-/**
- * An entity's transform in document space: its own, composed with every
- * ancestor's up to the stage. A top-level node's LocalTransform is already in
- * document space, and this is what makes the same true of a nested one.
- */
+/** A top-level node's LocalTransform is already in document space; this makes the same true of a nested one. */
 function documentMatrix(world: World, entity: Entity): Mat2D {
 	let mat = localMatrix(world, entity);
 
@@ -49,10 +42,6 @@ function documentMatrix(world: World, entity: Entity): Mat2D {
 	return mat;
 }
 
-/**
- * Convert a document-space point (as produced by `screenToWorld`) to an
- * entity's local coordinates, through its own transform and its ancestors'.
- */
 export function worldToLocal(world: World, entity: Entity, worldX: number, worldY: number): Point {
 	const mat = documentMatrix(world, entity);
 	if (Math.abs(mat.a * mat.d - mat.b * mat.c) < MIN_DETERMINANT) return { x: worldX, y: worldY };

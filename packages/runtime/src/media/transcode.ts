@@ -2,9 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Asset transcoding and preview rendering (was engine/utils/transcode.ts;
-// the timecode formatters moved to utils/time.ts). Filmstrips and waveforms
-// draw into an OffscreenCanvas, so everything here is worker-capable.
+// Filmstrips and waveforms draw into an OffscreenCanvas, so everything here is worker-capable.
 
 import { ALL_FORMATS, AudioSampleSink, BlobSource, BufferTarget, CanvasSink, Conversion, Input, InputAudioTrack, Mp4OutputFormat, OggOutputFormat, Output, StreamTarget } from 'mediabunny';
 
@@ -85,7 +83,7 @@ export async function transcodeForAnalysis(asset: VideoAsset | AudioAsset, windo
 }
 
 const PATCH_SIZE = 28;
-const MAX_WIDTH_IN_TOKENS = 64; // 92
+const MAX_WIDTH_IN_TOKENS = 64;
 const MAX_HEIGHT_IN_TOKENS = 52;
 const THUMBNAIL_HEIGHT_IN_TOKENS = 7;
 const RULER_HEIGHT_IN_TOKENS = 1;
@@ -96,8 +94,6 @@ const SILENCE_THRESHOLD = 12; // peak value (0-255) at/below which audio counts 
 const SILENCE_MIN_SECONDS = 0.4;
 const AUDIO_RULER_FRAME_RATE = 30;
 
-// Draws a timestamp label into the top-left corner of a canvas: white text with
-// a black outline, sized relative to the canvas so it reads at any resolution.
 export function stampTimestampLabel(
 	ctx: Ctx2D,
 	height: number,
@@ -142,8 +138,7 @@ function resolveScale(scale?: number): number {
 	return Math.min(Math.max(scale, MIN_SCALE), MAX_SCALE);
 }
 
-// Clamp a requested [start, end] window (in seconds) to the asset's timeline.
-// `start` defaults to 0 and `end` to the full duration.
+/** `start` defaults to 0 and `end` to the full duration. */
 function resolveWindow(duration: number, window?: TimeWindow): { start: number; end: number; duration: number } {
 	const start = Math.min(Math.max(window?.start ?? 0, 0), duration);
 	const end = Math.min(Math.max(window?.end ?? duration, start), duration);
@@ -162,8 +157,6 @@ async function toPngDataUrl(canvas: OffscreenCanvas): Promise<string> {
 	});
 }
 
-// Render a video as a grid of thumbnails sampled across the window, each row
-// stamped with a timestamp ruler. Video only; no audio.
 export async function filmstripAsset(asset: Asset, options?: PreviewOptions): Promise<RenderedPreview> {
 	assert(asset.type === "VIDEO", "The filmstrip needs a video asset; use `waveform` for audio.");
 	const blob = await getAssetFile(asset);
@@ -254,8 +247,6 @@ async function renderFilmstrip(asset: VideoAsset, input: Input, window: TimeWind
 	return { dataUrl: await toPngDataUrl(canvas) };
 }
 
-// Render the audio track of a video or audio file as a loudness-over-time
-// waveform with a timestamp ruler and silent stretches highlighted.
 export async function waveformAsset(asset: Asset, options?: PreviewOptions): Promise<RenderedWaveform> {
 	assert(asset.type === "VIDEO" || asset.type === "AUDIO", "The waveform needs a video or audio asset.");
 	const blob = await getAssetFile(asset);
@@ -345,8 +336,7 @@ type WaveformLayout = {
 	waveformHeight: number;
 };
 
-// Scan the peaks for runs at/below the silence threshold that last at least
-// SILENCE_MIN_SECONDS, returned as [start, end) peak-index spans.
+/** Runs at/below the threshold lasting at least SILENCE_MIN_SECONDS, as [start, end) peak-index spans. */
 function findSilentSpans(audioPeaks: Uint8ClampedArray, peaksPerSecond: number): Array<{ start: number; end: number }> {
 	const minSilencePeaks = Math.round(SILENCE_MIN_SECONDS * peaksPerSecond);
 	const silentSpans: Array<{ start: number; end: number }> = [];
@@ -365,7 +355,6 @@ function findSilentSpans(audioPeaks: Uint8ClampedArray, peaksPerSecond: number):
 	return silentSpans;
 }
 
-// Draws a center-aligned waveform, then overlays the given silent stretches in red.
 function drawWaveform(ctx: Ctx2D, audioPeaks: Uint8ClampedArray, silentSpans: Array<{ start: number; end: number }>, layout: WaveformLayout) {
 	const { rows, rowWidth, rowHeightInPixels, waveformOffset, waveformHeight } = layout;
 	const peaksPerRow = Math.floor(rowWidth / WAVEFORM_SAMPLE_WIDTH);
@@ -504,7 +493,6 @@ async function downsampleAudio(track: InputAudioTrack, options: SamplerOptions) 
 		}
 	}
 
-	// Flush the final in-progress peak.
 	if (frameCursor > 0) peaks.push(Math.floor(255 * peakMax));
 
 	return Uint8ClampedArray.from(peaks);

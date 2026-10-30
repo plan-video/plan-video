@@ -2,10 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// What TikTok asks of an app before it posts to someone's profile, for agents
-// as much as for the New post screen: read the account's creator info and go
-// by it, ask whether the post promotes something, and have the person accept
-// TikTok's terms for the post.
+// TikTok requires, for agents as much as the New post screen: go by the account's creator info,
+// ask whether the post promotes something, and have the person accept TikTok's terms for the post.
 
 export const TIKTOK_MUSIC_USAGE = "https://www.tiktok.com/legal/page/global/music-usage-confirmation/en";
 export const TIKTOK_BRANDED_POLICY = "https://www.tiktok.com/legal/page/global/bc-policy/en";
@@ -19,7 +17,6 @@ export function tiktokConsent(branded: boolean): string {
     : `By posting, you agree to TikTok's Music Usage Confirmation (${TIKTOK_MUSIC_USAGE}).`;
 }
 
-/** The disclosure as it's stored with a post. */
 export function promotionFlags(promotion: TikTokPromotion): { yourBrand: boolean; brandedContent: boolean } {
   return {
     yourBrand: promotion === "your_brand" || promotion === "both",
@@ -30,10 +27,8 @@ export function promotionFlags(promotion: TikTokPromotion): { yourBrand: boolean
 export const PROMOTION_QUESTION =
   "TikTok needs to know whether the post promotes something. Ask the user, then pass tiktok.promotion: none; your_brand, when it promotes themselves or their own business (labelled Promotional content); branded_content, when it promotes another brand or a third party (labelled Paid partnership, and it can't be private); or both.";
 
-/** What TikTok's creator info says an account may do, as of now. */
 export type TikTokCreatorRules = {
   nickname: string;
-  /** Who it may show a post to. */
   privacy: readonly string[];
   commentDisabled: boolean;
   duetDisabled: boolean;
@@ -50,10 +45,9 @@ export type TikTokChoices = {
 };
 
 /**
- * Holds a post's TikTok choices to what the account allows, the way the post
- * screen does: a privacy it doesn't offer, branded content kept private or a
- * video past its limit is refused; comments, Duet and Stitch it has turned off
- * go off, with a warning. `videoSeconds` is null for pictures.
+ * Refuses a privacy the account doesn't offer, private branded content, or a video past its limit;
+ * turns comments, Duet and Stitch off with a warning where the account disabled them.
+ * `videoSeconds` is null for pictures.
  */
 export function checkTikTokCreator<T extends TikTokChoices>(
   choices: T,

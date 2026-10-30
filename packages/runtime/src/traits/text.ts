@@ -11,12 +11,7 @@ import type { Token } from '../utils/text';
 // Text characters: only on the parent text node, not shared with ranges.
 export const Chars = trait({ value: '' });
 
-// Text style properties, shared between a text node and its TextRange
-// sub-entities. On a text node this is the default style; on a range
-// sub-entity it overrides. All fields default to undefined: a range override
-// carries ONLY its explicitly set fields (a sparse store slot means "inherit
-// from the node"), and the node-level fallbacks (16px, Inter, 400, ...) live
-// in the text renderer's accessors.
+/** Default style on a text node, override on a range. All fields default to undefined: a sparse slot means "inherit", and the fallbacks live in the renderer's accessors. */
 export const TextStyle = trait({
 	leading: undefined as number | undefined,
 	fontSize: undefined as number | undefined,

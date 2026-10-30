@@ -2,8 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Keyframe actions (was api/keyframe.ts).
-
 import {
 	ChildOf, Geometry, Group, AdjustmentLayer, KeyframeTrack, Keyframe,
 } from '../traits';
@@ -15,9 +13,6 @@ import { appendChild } from './hierarchy';
 import type { Entity, World } from 'koota';
 import type { PropertyPath } from '../systems/motion';
 
-/**
- * Find the KeyframeTrack entity (if any) for a (target, property) pair.
- */
 export function findKeyframeTrackEntity(world: World, target: Entity, property: string): Entity | null {
 	for (const track of world.query(KeyframeTrack, ChildOf(target))) {
 		if (track.get(KeyframeTrack)!.property === property) return track;
@@ -25,19 +20,12 @@ export function findKeyframeTrackEntity(world: World, target: Entity, property: 
 	return null;
 }
 
-/**
- * Collect all keyframe entities for a (target, property) pair.
- */
 export function getKeyframeTrack(world: World, target: Entity, property: string): Entity[] {
 	const track = findKeyframeTrackEntity(world, target, property);
 	if (track === null) return [];
 	return [...world.query(Keyframe, ChildOf(track))];
 }
 
-/**
- * Find the target node for a given entity: itself or the nearest ancestor
- * that is a geometry, group, or adjustment layer.
- */
 export function findKeyframeTargetNode(entity: Entity): Entity | null {
 	let current: Entity | null = entity;
 	while (current) {
@@ -49,9 +37,6 @@ export function findKeyframeTargetNode(entity: Entity): Entity | null {
 	return null;
 }
 
-/**
- * Get the KeyframeTrack entity for (target, property), creating one if missing.
- */
 function ensureKeyframeTrackEntity(world: World, target: Entity, property: PropertyPath): Entity {
 	const existing = findKeyframeTrackEntity(world, target, property);
 	if (existing !== null) return existing;
@@ -63,11 +48,7 @@ function ensureKeyframeTrackEntity(world: World, target: Entity, property: Prope
 	return track;
 }
 
-/**
- * Add a keyframe at the current local time for (target, property).
- * Reads the current value from the target. If a keyframe at this exact time
- * already exists, its value is overwritten.
- */
+/** Reads the current value from the target; an existing keyframe at this time is overwritten. */
 export function syncKeyframeTrack(world: World, entity: Entity, property: PropertyPath) {
 	const worldProps = getPropertyPaths(world);
 	const node = findKeyframeTargetNode(entity);
@@ -97,11 +78,7 @@ export function syncKeyframeTrack(world: World, entity: Entity, property: Proper
 	}
 }
 
-/**
- * Toggle a keyframe at the current local time for (target, property).
- * Creates the KeyframeTrack on first use; removes it when its last keyframe
- * is toggled off.
- */
+/** Creates the track on first use; removes it when its last keyframe is toggled off. */
 export function toggleKeyframeTrack(world: World, entity: Entity, property: PropertyPath) {
 	const worldProps = getPropertyPaths(world);
 	const node = findKeyframeTargetNode(entity);
@@ -122,7 +99,6 @@ export function toggleKeyframeTrack(world: World, entity: Entity, property: Prop
 
 	if (existing) {
 		deleteEntity(world, existing);
-		// If that was the track's last keyframe, drop the track too.
 		if (track && trackKeyframes.length === 1) {
 			deleteEntity(world, track);
 		}
@@ -140,11 +116,7 @@ export function toggleKeyframeTrack(world: World, entity: Entity, property: Prop
 	appendChild(world, kf, target);
 }
 
-/**
- * Declaratively replace all keyframes for (target, property): creates the
- * track on first use, deletes it when `keyframes` is empty. Times are local
- * frames; values are in the property's authored unit.
- */
+/** Times are local frames; values are in the property's authored unit. Empty `keyframes` deletes the track. */
 export function setKeyframeTrack(
 	world: World,
 	target: Entity,

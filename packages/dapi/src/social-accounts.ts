@@ -13,10 +13,7 @@ export type AccountChoice =
   | { ok: true; choices: Record<string, string[]>; accounts: ConnectedAccount[] }
   | { ok: false; message: string };
 
-/**
- * Picks which connected account a post uses on each platform.
- * Several accounts and no id is a refusal: the caller has to ask, not guess.
- */
+/** Several accounts and no id is a refusal: the caller has to ask, not guess. */
 export function chooseAccounts(
   platforms: readonly string[],
   requested: readonly string[] | undefined,

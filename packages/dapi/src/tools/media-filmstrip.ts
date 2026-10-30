@@ -6,7 +6,6 @@ import { z } from "zod";
 import { defineTool } from "../tool";
 import { AssetPath, Bytes, checkWindow, windowFields } from "../schemas";
 
-/** The window and scale that filmstrip and waveform share. */
 export const previewFields = {
   ...windowFields,
   output: z.string().optional().describe("absolute path to write the PNG to (default: a fresh file under the system temp dir)"),

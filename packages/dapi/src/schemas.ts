@@ -2,9 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Building blocks several tools share. A tool file composes these; nothing
-// here is a tool on its own.
-
 import { z } from "zod";
 import { NonNegativeTime, TIME_FORMS } from "./time";
 
@@ -28,22 +25,14 @@ export const AssetPath = z
 /** Beyond this the cells get too small to be worth the tokens; use `media_filmstrip`. */
 export const MAX_FRAMES_PER_SHEET = 12;
 
-/**
- * Raw bytes as a handler produces them. How they travel is the transport's
- * business: base64 on a JSON wire, structured clone over IPC, a file on disk.
- */
 export const Bytes = z.custom<Uint8Array>((value) => value instanceof Uint8Array, "expected bytes (a Uint8Array)");
 
-/**
- * One rendered image as a handler returns it: a single frame stamped with its
- * timecode, or a contact sheet stamped with the span it covers (`0f-08s10f`).
- */
+/** A single frame stamped with its timecode, or a contact sheet stamped with its span (`0f-08s10f`). */
 export const TimecodedImage = z.object({
   timecode: z.string(),
   png: Bytes,
 });
 
-/** The same image once the server has written it to disk. */
 export const ImageRef = z.object({
   timecode: z.string(),
   path: z.string().describe("absolute path of the PNG"),
@@ -54,11 +43,7 @@ export const outputDirField = z
   .optional()
   .describe("absolute directory to write the PNGs into (default: a fresh directory under the system temp dir)");
 
-/**
- * How frames are laid out: merged into contact sheets (the default) or one
- * image each. `perSheet` only means something for sheets; `checkSheetOptions`
- * rejects it otherwise, so add it to any object that spreads these fields.
- */
+/** `checkSheetOptions` rejects `perSheet` outside sheets, so call it on any object that spreads these fields. */
 export const sheetFields = {
   separate: z
     .boolean()

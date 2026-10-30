@@ -6,38 +6,24 @@ import type { JSX as SolidJSX } from "solid-js";
 import type { Entity } from "koota";
 import type { AssetRef } from "./generate";
 
-/**
- * Composition-relative time: seconds (number), frames ("30f"), or a
- * "MM:SS" / "HH:MM:SS" clock string. The canonical internal unit is frames
- * at 30 fps; all formats are converted on import. Values may be negative.
- */
+/** Seconds (number), frames at 30 fps ("30f"), or a "MM:SS" / "HH:MM:SS" clock string. Values may be negative. */
 export type Time = number | `${number}f` | `${string}:${string}`;
 
 export type Fit = "cover" | "contain" | "fill";
 
-/** How a stroke turns a corner: the canvas `lineJoin` values. */
 export type StrokeJoin = "miter" | "round" | "bevel";
 
-/** How a stroke ends an open path: the canvas `lineCap` values. */
 export type StrokeCap = "butt" | "round" | "square";
 
 /**
- * How an element follows its scene's frame along one axis when that frame is
- * resized: pinned to the near edge ("left"/"top", the default), to the far
- * one ("right"/"bottom"), to the middle ("center"), to both edges at once
- * ("stretch", which resizes the element to keep either margin), or to the
- * frame's proportions ("scale", which moves and resizes it by the frame's
- * ratio).
+ * How an element follows its scene's frame when it is resized: pinned to the near edge (default),
+ * the far one, the middle, both edges ("stretch" resizes it) or the frame's proportions ("scale").
  */
 export type HorizontalConstraint = "left" | "right" | "center" | "stretch" | "scale";
 
-/** The vertical axis of `HorizontalConstraint`. */
 export type VerticalConstraint = "top" | "bottom" | "center" | "stretch" | "scale";
 
-/**
- * How an element composites over what is below it: the canvas
- * `globalCompositeOperation` blend modes, camelCase. Default "sourceOver".
- */
+/** The canvas `globalCompositeOperation` modes, camelCase. Default "sourceOver". */
 export type BlendMode =
   | "sourceOver"
   | "multiply"
@@ -56,11 +42,7 @@ export type BlendMode =
   | "color"
   | "luminosity";
 
-/**
- * An `<effect>`'s filter — the CSS filter functions, applied to the parent's
- * rendered pixels. `blur` takes a radius in px, `hueRotate` degrees, the
- * rest an amount 0–1.
- */
+/** CSS filter functions over the parent's rendered pixels: `blur` takes a radius in px, `hueRotate` degrees, the rest 0–1. */
 export type EffectType =
   | "blur"
   | "brightness"
@@ -72,10 +54,8 @@ export type EffectType =
   | "sepia";
 
 /**
- * Easing for the segment from a keyframe to the next one: a named preset or
- * an explicit descriptor. `cubicBezier(x1,y1,x2,y2)` takes CSS-style control
- * points, `spring(bounce,duration)` a 0–1 bounce and a duration in ms,
- * `steps(n)` holds n discrete values.
+ * `cubicBezier(x1,y1,x2,y2)` takes CSS-style control points, `spring(bounce,duration)` a 0–1 bounce
+ * and a duration in ms, `steps(n)` holds n discrete values.
  */
 export type Easing =
   | "linear"
@@ -90,12 +70,7 @@ export type Easing =
   | `spring(${string})`
   | `steps(${string})`;
 
-/**
- * The props a `<keyframeTrack>` can drive, by name. Whose prop is the
- * track's holder's: `x` under a `<rect>` is the rect's, `width` under a
- * `<stroke>` the line width, `value` under an `<effect>` its amount,
- * `color`/`opacity` under a paint the paint's.
- */
+/** The prop is the track holder's: `width` under a `<stroke>` is the line width, `value` under an `<effect>` its amount. */
 export type AnimatableProperty =
   | "x"
   | "y"
@@ -120,7 +95,6 @@ export type AnimatableProperty =
   | "blur"
   | "value";
 
-/** Transition styles — the editor's transition inspector options. */
 export type TransitionType =
   | "dissolve"
   | "slideFromRight"
@@ -139,7 +113,6 @@ export type TransitionType =
   | "wipe"
   | "iris";
 
-/** The `transition` and `transitionIn` props' value — see `SequenceItemProps`. */
 export type TransitionSpec = {
   /** Transition style. Default "dissolve". */
   type?: TransitionType;
@@ -159,11 +132,7 @@ export type TransitionSpec = {
   color?: string;
 };
 
-/**
- * Preset animation styles — the editor's animations inspector options.
- * "appearWord" / "appearChar" / "scramble" apply only to text elements;
- * "pop" / "bounce" scale a word or clip on; "gain" ramps audio and has no visual effect.
- */
+/** "appearWord" / "appearChar" / "scramble" apply only to text; "gain" ramps audio and has no visual effect. */
 export type AnimationType =
   | "fade"
   | "gain"
@@ -185,14 +154,12 @@ export type AnimationType =
 /** How glyphs are cased when drawn, whatever the text says. Default "original". */
 export type TextCase = "original" | "upper" | "lower";
 
-/** Text looks a `<captions>` can wear over its preset (the runtime's TEXT_LOOKS). */
 export type TextLookName =
   | "commentary" | "hook" | "punch" | "yellow" | "glow" | "neon"
   | "cinema" | "teal" | "fire" | "alert" | "sticker" | "slime"
   | "bubblegum" | "magenta" | "lime" | "chrome" | "gold" | "retro"
   | "comic" | "cute" | "plain" | "soft" | "handwritten" | "ink";
 
-/** Caption style presets — the editor's caption inspector presets. */
 export type CaptionPreset =
   | "classic"
   | "cascade"
@@ -208,38 +175,19 @@ export type CaptionPreset =
   | "rise"
   | "focus";
 
-// ── Shared prop groups ──────────────────────────────────────────────────────
-//
-// Props several elements share, each defined once so its type and doc are the
-// same wherever it appears. Element prop types compose these and add what is
-// theirs alone. Any prop can be animated by a `<keyframeTrack>` child naming
-// it (see `AnimatableProperty`); none takes keyframes inline.
+// Any prop can be animated by a `<keyframeTrack>` child naming it (see `AnimatableProperty`); none
+// takes keyframes inline.
 
-/** What every element the editor can point at carries. */
 type IdentityProps = {
-  /** Human-readable node name. */
   name?: string;
   /**
-   * Whether the editor has this element selected. Editor state rather than
-   * part of the composition (nothing rendered or exported depends on it), but
-   * the source is the document, so it lives here for the same reason
-   * `<stage>`'s `camera` does: a click on the canvas has nowhere else to be
-   * written to, and the selection survives a recompile. Absent means not
-   * selected; the editor writes the bare attribute and removes it again.
+   * Editor state, kept in the source so a canvas click has somewhere to be written and the selection
+   * survives a recompile; nothing rendered depends on it. The editor writes the bare attribute.
    */
   selected?: boolean;
-  /**
-   * Height of the element's row in the timeline, px. Editor state, here for
-   * the same reason `selected` is: the timeline is where a row is resized and
-   * the document is the only place that can remember it. Absent means the
-   * common row height.
-   */
+  /** Timeline row height, px. Editor state, like `selected`; absent means the common row height. */
   clipHeight?: number;
-  /**
-   * Whether the timeline shows this element's keyframe rows below its clip.
-   * Editor state, as `clipHeight` is. Absent means collapsed; the editor
-   * writes the bare attribute and removes it again.
-   */
+  /** Whether the timeline shows this element's keyframe rows. Editor state, like `selected`; absent means collapsed. */
   expanded?: boolean;
 };
 
@@ -250,11 +198,7 @@ type PositionProps = {
 };
 
 type OffsetProps = {
-  /**
-   * Render-time translation on top of `x`/`y`, px — moves the drawn content
-   * without changing the layout box (the property slide animations drive).
-   * Subpixel values are kept. Defaults to 0.
-   */
+  /** Render-time translation on top of `x`/`y`, px: moves the drawn content without changing the layout box. Defaults to 0. */
   offsetX?: number;
   offsetY?: number;
 };
@@ -263,23 +207,14 @@ type SizeProps = {
   /** Box size, px. Defaults to the parent's size. */
   width?: number;
   height?: number;
-  /**
-   * Locks the box to its authored proportions: a resize of one bound drives
-   * the other, so the editor's handles and layout rows keep the ratio
-   * `width`:`height` has (or, with neither authored, the ratio the box
-   * currently has — a media element locked at its natural size).
-   */
+  /** A resize of one bound drives the other, keeping `width`:`height` (or, with neither authored, the box's current ratio). */
   keepAspectRatio?: boolean;
 };
 
 type TransformProps = PositionProps & OffsetProps & SizeProps & {
   /**
-   * How the element follows its scene's frame when that frame is resized —
-   * horizontally, then vertically. They are read only against a frame that
-   * changes size, so a constraint moves nothing until the scene is resized;
-   * a `<sequence>` is not a frame of its own and its children are constrained
-   * to the frame the sequence sits in. Default "left" and "top", which pin
-   * the element where it is.
+   * Only read against a frame that changes size, so a constraint moves nothing until the scene is
+   * resized; a `<sequence>`'s children follow the frame the sequence sits in. Default "left"/"top".
    */
   constrainX?: HorizontalConstraint;
   constrainY?: VerticalConstraint;
@@ -313,15 +248,10 @@ type TransformProps = PositionProps & OffsetProps & SizeProps & {
   cornerRadiusBottomLeft?: number;
 };
 
-/** How an element composites, and whether it does at all. */
 type CompositeProps = {
   /** Blend mode over what is below. Default "sourceOver". */
   blendMode?: BlendMode;
-  /**
-   * Excludes the element from rendering (and its audio from the mix) without
-   * removing it: it keeps its place in the timeline and its children. Absent
-   * means shown.
-   */
+  /** Excludes the element from rendering (and its audio from the mix) while it keeps its timeline place and children. */
   hidden?: boolean;
 };
 
@@ -334,26 +264,17 @@ type TimingProps = {
   sourceIn?: Time;
   /** Source out point: where playback ends within the source. Defaults to the natural end. Alternative to `end`. */
   sourceOut?: Time;
-  /**
-   * Speed multiplier for the node's local time, 1 = normal: at 2, twice the
-   * source plays in the same stretch of timeline. Default 1.
-   */
+  /** Speed multiplier for local time: at 2, twice the source plays in the same stretch of timeline. Default 1. */
   playbackRate?: number;
 };
 
 type SequenceItemProps = {
   /**
-   * How the clip goes out. In a `<Sequence>`, where the next clip starts as
-   * this one ends, it blends into it, centered on the cut; anywhere else the
-   * clip plays out over what is under it, ending as it ends. A partial value
-   * merges into the clip's existing transition, `null` removes it.
+   * How the clip goes out: in a `<Sequence>` it blends into the next clip, centred on the cut; elsewhere
+   * it plays out over what is under it. A partial value merges into the existing transition, `null` removes it.
    */
   transition?: TransitionSpec | null;
-  /**
-   * How the clip comes in, over what is under it, from its start. Gives way
-   * to a `transition` the clip before it in a `<Sequence>` plays into it.
-   * Merges and removes like `transition`.
-   */
+  /** How the clip comes in, from its start; gives way to a `transition` the previous clip in a `<Sequence>` plays into it. */
   transitionIn?: TransitionSpec | null;
 };
 
@@ -364,12 +285,9 @@ type FillProps = {
 
 type MediaProps = {
   /**
-   * Path, URL, asset id, or a `generate.*` / `transform.*` declaration. A path naming a
-   * directory of numbered frames (`shot_001.png`, `shot_002.png`, ...) is an
-   * image sequence, and plays on `<Video>` or `<Image>` as footage does — see
-   * `frameRate` for how long it lasts. On `<Captions>` a transcript source
-   * (.srt, .vtt, or transcript .json) mounted instead of transcribing the
-   * scene; `generate.*` is not accepted there.
+   * Path, URL, asset id, or a `generate.*` / `transform.*` declaration. A directory of numbered frames
+   * (`shot_001.png`, ...) plays as footage (see `frameRate`). On `<Captions>`, a .srt, .vtt or transcript
+   * .json is mounted instead of transcribing the scene; `generate.*` is not accepted there.
    */
   src: string | AssetRef;
 };
@@ -389,15 +307,9 @@ type FitProps = {
 
 type FrameRateProps = {
   /**
-   * Frames per second for a `src` naming a directory of numbered frames — a
-   * folder of pictures has a count, not a duration, so this is what says how
-   * long the clip runs (600 frames at 24 is 25 seconds, at 60 is 10). Default
-   * 30. Nothing for encoded video or a still to read: a file carries its own
-   * rate, and neither has a frame count to divide.
-   *
-   * Not `playbackRate`, which retimes a source against the timeline whatever
-   * its natural speed is; this is what that natural speed is. Unrelated to the
-   * composition's own frame rate, which the export sets.
+   * Frames per second for a `src` naming a directory of numbered frames: 600 frames at 24 run 25 s.
+   * Default 30. Ignored for encoded video and stills. Not `playbackRate`, and unrelated to the
+   * composition's frame rate.
    */
   frameRate?: number;
 };
@@ -407,11 +319,7 @@ type AudioTrackProps = {
   volume?: number;
   /** Excludes the node's audio from the mix; independent of `volume`. */
   muted?: boolean;
-  /**
-   * `id` of another element carrying an audio track. Derives the timeline
-   * placement (`start`) by cross-correlating the two audio signals so the
-   * recordings coincide on the timeline. Mutually exclusive with `start`.
-   */
+  /** `id` of another element with audio; derives `start` by cross-correlating the two signals. Mutually exclusive with `start`. */
   syncTo?: string;
 };
 
@@ -425,12 +333,7 @@ type ColorProps = {
   color: string;
 };
 
-/**
- * How glyphs are set: the style a `<text>` gives all its glyphs, and a
- * `<textRange>` gives the glyphs it spans. Every field is optional on both; on
- * a range an unset field inherits the text's, so a range says only what it
- * changes.
- */
+/** On a `<textRange>` an unset field inherits the text's, so a range says only what it changes. */
 type FontProps = {
   /** A family available on the machine (`dapi fonts`). */
   fontFamily?: string;
@@ -445,35 +348,22 @@ type FontProps = {
   textCase?: TextCase;
 };
 
-/** What every visual node accepts on top of its own props. */
 type CommonProps = IdentityProps & TransformProps & CompositeProps & TimingProps & SequenceItemProps;
 
-/** What every paint accepts on top of its own props. */
 type PaintProps = OpacityProps & CompositeProps;
 
-/** Sub-entity children (`<KeyframeTrack>`) an element that is itself a style takes. */
 type TrackChildren = {
-  /** `<KeyframeTrack>` children. */
   children?: SolidJSX.Element;
 };
 
-/**
- * What every composition element accepts on top of its own props: the props
- * that address or wire the element rather than describe it. `id` is read by
- * the compile step and never seen by a host — it is how the source addresses
- * the element.
- */
+/** `id` is read by the compile step and never seen by a host. */
 export type SourceProps = {
   id?: string;
   /** Callback or variable ref, SolidJS-style; receives the element's `SceneNode` when it is created. */
   ref?: SceneNode | ((node: SceneNode) => void);
 };
 
-/**
- * A 2D affine transform as its six values, in the order CSS `matrix()` and
- * canvas `setTransform` take them: `[a, b, c, d, e, f]`, where `a`/`d` scale,
- * `b`/`c` skew, and `e`/`f` translate. See `StageProps["camera"]`.
- */
+/** `[a, b, c, d, e, f]` in CSS `matrix()` / canvas `setTransform` order: `a`/`d` scale, `b`/`c` skew, `e`/`f` translate. */
 export type CameraMatrix = [a: number, b: number, c: number, d: number, e: number, f: number];
 
 /**
@@ -491,84 +381,37 @@ export type StageProps = {
   /** Canvas color, any CSS color. */
   background?: string;
   /**
-   * The editor's viewport when the project is opened; `[1, 0, 0, 1, 0, 0]` is
-   * the origin at 100%. Not part of the composition — nothing rendered or
-   * exported depends on it. A project that never says where to look opens on
-   * `[0.3, 0, 0, 0.3, 85, 150]`, which frames a 1920×1080 scene at the origin,
-   * so such a project needs no camera.
-   *
-   * Give a project one when its composition is anything else, so it still
-   * opens framed: `[s, 0, 0, s, x, y]` for a scene at the origin, `s` sized to
-   * fit the frame in roughly 580×330 screen pixels — `[0.25, 0, 0, 0.25, 235,
-   * 70]` for 1080×1920, `[0.6, 0, 0, 0.6, 85, 150]` for 960×540. The first pan
-   * or zoom overwrites it, so the exact numbers do not matter.
+   * The editor's viewport on open; `[1, 0, 0, 1, 0, 0]` is the origin at 100%. Omitted, it opens on
+   * `[0.3, 0, 0, 0.3, 85, 150]`, framing a 1920×1080 scene at the origin; for other sizes scale `s` to fit
+   * roughly 580×330 screen px (`[0.25, 0, 0, 0.25, 235, 70]` for 1080×1920). The first pan overwrites it.
    */
   camera?: CameraMatrix;
   children?: SolidJSX.Element;
 };
 
 /**
- * A scene: the clipped, playable frame a composition is made in, and the only
- * element allowed directly under `<stage>`. It clips its children to
- * `width`×`height` and owns the timeline they are placed on, so it takes no
- * timing of its own — nothing outside a scene has a clock to place it against.
- *
- * `x`/`y` are where the frame sits on the infinite canvas, `selected` whether
- * the editor has it selected, and `active` whether the timeline is pointed at
- * it (scenes only, for now). Those are editor concerns rather than
- * part of the composition, but they live here for the same reason `<stage>`'s
- * `camera` does: the source is the document, so a scene dragged or clicked on
- * the canvas has nowhere else to be written back to.
+ * The clipped, playable frame a composition is made in; the only element allowed under `<stage>`.
+ * Takes no timing of its own. `x`/`y`, `selected` and `active` are editor state kept in the source
+ * so a scene dragged or clicked on the canvas has somewhere to be written back to.
  */
 export type SceneProps = IdentityProps & PositionProps & Required<Pick<SizeProps, "width" | "height">> & Pick<SizeProps, "keepAspectRatio"> & FillProps & {
   /** "visible" draws what reaches past the frame on the canvas too. Default "hidden": cut at the frame. */
   overflow?: "hidden" | "visible";
   /**
-   * Whether this element is the one the playhead, timeline, and capture
-   * operate on. Editor state carried by the source like `selected`, with two
-   * rules the runtime holds: at most one element is active, and only a root
-   * (a direct child of `<stage>`) can be; a nested `active` is dropped. When
-   * a file names more than one, the last one rendered wins.
-   *
-   * Nothing activates on its own: mark one scene of every authored project
-   * `active` — with several, the one it should open on — or it opens on an
-   * empty timeline, with no playhead and no scene to export.
+   * At most one root element is active (a nested `active` is dropped; the last rendered wins). Nothing
+   * activates on its own: mark one scene of every authored project `active`, or it opens on an empty
+   * timeline with no playhead and no scene to export.
    */
   active?: boolean;
-  /**
-   * Where this scene's timeline is looking when the project is opened, as
-   * `[zoom, x, y]`: zoomed to `zoom` pixels per second, scrolled `x` seconds
-   * in, the rows scrolled down `y` pixels. Editor state carried by the source
-   * the way `<stage>`'s `camera` is — nothing rendered or exported depends on
-   * it, and the first scroll or zoom of the timeline overwrites it. Absent
-   * means the default zoom, at the beginning, which is the right opening for
-   * an authored project: there is no need to write one.
-   */
+  /** `[zoom px per second, x seconds in, y px down]` on open. Editor state; absent is the right opening for an authored project. */
   timeline?: TimelineView;
-  /**
-   * Where the playhead stands when the project is opened, in any time format.
-   * Editor state carried by the source the way `timeline` is: nothing
-   * rendered or exported depends on it, and the editor writes it when the
-   * playhead is scrubbed or placed on the timeline — not as playback moves
-   * it, so the file lags playback until the next scrub. Absent means the
-   * first frame; there is no need to write one.
-   */
+  /** Where the playhead stands on open, any time format. Editor state, written on scrub (not as playback moves); absent means the first frame. */
   playhead?: Time;
-  /**
-   * Decibels on the scene's own bus, which everything in it mixes into: the
-   * master fader. 0 = unity, negative attenuates (-6 = half as loud),
-   * -Infinity = silence. A clip's own `volume` composes with this one.
-   */
+  /** Decibels on the scene's master bus: 0 = unity, -6 = half as loud, -Infinity = silence. Composes with each clip's `volume`. */
   volume?: number;
   /**
-   * The stretch of the scene that plays and exports, as `[in, out]`: playback
-   * loops within it, and an export is of it and nothing else — so this is
-   * where a render is trimmed. `null` for the whole scene, which is what a
-   * scene without one is.
-   *
-   * Editor state carried by the source the way `active` is (the timeline's
-   * brackets have nowhere else to be written back to), but unlike `active` it
-   * is read wherever the file is: what it says is what comes out of a render.
+   * `[in, out]` of the scene that plays (looping) and exports; `null` for the whole scene. Editor state
+   * carried by the source, but read wherever the file is: it trims what comes out of a render.
    */
   workarea?: [inPoint: Time, outPoint: Time] | null;
   children?: SolidJSX.Element;
@@ -580,18 +423,9 @@ export type GroupProps = CommonProps & FillProps & {
 };
 
 /**
- * `<adjustmentLayer>` — a layer that draws nothing of its own and transforms
- * the clip below it: while the layer's own clip lasts, its transform composes
- * onto that of the sibling directly beneath it in the stack. A punch-in, a
- * drift or a keyframed zoom is therefore authored once, in a row of its own,
- * and trimmed and slid along the timeline without the clip it acts on being
- * touched. In a `<sequence>` the layer acts on what sits below the sequence,
- * not below the layer inside it.
- *
- * `width`/`height` are never drawn: they are the box the transform pivots
- * around, so `rotation` and `scale` turn about the middle of a frame that
- * size. Default 1920x1080 — set them to the scene's own size on a frame
- * shaped otherwise.
+ * Draws nothing; while its clip lasts, its transform composes onto the sibling directly beneath it
+ * (in a `<sequence>`, onto what sits below the sequence). `width`/`height` are only the pivot box:
+ * default 1920x1080, so set them to the scene's size for other frames.
  */
 export type AdjustmentLayerProps =
   & IdentityProps
@@ -600,25 +434,15 @@ export type AdjustmentLayerProps =
   & TimingProps
   & SequenceItemProps
   & {
-    /**
-     * `<Animation>` and `<KeyframeTrack>` children — what the layer's
-     * transform is animated with — and `<Effect>` children, which filter the
-     * clip it acts on while the layer lasts. Layers stack: one over another
-     * acts on the clip under them both.
-     */
+    /** `<Animation>`/`<KeyframeTrack>` children animate the transform; `<Effect>` children filter the clip it acts on. Layers stack. */
     children?: SolidJSX.Element;
   };
 
 export type RectProps = CommonProps & FillProps & {
   /**
-   * Makes the rect a mask of its parent: it clips the parent (its fills,
-   * strokes and children show only inside the rect's box) instead of drawing.
-   * The rect keeps its transform, `cornerRadius` and timing — a keyframed
-   * mask sliding across a text is a wipe, one that ends early lets go — and
-   * several masks under one parent intersect. A mask is never rendered or
-   * hit, so its `fill`, `opacity`, `blendMode` and paint children have no
-   * effect. Without `width`/`height` a mask is 500×500, and without `end` it
-   * clips for the parent's whole window.
+   * Clips the parent to the rect's box instead of drawing; keeps its transform, `cornerRadius` and timing,
+   * and several masks intersect. `fill`, `opacity`, `blendMode` and paints have no effect. Without
+   * `width`/`height` a mask is 500×500, and without `end` it clips for the parent's whole window.
    */
   mask?: boolean;
   /**
@@ -629,11 +453,7 @@ export type RectProps = CommonProps & FillProps & {
   children?: SolidJSX.Element;
 };
 
-/**
- * `<stroke>` — an outline of the parent's box (or glyphs), a sub-entity like a
- * paint: `color`/`opacity` are its paint, `width`/`join`/`cap`/`miterLimit`
- * its line style. Several stack in document order, later ones on top.
- */
+/** An outline of the parent's box (or glyphs): `color`/`opacity` are its paint. Several stack in document order, later on top. */
 export type StrokeProps = ColorProps & PaintProps & TrackChildren & {
   /** Line width, px. Default 1. */
   width?: number;
@@ -663,7 +483,6 @@ export type ShadowProps = ColorProps & OpacityProps & Pick<CompositeProps, "hidd
  * document order.
  */
 export type EffectProps = Pick<CompositeProps, "hidden"> & TrackChildren & {
-  /** Which filter to apply. */
   type: EffectType;
   /** The amount: px for "blur", degrees for "hueRotate", 0–1 otherwise. */
   value: number;
@@ -687,14 +506,11 @@ export type GradeLook =
   | "noir";
 
 /**
- * `<grade>` — a colour grade of the parent: a clip, or a scene or group and
- * everything in it (a clip's own grade goes under its scene's). Only the last
- * one under a node counts. Every slider runs -100 to 100 and defaults to 0,
- * which leaves the picture as it is. The three wheels each take a hue in
- * degrees, how far towards it (0–100) and a level (-100 to 100).
+ * Only the last grade under a node counts; a clip's own grade goes under its scene's. Sliders run
+ * -100 to 100, default 0 (unchanged). Each wheel takes a hue in degrees, an amount (0–100) and a
+ * level (-100 to 100).
  */
 export type GradeProps = Pick<CompositeProps, "hidden"> & {
-  /** A look under the sliders. */
   look?: GradeLook;
   /** How much of the look, 0–100. Default 100. */
   lookAmount?: number;
@@ -725,14 +541,8 @@ export type GradeProps = Pick<CompositeProps, "hidden"> & {
   gainLevel?: number;
 };
 
-/**
- * `<animation>` — one preset in/out animation of the node holding it, played
- * over the clip's head or tail. Several stack in document order, later ones
- * writing over earlier ones on the properties they share; a `<keyframeTrack>`
- * on the same property overrides the preset while it has keyframes.
- */
+/** Played over the clip's head or tail. Several stack, later ones winning; a `<keyframeTrack>` on the same property overrides it while it has keyframes. */
 export type AnimationProps = {
-  /** Which preset plays. */
   type: AnimationType;
   /** "in" plays from the clip's head, "out" into its tail. Default "in". */
   phase?: "in" | "out";
@@ -745,27 +555,15 @@ export type AnimationProps = {
   delay?: Time;
 };
 
-/**
- * `<keyframeTrack>` — the keyframes of one prop of the element holding it,
- * as elements, so an editor moving a keyframe has an element to write it to.
- * One track per prop; the prop's static value is what holds when the track
- * is empty. Outside the keyframed range the value holds at the first/last
- * keyframe.
- */
+/** One track per prop; the static value holds when it is empty, and outside the keyframed range the first/last keyframe holds. */
 export type KeyframeTrackProps = {
-  /** Which prop of the holding element the track animates. */
   property: AnimatableProperty;
   /** `<Keyframe>` children, in any order; they sort by `time`. */
   children?: SolidJSX.Element;
 };
 
-/** `<keyframe>` — one keyframe of the `<keyframeTrack>` holding it. */
 export type KeyframeProps = {
-  /**
-   * Source-local time, any `Time` format: 0 is the source's first frame, so a
-   * head-trimmed clip (`sourceIn`) starts at time `sourceIn`, not 0. Keyframes
-   * stay pinned to the same content when the clip is moved or trimmed.
-   */
+  /** Source-local: a head-trimmed clip's first keyframe time is `sourceIn`, not 0, so keyframes stay pinned to content on trim. */
   time: Time;
   /** The value at `time`: a number, or any CSS color on a `color` track. */
   value: number | string;
@@ -787,15 +585,7 @@ export type ColorStopProps = ColorProps & OpacityProps & TrackChildren & {
   offset: number;
 };
 
-/**
- * `<imagePaint>` / `<videoPaint>` — an asset painted into the parent
- * geometry's box, a paint child like a solid or a gradient (several stack in
- * document order). The node tags `<image>` / `<video>` are the same media as
- * an element of its own; these fill something else with it, so a rect or a
- * text can be filled with a picture. Which tag it is only says what the source
- * is expected to be: the paint follows what the src turns out to name, so a
- * frames directory plays under either.
- */
+/** Fills a rect or text with media. The tag only says what the source is expected to be: a frames directory plays under either. */
 export type MediaPaintProps = PaintProps & MediaProps & FitProps & FrameRateProps & TrackChildren;
 
 export type VideoProps = CommonProps & MediaProps & FitProps & FrameRateProps & AudioTrackProps & {
@@ -809,11 +599,7 @@ export type ImageProps = CommonProps & MediaProps & FitProps & FrameRateProps & 
   };
 
 export type HtmlPaintProps = PaintProps & {
-  /**
-   * HTML children — real DOM elements laid out by the browser at the parent
-   * geometry's box size and drawn into it (html-in-canvas). Fully reactive:
-   * signals in attributes and text update the drawn content.
-   */
+  /** Real DOM laid out at the parent's box size and drawn into it (html-in-canvas); signals in it update the drawing. */
   children?: SolidJSX.Element;
 };
 
@@ -845,35 +631,21 @@ export type ShaderPaintProps = PaintProps & {
 };
 
 /**
- * One element of the mounted document, and its place in it: what an element's
- * `ref` receives, and the one object the document and the renderer both hold
- * for the entity, so `===` between two of them means what it says. Both ref
- * forms work, as in SolidJS: `ref={(node) => ...}` and
- * `let surfaceRef: SceneNode | undefined; <surface ref={surfaceRef} />`.
- *
- * `E` is what `element` holds. It defaults to the backing canvas — the main
- * consumer, a `<surface>` / `<surfacePaint>` ref — and the runtime document
- * instantiates it with the DOM node type it manages.
+ * What an element's `ref` receives; the document and renderer hold the same object, so `===` works.
+ * Both ref forms work, as in SolidJS. `E` defaults to the backing canvas of a `<surface>`.
  */
 export interface SceneNode<E = HostCanvas> {
   /** The Koota entity the element rendered into; `entity.get`/`set` reach the runtime traits. */
   readonly entity: Entity;
-  /** Native composition elements participate in the Koota scene graph. */
   readonly native: boolean;
-  /** The camelCase tag the element was authored as. */
   tag: string;
   props: Record<string, unknown>;
   parent: SceneNode<E> | null;
   children: SceneNode<E>[];
   /**
-   * The real DOM node backing the element, null where there is none — typed
-   * for the main consumer, a `<surface>` / `<surfacePaint>`'s backing canvas.
-   * Draw to it with any context type (2d, webgl, webgpu); the engine samples
-   * the bitmap every frame and stretches it into the holder's box. The canvas
-   * is allocated with the element and sized to the holder's `width`/`height`
-   * (a same-size set is a no-op, so `renderer.setSize` from your own code is
-   * not clobbered). Purely-native elements (rects, text, scenes) carry no DOM
-   * node, and an `<html>` subtree's is really its root element.
+   * A `<surface>`'s backing canvas: draw with any context (2d, webgl, webgpu); the engine samples it every
+   * frame into the holder's box. Sized to the holder (a same-size set is a no-op, so your own
+   * `renderer.setSize` isn't clobbered). Null on purely native elements; an `<html>`'s is its root.
    */
   readonly element: E | null;
 }
@@ -884,12 +656,7 @@ export type SurfacePaintProps = PaintProps;
 /** `<Surface>` — a rectangle carrying a `<SurfacePaint>`; its `ref`'s `element` is the canvas. */
 export type SurfaceProps = CommonProps;
 
-/**
- * `<audio>` — a clip with a sound and no picture. It draws nothing inside a
- * scene, but on the canvas it is still something to point at: the editor
- * shows its waveform in a box, and `x`/`y`/`width`/`height` are where that
- * box is. Left off inside a scene, where they mean nothing.
- */
+/** Draws nothing inside a scene; on the canvas the editor shows its waveform in the `x`/`y`/`width`/`height` box. */
 export type AudioProps = IdentityProps & PositionProps & SizeProps & TimingProps & MediaProps & AudioTrackProps & {
   /** `<KeyframeTrack>` (a `volume` track) and `<Animation>` children. */
   children?: SolidJSX.Element;
@@ -898,11 +665,7 @@ export type AudioProps = IdentityProps & PositionProps & SizeProps & TimingProps
 export type TextProps = CommonProps & Partial<ColorProps> & FontProps & {
   /** Horizontal alignment of glyphs within the box. Default "left". */
   textAlign?: "left" | "center" | "right";
-  /**
-   * Vertical alignment within the box: the block anchored to the top or
-   * bottom of the box or centered, or ("alphabetic") the first line's baseline
-   * at the top of the box. Default "top".
-   */
+  /** The block anchored top, bottom or middle, or ("alphabetic") the first baseline at the box top. Default "top". */
   textBaseline?: "top" | "middle" | "bottom" | "alphabetic";
   /** Line height as a multiple of each line's natural height. Default 1. */
   leading?: number;
@@ -915,13 +678,9 @@ export type TextProps = CommonProps & Partial<ColorProps> & FontProps & {
 };
 
 /**
- * `<textRange>` — a style override for a run of the parent `<text>`'s glyphs,
- * a sub-entity like a paint: `start`/`end` address the run by character index
- * into the text as written (before `textCase`), the rest is what changes
- * inside it. Its own `color`, paints, strokes and shadows replace the text's
- * for those glyphs; an unset font field inherits. Several stack in document
- * order, later ones winning where they overlap; layout stays the text's
- * (`textAlign`, `textBaseline`, `leading` are not per range).
+ * `start`/`end` index the text as written (before `textCase`). Its paints, strokes and shadows replace
+ * the text's for those glyphs; later ranges win where they overlap. Layout (`textAlign`,
+ * `textBaseline`, `leading`) is not per range.
  */
 export type TextRangeProps = Partial<ColorProps> & FontProps & {
   /** First character of the run, 0-based. */
@@ -941,34 +700,17 @@ export type CaptionsProps = IdentityProps & TimingProps & OffsetProps & Partial<
   preset?: CaptionPreset;
   /** Fills the caption preset's color slots in order; any CSS color, alpha is ignored. */
   colors?: string[];
-  /**
-   * A text look worn over the preset: its face, colour or gradient, outlines
-   * and shadows replace the preset's own, while the preset keeps how it
-   * groups, places and marks the spoken word (the motion). The same looks the
-   * editor's Text tab offers. Unset, the preset looks as it always has.
-   */
+  /** Replaces the preset's face, colour, outlines and shadows; the preset keeps its grouping, placement and word motion. */
   look?: TextLookName;
-  /**
-   * Vertical placement of the caption block: anchored to the top or bottom
-   * safe margin, or centered. The preset keeps owning the horizontal
-   * placement. Defaults to the preset's own alignment.
-   */
+  /** Anchored to the top or bottom safe margin, or centred; the preset keeps the horizontal placement. Defaults to the preset's. */
   verticalAlign?: "top" | "center" | "bottom";
-  /**
-   * Most words on screen at once. 1 shows one word at a time; more shows
-   * phrases. A new line still starts at every sentence mark and pause.
-   * Defaults to the preset's own grouping.
-   */
+  /** Most words on screen at once (1 = one word at a time); a new line still starts at every sentence mark and pause. */
   words?: number;
   /** Most characters on screen at once, spaces not counted. Defaults to the preset's own grouping. */
   chars?: number;
   /** Seconds the words stay after the last of them is said, unless the next line starts first. Default 0.3. */
   linger?: number;
-  /**
-   * Transcription seed. Part of the transcript cache key (scene id + seed),
-   * so a new value bypasses the cached transcript and transcribes the scene
-   * again; reusing a value replays that take from cache. Default 0.
-   */
+  /** Part of the transcript cache key (scene id + seed): a new value transcribes the scene again. Default 0. */
   seed?: number;
   /** `<Animation>` children. */
   children?: SolidJSX.Element;

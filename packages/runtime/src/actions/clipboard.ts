@@ -2,9 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Clipboard model: copy/paste of entity subtrees as records (was
-// api/clipboard.ts). Module-level, in-memory; navigator.clipboard bridging
-// stays app-side.
+// Module-level and in-memory; navigator.clipboard bridging stays app-side.
 
 import { Or } from 'koota';
 

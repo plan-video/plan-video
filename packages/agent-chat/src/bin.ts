@@ -2,12 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The host as a program. Two ways in:
-//   • a terminal / sandbox: flags on the command line, the URL on stdout;
-//   • an Electron utility process: the config arrives over `parentPort`
-//     (never argv, which is visible to every process on the machine) and
-//     the port goes back the same way.
-// Either way SIGTERM, stdin EOF or a `stop` message shut it down cleanly.
+// Config arrives on the command line in a terminal, or over `parentPort` in an Electron utility
+// process (never argv, which every process on the machine can see).
 
 import { createAgentHost } from "./host/index";
 

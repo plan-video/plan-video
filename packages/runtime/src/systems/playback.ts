@@ -2,11 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Playback system (was systems/playback.ts): advances root playheads, derives
-// per-entity local time + visibility, forwards decoders/hosts, keeps the
-// audio bus tree in sync, and steps live mounts. In offline modes the encoder
-// sets the playhead explicitly and awaits FramePromises.
-
 import { Not, Or } from 'koota';
 
 import { store } from '../world/store';
@@ -54,11 +49,8 @@ function advancePlayhead(world: World, entity: Entity): void {
 	const speed = playback.speed[eid] || 1;
 	let looped = false;
 
-	// Only advance the playhead while playing. The audio play/stop bookkeeping
-	// below must still run when stopped, otherwise a manual stop (playing
-	// flipped off externally) is never observed — `wasPlaying` stays stuck and
-	// the next play isn't re-anchored, so scheduled buffers land in the past
-	// and play silently.
+	// The audio play/stop bookkeeping below must still run when stopped: otherwise an external stop is
+	// never observed, the next play isn't re-anchored, and scheduled buffers land in the past silently.
 	if (playback.playing[eid] === true) {
 		const dt = (world.get(Time)?.delta ?? 0) / 1000;
 		const previousTime = computed.localTimeInSeconds[eid]!;
@@ -98,7 +90,6 @@ function advancePlayhead(world: World, entity: Entity): void {
 		computed.localTime[eid] = Math.round(computed.localTimeInSeconds[eid]! * fps);
 	}
 
-	// Handle audio play/stop transitions
 	if (!entity.has(AudioPlayback)) entity.add(AudioPlayback);
 	const audioPlayback = store(world, AudioPlayback);
 	const ctx = world.get(AudioEngine)?.context;
@@ -158,11 +149,7 @@ function forwardCaptionDecoder(world: World, _scene: Entity, entity: Entity): vo
 	if (!decoder.ready) framePromises(world)?.push(decoder.loaded.then(seek, () => {}));
 }
 
-/**
- * Forward the audio decoder for a child entity. `audioSource` optionally
- * points at the sub-entity carrying the audio (a video fill), while the
- * timing still comes from the clip entity itself.
- */
+/** `audioSource` may be the sub-entity carrying the audio (a video fill); timing still comes from the clip. */
 function forwardAudioDecoder(world: World, scene: Entity, entity: Entity, audioSource?: Entity): void {
 	if (world.has(Silent) || entity.has(Muted)) return;
 
@@ -231,9 +218,6 @@ function forwardImageDecoder(world: World, _scene: Entity, _entity: Entity, fill
 	}
 }
 
-/**
- * Forward decoders for a child entity and its node descendants.
- */
 function forwardDecoders(world: World, scene: Entity, entity: Entity): void {
 	const paintStore = store(world, Paint);
 
@@ -294,22 +278,13 @@ function forwardDecoders(world: World, scene: Entity, entity: Entity): void {
 	}
 }
 
-/**
- * Whether a node shows while the playhead is outside its time: one selected
- * in a paused editor, so it can be seen and moved without first finding a
- * frame it is up at. A cut in a sequence is left out, as the playhead picks
- * which of those stands.
- */
+/** A cut in a sequence is left out, as the playhead picks which of those stands. */
 function showsOutsideItsTime(world: World, entity: Entity): boolean {
 	const parent = getParentNode(entity);
 	return holdsAtRest(world, entity) && !(parent?.has(Sequential) ?? false);
 }
 
-/**
- * Local time and visibility for `entity` and what is in it. `frame` is the
- * scene frame they are seen at: the playhead's, or for what a node held in
- * view outside its time contains, the nearest frame that node is up.
- */
+/** `frame` is the playhead's, or for a node held in view outside its time, the nearest frame that node is up. */
 function updateVisibility(world: World, scene: Entity, entity: Entity, frame = store(world, Computed).localTime[scene.id()]!): void {
 	const computed = store(world, Computed);
 	const eid = entity.id();
@@ -320,7 +295,6 @@ function updateVisibility(world: World, scene: Entity, entity: Entity, frame = s
 		frame = clamp(frame, start, end - 1);
 	}
 
-	// Root or dragging entity is always visible
 	if (entity === scene || entity.has(Dragging)) {
 		computed.visibility[eid] = 1;
 	} else {
@@ -380,9 +354,7 @@ export function resolveAudioBus(world: World, entity: Entity): AudioBus | null {
 
 	const ancestors = collectAncestors(entity);
 
-	// Walk root -> leaf, connecting each bus's gain into its parent's input
-	// (root connects into the context destination). Reuse buses that already
-	// exist; only newly created ones need wiring.
+	// Only newly created buses need wiring; existing ones are reused.
 	let currentInput: AudioNode = context.destination;
 
 	for (const ancestor of ancestors) {
@@ -404,7 +376,6 @@ export function resolveAudioBus(world: World, entity: Entity): AudioBus | null {
 export function playbackSystem(world: World): void {
 	const computed = store(world, Computed);
 
-	// handle root playback
 	for (const entity of world.query(Playback)) {
 		advancePlayhead(world, entity);
 	}
@@ -414,9 +385,8 @@ export function playbackSystem(world: World): void {
 		forwardDecoders(world, entity, entity);
 	}
 
-	// handle transition visibility: a cut's window reaches past the end of the
-	// clip going out and before the start of the one coming in, so both show
-	// across it. A transition with no partner plays inside its own clip.
+	// A cut's window reaches past the end of the outgoing clip and before the start of the incoming
+	// one, so both show across it. A transition with no partner plays inside its own clip.
 	for (const clip of world.query(Or(Geometry, Group, AdjustmentLayer), Transition)) {
 		const parent = getParentNode(clip);
 		const partner = getTransitionPartner(world, clip);
@@ -430,7 +400,6 @@ export function playbackSystem(world: World): void {
 		}
 	}
 
-	// Sync audio buses
 	let soloed: Set<Entity> | null = null;
 	for (const entity of world.query(AudioBusHandle)) {
 		entity.get(AudioBusHandle)?.sync();

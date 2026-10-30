@@ -2,9 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Text animation helpers used by the motion system.
-// All functions take the target text and a normalized ratio (0..1), returning
-// the partial display string for that progress.
+// Each takes the target text and a 0..1 ratio and returns the partial display string.
 
 export function revealWords(chars: string, ratio: number): string {
 	if (ratio >= 1) return chars;
@@ -35,14 +33,9 @@ export function revealChars(chars: string, ratio: number): string {
 	return chars.slice(0, visibleCount);
 }
 
-// ─── Scramble Text ──────────────────────────────────────────
-// Adapted from anime.js scrambleText (src/text/scramble.js).
-// The motion system has no DOM target, prevTween, or wall-clock duration —
-// progress is the normalized ratio (0 = blank, 1 = settled). Real-time
-// concepts (revealRate/interval/settleDuration) collapse onto SCRAMBLE_SETTLE_RATIO
-// (per-char active window) and SCRAMBLE_SETTLE_RATE (refreshes across the animation).
-// Structural arrays are cached per text; scramble character lookups are stateless,
-// keyed by (seed, position, step) so timeline scrubbing stays deterministic.
+// Adapted from anime.js scrambleText. Progress is the normalized ratio, so its real-time settings
+// collapse onto SCRAMBLE_SETTLE_RATIO and SCRAMBLE_SETTLE_RATE; lookups are keyed by
+// (seed, position, step) so timeline scrubbing stays deterministic.
 
 const SCRAMBLE_CHARSETS: Record<string, string> = {
 	lowercase: 'a-z',
@@ -216,7 +209,6 @@ export function scrambleChars(chars: string, ratio: number): string {
 		const charStart = charStarts[c];
 		const charEnd = charEnds[c];
 
-		// Settled: target glyph
 		if (ratio >= charEnd) {
 			if (c < endLength) out += chars[c];
 			continue;
@@ -235,7 +227,6 @@ export function scrambleChars(chars: string, ratio: number): string {
 			continue;
 		}
 
-		// Active zone: cursor sub-zone, then scramble
 		if (hasCursor && ratio - charStart < cursorZone) {
 			out += cursorChars[cursorLen - 1 - (((ratio - charStart) / settleSpacing) | 0)];
 		} else {

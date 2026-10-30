@@ -2,9 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// What a file is: its MIME type and the type-specific metadata the runtime
-// needs before it can size or time an asset (dimensions, duration, tracks).
-
 import { ALL_FORMATS, BlobSource, Input, UrlSource } from 'mediabunny';
 
 import type { InputTrack } from 'mediabunny';
@@ -12,7 +9,6 @@ import type { Asset } from './types';
 
 export const DEFAULT_SEQUENCE_FPS = 30;
 
-/** Type-specific fields of an asset, as found by `probeMedia`. */
 export type ProbeResult = Extract<
 	| { type: 'IMAGE'; width: number; height: number }
 	| { type: 'AUDIO'; duration: number; sampleRate: number; channels: number }
@@ -25,12 +21,9 @@ export type ProbeResult = Extract<
 const TRANSCRIPT_TYPES = new Set(['application/json', 'application/x-subrip', 'text/vtt']);
 
 /**
- * The MIME type of a file, or of the resource behind a URL. Subtitle files go
- * by extension (OS registries rarely map .srt); images fall back to their
- * magic bytes when nothing declared a type (a download filed without an
- * extension has none to go by); audio and video are sniffed by mediabunny,
- * since a container's declared type is often wrong or empty. Null when the
- * file is not something the library takes.
+ * Subtitles go by extension (OS registries rarely map .srt); images fall back to magic bytes; audio
+ * and video are sniffed by mediabunny, since a container's declared type is often wrong or empty.
+ * Null when the library doesn't take the file.
  */
 export async function detectMimeType(input: Blob | string): Promise<string | null> {
 	const name = typeof input === 'string' ? input.split(/[?#]/)[0]! : (input as File).name ?? '';
@@ -59,7 +52,6 @@ export async function detectMimeType(input: Blob | string): Promise<string | nul
 	return null;
 }
 
-/** Image container brands that ride in an ISO base media `ftyp` box. */
 const IMAGE_BRANDS: Record<string, string> = {
 	avif: 'image/avif',
 	avis: 'image/avif',
@@ -71,12 +63,7 @@ const IMAGE_BRANDS: Record<string, string> = {
 	msf1: 'image/heic',
 };
 
-/**
- * The image format of a blob, read from its first bytes. Images are the one
- * kind mediabunny does not sniff, so without this a picture whose name and
- * declared type say nothing (an extension-less download, an
- * `application/octet-stream` response) looks like nothing at all.
- */
+/** Images are the one kind mediabunny does not sniff, so an extension-less download or octet-stream picture needs this. */
 async function sniffImageType(input: Blob): Promise<string | null> {
 	let bytes: Uint8Array;
 	try {
@@ -112,11 +99,7 @@ async function sniffImageType(input: Blob): Promise<string | null> {
 	return null;
 }
 
-/**
- * Derives the type-specific asset properties of a media file. Throws when
- * the file is of no type the library takes, or is missing what its type
- * needs (a video without a video track, say).
- */
+/** Throws when the library doesn't take the type, or the file lacks what its type needs (a video without a video track). */
 export async function probeMedia(file: Blob, mimeType: string): Promise<ProbeResult> {
 	if (mimeType.startsWith('image/')) {
 		const { width, height } = mimeType === 'image/svg+xml'
@@ -159,12 +142,7 @@ export async function probeMedia(file: Blob, mimeType: string): Promise<ProbeRes
 
 const FRAME_NAME = /^(.*?)(\d+)\.(png|jpe?g|webp|gif|avif|bmp)$/i;
 
-/**
- * Whether a directory listing looks like an image sequence: two or more
- * numbered image files sharing one prefix and extension (`frame_0001.png`,
- * `frame_0002.png`, …) and nothing else. A folder of unrelated stills is a
- * folder, not a clip.
- */
+/** Two or more numbered images sharing one prefix and extension, and nothing else: a folder of unrelated stills is not a clip. */
 export function isSequenceListing(names: string[]): boolean {
 	const files = names.filter((name) => !name.startsWith('.'));
 	if (files.length < 2) return false;
@@ -236,12 +214,9 @@ async function fetchMimeType(url: string): Promise<string | null> {
 }
 
 /**
- * Playable content length of a media track, in seconds: the end timestamp
- * minus the track's first *presented* timestamp. A track may carry a global
- * time offset (a non-zero first timestamp); using the raw end timestamp as
- * the duration would over-report the length by that offset. A negative first
- * timestamp means the head has been trimmed by an edit list; those pre-roll
- * samples are not presented, so the start is clamped to 0.
+ * Seconds from the first *presented* timestamp to the end: a track may carry a non-zero first
+ * timestamp, which the raw end would over-report by. A negative one is edit-list pre-roll that is
+ * never presented, so the start is clamped to 0.
  */
 async function trackContentDuration(track?: InputTrack | null): Promise<number> {
 	if (!track) return 0;

@@ -4,13 +4,5 @@
 
 import { relation } from 'koota';
 
-/**
- * Universal parent-child relation. Replaces all array-based ownership:
- * fills, shadows, strokes, effects, text ranges, tracks, clips, animations.
- *
- * exclusive: an entity has at most one parent; re-parenting replaces the
- * previous target. autoDestroy 'orphan': destroying a parent destroys its
- * whole subtree. Children are distinguished by their type tags (Shadow,
- * Stroke, IsMask, ...). Sibling order is encoded via ItemIndex on each child.
- */
+/** Exclusive (re-parenting replaces the target); autoDestroy 'orphan' destroys the whole subtree. Children are told apart by tag traits; order is ItemIndex. */
 export const ChildOf = relation({ exclusive: true, autoDestroy: 'orphan' });

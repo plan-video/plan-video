@@ -10,15 +10,11 @@ import { deriveWaveform, downsamplePeaks } from './derive/waveform';
 import type { ProjectFS } from './fs';
 import type { Asset } from './types';
 
-/** The project directory derived data is kept in. */
 export const CACHE_DIR = 'cache';
 
-/** Whether a project-relative path is inside the cache directory. */
 export const isCacheFile = (path: string): boolean => path === CACHE_DIR || path.startsWith(`${CACHE_DIR}/`);
 
-/** A kind of cached value: where it lives under `cache/`, and how it is stored. */
 export interface CacheKind<T> {
-	/** Subdirectory of `cache/`. */
 	dir: string;
 	/** File extension (no dot). */
 	ext: string;
@@ -26,7 +22,6 @@ export interface CacheKind<T> {
 	decode(blob: Blob): Promise<T>;
 }
 
-/** The asset bar's thumbnail: a WebP, stored as is. */
 export const THUMBNAIL: CacheKind<Blob> = {
 	dir: 'thumbnails',
 	ext: 'webp',
@@ -42,12 +37,7 @@ export const PEAKS: CacheKind<Uint8ClampedArray> = {
 	decode: async (blob) => new Uint8ClampedArray(await blob.arrayBuffer()),
 };
 
-/**
- * The full waveform: the whole file at `WAVEFORM_PEAKS_PER_SECOND`, one byte
- * a peak and nothing else, so the peak at a moment of the file is the byte at
- * that moment's index. The one entry read a stretch at a time rather than
- * whole (see `ensure`) — an hour of audio is a few megabytes of it.
- */
+/** One byte a peak at `WAVEFORM_PEAKS_PER_SECOND`, so a moment's peak is the byte at its index; read a stretch at a time (see `ensure`). */
 export const WAVEFORM: CacheKind<Uint8ClampedArray> = {
 	dir: 'waveforms',
 	ext: 'u8',
@@ -55,7 +45,6 @@ export const WAVEFORM: CacheKind<Uint8ClampedArray> = {
 	decode: async (blob) => new Uint8ClampedArray(await blob.arrayBuffer()),
 };
 
-/** What an entry is keyed by: an asset, or just its id. */
 type Keyed = string | Pick<Asset, 'id'>;
 
 const idOf = (keyed: Keyed): string => (typeof keyed === 'string' ? keyed : keyed.id);
@@ -64,7 +53,6 @@ export class AssetCache {
 	private readonly fs: ProjectFS;
 	/** Reads and derivations under way, by `kind.dir/id[@variant]`. */
 	private readonly inflight = new Map<string, Promise<unknown>>();
-	/** The same, for entries asked for as files rather than as values. */
 	private readonly files = new Map<string, Promise<File | null>>();
 	/** Every kind used, so `remove` and `prune` know which directories to look in. */
 	private readonly kinds = new Map<string, CacheKind<unknown>>();
@@ -76,24 +64,13 @@ export class AssetCache {
 		this.register(WAVEFORM);
 	}
 
-	// -----------------------------------------------------------------------
-	// Typed entries
-
-	/**
-	 * The asset's thumbnail (IMAGE, VIDEO, or SEQUENCE by its first frame):
-	 * a WebP `width` wide at the asset's own aspect ratio, or null when none
-	 * can be made. Widths other than the default are kept as variants.
-	 */
+	/** A WebP `width` wide at the asset's aspect ratio (a video or sequence by its first frame), or null; other widths are variants. */
 	public thumbnail(asset: Asset, width = DEFAULT_THUMBNAIL_WIDTH): Promise<Blob | null> {
 		const variant = width === DEFAULT_THUMBNAIL_WIDTH ? undefined : `${width}`;
 		return this.get(THUMBNAIL, asset, async () => deriveThumbnail(await asset.handle.getFile(), asset.mimeType, width), variant);
 	}
 
-	/**
-	 * The asset's rough waveform, or null when it has no audio. Cut down from
-	 * the full one, so a file is decoded once however many resolutions of it
-	 * are asked for.
-	 */
+	/** Cut down from the full waveform, so a file is decoded once however many resolutions are asked for. */
 	public peaks(asset: Asset): Promise<Uint8ClampedArray | null> {
 		return this.get(PEAKS, asset, async () => {
 			const waveform = await this.waveform(asset);
@@ -101,25 +78,12 @@ export class AssetCache {
 		});
 	}
 
-	/**
-	 * The file the asset's full waveform is stored in, derived first where
-	 * there is none, or null when it has no audio. A file rather than its
-	 * bytes: the timeline draws the stretch of a clip that is on screen by
-	 * reading the bytes that stretch covers (`file.slice(from, to)`) and no
-	 * more.
-	 */
+	/** A file rather than bytes: the timeline reads only the on-screen stretch (`file.slice(from, to)`). Null when there is no audio. */
 	public waveform(asset: Asset): Promise<File | null> {
 		return this.ensure(WAVEFORM, asset, async () => deriveWaveform(await asset.handle.getFile()));
 	}
 
-	// -----------------------------------------------------------------------
-	// Generic entries
-
-	/**
-	 * The cached value for (kind, asset[, variant]): read from disk, else
-	 * `produce()`d and written there. Concurrent calls share one result; a null
-	 * from `produce` (nothing to derive) is not stored.
-	 */
+	/** Concurrent calls share one result; a null from `produce` (nothing to derive) is not stored. */
 	public get<T>(kind: CacheKind<T>, keyed: Keyed, produce: () => Promise<T | null>, variant?: string): Promise<T | null> {
 		this.register(kind);
 		const key = this.key(kind, keyed, variant);
@@ -131,12 +95,7 @@ export class AssetCache {
 		return promise;
 	}
 
-	/**
-	 * The file (kind, asset[, variant]) is stored in, `produce()`d and written
-	 * there first where there is none: for entries whose consumer reads a
-	 * stretch of them at a time rather than all of them at once. Concurrent
-	 * calls share one derivation; null when there was nothing to derive.
-	 */
+	/** For entries read a stretch at a time rather than whole. Concurrent calls share one derivation. */
 	public ensure<T>(kind: CacheKind<T>, keyed: Keyed, produce: () => Promise<T | null>, variant?: string): Promise<File | null> {
 		this.register(kind);
 		const key = this.key(kind, keyed, variant);
@@ -148,7 +107,6 @@ export class AssetCache {
 		return promise;
 	}
 
-	/** Drops every entry of an asset on disk. */
 	public async remove(keyed: Keyed): Promise<void> {
 		const id = idOf(keyed);
 		for (const kind of this.kinds.values()) {
@@ -161,7 +119,6 @@ export class AssetCache {
 		}
 	}
 
-	/** Removes entries on disk whose asset is not among `keep`. */
 	public async prune(keep: Iterable<string>): Promise<void> {
 		const ids = new Set(keep);
 		for (const kind of this.kinds.values()) {
@@ -175,12 +132,9 @@ export class AssetCache {
 		}
 	}
 
-	/** Deletes everything on disk; one kind, or all of it. */
 	public async clear(kind?: CacheKind<unknown>): Promise<void> {
 		await this.fs.remove(kind ? `${CACHE_DIR}/${kind.dir}` : CACHE_DIR).catch(() => {});
 	}
-
-	// -----------------------------------------------------------------------
 
 	private register(kind: CacheKind<unknown>): void {
 		if (!this.kinds.has(kind.dir)) this.kinds.set(kind.dir, kind);
@@ -232,7 +186,6 @@ export class AssetCache {
 		return this.fileAt(path);
 	}
 
-	/** The file at a cache path, or null when it is missing or unreadable. */
 	private async fileAt(path: string): Promise<File | null> {
 		try {
 			if (!(await this.fs.stat(path))) return null;
@@ -242,7 +195,6 @@ export class AssetCache {
 		}
 	}
 
-	/** The entry on disk, or undefined when missing or unreadable. */
 	private async read<T>(kind: CacheKind<T>, key: string): Promise<T | undefined> {
 		const path = this.pathOf(kind, key);
 		try {

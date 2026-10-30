@@ -2,18 +2,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The one reducer both sides share: the host folds it over `events.jsonl`
-// for snapshots, the UI folds it over the live stream. Pure, and cheap
-// enough to run per delta — item lookups are by id from the end, where
-// the open items are.
+// Shared by both sides (the host over `events.jsonl`, the UI over the live stream). Pure and cheap
+// enough to run per delta: item lookups go by id from the end, where the open items are.
 
 import type { ChatEvent, ChatSummary, Item, PendingRequest } from "./protocol";
 
 export type Transcript = {
   items: Item[];
-  /** The question the harness is waiting on, if any. */
   pending: PendingRequest | null;
-  /** The running turn, if any. */
   turnId: string | null;
   /** The chat summary as of the last `chat.updated`; null until one arrives. */
   chat: ChatSummary | null;
@@ -37,7 +33,6 @@ function findLast(items: Item[], id: string): number {
   return -1;
 }
 
-/** Puts `item` at the index its id already holds, or appends it. */
 function upsert(items: Item[], item: Item): Item[] {
   const index = findLast(items, item.id);
   if (index < 0) return [...items, item];
@@ -89,7 +84,6 @@ export function reduce(state: Transcript, event: ChatEvent): Transcript {
   }
 }
 
-/** Folds many events, in order. */
 export function reduceAll(state: Transcript, events: Iterable<ChatEvent>): Transcript {
   let next = state;
   for (const event of events) next = reduce(next, event);

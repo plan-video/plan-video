@@ -7,9 +7,6 @@ export function isHtmlInCanvasSupported(): boolean {
 		&& 'drawElementImage' in CanvasRenderingContext2D.prototype;
 }
 
-/**
- * Resolves after the browser's next rendering update (style/layout/paint) has completed.
- */
 export function nextRenderingUpdate(): Promise<void> {
 	return new Promise(resolve => {
 		// timeout in case requestAnimationFrame is not called
@@ -22,7 +19,6 @@ export function nextRenderingUpdate(): Promise<void> {
 	});
 }
 
-/** Resolve asynchronously loaded resources below an HTML paint root. */
 export function whenHtmlReady(root: HTMLElement, timeInSeconds: number): Promise<void> {
 	for (const animation of root.getAnimations({ subtree: true })) {
 		if (animation.playState !== 'paused') animation.pause();

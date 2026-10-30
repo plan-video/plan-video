@@ -7,11 +7,7 @@ import { parseTime } from "@plan.video/jsx";
 
 export const TIME_FORMS = `seconds ("1.5"), frames ("45f"), or "MM:SS"`;
 
-/**
- * A point in time as agents and the CLI write it — a number of seconds, a
- * frame count like "45f", or a clock string like "1:30" — parsed to seconds.
- * Negative values are allowed; wrap with `nonNegative` where they are not.
- */
+/** Seconds, a frame count like "45f", or a clock string like "1:30", parsed to seconds. Negative values are allowed; wrap with `nonNegative` where they are not. */
 export const Time = z
   .union([z.number(), z.string()])
   .transform((value, ctx) => {

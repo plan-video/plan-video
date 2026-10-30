@@ -19,12 +19,7 @@ export interface ImageDecoder {
 	dispose(): void;
 }
 
-/**
- * Image decoder backed by `createImageBitmap`. Used for raster formats
- * (PNG, JPEG, WebP, …) where we want a GPU-friendly bitmap.
- *
- * Fetching + decoding starts immediately on construction.
- */
+/** For raster formats; fetching and decoding start on construction. */
 export class BitmapImageDecoder implements ImageDecoder {
 	readonly assetId: string;
 	public failed = false;
@@ -72,11 +67,7 @@ export class BitmapImageDecoder implements ImageDecoder {
 	}
 }
 
-/**
- * Image decoder backed by `HTMLImageElement`. Used for formats that
- * `createImageBitmap` doesn't handle reliably across browsers — most
- * notably SVG, where we want the browser's native vector renderer.
- */
+/** For formats `createImageBitmap` doesn't handle reliably across browsers, notably SVG. */
 export class ElementImageDecoder implements ImageDecoder {
 	readonly assetId: string;
 	public failed = false;
@@ -160,7 +151,6 @@ type DecoderCacheEntry = {
 	refs: number;
 };
 
-/** One decoded bitmap per asset id, scoped per world. */
 type ImageDecoderCache = Map<string, DecoderCacheEntry>;
 
 const decoderCaches = new WeakMap<World, ImageDecoderCache>();
@@ -174,11 +164,7 @@ function getDecoderCache(world: World): ImageDecoderCache {
 	return cache;
 }
 
-/**
- * Per-entity handle onto a shared, refcounted decoder. Duplicated entities
- * pointing at the same asset share one decode; disposing a handle releases
- * one reference and the underlying decoder is disposed with the last one.
- */
+/** Entities pointing at the same asset share one refcounted decode, disposed with the last handle. */
 class SharedImageDecoder implements ImageDecoder {
 	private released = false;
 
@@ -233,7 +219,6 @@ export function resolveImageDecoder(world: World, entity: Entity): ResolvedImage
 		};
 	}
 
-	// Asset changed: release the old decoder and acquire one for the new asset.
 	if (existing) existing.dispose();
 
 	const asset = getAsset(world, assetId);

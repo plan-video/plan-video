@@ -2,9 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Packed 0xRRGGBB color helpers (subset of the app's utils/color.ts that the
-// renderer and shader uniforms need; UI-facing conversions stay app-side).
-
 import { colord } from 'colord';
 
 import { clamp } from '../math/common';
@@ -55,12 +52,7 @@ const NAMED_COLORS: Record<string, string> = {
 	mint: '3EB489',
 };
 
-/**
- * Parses any colord-compatible input (hex with or without `#`, short hex,
- * `rgb()`, `hsl()`, named colors, etc.) into a numeric hex color (0xRRGGBB).
- * Arbitrary strings fall back to Figma-style hex normalization: strip non-hex
- * characters, then repeat/pad to six digits (empty input returns null).
- */
+/** Any colord-compatible input; other strings get Figma-style hex normalization (strip non-hex, repeat/pad to six). Empty input returns null. */
 export function parseColor(input: unknown): number | null {
 	if (typeof input === 'number') {
 		return Number.isFinite(input) ? input & 0xFFFFFF : null;
@@ -99,16 +91,11 @@ export function parseColor(input: unknown): number | null {
 	return parseInt(normalized.toUpperCase(), 16);
 }
 
-/**
- * Converts a numeric hex color (0xRRGGBB) to a CSS hex string (#RRGGBB).
- */
 export function colorToHex(color: number): string {
 	return '#' + ((1 << 24) | (color & 0xFFFFFF)).toString(16).slice(1).toUpperCase();
 }
 
-/**
- * A CSS color for `color` at `opacity`: the hex when opaque, else an rgba().
- */
+/** The hex when opaque, else an rgba(). */
 export function colorToCss(color: number, opacity: number): string {
 	if (opacity >= 1) return colorToHex(color);
 
@@ -118,9 +105,6 @@ export function colorToCss(color: number, opacity: number): string {
 	return `rgba(${r},${g},${b},${clamp(opacity, 0, 1)})`;
 }
 
-/**
- * Packs RGB channel values (0-255) into a numeric hex color (0xRRGGBB).
- */
 export function rgbToColor(r: number, g: number, b: number): number {
 	const rc = clamp(Math.round(r), 0, 255);
 	const gc = clamp(Math.round(g), 0, 255);
@@ -128,9 +112,6 @@ export function rgbToColor(r: number, g: number, b: number): number {
 	return (rc << 16) | (gc << 8) | bc;
 }
 
-/**
- * Unpacks a numeric hex color (0xRRGGBB) into RGB channel values (0-255).
- */
 export function colorToRgb(color: number): { r: number; g: number; b: number } {
 	return {
 		r: (color >> 16) & 0xFF,

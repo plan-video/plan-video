@@ -2,21 +2,16 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The wire between the chat UI and the agent host: JSON text frames over a
-// WebSocket. Browser-safe — nothing here knows about Node, Electron or where
-// a project lives. The host owns all state; the UI is a view over a snapshot
-// (`chats.open`) plus the events that follow it.
+// Browser-safe: nothing here knows about Node, Electron or where a project lives.
 
 export type HarnessId = "claude" | "codex";
 
-/** The single dropdown's value: which harness, and which of its models. */
 export type ModelRef = { harness: HarnessId; model: string };
 
 export type HarnessStatus = "ready" | "not-installed" | "signed-out" | "error" | "checking";
 
 export type HarnessInfo = {
   id: HarnessId;
-  /** "Claude Code" | "Codex" */
   label: string;
   status: HarnessStatus;
   /** e.g. "Run `codex login` in a terminal" */
@@ -68,7 +63,7 @@ export type ChatEvent =
   | { type: "request.resolved"; requestId: string; outcome: "answered" | "skipped" | "cancel" }
   | { type: "chat.updated"; chat: ChatSummary };
 
-/** The only kind of request in v1. Tagged, so approvals can be added later without a protocol change. */
+/** The only kind of request; tagged so approvals can be added later without a protocol change. */
 export type PendingRequest = { id: string; type: "question"; questions: Question[] };
 
 export type Question = {
@@ -87,9 +82,6 @@ export type Question = {
 };
 
 export type RequestResponse = { answers: Record<string, string[]> } | "skip" | "cancel";
-
-// ---------------------------------------------------------------------------
-// Methods
 
 export type ChatSnapshot = {
   chat: ChatSummary;
@@ -138,9 +130,6 @@ export type ErrorCode =
   | "internal";
 
 export type HostError = { code: ErrorCode; message: string };
-
-// ---------------------------------------------------------------------------
-// Envelopes
 
 export type ClientMsg = { t: "req"; id: string; method: Method; params: unknown };
 

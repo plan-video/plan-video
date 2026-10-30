@@ -2,20 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/**
- * The host document the universal renderer writes into. The editor implements
- * this interface directly over its ECS world, so rendering a project builds
- * real composition entities — there is no intermediate staged tree. The
- * operations mirror `createRenderer`'s host config one to one; node values are
- * opaque to the renderer.
- */
+/** The host document the universal renderer writes into; operations mirror `createRenderer`'s host config one to one, and node values are opaque to the renderer. */
 
-/**
- * One reading of the host's timeline clock, local to the mounted project:
- * the playhead of the scene the mount's root lives in (or is). Values only
- * move for live mounts; the host pushes a fresh reading once per playback
- * tick.
- */
+/** The mount's scene clock. Only moves for live mounts; the host pushes a reading once per playback tick. */
 export type ProjectTick = {
   /** Playhead in seconds (sub-frame precision while playing). */
   time: number;
@@ -23,7 +12,6 @@ export type ProjectTick = {
   frame: number;
   /** Seconds advanced since the previous tick: 0 while paused, negative on a backward scrub or loop. */
   delta: number;
-  /** Whether the scene is currently playing. */
   playing: boolean;
 };
 

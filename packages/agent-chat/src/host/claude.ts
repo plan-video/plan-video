@@ -2,11 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Claude Code through the Agent SDK, pointed at the user's own `claude`.
-// One long-lived `query()` per live session: its prompt is a queue that
-// `send` pushes to, and a single pump reads every message the CLI emits
-// and folds it into the running turn. Interrupt closes the query — the
-// next send re-opens it from the session id we chose up front.
+// One long-lived `query()` per live session: its prompt is a queue `send` pushes to. Interrupt
+// closes the query; the next send re-opens it from the session id chosen up front.
 
 import { randomUUID } from "node:crypto";
 import { query } from "@anthropic-ai/claude-agent-sdk";
@@ -40,15 +37,9 @@ const STATIC_MODELS = [
   { id: "sonnet", label: "Sonnet 5" },
 ];
 
-/** The rows the CLI reports, as far as the picker reads them. */
 export type ClaudeModelRow = { value: string; displayName: string; resolvedModel?: string };
 
-/**
- * "Fable 5.1", "Opus 5", "Haiku 4.5": family and version from the wire id
- * (`claude-fable-5-1`, `claude-haiku-4-5-20251001`), which is what a video
- * editor recognises. The CLI's own labels ("Default (recommended)", "Opus
- * (1M context)") are kept only where the id has no version to read.
- */
+/** Family and version from the wire id (`claude-haiku-4-5-20251001` → "Haiku 4.5"); the CLI's own labels only where the id has no version. */
 export function claudeModelLabel(row: ClaudeModelRow): string {
   const wire = (row.resolvedModel ?? row.value).replace(/\[[^\]]*\]$/, "");
   const match = /^claude-([a-z]+)-(\d+)(?:-(\d+))?(?:-\d{8})?$/i.exec(wire);
@@ -57,11 +48,7 @@ export function claudeModelLabel(row: ClaudeModelRow): string {
   return `${family} ${match[2]}${match[3] ? `.${match[3]}` : ""}`;
 }
 
-/**
- * The picker's list: one row per model, in the CLI's order. Aliases that
- * resolve to the same model (`default` and `opus[1m]`) collapse into the
- * first named one, and the default is whichever row `default` resolves to.
- */
+/** Aliases resolving to the same model (`default`, `opus[1m]`) collapse into the first named one; the default is whatever `default` resolves to. */
 export function claudeModels(rows: ClaudeModelRow[]): { models: { id: string; label: string }[]; defaultModel?: string } {
   const byResolved = new Map<string, { id: string; label: string }>();
   let defaultResolved: string | undefined;
@@ -78,10 +65,9 @@ export function claudeModels(rows: ClaudeModelRow[]): { models: { id: string; la
   return { models, defaultModel };
 }
 
-/** Which permission mode chats may use: bypass, unless a policy said no (§5.4). */
+/** Bypass, unless a policy said no. */
 type Policy = { mode: PermissionMode };
 
-/** An async iterable that `send` feeds and the SDK drains. */
 class Queue<T> implements AsyncIterable<T> {
   private items: T[] = [];
   private waiters: ((result: IteratorResult<T>) => void)[] = [];
@@ -125,7 +111,6 @@ function childEnv(host: HostEnv, version: string): Record<string, string> {
 /** A day, in the seconds the SDK counts hook timeouts in: a question waits as long as the user does. */
 const QUESTION_TIMEOUT_S = 24 * 60 * 60;
 
-/** The tool whose call is the one thing an agent may wait on. */
 const ASK_USER_QUESTION = "AskUserQuestion";
 
 const SIGN_IN_HINT = "Run `claude auth login` in a terminal";
@@ -166,7 +151,6 @@ type Turn = {
   openThinking: string[];
   /** Stream index → item id for the message being streamed. */
   blocks: Map<number, string>;
-  /** What has streamed into each open text / thinking item, by id. */
   streamed: Map<string, string>;
   tools: Map<string, Extract<Item, { kind: "tool" }>>;
 };
@@ -325,9 +309,6 @@ class ClaudeSession implements HarnessSession {
     await this.interrupt();
   }
 
-  // -------------------------------------------------------------------
-  // Permissions and questions
-
   /** The question, asked before the tool runs (see `open`); every other tool passes through. */
   private readonly preToolUse: HookCallback = async (input, _toolUseId, { signal }): Promise<HookJSONOutput> => {
     if (input.hook_event_name !== "PreToolUse" || input.tool_name !== ASK_USER_QUESTION) return {};
@@ -338,7 +319,7 @@ class ClaudeSession implements HarnessSession {
     return { hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: result.message } };
   };
 
-  /** Only reached outside bypass mode (§5.4): the question is the hook's; anything else is denied. */
+  /** Only reached outside bypass mode: the question is the hook's; anything else is denied. */
   private readonly canUseTool: CanUseTool = async (toolName, input, { signal }) => {
     if (toolName === ASK_USER_QUESTION) return this.askUser(input, signal);
     if (this.policy.mode !== "bypassPermissions") {
@@ -377,9 +358,6 @@ class ClaudeSession implements HarnessSession {
     }
     return { behavior: "allow", updatedInput: { questions: input.questions, answers } };
   }
-
-  // -------------------------------------------------------------------
-  // SDK messages → events
 
   private dispatch(message: SDKMessage): void {
     const turn = this.turn;
@@ -484,7 +462,6 @@ class ClaudeSession implements HarnessSession {
         } else {
           const errors = (message as { errors?: string[] }).errors;
           const raw = message.subtype === "success" ? message.result : errors?.join("\n") || message.subtype.replace(/_/g, " ");
-          // An expired login reads as a plain API error; say what to do about it.
           const text = isAuthFailure(raw) ? `Claude Code is signed out. ${SIGN_IN_HINT}, then send again.` : raw;
           turn.emit({ type: "item.completed", item: { id: newItemId("n"), kind: "notice", level: "error", text } });
           this.finish({ status: "failed", error: text });

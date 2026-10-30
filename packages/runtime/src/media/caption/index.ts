@@ -47,12 +47,7 @@ export * from './subtitles';
 export * from './utils';
 export { wearCaptionLook } from './look';
 
-/**
- * Each preset's base TextStyle, keyed by type. The document writes these onto
- * a `<captions>` entity when the preset is (re)applied, then re-runs the
- * element's authored style props over them — so the preset is the base coat
- * and everything the file says overwrites it.
- */
+/** Written onto a `<captions>` entity when the preset is (re)applied, then the authored style props are re-run over them. */
 export const CAPTION_PRESET_STYLES: Record<CaptionType, CaptionPresetStyle> = {
 	[CaptionType.CLASSIC]: CLASSIC_TEXT_STYLE,
 	[CaptionType.CASCADE]: CASCADE_TEXT_STYLE,
@@ -69,13 +64,7 @@ export const CAPTION_PRESET_STYLES: Record<CaptionType, CaptionPresetStyle> = {
 	[CaptionType.FOCUS]: FOCUS_TEXT_STYLE,
 };
 
-/**
- * Each preset's intrinsic base fill: the Color the document seeds the
- * element with, drawn beneath its paint children, which the authored `fill`
- * prop overwrites — so a recolored caption survives a reload. Stark has
- * none: its base coat is a DIFFERENCE-blend fill child its decoder makes,
- * which an intrinsic solid cannot express.
- */
+/** Seeded under the paint children; the authored `fill` overwrites it, so a recolor survives a reload. Stark has none: its DIFFERENCE-blend fill child can't be an intrinsic solid. */
 export const CAPTION_PRESET_FILLS: Record<CaptionType, number | undefined> = {
 	[CaptionType.CLASSIC]: 0xFFFFFF,
 	[CaptionType.CASCADE]: 0xFFFFFF,
@@ -92,7 +81,6 @@ export const CAPTION_PRESET_FILLS: Record<CaptionType, number | undefined> = {
 	[CaptionType.FOCUS]: 0xFFFFFF,
 };
 
-/** The pacing authored on a caption entity. */
 function pacingOf(entity: Entity): CaptionPacing {
 	const caption = entity.get(Caption);
 	return {
@@ -138,14 +126,7 @@ function createCaptionDecoder(type: CaptionType, asset: Asset, pacing: CaptionPa
 	}
 }
 
-/**
- * Drops what the last preset authored onto the entity: the paints and shadows
- * it draws with and whatever text ranges it left behind, so the next preset's
- * fills don't stack on them. The TextStyle stays — it is the document's, which
- * rewrites it from CAPTION_PRESET_STYLES (plus the authored overrides)
- * whenever the preset prop changes. Animations and keyframe tracks are the
- * file's and stay.
- */
+/** So the next preset's fills don't stack. The TextStyle stays (the document rewrites it), and animations and keyframe tracks are the file's. */
 function clearPresetStyling(world: World, entity: Entity): void {
 	for (const child of world.query(ChildOf(entity))) {
 		// A child with a Source is the file's (an authored stroke, say), not
@@ -157,19 +138,16 @@ function clearPresetStyling(world: World, entity: Entity): void {
 	}
 }
 
-/** The frame and alignment each decoder was last placed for. */
 const placements = new WeakMap<CaptionDecoder, string>();
 
-/** The look each decoder was styled in, and the size it was cut to. */
 const looks = new WeakMap<CaptionDecoder, string>();
 
-/** What a caption's look comes to: none, or a look at a font size (its outlines are cut to it). */
+/** A look's outlines are cut to the font size, so the size is part of the key. */
 function lookKey(world: World, entity: Entity): string {
 	const look = entity.get(Caption)?.look;
 	return look ? `${look} ${store(world, TextStyle).fontSize[entity.id()] ?? ''}` : '';
 }
 
-/** Styles the caption in its preset, then in its look over it once the preset has placed it. */
 function style(world: World, entity: Entity, decoder: CaptionDecoder): boolean {
 	if (!decoder.applyStyles(world, entity)) return false;
 	wearCaptionLook(world, entity);
@@ -177,22 +155,14 @@ function style(world: World, entity: Entity, decoder: CaptionDecoder): boolean {
 	return true;
 }
 
-/**
- * Places the caption again when its scene was resized or its alignment
- * changed, so a landscape scene turned vertical doesn't keep its captions
- * where the old frame's center was.
- */
+/** So a landscape scene turned vertical doesn't keep its captions where the old frame's centre was. */
 function keepPlaced(world: World, entity: Entity, decoder: CaptionDecoder): void {
 	const key = captionPlacementKey(world, entity);
 	if (key === null || placements.get(decoder) === key) return;
 	if (decoder.reposition(world, entity)) placements.set(decoder, key);
 }
 
-/**
- * Lazily resolve (or create) a caption decoder for a caption entity.
- * Recreates the decoder when the caption type changes.
- * Returns null if the transcript asset isn't available yet.
- */
+/** Recreated when the caption type changes; null until the transcript asset is available. */
 export function resolveCaptionDecoder(world: World, entity: Entity): CaptionDecoder | null {
 	const assetId = entity.get(AssetId)?.value;
 	if (!assetId) return null;

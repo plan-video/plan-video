@@ -13,7 +13,6 @@ import type { WordRange } from './line';
 const RISE = 22;
 const RISE_SECONDS = 0.24;
 
-// The line builds up word by word, each one rising into its place as it is said.
 export const RISE_TEXT_STYLE = {
 	fontFamily: 'Montserrat',
 	fontWeight: '800',

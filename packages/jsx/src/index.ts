@@ -2,14 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/**
- * The authoring surface: the types project sources are written against, the
- * pure helpers they may call, and the hooks the editor implements. The
- * renderer that turns this vocabulary into a composition is not here — the
- * editor supplies it when a project is mounted (see
- * @plan.video/reconciler), so nothing in this package touches a host.
- */
-
 export {
   generate,
   transform,

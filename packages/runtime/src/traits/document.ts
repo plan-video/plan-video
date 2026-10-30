@@ -6,21 +6,10 @@ import { trait } from 'koota';
 
 import type { SceneNode as AuthoredSceneNode } from '@plan.video/jsx';
 
-/** The real DOM node owned by a scene node. */
 export type DomNode = Element | Text;
 
-/**
- * One element of the document, and its place in it: the authoring `SceneNode`
- * (see @plan.video/jsx) instantiated with the DOM node type the document
- * manages. `parent` and `children` are the tree the reconciler reads back:
- * text nodes and element nodes in the one order they were inserted in, which
- * is what the document answers `getFirstChild` and `getNextSibling` from.
- */
+/** `parent` and `children` hold text and element nodes in insertion order: what the document answers `getFirstChild` and `getNextSibling` from. */
 export type SceneNode = AuthoredSceneNode<DomNode>;
 
-// The document node an entity was rendered from, on the entity itself: the
-// one object the document and the renderer both hold for it, so `===` between
-// two of them means what it says. AoS storage like the other handle traits —
-// entity.get(Host) returns the node — and never serialized: a node is this
-// render's business, rebuilt whenever a document renders the entity again.
+/** The one object the document and renderer both hold, so `===` means what it says. AoS like the other handles; never serialized. */
 export const Host = trait(() => null as SceneNode | null);

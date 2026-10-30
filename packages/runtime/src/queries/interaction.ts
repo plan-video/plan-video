@@ -2,13 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Interaction reads: the device-pixel geometry an editor points at (was
-// utils/interaction.ts + parts of utils/coordinates.ts). Everything here is in
-// canvas device pixels, the space the transform system leaves WorldTransform
-// and WorldBounds in, so a pointer position can be compared against it without
-// converting anything. Derived transforms are read from the SoA stores by
-// entity id: the transform system writes them there without ever adding the
-// traits.
+// Everything here is in canvas device pixels, where WorldTransform and WorldBounds live, so a pointer
+// compares without conversion. Derived transforms are read from the SoA stores by entity id.
 
 import { Not, Or } from 'koota';
 
@@ -27,11 +22,7 @@ import {
 import type { Entity, World } from 'koota';
 import type { Mat2D, Point, Quad } from '../math';
 
-/**
- * World matrix of `entity`, or the view matrix for the stage (and for null,
- * which is what `getParentNode` answers for a top-level node). Parent-space
- * math over a root therefore works without a special case at the call site.
- */
+/** The view matrix for the stage and for null (`getParentNode`'s top-level answer), so parent-space math needs no special case. */
 export function entityWorldMat(world: World, entity: Entity | null): Mat2D {
 	if (entity === null || isStage(entity)) return getViewMatrix(world);
 
@@ -70,12 +61,7 @@ export function entityAnchor(world: World, entity: Entity): Point {
 	return { x: anchor.x[eid] ?? 0.5, y: anchor.y[eid] ?? 0.5 };
 }
 
-/**
- * The node the selection box is drawn around. A clip whose mask keeps only
- * part of it — a facecam cut from a larger frame — is edited through that
- * mask, so the outline, the handles, and a click all land on the part that
- * shows. A mask that covers the whole clip leaves the clip as the box.
- */
+/** A clip whose mask keeps only part of it (a facecam cut from a larger frame) is edited through that mask; a mask covering the whole clip leaves the clip. */
 export function selectionSubject(world: World, entity: Entity): Entity {
 	if (entity.has(Group)) return entity;
 
@@ -105,7 +91,6 @@ export function selectionSubject(world: World, entity: Entity): Entity {
 	return covers ? entity : mask;
 }
 
-/** Masks that are actually clipping the clip this frame. */
 function croppingMasks(world: World, entity: Entity): Entity[] {
 	const computed = store(world, Computed);
 	return (store(world, Cache).masks[entity.id()] ?? []).filter((mask) => {
@@ -133,7 +118,6 @@ function frameQuad(world: World, entity: Entity): Quad {
 	return rectToQuad(mat, computed.width[eid] ?? 0, computed.height[eid] ?? 0);
 }
 
-/** Whether a device-pixel point is inside the entity's box. */
 export function isPointerInEntity(world: World, entity: Entity, point: Point): boolean {
 	const subject = selectionSubject(world, entity);
 	const bounds = store(world, WorldBounds);
@@ -167,12 +151,7 @@ export function getSelection(world: World): Entity[] {
 	return [...world.query(Selected, Or(Geometry, Group))];
 }
 
-/**
- * The box the selection is manipulated through, in device pixels: for one
- * node its own rotated/skewed frame (the visible mask, when one crops it),
- * for several the upright AABB of them all. Null when nothing selectable
- * is selected.
- */
+/** Device pixels: one node's own rotated frame (the visible mask, when one crops it), or the upright AABB of several. */
 export type SelectionMask = {
 	width: number;
 	height: number;

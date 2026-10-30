@@ -2,9 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Cache upkeep after structural changes (was part of api/utils.ts). Cache and
-// KeyframeTrack.target are derived state, so they are written through stores
-// without change events; the app observes the authoring writes instead.
+// Cache and KeyframeTrack.target are derived state, written through stores without change events.
 
 import { Not, Or } from 'koota';
 
@@ -22,13 +20,7 @@ import { resetAnimatedValues } from '../systems/motion';
 
 import type { Entity, World } from 'koota';
 
-/**
- * Refresh the parent's Cache lists that the attached/detached entity
- * participates in. Call after a ChildOf change with the affected parent.
- * `exclude` drops one entity from the fresh lists: koota fires relation
- * remove events while the departing child is still present in the old
- * parent's queries.
- */
+/** Call after a ChildOf change. `exclude` drops one entity: koota fires relation remove events while the departing child is still in the old parent's queries. */
 export function rebuildCaches(world: World, entity: Entity, parent: Entity | null, exclude: Entity | null = null) {
 	if (parent === null || isStage(parent)) return;
 	if (!parent.has(Cache)) parent.add(Cache);
@@ -105,19 +97,12 @@ export function rebuildCaches(world: World, entity: Entity, parent: Entity | nul
 	}
 }
 
-/** Every list a `Cache` keeps, for the paths that cannot ask which one applies. */
 const CACHE_LISTS = [
 	'children', 'fills', 'shadows', 'strokes', 'effects', 'grades',
 	'textRanges', 'masks', 'keyframeTracks', 'keyframes', 'animations',
 ] as const;
 
-/**
- * Drop `entity` from every list its parent kept it in. The detach path cannot
- * leave this to `rebuildCaches`, which files by trait: a destroy strips the
- * entity's traits *before* it fires the ChildOf removal, so by then nothing
- * says which lists the child was in and every branch is skipped. Membership
- * still says it, and dropping one entry needs no query and no re-sort.
- */
+/** A destroy strips the entity's traits before it fires the ChildOf removal, so `rebuildCaches` (which files by trait) can't do this; membership still says. */
 export function evictFromCaches(world: World, entity: Entity, parent: Entity | null): void {
 	if (parent === null || isStage(parent) || !parent.has(Cache)) return;
 
@@ -142,12 +127,7 @@ export function evictFromCaches(world: World, entity: Entity, parent: Entity | n
 	}
 }
 
-/**
- * Move an attached geometry between its parent's `children` and `masks` when
- * its `IsMask` tag is toggled in place. `rebuildCaches` files by trait on
- * attach; here the queries cannot be trusted (koota fires onRemove before the
- * tag is cleared), so the two lists are edited by hand.
- */
+/** Edited by hand: koota fires onRemove before the `IsMask` tag is cleared, so the queries can't be trusted. */
 export function refileMask(world: World, entity: Entity, parent: Entity | null, mask: boolean): void {
 	if (parent === null || isStage(parent)) return;
 	if (!parent.has(Cache)) parent.add(Cache);
@@ -180,7 +160,6 @@ function isNodeEntity(entity: Entity): boolean {
 	return entity.has(Geometry) || entity.has(Group) || entity.has(AdjustmentLayer);
 }
 
-/** Whether a KeyframeTrack sits under `entity`, short of any nested node. */
 function carriesKeyframeTrack(world: World, entity: Entity): boolean {
 	for (const child of world.query(ChildOf(entity))) {
 		if (child.has(KeyframeTrack)) return true;
@@ -190,7 +169,6 @@ function carriesKeyframeTrack(world: World, entity: Entity): boolean {
 	return false;
 }
 
-/** Nearest self-or-ancestor node entity (geometry, group, adjustment layer). */
 export function findClosestParentGeometry(entity: Entity): Entity | null {
 	let current: Entity | null = entity;
 	while (current) {
@@ -202,12 +180,7 @@ export function findClosestParentGeometry(entity: Entity): Entity | null {
 	return null;
 }
 
-/**
- * Collect every KeyframeTrack under a node, stopping at nested nodes (each
- * enclosing node owns its own cache entry). Refreshes the denormalised
- * `target` field on each track so consumers iterating the cache can look up
- * the animated entity without walking ChildOf.
- */
+/** Stops at nested nodes, and refreshes each track's denormalised `target` so cache readers needn't walk ChildOf. */
 export function aggregateKeyframeTracks(world: World, node: Entity | null, exclude: Entity | null = null): void {
 	if (node === null) return;
 	if (!node.has(Cache)) node.add(Cache);
@@ -223,7 +196,6 @@ export function aggregateKeyframeTracks(world: World, node: Entity | null, exclu
 				tracks.push(child);
 				continue;
 			}
-			// Stop at nested nodes; each owns its own cache entry.
 			if (isNodeEntity(child)) continue;
 			walk(child);
 		}

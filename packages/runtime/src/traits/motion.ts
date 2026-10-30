@@ -6,11 +6,7 @@ import { trait, type Entity } from 'koota';
 
 import { AnimationType, AnimationPhase } from '../constants';
 
-// KeyframeTrack entity: one per (target, property) pair. ChildOf its target
-// (geometry, paint, color stop, ...) and owns the Keyframe entities as
-// children. `target` is denormalised: ChildOf is authoritative, but the keyed
-// lookup is refreshed when tracks are aggregated so motion/render don't have
-// to walk up the relation on every frame.
+/** One per (target, property), ChildOf its target. `target` is denormalised (ChildOf is authoritative) so motion/render needn't walk the relation every frame. */
 export const KeyframeTrack = trait({
 	property: '',
 	target: null as Entity | null,
@@ -20,7 +16,6 @@ export const KeyframeTrack = trait({
 // from this keyframe to the next-in-time on the same track.
 export const Keyframe = trait({ time: 0, value: 0, easing: 'linear' });
 
-// Animation entity: one preset in/out animation, ChildOf its target.
 export const Animation = trait({
 	type: AnimationType.FADE as AnimationType,
 	duration: 0, // frames

@@ -13,13 +13,7 @@ import { store } from '../../world/store';
 
 import type { Entity, World } from 'koota';
 
-/**
- * Dresses a caption in its `look` (see TEXT_LOOKS), once its preset has
- * styled it: the preset's own outlines and shadows go, and the look's are
- * made in their place, sized to the caption's font, with its gradient when it
- * has one. The face and the base colour are the document's to write (with the
- * preset's coat); what the file authors itself, having a Source, stays.
- */
+/** The preset's own outlines and shadows go and the look's are made, sized to the font; what the file authors itself (having a Source) stays. */
 export function wearCaptionLook(world: World, entity: Entity): void {
 	const look = getTextLook(entity.get(Caption)?.look);
 	if (!look) return;
@@ -36,7 +30,6 @@ export function wearCaptionLook(world: World, entity: Entity): void {
 		const gradient = createEntity(world);
 		gradient.add(Paint);
 		gradient.set(Paint, { value: PaintType.LINEAR_GRADIENT });
-		// From the top of the box to its foot.
 		gradient.add(Rotation);
 		gradient.set(Rotation, { value: 90 });
 		gradient.add(Scale);

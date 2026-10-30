@@ -4,9 +4,7 @@
 
 import { trait, type Entity } from 'koota';
 
-// Fully resolved per-frame values (base state + constraints + animations +
-// keyframes). Written by the motion and transform systems, read by render and
-// UI code. Never serialized.
+/** Resolved per-frame values, written by the motion and transform systems. Never serialized. */
 export const Computed = trait({
 	positionX: 0,
 	positionY: 0,
@@ -38,7 +36,7 @@ export const Computed = trait({
 	chars: undefined as string | undefined,
 	localTimeInSeconds: 0, // playhead position in seconds
 	localTime: 0, // playhead position in frames (mirrors localTimeInSeconds)
-	duration: 0, // end - start
+	duration: 0,
 	start: 0,
 	end: 0,
 	origin: 0, 	// The origin of the node's own timeline
@@ -49,8 +47,7 @@ export const Computed = trait({
 	visibility: 1,
 });
 
-// Per-entity owned-sub-entity lists. Populated by observers from ChildOf
-// queries; consumed by render, motion, and UI code. Never serialized.
+/** Owned-sub-entity lists, populated by observers from ChildOf queries. Never serialized. */
 export const Cache = trait({
 	children: () => [] as Entity[],
 	fills: () => [] as Entity[],

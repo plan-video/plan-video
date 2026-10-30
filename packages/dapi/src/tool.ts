@@ -4,11 +4,7 @@
 
 import type { z } from "zod";
 
-/**
- * Which process answers the tool. Renderer tools need the open project's
- * world, the engine, or browser media APIs; main tools need the file system
- * or a child process and run without a window.
- */
+/** Renderer tools need the open project's world, the engine or browser media APIs; main tools need the file system or a child process and run without a window. */
 export type Environment = "renderer" | "main";
 
 export interface Tool<
@@ -19,28 +15,19 @@ export interface Tool<
 > {
   /** MCP tool name: `[a-z0-9_]`, unique across the catalog. */
   readonly name: Name;
-  /** Short human label, a few words. */
   readonly title: string;
-  /** What the tool does, for an agent choosing between tools. */
   readonly description: string;
   /** Always an object: MCP tool arguments are a JSON object by definition. */
   readonly input: Input;
-  /** What the caller receives: a JSON object, the tool's structured content. */
   readonly output: Output;
-  /**
-   * What the handler returns, when that is not the output: image tools hand
-   * back bytes, and the server presents them as files and inline images;
-   * transcribe hands back the transcript, and the server writes it to a file.
-   * Same as `output` when omitted.
-   */
+  /** Image tools return bytes the server presents as files and inline images; transcribe returns the transcript the server writes to a file. Same as `output` when omitted. */
   readonly result?: Result;
   readonly environment: Environment;
 }
 
-/** A tool with its specifics erased, for code that iterates the catalog. */
 export type GenericTool = Tool<string, z.ZodObject, z.ZodObject, z.ZodType>;
 
-/** Identity with inference: keeps the literal name and the exact schema types. */
+/** Keeps the literal name and the exact schema types. */
 export function defineTool<
   const Name extends string,
   Input extends z.ZodObject,

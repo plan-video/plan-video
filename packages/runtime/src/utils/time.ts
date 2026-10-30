@@ -70,7 +70,6 @@ export function getTimelineOrigin(entity: Entity): number {
 	return parent === null ? 0 : (parent.get(Computed)?.origin ?? 0);
 }
 
-/** The source frame `entity` is playing at scene frame `frame`. */
 export function getSourceFrameAt(entity: Entity, frame: number): number {
 	const computed = entity.get(Computed);
 	const origin = computed?.origin ?? 0;
@@ -81,12 +80,7 @@ export function getSourceFrameAt(entity: Entity, frame: number): number {
 	return Math.round((frame - origin) * playbackRate);
 }
 
-/**
- * The node's resolved source window, in source frames: where its in point is
- * and how far its timeline span actually reaches into the source. Derived from
- * the resolved duration rather than read off Trim's end, so a window the node
- * never gets to play (a source the trim outruns) is not reported as playing.
- */
+/** Derived from the resolved duration rather than Trim's end, so a window the node never plays isn't reported as playing. */
 export function getSourceWindow(entity: Entity): { in: number; out: number } {
 	const sourceIn = entity.get(Trim)?.start ?? 0;
 	const computed = entity.get(Computed);
@@ -101,15 +95,7 @@ export function getSourceWindow(entity: Entity): { in: number; out: number } {
 	return { in: sourceIn, out: sourceIn + Math.round(duration * playbackRate) };
 }
 
-/**
- * The node's playing span in its own local frames — the space `localTime`
- * advances in. For a clip with a source this is its trim window, same as
- * `getSourceWindow`. It differs for a container that spans its children
- * (see `recomputeEntityTimeRange`): its origin stays at its parent's, so its
- * span does not begin at local 0 but at where its first child does. Anything
- * anchored to a node's head or tail in local time — preset animation windows —
- * must use this, not the source window.
- */
+/** Differs from `getSourceWindow` for a container spanning its children, whose span starts where its first child does. Preset animation windows must use this. */
 export function getLocalWindow(entity: Entity): { in: number; out: number } {
 	const computed = entity.get(Computed);
 	const origin = computed?.origin ?? 0;
@@ -128,29 +114,17 @@ export function getLocalWindow(entity: Entity): { in: number; out: number } {
 	};
 }
 
-/**
- * The paint a geometry is intrinsically made of: its own Paint trait, when it
- * carries one. Like its own Color, an intrinsic paint is drawn (and played) by
- * the geometry itself, from its own AssetId, beneath any paint children — a
- * paint child is a sub-entity carrying Paint and an asset of its own. Only a
- * geometry can have an intrinsic paint; a paint sub-entity has no Geometry.
- */
+/** An intrinsic paint is drawn by the geometry itself, from its own AssetId, beneath any paint children; a paint sub-entity has no Geometry. */
 export function getIntrinsicPaint(entity: Entity): PaintType | undefined {
 	if (!entity.has(Geometry)) return undefined;
 	return entity.get(Paint)?.value;
 }
 
-/** Whether `entity` is a paint sub-entity (as opposed to a geometry with an intrinsic paint). */
 export function isPaintEntity(entity: Entity): boolean {
 	return entity.has(Paint) && !entity.has(Geometry);
 }
 
-/**
- * The element a geometry shows its media through: itself when its own paint is
- * the media, else the first fill that is. This is the element the source props
- * belong to — a `<video>` carries its own `src`, a `<rect><videoPaint>` carries
- * it on the paint — so an editor writing one has to write it here.
- */
+/** The element the source props belong to, so an editor writing `src` has to write it here. */
 export function findGeometryAssetSource(world: World, entity: Entity): Entity | null {
 	const assets = world.get(Library);
 	if (!assets) return null;
@@ -166,7 +140,6 @@ export function findGeometryAssetSource(world: World, entity: Entity): Entity | 
 	return null;
 }
 
-/** The asset backing a geometry: its own AssetId, or the first fill's. */
 export function findGeometryAsset(world: World, entity: Entity): Asset | null {
 	const source = findGeometryAssetSource(world, entity);
 	if (source === null) return null;
@@ -174,30 +147,12 @@ export function findGeometryAsset(world: World, entity: Entity): Asset | null {
 	return world.get(Library)?.get(source.get(AssetId)?.value ?? '') ?? null;
 }
 
-/**
- * A single-value time trait: Delay, PlaybackRate, SourceFrameRate. Each
- * carries one frame count (or rate).
- */
 export type TimeTrait = typeof Delay | typeof PlaybackRate | typeof SourceFrameRate;
 
-/**
- * A trait a recompute may read as absent: one of the time traits, or the
- * node's own AssetId (its intrinsic media, another source of a length).
- * koota fires onRemove before it clears the trait, so a removal handler has to
- * ask for the length the node will have once it is gone.
- */
+/** koota fires onRemove before it clears the trait, so a removal handler asks for the length the node will have once it's gone. */
 export type Ignorable = TimeTrait | typeof Trim | typeof AssetId | typeof IsMask;
 
-/**
- * Intrinsic duration (in project frames) of the media asset attached to an
- * entity: its own asset when the entity is an audio clip or its intrinsic
- * paint is a video, else the first video fill. Null when nothing time-based is
- * attached.
- *
- * The duration is asked of the holder rather than read off the asset, because
- * a frames directory only lasts as long as the rate it is played at says (see
- * `getSourceDuration`).
- */
+/** In project frames; null when nothing time-based is attached. Asked of the holder because a frames directory lasts as long as its rate says. */
 export function findAssetDuration(world: World, entity: Entity, ignore?: Ignorable): number | null {
 	const assets = world.get(Library);
 	if (!assets) return null;

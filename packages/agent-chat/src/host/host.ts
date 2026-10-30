@@ -2,11 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The host owns every chat: its summary and transcript, the harness
-// session behind it (at most one, closed after ten idle minutes), the
-// turn that is running and the question it may be waiting on. Clients
-// are views: they open a chat for a snapshot and then get its events,
-// and they can come and go at any time without disturbing a turn.
+// Clients are views: they open a chat for a snapshot, then get its events, and can come and go
+// without disturbing a turn. At most one harness session per chat, closed after ten idle minutes.
 
 import { randomUUID } from "node:crypto";
 
@@ -66,7 +63,6 @@ export type AgentHostOptions = {
 type Chat = {
   meta: ChatMeta;
   transcript: Transcript;
-  /** Whether `transcript` has been folded from disk yet. */
   loaded: boolean;
   seq: number;
   session: HarnessSession | null;
@@ -75,7 +71,6 @@ type Chat = {
   /** Items started in this turn and not yet completed, with their latest text. */
   open: Map<string, Item>;
   subscribers: Set<Connection>;
-  /** Whether the "editor tools unavailable" notice has been posted. */
   noticedNoMcp: boolean;
 };
 
@@ -100,9 +95,6 @@ export class AgentHost {
   private log(message: string): void {
     this.options.log?.(message);
   }
-
-  // ---------------------------------------------------------------------
-  // Lifecycle
 
   /** Loads the chat metas and settles anything a crash left running. */
   async start(): Promise<void> {
@@ -136,9 +128,6 @@ export class AgentHost {
       }),
     );
   }
-
-  // ---------------------------------------------------------------------
-  // Connections
 
   connect(connection: Connection): { receive(raw: string): void; disconnect(): void } {
     this.connections.add(connection);
@@ -200,9 +189,6 @@ export class AgentHost {
     }
   }
 
-  // ---------------------------------------------------------------------
-  // Harnesses
-
   private harnessList(): HarnessInfo[] {
     return HARNESS_IDS.filter((id) => this.harnessById.has(id)).map(
       (id) => this.probes.get(id)?.info ?? { id, label: HARNESS_LABELS[id], status: "checking", models: [] },
@@ -249,9 +235,6 @@ export class AgentHost {
     });
     return this.probing;
   }
-
-  // ---------------------------------------------------------------------
-  // Chats
 
   private register(meta: ChatMeta): Chat {
     const chat: Chat = {
@@ -322,9 +305,6 @@ export class AgentHost {
     );
   }
 
-  // ---------------------------------------------------------------------
-  // Turns
-
   private async send(connection: Connection, params: MethodParams<"turn.send">): Promise<{ chatId: string }> {
     const text = typeof params.text === "string" ? params.text : "";
     const projectId = requireString(params, "projectId");
@@ -388,7 +368,6 @@ export class AgentHost {
     return (event) => {
       if (event.type === "turn.completed") event = { ...event, turnId };
       chat.transcript = reduce(chat.transcript, event);
-      // Track what is still open, so an ended turn can close it out.
       if (event.type === "item.started") chat.open.set(event.item.id, event.item);
       else if (event.type === "item.completed") chat.open.delete(event.item.id);
       else if (event.type === "item.delta" && chat.open.has(event.itemId)) {

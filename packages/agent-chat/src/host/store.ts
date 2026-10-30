@@ -2,11 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// One folder per chat under the data dir: `meta.json` (the summary plus
-// the cwd and the resume cursor, written whole through a temp file) and
-// `events.jsonl` (append-only; no deltas). There is no index: listing
-// reads every meta, which is cheap at hundreds of chats and can never go
-// out of sync.
+// One folder per chat: `meta.json` (written whole through a temp file) and append-only `events.jsonl`
+// (no deltas). No index: listing reads every meta, cheap at hundreds of chats and never out of sync.
 
 import { appendFile, mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";

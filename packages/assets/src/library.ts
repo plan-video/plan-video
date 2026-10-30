@@ -2,25 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The asset library of a project: the manifest, loaded with handles attached,
-// plus everything that changes it — imports, renames, folders, generated
-// output — and the one place a `src` is turned into an asset. Files the user
-// imports stay where they are (the manifest links to them by absolute path);
-// only bytes the app itself produces are written into the project's
-// `assets/` directory, and anything found there that the manifest does not
-// know is taken into the library. What is derived from assets and worth
-// keeping (thumbnails, waveforms) is the `cache`'s, under `cache/`.
-//
-// Knows nothing of the host: files come and go through a `ProjectFS`, and
-// what it cannot do itself (follow a rename into whatever names assets by
-// path, rebind whatever is bound to a relinked asset's old id) it asks of
-// `LibraryOptions`. Generation is not its business either — a generated
-// file is stored like any other bytes the app produced, with its
-// `generation` record along — but where a generation stands is: a run that
-// has started is a partial document here (`reserve`), one that failed stays
-// as one with its reason (`fail`), and one that landed replaces its partial
-// (`store`). Its state is solid signals (`assets()`, `partials()`,
-// `folders()`), so readers inside a tracking scope follow it.
+// Imported files stay where they are (linked by absolute path); only bytes the app produces are
+// written into `assets/`, and anything there the manifest doesn't know is taken in. What it can't do
+// itself (follow a rename, rebind a relinked id) it asks of `LibraryOptions`. State is Solid signals.
 
 import { createSignal, type Accessor } from 'solid-js';
 
@@ -42,15 +26,9 @@ import type {
 const SAVE_DEBOUNCE = 200;
 
 export interface LibraryOptions {
-	/**
-	 * Called when an asset's library path changes (renamed or moved), so the
-	 * host can follow in whatever names assets by path — the JSX `src` props.
-	 */
+	/** So the host can follow in whatever names assets by path: the JSX `src` props. */
 	onRename?: (asset: Asset, from: string) => void;
-	/**
-	 * Called when an asset is pointed at other bytes and so has a new id, so
-	 * the host can rebind whatever held the old one (`from`).
-	 */
+	/** The asset has a new id, so the host can rebind whatever held the old one (`from`). */
 	onRelink?: (asset: Asset, from: string) => void;
 }
 
@@ -72,7 +50,6 @@ export interface ImportOptions {
 export interface ReserveOptions {
 	/** The generation key the partial stands for (see `AssetGeneration`). */
 	key: string;
-	/** What the generation is to become. */
 	type: AssetType;
 	/** A provisional library name; the bytes, once they land, are named by whoever stores them. */
 	name: string;
@@ -82,7 +59,6 @@ export interface ReserveOptions {
 
 export class AssetLibrary {
 	public readonly fs: ProjectFS;
-	/** Thumbnails, rough waveforms: what is derived from assets and kept in `cache/`. */
 	public readonly cache: AssetCache;
 	/** Library assets, newest first; transient ones excluded. Reactive. */
 	public readonly assets: Accessor<Asset[]>;
@@ -119,15 +95,10 @@ export class AssetLibrary {
 		[this.folders, this.setFolders] = createSignal<ReadonlySet<string>>(new Set());
 	}
 
-	// -----------------------------------------------------------------------
-	// Reading
-
-	/** Library assets, newest first; transient ones excluded. Same as `assets()`. */
 	public list(): Asset[] {
 		return this.assets();
 	}
 
-	/** The library's assets as of now, straight from the map. */
 	private listNow(): Asset[] {
 		const assets: Asset[] = [];
 		for (const entry of this.map.values()) {
@@ -136,12 +107,10 @@ export class AssetLibrary {
 		return assets;
 	}
 
-	/** The partial documents as of now, straight from the map. */
 	private partialsNow(): PartialAsset[] {
 		return Array.from(this.map.values()).filter(isPartialAsset);
 	}
 
-	/** Everything at a library path as of now: assets and partials, transient ones excluded. */
 	private entriesNow(): AssetEntry[] {
 		return Array.from(this.map.values()).filter((entry) => isPartialAsset(entry) || !entry.transient);
 	}
@@ -171,12 +140,7 @@ export class AssetLibrary {
 		return undefined;
 	}
 
-	/**
-	 * What the library holds for a generation key: the asset the generation
-	 * landed as, or the partial document standing for it while it runs or
-	 * after it failed. Undefined when the generation was never asked for
-	 * here — or its record was removed, which is how one is asked for again.
-	 */
+	/** The landed asset or the partial standing for the key; undefined when never asked for, or its record was removed (which asks again). */
 	public generated(key: string): AssetEntry | undefined {
 		for (const entry of this.entriesNow()) {
 			if (entry.generation?.key === key) return entry;
@@ -209,22 +173,13 @@ export class AssetLibrary {
 		return folders;
 	}
 
-	/** Publishes the map's state to the signals. */
 	private publish(): void {
 		this.setAssets(this.listNow());
 		this.setPartials(this.partialsNow());
 		this.setFolders(this.foldersNow());
 	}
 
-	// -----------------------------------------------------------------------
-	// Loading
-
-	/**
-	 * Reads the manifest in, then takes in whatever the project's
-	 * `assets/` directory holds that the manifest does not know. Assets whose
-	 * source changed since they were recorded (by size or mtime) are probed
-	 * again. Safe to call again: it reconciles rather than replaces.
-	 */
+	/** Then takes in what `assets/` holds that the manifest doesn't know; changed sources (size or mtime) are probed again. Safe to call again. */
 	public async load(): Promise<void> {
 		await this.flush();
 		const manifest = normalizeManifest(await this.fs.readManifest());
@@ -259,7 +214,6 @@ export class AssetLibrary {
 		this.cache.prune(this.map.keys());
 	}
 
-	/** Attaches handles to a record; re-examines it when its source changed. */
 	private async revive(record: AssetRecord): Promise<Asset> {
 		if (isUrlSource(record.source)) return this.attach(record);
 
@@ -283,14 +237,9 @@ export class AssetLibrary {
 	}
 
 	/**
-	 * Registers files under `assets/` that the manifest does not link to.
-	 *
-	 * A linked folder is walked like any other — linking media in is all it
-	 * takes to have it — but a link can also point back at somewhere the walk
-	 * has already been, and following that would list the same files over and
-	 * over under an ever longer path. So every linked folder is resolved and
-	 * entered once: a second link to the same place is passed over, and one
-	 * that holds `assets/` itself is never entered at all.
+	 * Linked folders are walked too, but a link can point back where the walk has been, listing the same
+	 * files under ever longer paths. So each linked folder is resolved and entered once, and one that
+	 * holds `assets/` itself is never entered.
 	 */
 	private async scanAssetsDir(): Promise<void> {
 		const known = new Set(this.listNow().map((asset) => asset.source));
@@ -298,7 +247,6 @@ export class AssetLibrary {
 		// The library's own place, resolved on the first link that asks for it.
 		let root: string | null | undefined;
 
-		/** Whether a linked folder is one the walk has not been inside already. */
 		const enter = async (dir: string): Promise<boolean> => {
 			const real = await this.fs.realPath?.(dir).catch(() => null);
 			// A host that cannot resolve links has no cycles to report; follow it.
@@ -331,15 +279,7 @@ export class AssetLibrary {
 		await walk(ASSETS_DIR);
 	}
 
-	// -----------------------------------------------------------------------
-	// Resolving
-
-	/**
-	 * The asset a source string names: a library path or id, or an absolute
-	 * path or URL (resolved on the fly, kept in memory only). Anything the
-	 * library cannot name — a `generate.*` declaration — is not a source; it
-	 * is the host's Ai's to resolve.
-	 */
+	/** A library path or id, or an absolute path or URL (resolved on the fly, kept in memory only); a `generate.*` declaration is the host's to resolve. */
 	public async resolve(input: string): Promise<Asset> {
 		const value = input.trim();
 		const known = this.get(value);
@@ -357,7 +297,6 @@ export class AssetLibrary {
 		throw new Error(`Could not resolve media src: ${input}`);
 	}
 
-	/** Resolves a source outside the library without adding it to the manifest. */
 	private transient(source: string): Promise<Asset> {
 		const existing = this.transientBySource(source);
 		if (existing) return Promise.resolve(existing);
@@ -382,21 +321,14 @@ export class AssetLibrary {
 		return undefined;
 	}
 
-	/** The File backing an asset. */
 	public file(asset: Asset): Promise<File> {
 		return asset.handle.getFile();
 	}
 
-	// -----------------------------------------------------------------------
-	// Importing
-
 	/**
-	 * Imports sources into the library, all at once, leaving their bytes where
-	 * they are: a file (absolute path, or a path inside the project) is linked,
-	 * a frames directory becomes one sequence asset, any other directory
-	 * becomes a folder with its files linked inside (recursively), and a URL
-	 * is downloaded into `assets/`. The same bytes imported twice are one
-	 * asset. Every source is tried; the result says which were refused and why.
+	 * Leaves bytes where they are: files are linked, a frames directory becomes one sequence asset, other
+	 * directories become folders, a URL is downloaded into `assets/`. The same bytes twice are one asset.
+	 * Every source is tried; the result says which were refused and why.
 	 */
 	public async import(sources: readonly string[], options: ImportOptions = {}): Promise<ImportResult> {
 		const result: ImportResult = { assets: [], failed: [] };
@@ -424,13 +356,11 @@ export class AssetLibrary {
 			return [await this.link(source, options)];
 		}
 
-		// A folder of files: a folder here, with each of them in it.
 		const folder = this.createFolder(joinPath(options.folder ?? '', options.name ?? basename(source)));
 		const children = entries.filter((entry) => !entry.name.startsWith('.')).map((entry) => joinPath(source, entry.name));
 		return (await this.import(children, { folder })).assets;
 	}
 
-	/** Links a file at `source` (absolute, or project-relative) into the library. */
 	private link(source: string, options: ImportOptions): Promise<Asset> {
 		const existing = this.bySource(source);
 		if (existing) return Promise.resolve(existing);
@@ -443,14 +373,7 @@ export class AssetLibrary {
 		});
 	}
 
-	/**
-	 * Writes bytes the app produced into `assets/<folder>/<name>` and takes
-	 * the file into the library at the same library path. Stored under a
-	 * generation key, the asset takes the place of the partial document
-	 * reserved for that key, and answers for the key from here on — even
-	 * when the bytes turn out to be ones the library already had under
-	 * another key, as a re-take of unchanged speech does.
-	 */
+	/** Stored under a generation key, the asset replaces that key's partial and answers for it from here on, even when the bytes match an asset under another key (a re-take of unchanged speech). */
 	public async store(blob: Blob, options: ImportOptions & { name: string }): Promise<Asset> {
 		const key = options.generation?.key;
 		const reserved = key === undefined ? undefined : this.partialFor(key);
@@ -467,12 +390,8 @@ export class AssetLibrary {
 	}
 
 	/**
-	 * Puts a partial document in the library for a generation about to run:
-	 * `pending`, at a path of its own under `folder`. A partial already
-	 * standing for the key — a run the last session never finished, or one
-	 * that failed and is being asked for again — is set pending again rather
-	 * than doubled. An asset the key already landed as is left alone: this
-	 * is not the place to ask whether to run (see `generated`).
+	 * A partial already standing for the key (an unfinished or failed run) is set pending again rather
+	 * than doubled. An asset the key already landed as is left alone: whether to run is `generated`'s question.
 	 */
 	public async reserve(options: ReserveOptions): Promise<PartialAsset> {
 		const id = await hashKey(options.key);
@@ -497,12 +416,7 @@ export class AssetLibrary {
 		return partial;
 	}
 
-	/**
-	 * Records that the generation `partial` stands for failed, and why. The
-	 * record stays: it is what answers for the key from here on, until it
-	 * is removed. A partial no longer in the library (removed while the run
-	 * went on) is not brought back — that removal was the answer.
-	 */
+	/** The record stays and answers for the key until removed. A partial removed while the run went on is not brought back: that removal was the answer. */
 	public fail(partial: PartialAsset, error: string): void {
 		const current = this.getPartial(partial.id);
 		if (!current) return;
@@ -511,19 +425,16 @@ export class AssetLibrary {
 		this.changed();
 	}
 
-	/** The partial document standing for `key`, if one is in the library. */
 	private partialFor(key: string): PartialAsset | undefined {
 		return this.partialsNow().find((partial) => partial.generation.key === key);
 	}
 
-	/** Takes the partial standing for `key` out, its bytes having landed. */
 	private dropPartial(key: string): void {
 		for (const partial of this.partialsNow()) {
 			if (partial.generation.key === key) this.map.delete(partial.id);
 		}
 	}
 
-	/** Puts an asset into the library, deduplicating by content. */
 	private add(asset: Asset): Asset {
 		const existing = this.map.get(asset.id);
 		if (existing && isPartialAsset(existing)) {
@@ -552,21 +463,14 @@ export class AssetLibrary {
 		for (const other of rest) this.map.set(other.id, other);
 	}
 
-	// -----------------------------------------------------------------------
-	// Editing
-
-	/** Replaces fields of an asset (a transcript, a corrected frame rate). Keeps identity. */
+	/** Keeps identity. */
 	public update<T extends Asset>(asset: T, patch: Partial<Omit<T, 'id' | 'handle' | 'type'>>): T {
 		Object.assign(asset, patch);
 		this.changed();
 		return asset;
 	}
 
-	/**
-	 * Points an asset at other bytes: same library path (so the JSX is
-	 * untouched), new source, new content id. Whatever is bound to the old id
-	 * is the host's to move over (`onRelink`).
-	 */
+	/** Same library path (so the JSX is untouched), new source, new content id; the host moves whatever held the old id (`onRelink`). */
 	public async relink(asset: Asset, source: string): Promise<Asset> {
 		const next = await this.describeSource(source, {
 			path: asset.path,
@@ -588,14 +492,13 @@ export class AssetLibrary {
 		return next;
 	}
 
-	/** Renames an entry within its folder; an asset's source file is untouched. */
+	/** An asset's source file is untouched. */
 	public rename(entry: AssetEntry, name: string): void {
 		const clean = normalizePath(name).replace(/\//g, '-');
 		if (!clean || clean === assetName(entry)) return;
 		this.setPath(entry, this.uniquePath(joinPath(assetFolder(entry), clean), entry));
 	}
 
-	/** Moves entries into a folder ('' for the root). */
 	public move(entries: AssetEntry[], folder: string): void {
 		const target = normalizePath(folder);
 		if (target) this.declared.add(target);
@@ -614,11 +517,7 @@ export class AssetLibrary {
 		if (!isPartialAsset(entry)) this.onRename?.(entry, from);
 	}
 
-	/**
-	 * Removes entries from the library. Bytes the app wrote into `assets/`
-	 * go too. Removing a partial forgets where its generation stood — for a
-	 * failed one, that is what asks for the run again.
-	 */
+	/** Bytes the app wrote into `assets/` go too. Removing a failed partial is what asks for the run again. */
 	public async remove(entries: AssetEntry[]): Promise<void> {
 		for (const entry of entries) {
 			this.map.delete(entry.id);
@@ -651,7 +550,6 @@ export class AssetLibrary {
 		return name;
 	}
 
-	/** Renames a folder in place; everything under it follows. */
 	public renameFolder(path: string, name: string): string {
 		const clean = normalizePath(name).replace(/\//g, '-');
 		if (!clean) return path;
@@ -695,9 +593,6 @@ export class AssetLibrary {
 		return doomed;
 	}
 
-	// -----------------------------------------------------------------------
-	// Persisting
-
 	private changed(): void {
 		if (this.disposed) return;
 		this.dirty = true;
@@ -706,7 +601,6 @@ export class AssetLibrary {
 		this.saveTimer = setTimeout(() => void this.flush(), SAVE_DEBOUNCE);
 	}
 
-	/** The manifest as it would be written now. */
 	public manifest(): Manifest {
 		return {
 			version: 1,
@@ -726,15 +620,11 @@ export class AssetLibrary {
 		return this.saving;
 	}
 
-	/** Writes what is pending and stops. */
 	public dispose(): Promise<void> {
 		const done = this.flush();
 		this.disposed = true;
 		return done;
 	}
-
-	// -----------------------------------------------------------------------
-	// Describing
 
 	/** A library path not taken by any other entry: `name`, `name 2`, … */
 	private uniquePath(path: string, except?: AssetEntry): string {
@@ -759,7 +649,6 @@ export class AssetLibrary {
 		return promise;
 	}
 
-	/** Describes a file or frames directory at `source`. */
 	private async describeSource(source: string, meta: DescribeMeta): Promise<Asset> {
 		// A path that is not there fails as that, not as an unsupported file
 		// once the mime sniff finds nothing to read.
@@ -836,7 +725,6 @@ export class AssetLibrary {
 		};
 	}
 
-	/** Attaches handles to a manifest record without touching its bytes. */
 	private attach(record: AssetRecord): Asset {
 		if (record.type === 'SEQUENCE') {
 			const first = this.fs.list(record.source).then((entries) => sortFrames(entries).find((entry) => entry.kind === 'file'));

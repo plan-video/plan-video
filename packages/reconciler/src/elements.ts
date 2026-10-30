@@ -2,16 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/**
- * The composition elements, as PascalCase components: the canonical form the
- * CLI compile rewrites camelCase tags into (`<rect>` -> `Rect`, unless an SVG
- * container makes it SVG content). Hosts therefore receive PascalCase tags
- * for composition elements and lowercase tags only for DOM content under
- * `<htmlPaint>` — `createElement` can tell them apart by case alone. These
- * exports are the compile target and the ABI of persisted compiled bundles
- * (which import them by name via the host-module shim), not an authoring
- * surface.
- */
+// These exports are the compile target and the ABI of persisted compiled bundles, which
+// import them by name: don't rename them. Hosts get PascalCase tags for composition
+// elements and lowercase tags only for DOM content under `<htmlPaint>`.
 
 import { splitProps } from "solid-js";
 import { createElement, createTextNode, insertNode, setProp, spread, use } from "./renderer";
@@ -49,12 +42,6 @@ import type {
   VideoProps,
 } from "@plan.video/jsx";
 
-/**
- * A component wrapping one host element: creates the node, routes `ref`
- * through the renderer's `use` (so the callback receives the node — or, for
- * hosts with `applyRef`, whatever backing object they hand it), and spreads
- * the remaining props and children reactively.
- */
 function hostElement<P extends object>(tag: string): (props: P) => SolidJSX.Element {
   return (props) => {
     const el = createElement(tag);
@@ -65,13 +52,7 @@ function hostElement<P extends object>(tag: string): (props: P) => SolidJSX.Elem
   };
 }
 
-/**
- * Builds host nodes from an `AuthoredTree` (see `authoredTree`), the way a
- * project spelling those elements would: one element per node with its props
- * set and its text and children inserted, in order. Static — the values are
- * what the tree holds — and written into whatever document is active, so an
- * editor renders it inside `insertElement`'s thunk to duplicate a subtree.
- */
+/** Builds host nodes from an `AuthoredTree` into whatever document is active; an editor renders it inside `insertElement`'s thunk to duplicate a subtree. */
 export function renderAuthored(tree: AuthoredTree): unknown {
   const node = createElement(tree.tag.charAt(0).toUpperCase() + tree.tag.slice(1));
   for (const [name, value] of Object.entries(tree.props)) {

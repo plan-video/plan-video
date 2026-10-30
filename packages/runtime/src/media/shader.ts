@@ -10,20 +10,9 @@ import type { Entity, World } from "koota";
 type Ctx2D = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 type UniformValue = number | number[] | string;
 
-/**
- * Runtime pipeline for one shader paint: compiles the paint's fragment-stage
- * WGSL against the engine prelude, samples the media paint directly below the
- * shader in the fill stack into a texture, runs the pipeline into an
- * offscreen WebGPU canvas, and hands the result back to the Canvas2D
- * compositor via `drawImage`. Created lazily by `resolveShaderHost`, exactly
- * like the media decoders.
- *
- * The authored contract (see reference/jsx/shader-paint.md): the user writes
- * `@fragment fn main(@location(0) uv: vec2f) -> @location(0) vec4f` with `uv`
- * in box space, samples the media through `sampleSource(uv)` (which honors
- * the media paint's `objectFit` placement), and declares parameters as
- * `@group(1)` uniforms whose values arrive by name from the `uniforms` prop.
- */
+// Authored contract: `@fragment fn main(@location(0) uv: vec2f) -> @location(0) vec4f`, `uv` in box
+// space, media sampled via `sampleSource(uv)` (honouring `objectFit`), parameters as `@group(1)`
+// uniforms filled by name from the `uniforms` prop.
 
 // One device for every shader paint in the page; pipelines are per-host.
 let devicePromise: Promise<GPUDevice | null> | null = null;
@@ -115,7 +104,6 @@ export class ShaderHost {
 	private colorCache = new Map<string, number | null>();
 	private disposed = false;
 
-	/** Compiles when the code differs from the current pipeline's. */
 	public setCode(code: string): void {
 		if (this.disposed || code === this.code) return;
 		this.code = code;
@@ -126,7 +114,6 @@ export class ShaderHost {
 		});
 	}
 
-	/** Resolves once the current code has compiled (or failed). */
 	public whenReady(): Promise<void> | null {
 		return this.compilePromise;
 	}
@@ -244,13 +231,9 @@ export class ShaderHost {
 	}
 
 	/**
-	 * Runs the shader over `source` and draws the result into the parent's
-	 * box. `fit` is the media's drawImage placement within the box (from
-	 * getScaledImageProps); `time` is the parent's local time in seconds.
-	 * A null `source` runs the shader procedurally: the bound texture stays
-	 * transparent black, so `sampleSource` returns vec4f(0) everywhere.
-	 * Returns false when no pipeline is ready — the caller then draws the
-	 * media directly instead.
+	 * `fit` is the media's drawImage placement in the box; `time` the parent's local time in seconds.
+	 * A null `source` runs procedurally (`sampleSource` returns vec4f(0)). False when no pipeline is
+	 * ready: the caller then draws the media directly.
 	 */
 	public draw(
 		ctx: Ctx2D,
@@ -353,11 +336,7 @@ export class ShaderHost {
 	}
 }
 
-/**
- * The shader paint's host, created lazily like the media decoders and kept in
- * sync with the persisted `Shader.code` component. Returns null until the
- * paint carries code.
- */
+/** Null until the paint carries code. */
 export function resolveShaderHost(_world: World, entity: Entity): ShaderHost | null {
 	const code = entity.get(Shader)?.code;
 	if (!code) return null;

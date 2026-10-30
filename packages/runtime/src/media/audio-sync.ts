@@ -216,7 +216,6 @@ export async function computeAudioSyncOffset(
     "No reliable alignment found: the audio tracks share too little common sound.",
   );
 
-  // Parabolic interpolation around the peak for sub-bin precision.
   let delta = 0;
   const ym = nccAt(bestL - 1);
   const yp = nccAt(bestL + 1);

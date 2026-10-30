@@ -6,11 +6,8 @@ import { z } from "zod";
 import type { GenericTool } from "./tool";
 
 /**
- * The JSON Schema dialect a tool's schemas are published in over MCP. The
- * spec recommends 2020-12, and the validators clients run (Claude Code's
- * among them) accept nothing older: a `$schema` naming draft-07 fails every
- * tool call before it reaches the app. The MCP SDK's own conversion defaults
- * to draft-07, so the server publishes these instead.
+ * MCP clients' validators (Claude Code's among them) reject a `$schema` naming draft-07, failing every
+ * tool call before it reaches the app, and the MCP SDK's own conversion defaults to draft-07.
  */
 export const JSON_SCHEMA_DIALECT = "https://json-schema.org/draft/2020-12/schema";
 
@@ -19,7 +16,6 @@ export type ToolJsonSchemas = {
   outputSchema: Record<string, unknown>;
 };
 
-/** A tool's input and output as JSON Schema 2020-12, the way `tools/list` reports them. */
 export function toolJsonSchemas(tool: GenericTool): ToolJsonSchemas {
   return {
     inputSchema: z.toJSONSchema(tool.input, { target: "draft-2020-12", io: "input" }) as Record<string, unknown>,

@@ -20,8 +20,6 @@ import type { CaptionDecoder, CaptionPresetStyle } from './types';
 const WIDTH = 700;
 const HEIGHT = 200;
 
-// The preset's base TextStyle; the document writes it and authored style
-// props overwrite it (see CAPTION_PRESET_STYLES).
 export const GUINEA_TEXT_STYLE = {
 	fontFamily: 'Montserrat',
 	fontWeight: '800',
@@ -61,12 +59,10 @@ export class GuineaCaptionDecoder implements CaptionDecoder {
 		this.loaded = this.load();
 	}
 
-	/** Re-reads the transcript after its words change. */
 	public reload(): Promise<void> {
 		return this.load();
 	}
 
-	/** Groups the words again for new `words`, `chars` or `linger`. */
 	public repace(pacing: CaptionPacing): Promise<void> {
 		this.pacing = pacing;
 		return this.load();
@@ -116,7 +112,6 @@ export class GuineaCaptionDecoder implements CaptionDecoder {
 			this.activeSplit = activeSplit;
 			setChars(world, entity, text);
 
-			// Active line gets a random highlight color and a slightly larger font (1.1x).
 			clearTextRanges(world, entity);
 			const start = activeSplit === 'left' ? 0 : leftText.length + 1;
 			const end = activeSplit === 'left' ? leftText.length : text.length;

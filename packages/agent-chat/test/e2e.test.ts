@@ -2,9 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The whole loop over a real socket: the browser client against the host
-// with the fake harness behind it. What the UI does is what these do.
-
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -72,7 +69,6 @@ function connect(url = host.url): Promise<AgentChatClient> {
   });
 }
 
-/** Subscribes and folds everything into a transcript the test can wait on. */
 function follow(client: AgentChatClient, chatId: string) {
   let transcript: Transcript = emptyTranscript();
   const events: ChatEvent[] = [];

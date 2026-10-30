@@ -7,35 +7,24 @@ import * as solidStore from 'solid-js/store';
 
 import { JSX_RUNTIME } from './runtime';
 
-// What the desktop compile step marks external is what is handed out here,
-// so a project shares the app's solid-js instance (one reactive graph) and
-// its JSX runtime — the authoring package's exports bound to this host, not
-// the host-less copy in the project's node_modules.
+// Handed to bundles so a project shares the app's solid-js instance (one reactive graph)
+// and the host-bound JSX runtime, not the host-less copies in its own node_modules.
 const MODULES: Record<string, unknown> = {
 	'solid-js': solid,
 	'solid-js/store': solidStore,
 	'@plan.video/jsx': JSX_RUNTIME,
 };
 
-/**
- * Builds the component of a bundle the host wrote itself, from the bundle's
- * text and the same modules a bundle may require. Undefined for any other
- * bundle, which is then evaluated.
- */
+/** Builds a bundle the host wrote itself; undefined for any other bundle, which is then evaluated. */
 export type BundleReader = (code: string, require: (id: string) => unknown) => (() => unknown) | undefined;
 
 let reader: BundleReader | undefined;
 
-/**
- * Lets the host read its own bundles instead of evaluating them. The website
- * writes every bundle it mounts, and its Content-Security-Policy has no
- * 'unsafe-eval' for `new Function`.
- */
+/** The website's CSP has no 'unsafe-eval' for `new Function`, so it reads its own bundles instead. */
 export function setBundleReader(next: BundleReader | undefined): void {
 	reader = next;
 }
 
-/** Evaluates a compiled CommonJS bundle and returns its default export. */
 export function evaluate(code: string): () => unknown {
 	const module = { exports: {} as { default?: unknown } };
 

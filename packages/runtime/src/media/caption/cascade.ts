@@ -16,8 +16,6 @@ import type { CaptionDecoder, CaptionPresetStyle } from './types';
 const WIDTH = 800;
 const HEIGHT = 200;
 
-// The preset's base TextStyle; the document writes it and authored style
-// props overwrite it (see CAPTION_PRESET_STYLES).
 export const CASCADE_TEXT_STYLE = {
 	fontFamily: 'Inter',
 	fontWeight: '300',
@@ -49,12 +47,10 @@ export class CascadeCaptionDecoder implements CaptionDecoder {
 		this.loaded = this.load();
 	}
 
-	/** Re-reads the transcript after its words change. */
 	public reload(): Promise<void> {
 		return this.load();
 	}
 
-	/** Groups the words again for new `words`, `chars` or `linger`. */
 	public repace(pacing: CaptionPacing): Promise<void> {
 		this.pacing = pacing;
 		return this.load();
@@ -92,7 +88,6 @@ export class CascadeCaptionDecoder implements CaptionDecoder {
 
 		const group = this.groups[groupIndex]!;
 
-		// Progressive reveal: only show words that have started
 		const shown = group.filter(word => word.start <= relativeTime);
 		const text = shown.map(w => w.text).join(' ');
 

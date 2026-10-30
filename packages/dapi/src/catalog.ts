@@ -24,11 +24,7 @@ import { fonts } from "./tools/fonts";
 import { report } from "./tools/report";
 import { socialAccounts, socialSchema, tiktokCreator, schedulePost, copyPost, listPosts, updatePost, deletePost, publishPost } from "./tools/posts";
 
-/**
- * Every tool, in the order a listing shows them: the project loop first
- * (open, look, capture, check, export), then media inspection, then social
- * posting, then the app and machine utilities.
- */
+/** In listing order: the project loop (open, look, capture, check, export), media inspection, social posting, then utilities. */
 export const catalog = [
   open,
   context,
@@ -85,14 +81,9 @@ export function isToolName(name: string): name is ToolName {
   return byName.has(name);
 }
 
-/** The catalog with each tool's specifics erased, for code that iterates it. */
 export const tools: readonly GenericTool[] = catalog;
 
-/**
- * Off until agentic editing launches. Until then an agent can schedule and
- * publish posts, and read the logs or file a report when something goes
- * wrong, but not open, look at, edit or export a project.
- */
+/** Off until agentic editing launches: agents can schedule and publish posts, read logs and file reports, but not open, edit or export a project. */
 export const AGENTIC_EDITING = false;
 
 const WITHOUT_EDITING = new Set<ToolName>([
@@ -109,7 +100,6 @@ const WITHOUT_EDITING = new Set<ToolName>([
   "report",
 ]);
 
-/** The tools the MCP server lists and runs. */
 export const servedTools: readonly GenericTool[] = AGENTIC_EDITING
   ? tools
   : tools.filter((tool) => WITHOUT_EDITING.has(tool.name as ToolName));

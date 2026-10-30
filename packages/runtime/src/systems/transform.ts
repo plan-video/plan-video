@@ -27,14 +27,8 @@ import {
 
 import type { Entity, World } from 'koota';
 
-// This system writes derived per-frame data (LocalTransform, WorldTransform,
-// WorldBounds, Computed group bounds) straight into trait stores: no
-// snapshots, no change events.
+// Writes derived per-frame data straight into trait stores: no snapshots, no change events.
 
-/**
- * Compute the local 2D affine matrix from Offset, Rotation, Scale,
- * Anchor, Skew and Size. Stores the result in LocalTransform.
- */
 export function computeLocalMatrix(world: World, entity: Entity): void {
 	const flip = store(world, Flip);
 	const anchor = store(world, Anchor);
@@ -67,10 +61,7 @@ export function computeLocalMatrix(world: World, entity: Entity): void {
 	local.f[eid] = mat.f;
 }
 
-/**
- * WorldTransform = Parent.WorldTransform * LocalMatrix
- * For top-level entities (no entity parent), the camera × DPR matrix is used.
- */
+/** For top-level entities the camera × DPR matrix stands in for the parent's. */
 export function computeWorldTransform(world: World, entity: Entity, parentEntity: Entity | null): void {
 	const worldStore = store(world, WorldTransform);
 	const localStore = store(world, LocalTransform);
@@ -113,9 +104,6 @@ export function computeWorldTransform(world: World, entity: Entity, parentEntity
 	worldStore.f[eid] = m.f;
 }
 
-/**
- * Compute world-space AABB from world transform and size.
- */
 export function computeWorldBounds(world: World, entity: Entity): void {
 	const boundsStore = store(world, WorldBounds);
 	const worldStore = store(world, WorldTransform);
@@ -137,11 +125,8 @@ export function computeWorldBounds(world: World, entity: Entity): void {
 }
 
 function cullEntity(world: World, entity: Entity, parentEntity: Entity | null): void {
-	// Inherit cull from the parent: the renderer already skips entire
-	// subtrees of culled parents, so descendants are effectively invisible
-	// even when their own AABB intersects the parent's. Propagating the tag
-	// down lets us free their decoders too. Pre-order DFS guarantees the
-	// parent's tag is already settled by the time we reach the child.
+	// The renderer skips culled parents' whole subtrees, so propagating the tag lets descendants free
+	// their decoders too. Pre-order DFS settles the parent's tag before the child.
 
 	let intersect = true;
 
@@ -178,13 +163,7 @@ function cullEntity(world: World, entity: Entity, parentEntity: Entity | null): 
 	}
 }
 
-/**
- * Recompute a Group entity's Computed bounds from the union of its children's
- * transformed boxes. Sequences aren't spatial constructs: they mirror their
- * parent's frame instead (the walk is parent-first, so the parent's Computed
- * values are already settled). Leaf entities own an absolute Size and need no
- * resolution here.
- */
+/** Sequences aren't spatial: they mirror the parent's frame (already settled, the walk is parent-first). */
 export function computeGroupBounds(world: World, entity: Entity): void {
 	const computed = store(world, Computed);
 	const localStore = store(world, LocalTransform);
@@ -237,13 +216,9 @@ export function computeGroupBounds(world: World, entity: Entity): void {
 	}
 }
 
-/** Per world: the adjustment layers acting on each clip this frame, by the clip's id. */
 const adjusting = new WeakMap<World, Map<number, Entity[]>>();
 
-/**
- * The adjustment layers acting on `entity` this frame, bottom first, as the
- * transform system last found them. Their effects filter what it draws.
- */
+/** Bottom first, as the transform system last found them. */
 export function adjustingLayers(world: World, entity: Entity): readonly Entity[] {
 	return adjusting.get(world)?.get(entity.id()) ?? [];
 }
@@ -255,7 +230,6 @@ function adjustLayers(world: World, adjust: Entity): void {
 
 	if (computed.visibility[aid] === 0 || adjust.has(Hidden)) return;
 
-	// get next non sequential parent
 	let slot = adjust;
 	let parent = getParentNode(slot);
 	while (parent !== null && parent.has(Sequential)) {
@@ -316,9 +290,7 @@ function adjustLayers(world: World, adjust: Entity): void {
 	reworld(target, parent);
 }
 
-/**
- * Transform system entry point. Call once per frame before the render system.
- */
+/** Call once per frame before the render system. */
 export function transformSystem(world: World): void {
 	const walk = (entity: Entity, parentEntity: Entity | null) => {
 		computeGroupBounds(world, entity);
@@ -344,7 +316,6 @@ export function transformSystem(world: World): void {
 	}
 }
 
-/** Where a layer sits among its siblings, counted from the bottom. */
 function stackIndex(adjust: Entity): number {
 	let slot = adjust;
 	let parent = getParentNode(slot);

@@ -4,10 +4,8 @@
 
 import type { StreamTargetChunk } from 'mediabunny';
 
-/** Container format of the output file. */
 export type ContainerFormat = 'mp4' | 'webm' | 'ogg' | 'mov' | 'wav';
 
-// Minimal FileSystemFileHandle-shaped target
 export interface WritableFileTarget {
 	createWritable(): Promise<WritableStream<StreamTargetChunk>>;
 }

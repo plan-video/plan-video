@@ -12,13 +12,9 @@ import type { AssetRef } from '@plan.video/jsx';
 // (group, audio, scene, caption) are layered on top via tag traits.
 export const Geometry = trait({ value: GeometryType.RECT as GeometryType });
 
-// Paint applied to a geometry (or stroke). See PaintType.
 export const Paint = trait({ value: PaintType.SOLID as PaintType });
 
-// Tag marking a geometry as a group container. Groups have no Size of their
-// own: their Computed.width/height are derived from the local AABB of their
-// direct children (see the transform system). They carry transform state
-// (Position/Rotation/Scale/...) like any other entity.
+/** Groups have no Size of their own: Computed.width/height come from their children's local AABB. */
 export const Group = trait();
 
 // Tag marking a geometry as a scene: a clipped, playable frame. Scenes have a
@@ -26,7 +22,6 @@ export const Group = trait();
 // Scenes are NOT Groups.
 export const Scene = trait();
 
-// Tag marking a geometry as an audio clip (no visual rendering).
 export const Audio = trait();
 
 export const AdjustmentLayer = trait();
@@ -48,35 +43,22 @@ export const Hidden = trait();
 
 export const ClipsContent = trait();
 
-// Tag for entities whose content is still being generated.
 export const Generating = trait();
 
 export const Name = trait({ value: '' });
 
-// Stable identity for entities.
 export const Key = trait({ value: '' });
 
-// Where this entity's JSX element is, as `<file>:<key or position>` (see
-// SOURCE_ATTR in @plan.video/jsx). Set by the host while a project
-// renders; it is what lets a change made in the editor be written back to the
-// source that produced the entity. Deliberately not serialized: a copy of an
-// entity is not the element it was copied from.
+/** `<file>:<key or position>` (see SOURCE_ATTR). Deliberately not serialized: a copy of an entity is not the element it was copied from. */
 export const Source = trait({ value: '' });
 
-// On entities a `<For>`/`<Index>` body produced: the source of that loop (see
-// LOOP_ATTR in @plan.video/jsx). Every iteration shares one Source, so
-// this is what tells the editor an element cannot be written to alone and
-// which entities are its fellow iterations. Set by the host while a project
-// renders and taken off once the loop has been unrolled in the source; not
-// serialized, for the same reason Source is not.
+/** Iterations share one Source, so this tells the editor an element can't be written alone. Not serialized, for the same reason as Source. */
 export const Loop = trait({ value: '' });
 
 export const AssetId = trait({ value: '' });
 
-// A `src` the document could not bind synchronously. The document only
-// leaves one of these requests behind; the asset system does the async work
-// and stamps AssetId when the asset lands. Never serialized: a request is
-// this world's business, re-derived from the src on any re-render.
+// The requests below are left by the document for the asset system, which stamps AssetId when the
+// asset lands. Never serialized: re-derived from the src on any re-render.
 
 // The `generate.*` declaration a src names, to run through the world's Ai.
 export const GenerationRequest = trait(() => ({ ref: null as AssetRef | null }));
@@ -85,19 +67,10 @@ export const GenerationRequest = trait(() => ({ ref: null as AssetRef | null }))
 // through the library.
 export const LoadRequest = trait({ value: '' });
 
-// On a `<captions>` element without a src: transcribe the scene it sits
-// under, through the world's Ai. The seed keys the take — the transcript is
-// cached by scene id + seed, so re-running with a seed replays that take and
-// bumping the seed transcribes the scene again. Seed 0 is the default take.
+/** On a `<captions>` without a src. The transcript is cached by scene id + seed; bumping the seed transcribes again. */
 export const TranscriptionRequest = trait({ seed: 0 });
 
-// On an element authored with `syncTo`: the id of the element to align
-// against by listening instead of arithmetic. The asset system waits for both
-// sides' assets to land, cross-correlates the two recordings, and derives
-// Delay/Trim so they coincide on the timeline. Stands (with PendingSync) as a
-// pending source, so a transcription of the scene waits for the clip to land
-// where it will play. Never serialized, for the same reason the requests
-// above are not.
+/** Asset system waits for both assets, cross-correlates the recordings and derives Delay/Trim. Counts as a pending source, so a transcription waits for the clip's placement. */
 export const SyncRequest = trait({ value: '' });
 
 // The syncTo measurement inflight, kept while the asset system correlates, so
@@ -110,16 +83,7 @@ export const PendingSync = trait(() => ({ value: undefined as unknown }));
 // (or none) is dropped. The document clears it whenever a new src arrives.
 export const PendingSource = trait(() => ({ value: undefined as unknown }));
 
-// Why the entity's src never became an asset: the message of the rejection
-// the asset system saw. Session state, like the requests above: it stands
-// until a resolution for the src starts again, and is never written back to
-// the source. What outlives the session is the library's: a generation that
-// failed stands there as a partial document carrying this same message, and
-// answers the next request for it with the failure rather than another run.
-//
-// `generated` tells a failed generation from a failed load, for whoever
-// reports them: the one is a model refusing or a spec a model cannot take,
-// the other a path that is not there.
+/** Session state, never written back to the source; a failed generation also stands in the library as a partial. `generated` tells a failed generation from a failed load. */
 export const SourceError = trait({ value: '', generated: false });
 
 // Sibling order under a ChildOf parent.
@@ -134,9 +98,7 @@ export const MountScript = trait({ mountId: '', scriptAssetId: '' });
 // existing entity instead of minting a new one.
 export const MountPath = trait({ mountId: '', path: '' });
 
-// Caption preset configuration; only on CAPTION node entities. The transcript
-// is either a standalone TRANSCRIPT asset or embedded in an AUDIO/VIDEO
-// asset, referenced via AssetId.
+/** Only on CAPTION nodes; the transcript is a TRANSCRIPT asset or embedded in an AUDIO/VIDEO one, via AssetId. */
 export const Caption = trait({
 	type: CaptionType.CLASSIC as CaptionType,
 	colors: () => [] as number[],

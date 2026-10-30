@@ -54,7 +54,6 @@ export function assetSystem(world: World): void {
 		}
 	}
 
-	// Handle syncTo requests
 	for (const entity of world.query(SyncRequest)) {
 		if (waitingOnSources(entity)) continue;
 
@@ -107,17 +106,9 @@ export function assetSystem(world: World): void {
 }
 
 /**
- * Places `entity` so its recording coincides with `target`'s: the measured
- * offset says how long after the target's recording this one started, so the
- * element's source frame 0 goes that far after the target's origin,
- * re-expressed against the element's own parent (Delay is parent-relative
- * where Computed is absolute). The origin keeps its fraction so the audio
- * scheduled against it doesn't inherit a half-frame of slip.
- *
- * An authored trim bound survives (`sourceIn`/`sourceOut` remain yours to
- * set); a missing one defaults to the intersection of the element's natural
- * extent with the target's window. A window that closes before it opens means
- * the recordings do not overlap, which is reported rather than guessed at.
+ * The measured offset is how long after the target's recording this one started; Delay is
+ * parent-relative where Computed is absolute, and the origin keeps its fraction so scheduled audio
+ * doesn't slip half a frame. Authored trim bounds survive; a window closing before it opens is reported.
  */
 function placeSynced(world: World, entity: Entity, target: Entity, id: string, offsetSeconds: number): void {
 	const computed = store(world, Computed);
@@ -149,13 +140,7 @@ function placeSynced(world: World, entity: Entity, target: Entity, id: string, o
 	entity.set(Trim, { start, end });
 }
 
-/**
- * The element whose authored id is `id`: ids ride into the runtime as the
- * locator of the source stamp (see SOURCE_ATTR in @plan.video/jsx), so
- * only stamped elements can be found — and a positional locator, being a
- * number, never matches. `except` keeps an element from finding itself.
- * Iterations of a loop share one stamp; the first stands for them all.
- */
+/** Ids ride in as the source stamp's locator, so only stamped elements are found and a positional (numeric) locator never matches. Loop iterations share one stamp; the first stands for them all. */
 function findElementById(world: World, id: string, except: Entity): Entity | undefined {
 	for (const entity of world.query(Source)) {
 		if (entity === except) continue;
@@ -164,13 +149,7 @@ function findElementById(world: World, id: string, except: Entity): Entity | und
 	return undefined;
 }
 
-/**
- * Whether following `syncTo` from `entity` comes back around to it. Only
- * requests still standing are links: a placed element is a fixed point, not a
- * hop. Of a cycle's members, each fails on its own turn through the request
- * loop; whoever is checked once the others have failed no longer sits on a
- * cycle and aligns against their default placement.
- */
+/** Only standing requests are links (a placed element is a fixed point). Each cycle member fails on its own turn; whoever is checked after the others failed aligns against their default placement. */
 function inCycle(world: World, entity: Entity): boolean {
 	const seen = new Set<Entity>([entity]);
 	let current = entity;
@@ -186,11 +165,7 @@ function inCycle(world: World, entity: Entity): boolean {
 	}
 }
 
-/**
- * Whether the element's media is still being resolved — a request this system
- * has not consumed, or a resolution inflight — on the element itself or on a
- * fill (a `<rect><videoPaint/>` carries its src there).
- */
+/** On the element itself or on a fill (a `<rect><videoPaint/>` carries its src there). */
 function waitingOnSources(entity: Entity): boolean {
 	if (pendingSource(entity)) return true;
 	for (const fill of entity.get(Cache)?.fills ?? []) {
@@ -203,7 +178,6 @@ function pendingSource(entity: Entity): boolean {
 	return entity.has(LoadRequest) || entity.has(GenerationRequest) || entity.has(PendingSource);
 }
 
-/** Takes the sync off and leaves why on the element, `resolve`-style. */
 function fail(entity: Entity, message: string): void {
 	entity.remove(SyncRequest, PendingSync);
 	entity.add(SourceError);
@@ -215,13 +189,7 @@ function currentSync(entity: Entity, token: object): boolean {
 	return entity.isAlive() && entity.get(PendingSync)?.value === token;
 }
 
-/**
- * Whether anything in `scene`'s subtree (besides `except`, the requesting
- * element itself) is still waiting on a source: a request this system has
- * not consumed, or a resolution it started that has not landed. A pending
- * `syncTo` counts — the clip has a source but not yet the placement a
- * transcription would read it at.
- */
+/** A pending `syncTo` counts: the clip has a source but not yet the placement a transcription would read it at. */
 function hasPendingSources(world: World, scene: Entity, except: Entity): boolean {
 	for (const entity of getEntityTree(world, scene)) {
 		if (entity === except) continue;
@@ -232,13 +200,7 @@ function hasPendingSources(world: World, scene: Entity, except: Entity): boolean
 	return false;
 }
 
-/**
- * Tracks one started resolution: the entity remembers which one it is waiting
- * on (PendingSource), so of overlapping resolutions only the latest binds, and
- * one that outlives its element (or its src) is dropped. The wait itself is
- * the identity rather than what was asked for — the later question is always
- * the one being asked.
- */
+/** PendingSource remembers which resolution the entity waits on, so of overlapping ones only the latest binds, and one outliving its element (or src) is dropped. */
 function resolve(world: World, entity: Entity, promise: Promise<Asset>, generating = false): void {
 	const token = {};
 	entity.remove(SourceError);
@@ -299,7 +261,6 @@ async function bindDomImage(entity: Entity, asset: Asset, token: object): Promis
 	}
 }
 
-/** What a rejection says, for an entity to carry and the host to show. */
 function errorMessage(error: unknown): string {
 	const message = error instanceof Error ? error.message : String(error);
 	return message.trim() || 'Something went wrong';

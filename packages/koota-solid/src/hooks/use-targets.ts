@@ -22,7 +22,6 @@ export function useTargets<T extends Trait>(
 		const world = isWorld(currentTarget) ? currentTarget : contextWorld;
 		const entity = isWorld(currentTarget) ? currentTarget[$internal].worldEntity : currentTarget;
 
-		// Track current value for onRemove filter
 		let currentValue: Entity[] = [];
 
 		const update = (next: Entity[]) => {

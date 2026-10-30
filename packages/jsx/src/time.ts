@@ -7,11 +7,7 @@ import type { Time } from "./types";
 /** Frames per second of the canonical `Time` frame unit ("30f"). */
 export const TIME_FPS = 30;
 
-/**
- * Parses a `Time` value into seconds: plain numbers are seconds, "30f" is
- * frames at `TIME_FPS`, "MM:SS" / "HH:MM:SS" are clock strings. Values may be
- * negative. Returns undefined for anything unparsable.
- */
+/** Numbers are seconds, "30f" frames at `TIME_FPS`, "MM:SS" / "HH:MM:SS" clock strings; may be negative. Undefined if unparsable. */
 export function parseTime(value: Time | string | null | undefined): number | undefined {
   if (typeof value === "number") {
     return Number.isFinite(value) ? value : undefined;
@@ -22,12 +18,10 @@ export function parseTime(value: Time | string | null | undefined): number | und
     return undefined;
   }
 
-  // Frames, e.g. "-30f".
   if (/^-?\d+(?:\.\d+)?f$/i.test(str)) {
     return parseFloat(str) / TIME_FPS;
   }
 
-  // MM:SS or HH:MM:SS.
   if (str.includes(":")) {
     const negative = str.startsWith("-");
     const parts = str.replace(/^-/, "").split(":").map(Number);
@@ -48,7 +42,6 @@ export function parseTime(value: Time | string | null | undefined): number | und
     return negative ? -seconds : seconds;
   }
 
-  // Plain seconds (may be fractional).
   const seconds = parseFloat(str);
   return Number.isFinite(seconds) ? seconds : undefined;
 }

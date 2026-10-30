@@ -15,29 +15,18 @@ import type { AnimatableProperty } from '@plan.video/jsx';
 import type { Entity, World } from 'koota';
 import type { ProjectDocument, ProjectTick } from './host';
 
-/** Props that address or wire an element rather than describe it. */
 const UNAUTHORED_PROPS: ReadonlySet<string> = new Set([SOURCE_ATTR, LOOP_ATTR, 'children', 'ref']);
 
-/**
- * How long a single `hold` may keep an offline frame waiting. A project's
- * async work is its own, so a promise that never settles is a real
- * possibility, and an export that never finishes is worse than one that
- * misses a picture.
- */
+// A project's promise may never settle, and an export that never finishes is worse than one that misses a picture.
 const HOLD_TIMEOUT_MS = 30_000;
 
 export interface AuthoredElement {
-	/** The camelCase tag the project used. */
 	tag: string;
 	props: Record<string, unknown>;
-	/** The literal text of a `<text>`, when it holds any. */
 	text?: string;
 }
 
-/**
- * The element `entity` was rendered from, as a project would author it, or
- * undefined for an entity no document created (the stage included).
- */
+/** Undefined for an entity no document created (the stage included). */
 export function authoredElement(entity: Entity): AuthoredElement | undefined {
 	const node = entity.get(Host);
 	if (!node || !node.native || node.tag === '') return undefined;
@@ -46,17 +35,11 @@ export function authoredElement(entity: Entity): AuthoredElement | undefined {
 	return { tag: node.tag, props: { ...node.props }, ...(text ? { text } : {}) };
 }
 
-/** An authored element with the authored elements under it, in order. */
 export interface AuthoredTree extends AuthoredElement {
 	children: AuthoredTree[];
 }
 
-/**
- * The subtree `entity` was rendered from, as a project would author it:
- * `authoredElement` of it and, recursively, of every child of its that a
- * document created. Sub-entities the runtime derives (a recipe's paints) are
- * not elements and are left out; they come back with the recipe.
- */
+/** Sub-entities the runtime derives (a recipe's paints) are not elements and are left out. */
 export function authoredTree(world: World, entity: Entity): AuthoredTree | undefined {
 	const element = authoredElement(entity);
 	if (element === undefined) return undefined;
@@ -78,18 +61,11 @@ function isDomText(node: SceneNode | undefined): node is SceneNode & { readonly 
 	return typeof Text !== 'undefined' && node?.element instanceof Text;
 }
 
-/**
- * The text nodes among `node`'s children, in order; empty when it holds none.
- */
 function textParts(node: SceneNode): (SceneNode & { readonly element: Text })[] {
 	return node.children.filter(isDomText);
 }
 
-/**
- * Re-derives `Chars` from the text nodes `node` currently holds. Only a text
- * entity has any to read: anywhere else a text node is a placeholder the
- * renderer left behind and says nothing (see `insertNode`).
- */
+/** Only a text entity reads its text nodes; anywhere else a text node is a renderer placeholder (see `insertNode`). */
 function syncChars(node: SceneNode): void {
 	const { entity } = node;
 	if (!entity.isAlive() || !isText(entity)) return;
@@ -97,10 +73,6 @@ function syncChars(node: SceneNode): void {
 	entity.set(Chars, { value: textParts(node).map((part) => part.element.data).join('') });
 }
 
-/**
- * Takes `node` out of the children of whatever parent it has, and refreshes
- * that parent's text.
- */
 function detach(node: SceneNode): void {
 	const parent = node.parent;
 	if (parent === null) return;
@@ -141,7 +113,6 @@ export const TRANSITION_TYPES: Record<string, TransitionType> = {
 	iris: TransitionType.IRIS,
 };
 
-/** A transition's `direction`: which way what moves goes. */
 export const TRANSITION_DIRECTIONS: Record<string, TransitionDirection> = {
 	left: TransitionDirection.LEFT,
 	right: TransitionDirection.RIGHT,
@@ -149,7 +120,6 @@ export const TRANSITION_DIRECTIONS: Record<string, TransitionDirection> = {
 	down: TransitionDirection.DOWN,
 };
 
-/** A transition's `easing`: the curve it plays along. */
 export const TRANSITION_EASINGS: Record<string, TransitionEasing> = {
 	linear: TransitionEasing.LINEAR,
 	easeIn: TransitionEasing.EASE_IN,
@@ -157,7 +127,6 @@ export const TRANSITION_EASINGS: Record<string, TransitionEasing> = {
 	easeInOut: TransitionEasing.EASE_IN_OUT,
 };
 
-/** The canvas composite operations, spelled camelCase like the other enums. */
 export const BLEND_MODES: Record<string, BlendModeType> = {
 	sourceOver: BlendModeType.SOURCE_OVER,
 	multiply: BlendModeType.MULTIPLY,
@@ -177,10 +146,6 @@ export const BLEND_MODES: Record<string, BlendModeType> = {
 	luminosity: BlendModeType.LUMINOSITY,
 };
 
-/**
- * The `constrainX` values as the runtime's anchors: which edge of the scene's
- * frame the element is pinned to, or how it follows the frame instead.
- */
 export const HORIZONTAL_CONSTRAINTS: Record<string, ConstraintType> = {
 	left: ConstraintType.MIN,
 	right: ConstraintType.MAX,
@@ -189,7 +154,6 @@ export const HORIZONTAL_CONSTRAINTS: Record<string, ConstraintType> = {
 	scale: ConstraintType.SCALE,
 };
 
-/** The same for `constrainY`, whose near and far edges are top and bottom. */
 export const VERTICAL_CONSTRAINTS: Record<string, ConstraintType> = {
 	top: ConstraintType.MIN,
 	bottom: ConstraintType.MAX,
@@ -198,10 +162,7 @@ export const VERTICAL_CONSTRAINTS: Record<string, ConstraintType> = {
 	scale: ConstraintType.SCALE,
 };
 
-/**
- * A `<keyframeTrack>`'s `property` (a prop name) as the runtime's property
- * path. `width` depends on the holder: a stroke's is its line width.
- */
+/** `width` depends on the holder: a stroke's is its line width. */
 const TRACK_PROPERTIES: Record<string, PropertyPath> = {
 	x: 'position.x',
 	y: 'position.y',
@@ -227,44 +188,28 @@ const TRACK_PROPERTIES: Record<string, PropertyPath> = {
 	value: 'effect.value',
 };
 
-/**
- * The runtime property path a `<keyframeTrack property>` under `holder`
- * drives, or undefined for a name no track can take. `width` depends on the
- * holder: a stroke's is its line width.
- */
+/** Undefined for a name no track can take. */
 export function trackPropertyPath(holder: Entity | null, property: string): PropertyPath | undefined {
 	const path = TRACK_PROPERTIES[property];
 	if (path === 'width' && holder?.has(Stroke)) return 'stroke.width';
 	return path;
 }
 
-/**
- * The same the other way about: a path as the prop name it was written from.
- * `stroke.width` is not a name of its own — on a stroke it is `width`.
- */
+/** `stroke.width` is not a name of its own: on a stroke it is `width`. */
 const TRACK_PROPERTY_NAMES = {
 	...Object.fromEntries(Object.entries(TRACK_PROPERTIES).map(([property, path]) => [path, property])),
 	'stroke.width': 'width',
 } as Partial<Record<PropertyPath, AnimatableProperty>>;
 
-/**
- * The `<keyframeTrack property>` a track already in the world was written
- * from, or undefined for a path no track can be authored for. What a surface
- * holding a track (a timeline row, an inspector) needs to speak about it in
- * the file's own names.
- */
+/** Undefined for a path no track can be authored for. */
 export function trackProperty(path: string): AnimatableProperty | undefined {
 	return TRACK_PROPERTY_NAMES[path as PropertyPath];
 }
 
-/** The `<rect>` props of the per-corner radii, in the trait's (CSS) order. */
+/** In the trait's (CSS) order. */
 const CORNER_PROPS = ['cornerRadiusTopLeft', 'cornerRadiusTopRight', 'cornerRadiusBottomRight', 'cornerRadiusBottomLeft'] as const;
 
-/**
- * Named easings as the descriptors the runtime (and the editor's
- * interpolation inspector) speak; the descriptor forms pass through with
- * their whitespace dropped, linear is the empty string.
- */
+/** The descriptor forms pass through with their whitespace dropped; linear is the empty string. */
 export const EASINGS: Record<string, string> = {
 	linear: '',
 	easeIn: 'cubicBezier(0.42,0,1,1)',
@@ -376,10 +321,7 @@ const FONT_WEIGHTS: Record<string, string> = {
 	bold: '700',
 };
 
-// The authored props that overwrite a caption preset's base coat (its
-// TextStyle and its intrinsic `fill`). The `preset` handler re-runs them
-// after writing the preset's defaults: props are not applied in authored
-// order, so some may have landed before it.
+/** The `preset` handler re-runs these after writing the preset's defaults: props are not applied in authored order, so some may have landed before it. */
 const CAPTION_OVERRIDE_PROPS = [
 	'fontSize',
 	'fontFamily',
@@ -394,12 +336,6 @@ const CAPTION_OVERRIDE_PROPS = [
 ] as const;
 
 
-/**
- * A numeric prop's value, or undefined for none. A boolean is none, not 0
- * or 1: `false` is how an editor unsets a prop (the writer spells it as the
- * attribute's absence), and a number prop has no true.
- */
-/** Writes `cropX`/`cropY`/`cropWidth`/`cropHeight` as one trait, or drops it when none are set. */
 function syncMediaCrop(entity: Entity, node: SceneNode): void {
 	const { cropX, cropY, cropWidth, cropHeight } = node.props;
 	if (cropX === undefined && cropY === undefined && cropWidth === undefined && cropHeight === undefined) {
@@ -462,11 +398,9 @@ export class RuntimeDocument implements ProjectDocument<SceneNode> {
 	}
 
 	/**
-	 * The node of `entity`: the one object the document and the renderer both
-	 * hold for it (see `Host`), so `===` between two of them means what it
-	 * says. An entity the document never created is adopted here rather than
-	 * refused — it has no place in the tree yet, which is what an empty node
-	 * says — so an editor can hand any entity to `insertNode` or `setProperty`.
+	 * The one object the document and the renderer both hold for `entity`, so `===` means what it
+	 * says. An entity the document never created is adopted rather than refused, so an editor can
+	 * hand any entity to `insertNode` or `setProperty`.
 	 */
 	public node(entity: Entity): SceneNode {
 		const held = entity.get(Host);
@@ -487,7 +421,6 @@ export class RuntimeDocument implements ProjectDocument<SceneNode> {
 	}
 
 	public createElement(tag: string): SceneNode {
-		// camelCase composition tags are DOM elements.
 		if (tag.charAt(0) === tag.charAt(0).toLowerCase()) {
 			if (typeof document === 'undefined') {
 				throw new Error(`<${tag}> requires a DOM`);
@@ -805,12 +738,8 @@ export class RuntimeDocument implements ProjectDocument<SceneNode> {
 	}
 
 	/**
-	 * Replaces everything a `<text>` says. Its children rather than a prop, so
-	 * an editor changing it comes here instead of through `setProperty`. The
-	 * text nodes the reconciler holds keep their identity — the first says all
-	 * of it and the rest say nothing — so a render that later updates one of
-	 * them still lands where it did. An entity holding none (a text drawn on
-	 * the canvas, whose element is not written yet) gets `Chars` alone.
+	 * Its children rather than a prop. The reconciler's text nodes keep their identity (the first
+	 * says all of it, the rest say nothing), so a render that later updates one still lands where it did.
 	 */
 	public setText(entity: Entity, text: string): void {
 		const node = this.node(entity);
@@ -848,8 +777,6 @@ export class RuntimeDocument implements ProjectDocument<SceneNode> {
 			else node.props[name] = value;
 		}
 
-		// A grade's props are all its own: a look by name, the rest numbers,
-		// each back to neutral when unset.
 		if (entity.has(Grade) && Object.hasOwn(NEUTRAL_GRADE, name)) {
 			if (name === 'look') {
 				entity.set(Grade, { look: typeof value === 'string' && Object.hasOwn(GRADE_LOOKS, value) ? value : '' });
@@ -975,7 +902,6 @@ export class RuntimeDocument implements ProjectDocument<SceneNode> {
 			}
 			case 'flipX':
 			case 'flipY': {
-				// Mirrored when true; absent (or false) is the right way round.
 				if (entity.has(Sequential)) return;
 				entity.add(Flip);
 				entity.set(Flip, { [name === 'flipX' ? 'x' : 'y']: value === true ? -1 : 1 });
@@ -991,7 +917,6 @@ export class RuntimeDocument implements ProjectDocument<SceneNode> {
 				return;
 			}
 			case 'overflow': {
-				// A scene clips what it holds to its frame unless told to show it.
 				if (!entity.has(Scene)) return;
 				if (value === 'visible') entity.remove(ClipsContent);
 				else entity.add(ClipsContent);
@@ -1164,7 +1089,6 @@ export class RuntimeDocument implements ProjectDocument<SceneNode> {
 					}
 					return;
 				}
-				// The lock pins the authored bounds, and this is one of them.
 				if (node.props.keepAspectRatio === true) {
 					this.syncAspectLock(node);
 				}
@@ -1271,10 +1195,8 @@ export class RuntimeDocument implements ProjectDocument<SceneNode> {
 				return;
 			}
 			case 'frameRate': {
-				// Frames per second for a frames-directory source, which is the
-				// only thing that says how long it lasts. The world's own frame
-				// rate is the composition's and is not authored per element, so
-				// this name is free to mean the source's.
+				// The only thing that says how long a frames-directory source lasts. The world's frame rate is
+				// the composition's and is not authored per element, so this name is free to mean the source's.
 				const fps = toNumber(value);
 				if (fps === undefined || fps <= 0) {
 					entity.remove(SourceFrameRate);
@@ -1286,10 +1208,8 @@ export class RuntimeDocument implements ProjectDocument<SceneNode> {
 				return;
 			}
 			case 'src': {
-				// Generating goes with the wait it belongs to: the resolution
-				// running for the old src will not clear it, having been
-				// superseded by whatever this one starts. The error goes too,
-				// so undoing a failed generation shows the source it had.
+				// Generating goes too: the resolution running for the old src won't clear it once superseded.
+				// The error goes too, so undoing a failed generation shows the source it had.
 				entity.remove(GenerationRequest, LoadRequest, PendingSource, Generating, SourceError);
 
 				if (value === undefined || value === null || value === '' || value === false) {
@@ -1469,9 +1389,8 @@ export class RuntimeDocument implements ProjectDocument<SceneNode> {
 				const type = preset ?? CaptionType.CLASSIC;
 				entity.set(Caption, { type });
 
-				// The preset is the caption's base coat: write its styles and
-				// its intrinsic fill, then re-run the authored overrides that
-				// may already have been applied before this prop was.
+				// The preset is the caption's base coat; re-run the authored overrides that may already have
+				// been applied before this prop was.
 				entity.add(TextStyle);
 				entity.set(TextStyle, CAPTION_PRESET_STYLES[type]);
 				const fill = CAPTION_PRESET_FILLS[type];
@@ -1506,7 +1425,6 @@ export class RuntimeDocument implements ProjectDocument<SceneNode> {
 			case 'look': {
 				if (!entity.has(Caption)) return;
 				entity.set(Caption, { look: typeof value === 'string' && getTextLook(value) ? value : undefined });
-				// The coat is laid again from the preset up, with the look in it or not.
 				this.setProperty(node, 'preset', node.props.preset);
 				return;
 			}
@@ -1593,25 +1511,14 @@ export class RuntimeDocument implements ProjectDocument<SceneNode> {
 		}
 	}
 
-	/** Seconds as frames of this project. */
 	private toFrames(seconds: number): number {
 		return secondsToFrames(seconds, this.world.get(FrameRate)?.value ?? 30);
 	}
 
 	/**
-	 * Reconciles the authored time props (`start`/`end`/`sourceIn`/`sourceOut`,
-	 * the copy this node holds) into the runtime's own vocabulary, Delay and
-	 * Trim. Recomputed whole from the props on every one of them (and on
-	 * `playbackRate`, which scales the window), so the order Solid sets them in
-	 * does not matter.
-	 *
-	 * Delay places the node's local time 0 on its parent's timeline: the
-	 * authored start, pulled back by the stretch of source the trim skips
-	 * (`start - sourceIn/rate`), so the trimmed window opens at the start. The
-	 * trim is the source window; an authored end becomes source frames through
-	 * the rate, and whichever of it and sourceOut closes first wins. With no
-	 * out bound at all the trim stays open (`end: null`) and the runtime runs
-	 * the clip to its source's natural end.
+	 * Recomputed whole from every time prop (and `playbackRate`), so Solid's set order doesn't matter.
+	 * Delay = start - sourceIn/rate, so the trimmed window opens at the start; an end and sourceOut
+	 * both close the trim, first wins; with neither, `end: null` runs the clip to its natural end.
 	 */
 	private syncTiming(node: SceneNode): void {
 		const { entity, props } = node;
@@ -1650,25 +1557,16 @@ export class RuntimeDocument implements ProjectDocument<SceneNode> {
 		}
 	}
 
-	/**
-	 * Writes a track's runtime property path from its authored `property`,
-	 * against the entity holding it (a `width` track under a stroke drives the
-	 * line width). Called when the prop is set and again on insertion, since
-	 * Solid sets props before the track has a parent.
-	 */
+	/** Called when the prop is set and again on insertion, since Solid sets props before the track has a parent. */
 	private resolveTrackProperty(track: Entity, property: unknown): void {
 		const path = typeof property === 'string' ? trackPropertyPath(getParentEntity(track), property) : undefined;
 		track.set(KeyframeTrack, { property: path ?? '' });
 	}
 
 	/**
-	 * Derives `KeepAspectRatio` from the props as authored: the lock pins the
-	 * authored bounds, or stays empty when neither is authored so a resize
-	 * keeps the ratio the box currently has (see `lockedRatio` in the
-	 * runtime's resize action). Re-derived on `keepAspectRatio` and on either
-	 * bound, so the order Solid sets them in does not matter — never seeded
-	 * from the entity's current `Size`, which before the bounds apply is only
-	 * the element's default box.
+	 * Stays empty when neither bound is authored, so a resize keeps the box's current ratio. Never
+	 * seeded from the entity's current `Size`: before the bounds apply that is only the default box.
+	 * Re-derived on each of the props, so Solid's set order doesn't matter.
 	 */
 	private syncAspectLock(node: SceneNode): void {
 		const { entity, props } = node;
@@ -1684,12 +1582,7 @@ export class RuntimeDocument implements ProjectDocument<SceneNode> {
 		});
 	}
 
-	/**
-	 * Derives `MixedCornerRadius` from the five radius props as authored: it
-	 * is present while any corner has a radius of its own, and a corner
-	 * without one takes `cornerRadius`. Recomputed whole on every one of the
-	 * five, so the order Solid sets them in does not matter.
-	 */
+	/** Recomputed whole on every one of the five radius props, so the order Solid sets them in does not matter. */
 	private syncCornerRadii(node: SceneNode): void {
 		const { entity, props } = node;
 		const corners = CORNER_PROPS.map((name) => toNumber(props[name]));
@@ -1705,17 +1598,9 @@ export class RuntimeDocument implements ProjectDocument<SceneNode> {
 	}
 
 	/**
-	 * Puts `node` under `parent`, in front of `anchor` or last.
-	 *
-	 * `children` is written first — it is what the document answers from —
-	 * and the traits are derived from it: `ChildOf` for the parent, then
-	 * `ItemIndex` over the element children in the order they now sit in.
-	 *
-	 * A text node under a parent that is not a `<text>` is an inert
-	 * placeholder rather than an error: it is how the renderer marks the spot
-	 * a conditional or an emptied list left behind (`cleanChildren`), and the
-	 * next value takes its place. Only a `<text>` reads its text children back
-	 * out as `Chars`.
+	 * `children` is written first (the document answers from it), then `ChildOf` and `ItemIndex`.
+	 * A text node under a non-`<text>` parent is an inert placeholder the renderer leaves where a
+	 * conditional or emptied list was (`cleanChildren`); only a `<text>` reads them back as `Chars`.
 	 */
 	public insertNode(parent: SceneNode, node: SceneNode, anchor?: SceneNode): void {
 		if (isDomText(parent)) {
@@ -1820,11 +1705,7 @@ export class RuntimeDocument implements ProjectDocument<SceneNode> {
 		}
 	}
 
-	/**
-	 * Takes `node` out of the document. The parent it comes out of is the one
-	 * it has rather than the one the caller names: a move has already put it
-	 * in the new one by the time the renderer asks the old one to drop it.
-	 */
+	/** Uses the parent the node has, not the one the caller names: a move has already put it in the new one by the time the renderer asks the old one to drop it. */
 	public removeNode(_parent: SceneNode, node: SceneNode): void {
 		detach(node);
 
@@ -1852,11 +1733,8 @@ export class RuntimeDocument implements ProjectDocument<SceneNode> {
 		return this.ticker[0]();
 	}
 
-	// The rasterization density behind `useResolution`: device pixels per
-	// composition pixel, camera zoom excluded — a constant 1 in the live
-	// editor, the export scale offline. Read into a signal alongside
-	// the ticker, so an encoder that learns its scale only after the mount
-	// still propagates it before the first frame is sampled.
+	// Device pixels per composition pixel, camera zoom excluded: 1 in the live editor, the export
+	// scale offline. A signal so an encoder that learns its scale after the mount still propagates it.
 	private readonly resolutionSignal = createSignal(1);
 
 	public resolution(): number {
@@ -1872,20 +1750,9 @@ export class RuntimeDocument implements ProjectDocument<SceneNode> {
 	}
 
 	/**
-	 * The barrier behind `useTicker().hold`: a project's own async work, put
-	 * where the frames in flight wait for it — the same list the decoders push
-	 * their readiness onto, drained by `warmupAssets` before the first frame
-	 * and by the encoder before each one after it. Held during the mount, the
-	 * first frame waits for it; held during a tick, that frame does — hold on
-	 * every tick, as a decoder that is not ready does, for work that is not
-	 * done once.
-	 *
-	 * The list is null in realtime (nothing collects), so a live mount holds
-	 * nothing and pays nothing.
-	 *
-	 * Settled either way and bounded: the decoders' promises are the engine's
-	 * own, this one is a project's, and neither a rejection nor a promise that
-	 * never settles may take an export down with it.
+	 * Frames in flight wait for `work`, on the same list the decoders use. Null in realtime, so a live
+	 * mount holds nothing. Settled either way and bounded: a project's rejected or never-settling
+	 * promise must not take an export down with it.
 	 */
 	public hold(work: Promise<unknown>): void {
 		const promises = this.world.get(FramePromises)?.list;
@@ -1905,11 +1772,7 @@ export class RuntimeDocument implements ProjectDocument<SceneNode> {
 		);
 	}
 
-	/**
-	 * Reads the playhead into the ticker signal. Called by the playback system
-	 * once per tick (through the world's `Tickers` set — see `mount`), so
-	 * a project's memos re-run before motion and render look at the world.
-	 */
+	/** Called by the playback system once per tick (via the world's `Tickers`), so a project's memos re-run before motion and render look at the world. */
 	public advanceTicker(): void {
 		const target = this.tickTarget();
 		const computed = target?.get(Computed);
@@ -1925,12 +1788,7 @@ export class RuntimeDocument implements ProjectDocument<SceneNode> {
 		});
 	}
 
-	/**
-	 * The entity whose playhead the ticker reads: the nearest Playback carrier
-	 * at or above the active scene. Resolved per tick rather than cached — the
-	 * active scene changes with the view, and a capture world (which activates
-	 * nothing) answers with its one Playback root instead.
-	 */
+	/** Resolved per tick, not cached: the active scene changes with the view, and a capture world answers with its one Playback root. */
 	private tickTarget(): Entity | null {
 		let current = getActiveEntity(this.world);
 		while (current?.isAlive()) {
@@ -1968,20 +1826,14 @@ export class RuntimeDocument implements ProjectDocument<SceneNode> {
 			attempt(() => entity.destroy());
 		}
 
-		// The world is free for the next mount. A document already replaced by
-		// another leaves the registry as it found it.
+		// A document already replaced by another leaves the registry as it found it.
 		if (documents.get(this.world) === this) {
 			documents.delete(this.world);
 		}
 	}
 }
 
-/**
- * Prop assignment for real DOM nodes below an HTML paint. This mirrors the
- * useful, non-interactive part of Solid's DOM conventions: reactive styles,
- * classes, attributes and explicit HTML/text content. Pointer and media event
- * handlers are ignored because the subtree is rasterized into the canvas.
- */
+/** Event handlers are ignored because the subtree is rasterized into the canvas. */
 function setDomProperty(element: Element | null, name: string, value: unknown): void {
 	if (
 		typeof value === 'function'
@@ -2047,13 +1899,7 @@ export function getRuntimeDocument(world: World): RuntimeDocument {
 	return document;
 }
 
-/**
- * The world's runtime document, for the length of one mount. A world holds at
- * most one: the stage it renders into is a world singleton, so a second
- * document would append its project's entities alongside the first's, and the
- * ones already there would be reachable only through the earlier `Mount`.
- * Dispose the running mount before starting another.
- */
+/** A world holds at most one document (the stage is a world singleton): dispose the running mount before starting another. */
 export function createRuntimeDocument(world: World): RuntimeDocument {
 	if (documents.has(world)) {
 		throw new Error('This world already has a mounted project — dispose it before mounting another');

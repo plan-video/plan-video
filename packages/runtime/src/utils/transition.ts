@@ -12,12 +12,7 @@ import type { Entity, World } from 'koota';
 
 export type TransitionWindow = { start: number; end: number; midpointFrame: number };
 
-/**
- * Compute the transition window between two adjacent clips.
- *
- * The left clip carries the Transition trait (describing the transition into
- * its right neighbour).
- */
+/** The left clip carries the Transition trait. */
 export function getTransitionWindow(
 	world: World,
 	left: Entity,
@@ -38,7 +33,6 @@ export function getTransitionWindow(
 	return { start, end, midpointFrame };
 }
 
-/** The clips of `clip`'s parent when that parent plays them one after another, else null. */
 function sequenceSiblings(world: World, clip: Entity): readonly Entity[] | null {
 	const parent = getParentNode(clip);
 	if (parent === null || !parent.has(Sequential)) return null;
@@ -71,17 +65,12 @@ export function getIncomingTransition(world: World, clip: Entity): Entity | null
 }
 
 export type EdgeTransition = {
-	/** Which end of the clip is playing. */
 	edge: 'in' | 'out';
 	/** How much of the clip shows, 0 (gone) to 1 (all of it). */
 	shown: number;
 };
 
-/**
- * The transition `clip` plays on its own at `frame` (its parent's time): in
- * from its start or out to its end. Where the two windows overlap, the one
- * that shows less of the clip wins. Null when neither is playing.
- */
+/** Where the in and out windows overlap, the one that shows less of the clip wins. Null when neither is playing. */
 export function getEdgeTransition(world: World, clip: Entity, frame: number): EdgeTransition | null {
 	const computed = store(world, Computed);
 	const start = computed.start[clip.id()] ?? 0;

@@ -15,7 +15,6 @@ export const Project = trait({ id: '' });
 // Tag on the single stage entity every runtime world owns.
 export const Stage = trait();
 
-// World-level pointer to the stage entity
 export const Root = trait(() => null as Entity | null);
 
 /**
@@ -29,7 +28,6 @@ export type Camera2D = { a: number; b: number; c: number; d: number; e: number; 
 
 export const DEFAULT_BACKGROUND = 0x161616;
 
-// Stage background color, on the stage entity.
 export const Background = trait({ value: DEFAULT_BACKGROUND });
 
 // On the world: what a live preview shows for a stage left on the default
@@ -47,16 +45,11 @@ export type RuntimeMode = 'realtime' | 'offline-video' | 'offline-audio';
 
 export const Mode = trait({ value: 'realtime' as RuntimeMode });
 
-// On the world: nothing in this render is to be heard, so no audio decoder is
-// ever opened (a frame capture draws pictures and never mixes). A rendering
-// concern, kept apart from `Muted`, which is the composition's own — a clip
-// the project muted. What is silenced here is still audio the scene has.
+/** Nothing in this render is heard, so no audio decoder opens (frame capture). Kept apart from `Muted`, the composition's own. */
 export const Silent = trait();
 
-// Frame clock (was timestamp).
 export const Time = trait({ now: 0, delta: 0 });
 
-// Project frame rate (frames per second).
 export const FrameRate = trait({ value: 30 });
 
 // Render target injected by the host. Capture uses an HTML canvas too so HTML
@@ -67,10 +60,7 @@ export const RenderSurface = trait({
 	resolution: 1,
 });
 
-// Share of the surface's pixels a live preview draws the scene with, as After
-// Effects' Full, Half and Quarter resolution: 0.5 fills a quarter of the
-// pixels and stretches them back up, and video decodes into smaller frames.
-// Offline renders ignore it, so an export is always full resolution.
+/** Like After Effects' Full/Half/Quarter: 0.5 fills a quarter of the pixels and stretches them up. Offline renders ignore it. */
 export const PreviewQuality = trait({ value: 1 });
 
 // Audio output injected by the host: a realtime AudioContext in the editor,
@@ -79,24 +69,15 @@ export const AudioEngine = trait({
 	context: () => null as AudioContext | OfflineAudioContext | null,
 });
 
-// Fonts registered for text layout.
 export const Fonts = trait({ list: () => [] as FontSource[] });
 
-// The project's asset library, once the host has attached one (it needs the
-// project's file system): every asset an entity's AssetId can name, library
-// and transient alike. Null in a world without a project.
+/** Null in a world without a project. */
 export const Library = trait(() => null as AssetLibrary | null);
 
-// The generation service, once the host has attached one (it needs a
-// backend): what the asset system runs `generate.*` sources through, and
-// what `getAi(world).generate.image(...)` calls. Optional — in a world
-// without one, such sources stay pending and never resolve.
+/** Optional: without one, `generate.*` sources stay pending and never resolve. */
 export const Ai = trait(() => null as GenAi | null);
 
-// Per-tick callbacks. A mounted project adds one to feed its `useTicker`
-// clock; the playback system fires the set once per tick, after playheads
-// advance. Held on the world so anything that runs the systems (the editor
-// loop, the encoder) drives the mounts without knowing them.
+/** Fired by the playback system once per tick, after playheads advance, so whatever runs the systems drives the mounts without knowing them. */
 export const Tickers = trait(() => new Set<() => void>());
 
 // Async barrier for offline capture: systems push decoder/host readiness
@@ -130,12 +111,7 @@ export type PointerEventType =
 	| 'click'
 	| 'dblclick';
 
-/**
- * A pointer event in canvas device pixels (CSS pixels x resolution), which is
- * the space WorldTransform and the hit region quads are in. Not a DOM event:
- * the app's input layer distills one of these per DOM event, and adds the
- * gesture types (drag*, pointerenter/leave) the DOM has no equivalent for.
- */
+/** Canvas device pixels (CSS pixels × resolution), the space of WorldTransform and the hit quads. The app's input layer distills one per DOM event. */
 export type CanvasPointerEvent = {
 	type: PointerEventType;
 	clientX: number;
@@ -147,11 +123,7 @@ export type DispatchedPointerEvent = CanvasPointerEvent & {
 	target: EntityTarget | HudTarget;
 };
 
-// Paint-order hit regions collected during a render pass (topmost last). The
-// render system pushes callback-less entries for Interactive entities and the
-// stage canvas; the app's input system clears the list each frame, pushes its
-// HUD controls with handlers attached, and maps callback-less targets to its
-// default interaction handlers.
+/** Paint order, topmost last. The render system pushes callback-less entries; the app's input system clears them each frame and adds its HUD handlers. */
 export type HitRegion = {
 	target: EntityTarget | HudTarget;
 	callback?: (world: World, event: DispatchedPointerEvent) => void;

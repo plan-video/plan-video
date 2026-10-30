@@ -2,10 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Upkeep of the Interactive tag: which entities a pointer can hit. The render
-// system pushes a hit region for every Interactive entity it paints, so this
-// decides what clicking the canvas can reach, and drilling into a container
-// moves the tag down a level.
+// The render system pushes a hit region for every Interactive entity it paints, so this decides
+// what clicking the canvas can reach.
 
 import { Not, Or } from 'koota';
 
@@ -19,13 +17,7 @@ import { isPointerInEntity } from '../queries/interaction';
 import type { Entity, World } from 'koota';
 import type { Point } from '../math';
 
-/**
- * Re-derives the Interactive set from the document. A top-level scene passes
- * through to its children (its contents are what an editor works on), and so
- * does a sequence, which is a timing construct rather than a thing on the
- * canvas. Everything else is a clickable unit and exposes its children only
- * once entered (see `enterEntity`).
- */
+/** A top-level scene and a sequence pass through to their children; anything else exposes its children only once entered (see `enterEntity`). */
 export function syncInteractiveState(world: World): void {
 	for (const entity of world.query(Interactive)) {
 		entity.remove(Interactive);
@@ -62,12 +54,7 @@ export function findChildAt(world: World, parent: Entity, point: Point): Entity 
 	return null;
 }
 
-/**
- * Drills into `parent` at a device-pixel point: hands its children the
- * Interactive tag and returns the one under the pointer, or null when the
- * point hits none of them (in which case nothing changes). Selection is the
- * caller's to make, since only it knows how a selection is reported.
- */
+/** Null when the point hits no child, in which case nothing changes. Selection is the caller's to make. */
 export function enterEntity(world: World, parent: Entity, point: Point): Entity | null {
 	const child = findChildAt(world, parent, point);
 	if (child === null) return null;

@@ -2,9 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// What the host asks of a harness, and what every adapter has in common:
-// the question flow, the item ids, and the truncation of tool output.
-
 import { randomUUID } from "node:crypto";
 
 import type {
@@ -37,7 +34,6 @@ export type OpenOptions = {
   emit: Emit;
 };
 
-/** How a turn ended. The host turns it into `turn.completed`. */
 export type TurnOutcome = { status: TurnStatus; error?: string };
 
 export interface HarnessSession {
@@ -45,7 +41,6 @@ export interface HarnessSession {
   readonly resume: ResumeCursor;
   /** Runs one turn. Resolves when the turn has ended, whatever the outcome. */
   send(text: string, model: string, emit: Emit): Promise<TurnOutcome>;
-  /** Answers (or skips, or cancels) a pending question. */
   respond(requestId: string, response: RequestResponse): void;
   /** Ends the running turn. Resolves once `send` has. */
   interrupt(): Promise<void>;
@@ -75,11 +70,7 @@ export function truncateDetail(text: string | undefined): string | undefined {
 export const IMAGE_MAX = 512 * 1024;
 export const IMAGES_MAX = 8;
 
-/**
- * Splits a tool result's parts into the text shown and the images kept:
- * text parts join with newlines, images within the cap ride along, and
- * anything else (or an image over the cap) leaves a `[type]` marker.
- */
+/** Text parts join with newlines; images within the cap ride along; anything else (or an oversized image) leaves a `[type]` marker. */
 export function collectResult(parts: Array<{ type: string; text?: string; source?: unknown }>): { output?: string; images?: ToolImage[] } {
   const lines: string[] = [];
   const images: ToolImage[] = [];
@@ -109,7 +100,6 @@ export function newItemId(prefix: string): string {
   return `${prefix}-${randomUUID().slice(0, 12)}`;
 }
 
-/** A one-line summary of a tool's input, for the tool row. */
 export function summarizeInput(input: unknown): string | undefined {
   if (input === null || input === undefined) return undefined;
   if (typeof input === "string") return firstLine(input);
@@ -137,11 +127,7 @@ export function toolTitle(name: string): string {
   return mcp ? mcp[1]! : name;
 }
 
-/**
- * The question flow every adapter shares. `open` emits the request and
- * hands back a promise the host settles through `respond`; settling emits
- * `request.resolved` and records what was decided as a `question` item.
- */
+/** `open` emits the request; settling through `respond` emits `request.resolved` and records the decision as a `question` item. */
 export class QuestionBox {
   private readonly emit: Emit;
   private readonly open = new Map<string, { request: PendingRequest; resolve(response: RequestResponse): void }>();
@@ -187,7 +173,6 @@ export class QuestionBox {
   }
 }
 
-/** The instructions every chat appends, with the project folder filled in. */
 export function chatInstructions(cwd: string, custom?: string): string {
   const base =
     `You are running in plan.video's chat panel. The open project is at \`${cwd}\`. ` +

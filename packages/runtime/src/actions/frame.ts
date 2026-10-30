@@ -2,9 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Frame and scene actions (was api/frame.ts, plus switchActiveScene from
-// api/base.ts). The app reacts to Active changes (clearing timeline buffers,
-// rebuilding its index) through its own trait observer.
+// The app reacts to Active changes (timeline buffers, its index) through its own trait observer.
 
 import { Or } from 'koota';
 
@@ -25,16 +23,11 @@ import { resizeEntity } from './resize';
 
 import type { Entity, World } from 'koota';
 
-/** The entity carrying Active, or null. */
 export function getActiveEntity(world: World): Entity | null {
 	return world.queryFirst(Active) ?? null;
 }
 
-/**
- * Retarget the playhead/timeline entity (not undoable state). Uniqueness and
- * root-only are enforced by the Active observers; only the scene restriction
- * lives here, since it is the part that is going away.
- */
+/** Not undoable state. Uniqueness and root-only are enforced by the Active observers. */
 export function setActive(world: World, entity: Entity | null): void {
 	if (entity === null) {
 		getActiveEntity(world)?.remove(Active);
@@ -46,15 +39,7 @@ export function setActive(world: World, entity: Entity | null): void {
 	entity.add(Active);
 }
 
-/**
- * Wrap the current node selection in a new SCENE (a clipped, playable frame).
- * Mirrors `groupSelection`, but the wrapper is a Scene with its own fixed Size
- * derived from the selection's bounding box, plus the clipping/playback/fill a
- * scene needs. Already-existing scenes in the selection are skipped; scenes
- * can't be nested. Children's positions are rewritten into the scene's local
- * space so their on-canvas position is preserved. Returns the new scene's
- * entity, or null if there was nothing to frame.
- */
+/** Like `groupSelection`, but a Scene sized to the selection's box. Existing scenes are skipped (they can't nest); children keep their on-canvas position. */
 export function frameSelection(world: World): Entity | null {
 	const selection = [...world.query(Selected, Or(Geometry, Group))]
 		.filter(entity => !isScene(entity));
@@ -65,7 +50,6 @@ export function frameSelection(world: World): Entity | null {
 	const targetParent = getParentNode(selection[0]!);
 	const frameables = selection.filter(entity => getParentNode(entity) === targetParent);
 
-	// Bounding box of children in target-parent local space.
 	let minX = Infinity;
 	let minY = Infinity;
 	let maxX = -Infinity;
@@ -124,8 +108,6 @@ export function frameSelection(world: World): Entity | null {
 	for (const entity of world.query(Selected)) entity.remove(Selected);
 	scene.add(Selected);
 
-	// Make the freshly created frame the active scene (mirrors the scene tool),
-	// so the timeline retargets to it.
 	setActive(world, scene);
 
 	return scene;

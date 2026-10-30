@@ -20,10 +20,7 @@ export function clearKeyframeIndexCache() {
 	indexCache.clear();
 }
 
-/**
- * Returns the shared keyframe index for an asset, starting the walk on first
- * access. Cheap to call repeatedly — one index is built per asset, not per decoder.
- */
+/** One index per asset, not per decoder; the walk starts on first access. */
 export function getKeyframeIndex(assetId: string, track: InputVideoTrack): KeyframeIndex {
 	let index = indexCache.get(assetId);
 
@@ -35,11 +32,7 @@ export function getKeyframeIndex(assetId: string, track: InputVideoTrack): Keyfr
 	return index;
 }
 
-/**
- * Ascending presentation timestamps of every key packet in a video track, walked
- * ahead of time so seeking resolves its seed keyframe with a binary search
- * instead of a container lookup.
- */
+/** Walked ahead of time so a seek finds its seed keyframe by binary search instead of a container lookup. */
 export class KeyframeIndex {
 	private timestamps: number[] = [];
 	private complete = false;

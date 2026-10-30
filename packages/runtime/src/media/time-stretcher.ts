@@ -3,12 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 
-/**
- * Utility class for performing time stretching on a multi-channel audio signal. The input audio will be stretched by
- * a configurable factor without changing its pitch.
- *
- * Internally, this uses a WSOLA-like algorithm.
- */
+/** Stretches multi-channel audio by `factor` without changing its pitch (WSOLA-like). */
 export class TimeStretcher {
 	factor: number; // This value can be changed at runtime
 
@@ -136,7 +131,6 @@ export class TimeStretcher {
 				k += adaptiveStep;
 			}
 
-			// Fine-tuning phase
 			const fineRange = 8;
 			for (k = bestOffset - fineRange; k <= bestOffset + fineRange; k++) {
 				if (k >= -this.tolerance && k <= maxPositiveOffset) {
@@ -168,7 +162,6 @@ export class TimeStretcher {
 			throw new Error('Cannot append more buffers after calling finalize.');
 		}
 
-		// Fast path: when factor is 1, pass through directly without any processing
 		if (this.factor === 1) {
 			this.hasDoneOutput = true;
 			return newBuffers;
@@ -224,7 +217,6 @@ export class TimeStretcher {
 			this.synthesizeSegment(i, this.windowSize, inputStartPos);
 		}
 
-		// Shift all input buffers
 		for (let chan = 0; chan < this.numberOfChannels; chan++) {
 			const inputBuffer = this.buffers[chan];
 			inputBuffer.set(inputBuffer.subarray(inputShiftAmount, this.bufferEndIndex), 0);
@@ -239,7 +231,6 @@ export class TimeStretcher {
 	public finalize(): Float32Array[] | null {
 		this.finalized = true;
 
-		// Fast path: when factor is 1, nothing is buffered
 		if (this.factor === 1) {
 			return null;
 		}

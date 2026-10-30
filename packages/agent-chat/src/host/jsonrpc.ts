@@ -2,9 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// JSON-RPC 2.0 over a child's stdio, one message per line: what `codex
-// app-server` speaks. Both directions carry requests, so the peer answers
-// the child's (approvals, questions) as well as asking its own.
+// One message per line. Both directions carry requests: the peer answers the child's (approvals,
+// questions) as well as asking its own.
 
 import type { ChildProcess } from "node:child_process";
 

@@ -2,9 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The browser side of getting files into and out of a library: pickers,
-// drops, and the save dialog. Nothing here talks to the user; a failure is
-// thrown or returned for the host to report.
+// Nothing here talks to the user: a failure is thrown or returned for the host to report.
 
 import { assetName } from './types';
 
@@ -24,7 +22,6 @@ export function pickFiles(options: { multiple?: boolean; accept?: string } = {})
 	});
 }
 
-/** The files of a drop, when it carried any from outside the page. */
 export function droppedFiles(event: DragEvent): File[] {
 	return Array.from(event.dataTransfer?.items ?? [])
 		.filter((item) => item.kind === 'file')
@@ -33,15 +30,10 @@ export function droppedFiles(event: DragEvent): File[] {
 }
 
 export interface ImportReport extends ImportResult {
-	/** Files the host could not name by path, so nothing could be linked. */
 	unnamed: File[];
 }
 
-/**
- * Takes files into the library at `folder`. A file the host can place on disk
- * is linked there; a browser upload has no path, so its bytes are copied into
- * the project. Every file is tried; the report says what happened to each.
- */
+/** A file the host can place on disk is linked; a browser upload has no path, so its bytes are copied into the project. */
 export async function importFiles(library: AssetLibrary, files: ReadonlyArray<File>, folder: string): Promise<ImportReport> {
 	const unnamed: File[] = [];
 	const paths: string[] = [];
@@ -55,7 +47,6 @@ export async function importFiles(library: AssetLibrary, files: ReadonlyArray<Fi
 			continue;
 		}
 		// A browser file picker hands over bytes, not a location on disk.
-		// Copy them into the project so the library can name them.
 		if (!file.name) {
 			unnamed.push(file);
 			continue;

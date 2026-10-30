@@ -2,12 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// A colour grade as one SVG filter, which the canvas applies to every draw it
-// makes for the graded node: a colour matrix (saturation), then a table per
-// channel (white balance, exposure, the tone sliders and the three wheels,
-// each of which acts on one channel at a time). Both work pixel by pixel, so
-// a scene's grade applied to each of its draws is the grade of the finished
-// frame, bar where soft edges overlap.
+// A grade is one SVG filter: a colour matrix (saturation), then a table per channel. Both work pixel
+// by pixel, so a scene's grade applied to each of its draws is the grade of the finished frame.
 
 import { store } from '../world/store';
 import { Cache, Grade, Hidden } from '../traits';
@@ -30,10 +26,8 @@ type WheelProps = {
 	[W in GradeWheel as `${W}Hue` | `${W}Amount` | `${W}Level`]: number;
 };
 
-/** What a grade adjusts, as numbers: the sliders and the wheels. */
 export type GradeAdjustments = Record<GradeSlider, number> & WheelProps;
 
-/** Everything a `<grade>` says. */
 export type GradeValues = GradeAdjustments & {
 	/** One of GRADE_LOOKS, or '' for none. */
 	look: string;
@@ -53,10 +47,7 @@ export const NEUTRAL_GRADE: GradeValues = { ...NEUTRAL_ADJUSTMENTS, look: '', lo
 
 export const GRADE_KEYS = Object.keys(NEUTRAL_GRADE) as (keyof GradeValues)[];
 
-/**
- * The looks a grade can lay under its sliders, each a set of adjustments
- * scaled by `lookAmount`. In the order the picker shows them.
- */
+/** Each scaled by `lookAmount`, in the order the picker shows them. */
 export const GRADE_LOOKS: Record<string, Partial<GradeAdjustments>> = {
 	warm: { temperature: 35, tint: 4, saturation: 8 },
 	cool: { temperature: -35, tint: -4, saturation: -4 },
@@ -71,10 +62,7 @@ export const GRADE_LOOKS: Record<string, Partial<GradeAdjustments>> = {
 	noir: { saturation: -100, contrast: 38, blacks: -16, highlights: 10 },
 };
 
-/**
- * The grade under `entity`, or null without one: the last `<grade>` child
- * that is not hidden.
- */
+/** The last `<grade>` child that is not hidden. */
 export function readGrade(world: World, entity: Entity): GradeValues | null {
 	if (!entity.has(Cache)) return null;
 	const grades = store(world, Cache).grades[entity.id()];
@@ -89,10 +77,7 @@ export function readGrade(world: World, entity: Entity): GradeValues | null {
 
 const toRadians = (degrees: number) => degrees * Math.PI / 180;
 
-/**
- * The adjustments a grade comes to: its own sliders with its look laid under
- * them. Sliders and levels add up; wheels add as the colour vectors they are.
- */
+/** Sliders and levels add up; wheels add as the colour vectors they are. */
 export function effectiveGrade(values: GradeValues): GradeAdjustments {
 	const look = GRADE_LOOKS[values.look];
 	const share = look ? Math.max(0, values.lookAmount) / 100 : 0;
@@ -227,7 +212,6 @@ function saturationMatrix(saturation: number): number[] {
 	];
 }
 
-/** What an SVG filter needs to draw a grade: the matrix and the three tables. */
 export type GradePrimitives = {
 	matrix: string;
 	red: string;
@@ -324,7 +308,6 @@ export function gradeFilterUrl(values: GradeValues): string | null {
 	return `url(#${filter.id})`;
 }
 
-/** The CSS filter of the grade under `entity`, or null if it has none to apply. */
 export function gradeFilter(world: World, entity: Entity): string | null {
 	const values = readGrade(world, entity);
 	return values ? gradeFilterUrl(values) : null;

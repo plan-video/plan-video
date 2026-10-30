@@ -22,13 +22,7 @@ import { createEntity } from '../actions/entities';
 import type { Entity, World } from 'koota';
 import type { GradeValues } from '../utils/grade';
 
-/**
- * Plain-object snapshot of one entity's traits. Used to clone entity
- * subtrees in-memory (copy/paste, duplicate, split-on-overlap) via
- * serialize -> deserialize onto fresh entities. Not a persisted format —
- * no storage or backward-compatibility guarantees; persistence is a
- * separate, not-yet-built app-side concern.
- */
+/** For in-memory subtree clones (copy/paste, duplicate, split-on-overlap). Not a persisted format: no storage or backward-compatibility guarantees. */
 export interface EntityRecord {
 	id: string;
 	eid: number;
@@ -724,14 +718,7 @@ export function cloneFromRecords(world: World, records: EntityRecord[]) {
 	return eidMap;
 }
 
-/**
- * Strips mount identity from records so a *same-world* copy doesn't collide
- * with the original mount's id; adopt would otherwise bind two entities to one
- * `MountPath`. A duplicated/pasted mount becomes plain static entities: its
- * runtime hosts won't re-run (a documented limitation; re-mount to re-animate).
- * The export/capture clone (`cloneFromRecords` directly) keeps identity so it
- * can adopt.
- */
+/** So a same-world copy doesn't bind two entities to one `MountPath`; the copy becomes static (re-mount to re-animate). The export/capture clone keeps identity to adopt. */
 export function stripMountIdentity(records: EntityRecord[]): EntityRecord[] {
 	return records.map(({ MountScript: _script, MountPath: _path, ...rest }) => rest);
 }

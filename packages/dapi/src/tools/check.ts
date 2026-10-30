@@ -15,10 +15,7 @@ export const CheckIssueCode = z.enum([
   "source-error",
 ]);
 
-/**
- * One structural finding. `ranges` (where present) are seconds relative to
- * the checked node's start — the same clock `capture` positions use.
- */
+/** `ranges` are seconds relative to the checked node's start, the clock `capture` positions use. */
 export const CheckIssue = z.object({
   code: CheckIssueCode,
   severity: z.enum(["error", "warning"]),

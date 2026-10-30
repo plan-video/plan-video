@@ -22,8 +22,6 @@ const WIDTH = 700;
 const HEIGHT = 100;
 const HIGHLIGHT_COLOR = 0x24D5FF;
 
-// The preset's base TextStyle; the document writes it and authored style
-// props overwrite it (see CAPTION_PRESET_STYLES).
 export const SPOTLIGHT_TEXT_STYLE = {
 	fontFamily: 'Montserrat',
 	fontWeight: '800',
@@ -56,12 +54,10 @@ export class SpotlightCaptionDecoder implements CaptionDecoder {
 		this.loaded = this.load();
 	}
 
-	/** Re-reads the transcript after its words change. */
 	public reload(): Promise<void> {
 		return this.load();
 	}
 
-	/** Groups the words again for new `words`, `chars` or `linger`. */
 	public repace(pacing: CaptionPacing): Promise<void> {
 		this.pacing = pacing;
 		return this.load();

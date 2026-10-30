@@ -13,11 +13,7 @@ function parseTimestamp(raw: string): number {
     .reduce((acc, part) => acc * 60 + Number(part), 0);
 }
 
-/**
- * Parses SRT or WebVTT text into a `Transcript`. Each cue becomes one segment
- * (a sentence boundary for grouping). Cues carry no word timings, so each
- * word's window is synthesized proportional to its length within the cue.
- */
+/** Each cue becomes one segment. Cues carry no word timings, so each word's window is synthesized in proportion to its length. */
 export function parseSubtitles(text: string): Transcript {
   const transcript: Transcript = [];
   const blocks = text.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n').split(/\n{2,}/);

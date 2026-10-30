@@ -2,10 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// PNG in and out of a canvas, as bytes. Transports decide how bytes travel
-// (base64 on a JSON wire, structured clone over IPC, a file on disk); nothing
-// in the render path should have to know.
-
 export async function encodePng(canvas: HTMLCanvasElement | OffscreenCanvas): Promise<Uint8Array> {
 	const blob =
 		canvas instanceof OffscreenCanvas

@@ -2,17 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/**
- * Declarative assets. A `generate.*` call makes an asset from a prompt; a
- * `transform.*` call makes one from an asset. Both are pure: they validate
- * their arguments and return an `AssetRef` value that can be passed wherever
- * a source is expected (`src`, `startFrame`, `endFrame`, `refs`, a
- * transform's input). Nothing runs until the mounted tree commits; refs
- * never used by a mounted element are dropped. Because dependencies are
- * values (not string ids), reference cycles are impossible by construction,
- * and the order of a chain is its nesting:
- * `transform.upscale(transform.removeBackground(generate.image({ prompt })))`.
- */
+// `generate.*` makes an asset from a prompt and `transform.*` one from an asset. Both are pure and
+// return an `AssetRef`; nothing runs until the mounted tree commits, and refs never used are dropped.
 
 export type AspectRatio = "1:1" | "4:3" | "3:4" | "16:9" | "9:16";
 
@@ -43,7 +34,6 @@ export type GenerateVideoOptions = {
 };
 
 export type GenerateVoiceOptions = {
-  /** The text to speak. */
   prompt: string;
   /** Voice id; default the first voice from `dapi voices`. */
   voice?: string;
@@ -57,20 +47,16 @@ export type GenerateAudioOptions = {
   seed?: number;
 };
 
-/** What a `generate.*` call declares: an asset made from a prompt. */
 export type GenerateSpec =
   | ({ type: "image" } & GenerateImageOptions)
   | ({ type: "video" } & GenerateVideoOptions)
   | ({ type: "voice" } & GenerateVoiceOptions)
   | ({ type: "audio" } & GenerateAudioOptions);
 
-/** What a `transform.*` call declares: an asset made from another. */
 export type TransformSpec =
   /** The input at twice the pixels; a picture or footage. */
   | { type: "upscale"; input: AssetInput }
-  /** The subject of a picture cut out, the rest transparent. */
   | { type: "removeBackground"; input: AssetInput }
-  /** Footage scored with a generated soundtrack. */
   | { type: "addAudio"; input: AssetInput };
 
 export type TransformType = TransformSpec["type"];
@@ -80,7 +66,6 @@ export type AssetSpecInput = GenerateSpec | TransformSpec;
 const GENERATE_TYPES: readonly string[] = ["image", "video", "voice", "audio"];
 const TRANSFORM_TYPES: readonly string[] = ["upscale", "removeBackground", "addAudio"];
 
-/** Whether a spec type is a transform's, as opposed to a generation's. */
 export function isTransformType(type: string): type is TransformType {
   return TRANSFORM_TYPES.includes(type);
 }
@@ -89,11 +74,7 @@ export function isTransformSpec(spec: AssetSpecInput): spec is TransformSpec {
   return isTransformType(spec.type);
 }
 
-/**
- * Opaque handle to a declared (not-yet-made) asset. Obtained from
- * `generate.*` or `transform.*`; consumed by `src`, `startFrame`, `endFrame`,
- * `refs`, and a transform's input.
- */
+/** Opaque handle to a declared (not-yet-made) asset, from `generate.*` or `transform.*`. */
 export class AssetRef {
   /** @internal — read via `getAssetSpec`. */
   readonly spec: AssetSpecInput;
@@ -108,7 +89,6 @@ export function isAssetRef(value: unknown): value is AssetRef {
   return value instanceof AssetRef;
 }
 
-/** Host-side accessor for a declaration's spec. */
 export function getAssetSpec(ref: AssetRef): AssetSpecInput {
   return ref.spec;
 }
@@ -128,11 +108,7 @@ export function getAssetInputs(spec: AssetSpecInput): AssetInput[] {
   }
 }
 
-/**
- * `ref` with each of its direct inputs replaced by what `map` makes of it.
- * Direct only: a caller that wants the whole chain recurses through the refs
- * `map` is handed. A ref none of whose inputs change is returned as it is.
- */
+/** Replaces direct inputs only (a caller wanting the whole chain recurses); returns `ref` itself when none change. */
 export function mapAssetInputs(ref: AssetRef, map: (input: AssetInput) => AssetInput): AssetRef {
   const spec = ref.spec;
   let changed = false;
@@ -163,13 +139,8 @@ export function mapAssetInputs(ref: AssetRef, map: (input: AssetInput) => AssetI
   return changed ? new AssetRef(next) : ref;
 }
 
-// ---------------------------------------------------------------------------
-// The wire form
-
-/** An input as data: a source string, or a declaration serialized in turn. */
 export type SerializedAssetInput = string | SerializedAssetRef;
 
-/** A spec as data: the same fields, with every declared input serialized. */
 export type SerializedAssetSpec =
   | ({ type: "image"; refs?: SerializedAssetInput[] } & Omit<GenerateImageOptions, "refs">)
   | ({ type: "video"; startFrame?: SerializedAssetInput; endFrame?: SerializedAssetInput } & Omit<GenerateVideoOptions, "startFrame" | "endFrame">)
@@ -177,14 +148,7 @@ export type SerializedAssetSpec =
   | ({ type: "audio" } & GenerateAudioOptions)
   | { type: TransformType; input: SerializedAssetInput };
 
-/**
- * A declaration as data, for the edit protocol. An `AssetRef` itself cannot
- * travel as a prop value (see `isPropValue`: an object literal would not read
- * back as one), so an edit carries the spec in this tagged shape instead, and
- * the source writer spells it as the call that reproduces it — inputs
- * included, so a transform over a declaration travels as the nested call it
- * is.
- */
+/** An `AssetRef` can't travel as a prop value (see `isPropValue`), so an edit carries its spec in this tagged shape, inputs included. */
 export interface SerializedAssetRef {
   $asset: SerializedAssetSpec;
 }
@@ -213,7 +177,6 @@ export function isSerializedAssetRef(value: unknown): value is SerializedAssetRe
   return isSerializedSpec((value as SerializedAssetRef).$asset);
 }
 
-/** The declaration `serializeAssetRef` wrote, as an `AssetRef` again. */
 export function reviveAssetRef(value: SerializedAssetRef): AssetRef {
   return new AssetRef(reviveSpec(value.$asset));
 }
@@ -263,9 +226,6 @@ function isSerializedSpec(spec: unknown): spec is SerializedAssetSpec {
   if (record.endFrame !== undefined && !isSerializedInput(record.endFrame)) return false;
   return true;
 }
-
-// ---------------------------------------------------------------------------
-// The declarations
 
 function requirePrompt(value: unknown, call: string): string {
   if (typeof value !== "string" || value.trim().length === 0) {
@@ -318,12 +278,7 @@ export const generate = {
   },
 };
 
-/**
- * Assets made from assets. Each takes what it works on as its argument — a
- * source string or another declaration — so a chain reads inside out, and
- * runs in that order. The result is cached by step and input like any
- * generation: the same call on the same asset is the same asset.
- */
+/** A chain reads inside out and runs in that order; cached by step and input, so the same call on the same asset is the same asset. */
 export const transform = {
   /** `input` at twice the pixels. A picture or footage; the box it is shown in is unchanged. */
   upscale(input: AssetInput): AssetRef {

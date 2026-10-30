@@ -2,13 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// A harness that needs no binary: for the tests and for developing the UI
-// without spending tokens. It is never offered to users. What it does is
-// driven by the prompt:
-//   "ask …"    opens a question and echoes the answer
-//   "fail …"   ends the turn in failure
-//   "slow …"   streams for a while (interruptible)
-//   anything   echoes the prompt back as a reply, with a tool call in between
+// Needs no binary: for tests and UI work without spending tokens; never offered to users. A prompt
+// starting "ask" opens a question, "fail" fails the turn, "slow" streams; anything else echoes.
 
 import { QuestionBox, newItemId } from "./harness";
 
@@ -18,7 +13,6 @@ import type { Emit, Harness, HarnessSession, OpenOptions, ResumeCursor, TurnOutc
 export type FakeOptions = {
   /** Milliseconds between deltas. */
   tickMs?: number;
-  /** Words a "slow" reply streams. */
   slowWords?: number;
 };
 

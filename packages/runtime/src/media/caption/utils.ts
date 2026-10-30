@@ -28,23 +28,15 @@ export type GroupByOptions = {
 	words?: number;
 };
 
-/**
- * How a caption paces its words, as `<captions words chars linger>` author
- * it. What is left unset is the preset's own.
- */
+/** What is left unset is the preset's own. */
 export type CaptionPacing = {
-	/** Most words on screen at once. */
 	words?: number;
-	/** Most characters on screen at once, not counting spaces. */
 	chars?: number;
-	/** Seconds the words stay after the last of them is said. */
 	linger?: number;
 };
 
-/** Whether `pacing` changes how words are grouped, rather than leaving it to the preset. */
 const groupsOwn = (pacing: CaptionPacing): boolean => pacing.words !== undefined || pacing.chars !== undefined;
 
-/** The groups a preset shows: the author's words and chars when set, else the preset's own breaks. */
 export function paceGroups(transcript: Transcript, pacing: CaptionPacing, preset: GroupByOptions): WordGroup[] {
 	return groupBy(transcript, groupsOwn(pacing) ? { words: pacing.words, length: pacing.chars } : preset);
 }
@@ -67,12 +59,7 @@ const ENDING_PUNCTUATION = ['.', '!', '?', ',', ';'];
 /** A gap this long is a pause, not a breath inside a phrase. */
 const PAUSE_SECONDS = 0.35;
 
-/**
- * How long a word or line stays after its voice stops, so a breath before
- * the next word does not blink the caption off. Word ends sit where the
- * voice stops, so this is also the time to finish reading. A longer pause
- * still clears it.
- */
+/** So a breath before the next word doesn't blink the caption off; a longer pause still clears it. */
 const LINGER_SECONDS = 0.3;
 
 /**
@@ -83,7 +70,6 @@ export function spokenWord(groups: WordGroup[], time: number): string {
 	return spokenWordAt(groups, time)?.text ?? '';
 }
 
-/** The word `spokenWord` shows, itself, so its style can come with it. */
 export function spokenWordAt(groups: WordGroup[], time: number, linger = LINGER_SECONDS): TranscriptWord | null {
 	let spoken: TranscriptWord | null = null;
 	for (const group of groups) {
@@ -107,7 +93,6 @@ const NO_LAYER: Partial<Record<typeof WORD_LAYERS[number], Omit<EntityRecord, 'i
 	shadows: { Shadow: {}, Color: 0, Hidden: true },
 };
 
-/** Whether a word has any look of its own. */
 export function isStyledWord(style: TranscriptWordStyle | undefined): style is TranscriptWordStyle {
 	if (!style) return false;
 	return (style.text !== undefined && Object.keys(style.text).length > 0)
@@ -120,11 +105,7 @@ export function isStyledWord(style: TranscriptWordStyle | undefined): style is T
 		|| WORD_LAYERS.some(kind => style[kind] !== undefined);
 }
 
-/**
- * The records of a word's range: the range itself (eid 0, its typography,
- * glyph color and compositing) and every paint, effect and animation under
- * it, numbered apart.
- */
+/** The range itself is eid 0; every paint, effect and animation under it is numbered apart. */
 export function wordStyleRecords(style: TranscriptWordStyle): EntityRecord[] {
 	const records: EntityRecord[] = [{
 		id: '0',
@@ -279,10 +260,7 @@ export function clearTextRanges(world: World, parent: Entity) {
 	}
 }
 
-/**
- * Split a word group into two halves at the nearest word boundary
- * to the midpoint of the joined text. Used by paper and guinea presets.
- */
+/** Splits at the word boundary nearest the midpoint of the joined text. */
 export function splitSequence(sequence: WordGroup): [WordGroup, WordGroup] {
 	const text = sequence.map(w => w.text).join(' ');
 	const midPoint = Math.ceil(text.length / 2);
@@ -312,26 +290,17 @@ export function splitSequence(sequence: WordGroup): [WordGroup, WordGroup] {
 // branches in actions/timing.ts).
 const transcriptDurations = new Map<string, number>();
 
-/**
- * How long the transcript runs, in seconds: its last word's end. Null until
- * `primeTranscriptDuration` has read the asset, and null for a transcript
- * with no words — a caption without one takes its span from its parent
- * instead.
- */
+/** Its last word's end; null until `primeTranscriptDuration` has read the asset, and for a transcript with no words. */
 export function getTranscriptDuration(asset: Asset): number | null {
 	const duration = transcriptDurations.get(asset.id);
 	return duration === undefined || duration <= 0 ? null : duration;
 }
 
-/** Replaces the cached transcript length after its words are edited. */
 export function setTranscriptDuration(asset: Asset, seconds: number): void {
 	transcriptDurations.set(asset.id, seconds);
 }
 
-/**
- * Reads the transcript and caches its length, so `getTranscriptDuration` can
- * answer synchronously from then on.
- */
+/** So `getTranscriptDuration` can answer synchronously from then on. */
 export async function primeTranscriptDuration(asset: Asset): Promise<void> {
 	if (transcriptDurations.has(asset.id)) return;
 
@@ -345,9 +314,6 @@ export async function primeTranscriptDuration(asset: Asset): Promise<void> {
 	transcriptDurations.set(asset.id, end);
 }
 
-/**
- * Resolve a transcript from any asset type that can carry one.
- */
 export async function resolveTranscript(asset: Asset): Promise<Transcript> {
 	if (asset.type === 'TRANSCRIPT') {
 		const file = await getAssetFile(asset);

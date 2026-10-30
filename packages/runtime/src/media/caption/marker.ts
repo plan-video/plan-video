@@ -19,7 +19,6 @@ export const MARKER_COLOR = 0x4ADE80;
 const MARKER_OPACITY = 0.9;
 const SWEEP_SECONDS = 0.2;
 
-// White words, a highlighter drawn behind the one being said.
 export const MARKER_TEXT_STYLE = {
 	fontFamily: 'Montserrat',
 	fontWeight: '800',
@@ -55,7 +54,6 @@ export class MarkerCaptionDecoder extends LineCaptionDecoder {
 
 	protected markSpoken(): void {}
 
-	/** The stroke, drawn left to right over the lower part of the word as it is said. */
 	protected underlay(_world: World, entity: Entity, ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D, lines: readonly Token[][]): void {
 		if (!this.spoken) return;
 		const bounds = textRangeBounds(lines, this.spoken);

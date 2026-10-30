@@ -4,14 +4,9 @@
 
 import { deriveWaveform, downsamplePeaks } from './waveform';
 
-/** How many bars a rough waveform has. */
 export const PEAK_BARS = 128;
 
-/**
- * The rough waveform of `file`: a fixed number of bars, each the peak
- * amplitude of its slice of the file, or null when it has no audio. The full
- * waveform cut down — a file is decoded at one resolution and read at any.
- */
+/** Cut down from the full waveform: a file is decoded at one resolution and read at any. */
 export async function derivePeaks(file: Blob, bars = PEAK_BARS): Promise<Uint8ClampedArray | null> {
 	const waveform = await deriveWaveform(file);
 	return waveform && downsamplePeaks(waveform, bars);

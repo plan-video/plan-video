@@ -19,8 +19,6 @@ import type { CaptionDecoder, CaptionPresetStyle } from './types';
 export const CLASSIC_PRESET_WIDTH = 600;
 export const CLASSIC_PRESET_HEIGHT = 100;
 
-// The preset's base TextStyle; the document writes it and authored style
-// props overwrite it (see CAPTION_PRESET_STYLES).
 export const CLASSIC_TEXT_STYLE = {
 	fontFamily: 'Urbanist',
 	fontWeight: '600',
@@ -52,12 +50,10 @@ export class ClassicCaptionDecoder implements CaptionDecoder {
 		this.loaded = this.load();
 	}
 
-	/** Re-reads the transcript after its words change. */
 	public reload(): Promise<void> {
 		return this.load();
 	}
 
-	/** Groups the words again for new `words`, `chars` or `linger`. */
 	public repace(pacing: CaptionPacing): Promise<void> {
 		this.pacing = pacing;
 		return this.load();

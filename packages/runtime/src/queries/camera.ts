@@ -2,10 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Camera read path. The Camera trait on the stage is the viewport
-// transform: it maps document space to canvas CSS pixels, and the render and
-// transform systems scale it by RenderSurface.resolution to reach device
-// pixels (getViewMatrix). Writes live in actions/camera.ts.
+// The Camera trait maps document space to canvas CSS pixels; render and transform scale it by
+// RenderSurface.resolution to reach device pixels (getViewMatrix). Writes live in actions/camera.ts.
 
 import { Or } from 'koota';
 
@@ -22,7 +20,7 @@ const MIN_DETERMINANT = 1e-12;
 
 export type Viewport = { width: number; height: number };
 
-/** Current camera matrix. Read-only — write it through actions/camera.ts. */
+/** Read-only: write it through actions/camera.ts. */
 export function getCamera(world: World): Camera2D {
 	return world.get(Root)!.get(Camera)!;
 }
@@ -33,12 +31,7 @@ export function getCameraScale(world: World): number {
 	return Math.hypot(a, b);
 }
 
-/**
- * The camera as the six values of its affine matrix, in the order CSS
- * `matrix()` and canvas `setTransform` take them. The form a project writes
- * (`<stage camera={…}>`): the whole transform, so a view survives the trip to
- * the file and back with nothing dropped.
- */
+/** In CSS `matrix()` / canvas `setTransform` order: the whole transform, so a view survives the trip to the file and back. */
 export type CameraMatrix = [a: number, b: number, c: number, d: number, e: number, f: number];
 
 export function getCameraMatrix(world: World): CameraMatrix {
@@ -46,10 +39,7 @@ export function getCameraMatrix(world: World): CameraMatrix {
 	return [a, b, c, d, e, f];
 }
 
-/**
- * Camera inverse, for mapping canvas CSS pixels back into the document, or
- * null when the camera has been scaled to nothing.
- */
+/** Null when the camera has been scaled to nothing. */
 export function getCameraInverse(world: World): Mat2D | null {
 	const camera = getCamera(world);
 	if (Math.abs(camera.a * camera.d - camera.b * camera.c) < MIN_DETERMINANT) return null;
@@ -99,23 +89,16 @@ export function getViewport(world: World): Viewport | null {
 	return { width: canvas.width / resolution, height: canvas.height / resolution };
 }
 
-/** Convert a point in canvas CSS pixels to document space. */
 export function screenToWorld(world: World, screenX: number, screenY: number): Point {
 	const inverse = getCameraInverse(world);
 	return inverse === null ? { x: 0, y: 0 } : transformPoint(inverse, screenX, screenY);
 }
 
-/** Convert a point in document space to canvas CSS pixels. */
 export function worldToScreen(world: World, worldX: number, worldY: number): Point {
 	return transformPoint(getCamera(world), worldX, worldY);
 }
 
-/**
- * Union of the entities' bounds in document space, or null when none of them
- * has been through the transform system yet. WorldBounds are written straight
- * into the SoA store (never added as a trait) and hold post-camera, post-DPR
- * values, so read them by entity id and undo the view matrix here.
- */
+/** Null until one has been through the transform system. WorldBounds live only in the SoA store, post-camera and post-DPR, so they are read by id and the view matrix undone here. */
 export function getEntityBounds(world: World, entities: Iterable<Entity>): Rect | null {
 	const view = getViewMatrix(world);
 	if (Math.abs(view.a * view.d - view.b * view.c) < MIN_DETERMINANT) return null;
@@ -149,7 +132,6 @@ export function getEntityBounds(world: World, entities: Iterable<Entity>): Rect 
 	return { x: minX, y: minY, width, height };
 }
 
-/** Bounds of everything visible on the stage, or null on an empty document. */
 export function getContentBounds(world: World): Rect | null {
 	const content = world.query(Or(Geometry, Group), ChildOf(world.get(Root)!))
 		.filter((entity) => !entity.has(Hidden));

@@ -25,12 +25,7 @@ import {
 } from '../traits/world';
 import { Tool } from '../traits/interaction';
 
-/**
- * World with the headless runtime singletons attached. The host injects its
- * surfaces after creation (world.set(RenderSurface, ...) and
- * world.set(AudioEngine, ...)); the editor app layers its own world traits on
- * top (input, history, persistence, asset stores).
- */
+/** The host injects its surfaces after creation (RenderSurface, AudioEngine); the app layers its own world traits on top. */
 export function createRuntimeWorld(projectId: string) {
 	const world = createWorld(
 		Project({ id: projectId }),
@@ -51,7 +46,6 @@ export function createRuntimeWorld(projectId: string) {
 
 	world.set(Root, world.spawn(Stage, Camera, Background));
 
-	// Cache upkeep, Computed mirrors, and time-range reactions.
 	observeWorld(world);
 
 	return world;

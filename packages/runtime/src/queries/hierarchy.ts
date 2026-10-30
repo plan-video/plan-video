@@ -30,9 +30,6 @@ export function getParentNode(entity: Entity | null | undefined): Entity | null 
 	return parent;
 }
 
-/**
- * Nearest ancestor of `entity` (excluding `entity` itself) that is a scene, or null.
- */
 export function getSceneAncestor(entity: Entity): Entity | null {
 	let current = getParentEntity(entity);
 	while (current !== null) {

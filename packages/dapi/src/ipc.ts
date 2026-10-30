@@ -2,10 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The channel between the app's main process, which hosts the MCP server,
-// and the renderer, which answers renderer tools. One call, one reply, and
-// a cancel when the caller gives up. Arguments arrive validated: main parsed
-// them against the catalog before forwarding.
+// Main (which hosts the MCP server) to renderer: one call, one reply, and a cancel when the caller
+// gives up. Arguments arrive validated: main parsed them against the catalog before forwarding.
 
 import type { DapiErrorCode } from "./errors";
 

@@ -24,9 +24,8 @@ export function useHas(
 		const world = isWorld(currentTarget) ? currentTarget : contextWorld;
 		const entity = isWorld(currentTarget) ? currentTarget[$internal].worldEntity : currentTarget;
 
-		// Wildcard pairs like ChildOf('*') fire on every pair removal, but the entity
-		// may still have other pairs. Since onRemove fires before state cleanup,
-		// we check targetsFor().length > 1 (the removed target is still counted).
+		// Wildcard pairs like ChildOf('*') fire on every pair removal, and onRemove fires
+		// before cleanup, so the removed target still counts: > 1 means other pairs remain.
 		const isWildcard =
 			!!(currentTrait as any)?.[$relationPair] && (currentTrait as RelationPair).target === '*';
 		const wildcardRelation = isWildcard ? (currentTrait as RelationPair).relation : undefined;

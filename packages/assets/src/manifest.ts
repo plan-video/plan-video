@@ -12,18 +12,14 @@ export const MANIFEST_VERSION = 1;
 /** The manifest's file name (with the YAML extension; the codec is the host's). */
 export const MANIFEST_FILE = 'assets.yml';
 
-/** The project directory the app writes its own asset bytes into. */
 export const ASSETS_DIR = 'assets';
 
-/** Where generated assets are stored inside `ASSETS_DIR`. */
 export const GENERATED_DIR = 'generated';
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
 
-/** An asset as written to the manifest: the model minus its runtime handles. */
 export type AssetRecord = DistributiveOmit<Asset, 'handle' | 'directoryHandle' | 'transient'>;
 
-/** A partial document as written to the manifest: it has no handles to lose. */
 export type PartialRecord = PartialAsset;
 
 export type ManifestRecord = AssetRecord | PartialRecord;
@@ -41,7 +37,6 @@ export interface Manifest {
 
 const RECORD_KEYS = new Set(['handle', 'directoryHandle', 'transient']);
 
-/** The manifest record of a library entry: its data, none of its handles. */
 export function toRecord(entry: Asset | PartialAsset): ManifestRecord {
 	const record: Record<string, unknown> = {};
 	for (const [key, value] of Object.entries(entry)) {
@@ -64,7 +59,6 @@ export function isAssetRecord(record: unknown): record is AssetRecord {
 	);
 }
 
-/** Whether `record` is a partial document: a generation's place and state, no bytes. */
 export function isPartialRecord(record: unknown): record is PartialRecord {
 	if (!record || typeof record !== 'object') return false;
 	const r = record as Record<string, unknown>;
@@ -79,11 +73,7 @@ export function isPartialRecord(record: unknown): record is PartialRecord {
 	);
 }
 
-/**
- * Reads whatever the host handed back as a manifest into a well-formed one.
- * Tolerant: a missing or malformed file is an empty library, and a broken
- * record is dropped rather than taking the rest of the library with it.
- */
+/** Tolerant: a missing or malformed file is an empty library, and a broken record is dropped rather than taking the rest with it. */
 export function normalizeManifest(input: unknown): Manifest {
 	const manifest: Manifest = { version: MANIFEST_VERSION, folders: [], assets: [] };
 	if (!input || typeof input !== 'object') return manifest;
@@ -111,13 +101,10 @@ export function normalizeManifest(input: unknown): Manifest {
 	return manifest;
 }
 
-/** Whether a source is a URL rather than a path. */
 export const isUrlSource = (source: string): boolean => /^https?:\/\//i.test(source);
 
-/** Whether a source is an absolute OS path (POSIX or Windows). */
 export const isAbsoluteSource = (source: string): boolean =>
 	source.startsWith('/') || /^[a-zA-Z]:[\\/]/.test(source) || source.startsWith('\\\\');
 
-/** Whether a source is a path inside the project (neither URL nor absolute). */
 export const isProjectSource = (source: string): boolean =>
 	!isUrlSource(source) && !isAbsoluteSource(source);

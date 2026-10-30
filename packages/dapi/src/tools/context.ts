@@ -19,11 +19,7 @@ const GenerationRow = z.object({
     .describe("the library path the generation landed as, on done rows — ready for media_probe and its siblings"),
 });
 
-/**
- * What the project's source cannot say: the JSX already holds the scenes,
- * the selection, and the work area, so the report is only the folders, the
- * playhead, the fonts actually registered, and where generations stand.
- */
+// Only what the project's source cannot say: the JSX already holds the scenes, selection and work area.
 export const context = defineTool({
   name: "context",
   title: "App context",

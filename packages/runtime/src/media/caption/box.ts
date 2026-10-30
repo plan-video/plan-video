@@ -16,11 +16,9 @@ import type { CaptionPresetStyle } from './types';
 
 /** The box's color until the file gives it one. */
 export const BOX_COLOR = 0xFFD60A;
-/** The spoken word's glyphs, dark on the box. */
 const INK = 0x111111;
 const POP_SECONDS = 0.12;
 
-// Short uppercase lines, the word being said on a solid box.
 export const BOX_TEXT_STYLE = {
 	fontFamily: 'Montserrat',
 	fontWeight: '800',
@@ -50,7 +48,6 @@ export class BoxCaptionDecoder extends LineCaptionDecoder {
 		appendChild(world, fill, range);
 	}
 
-	/** The box, a little small at first and settling to size as the word is said. */
 	protected underlay(_world: World, entity: Entity, ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D, lines: readonly Token[][]): void {
 		if (!this.spoken) return;
 		const bounds = textRangeBounds(lines, this.spoken);

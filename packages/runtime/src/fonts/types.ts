@@ -4,37 +4,17 @@
 
 import type { FontStyle } from '../constants';
 
-/**
- * Defines the properties that are required
- * to load a new font
- */
 export type FontSource = {
-	/**
-	 * Name of the Family
-	 * @example 'Arial'
-	 */
+	/** @example 'Arial' */
 	family: string;
-	/**
-	 * Source of the Variant
-	 * @example url(arial.ttf)
-	 */
+	/** @example url(arial.ttf) */
 	source: string;
-	/**
-	 * Defines the font style
-	 * @example 'italic'
-	 */
+	/** @example 'italic' */
 	style?: FontStyle;
-	/**
-	 * The weight of the font
-	 * @example '400'
-	 */
+	/** @example '400' */
 	weight?: string;
 };
 
-/**
- * Defines a single font that has one or
- * more variants
- */
 export type FontSources = {
 	family: string;
 	variants: FontSource[];

@@ -2,11 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Parenting and ordering actions (was api/hierarchy.ts). ChildOf is exclusive,
-// so re-parenting is a single add; "no parent" does not exist under the
-// stage model: detached entities go back to being children of the stage.
-// Cache/size/constraint/time-range fixups ride on the ChildOf events (see
-// world/observers.ts), so these functions only validate and re-target.
+// ChildOf is exclusive, and under the stage model detached entities go back to the stage. Cache,
+// size, constraint and time-range fixups ride on the ChildOf events (see world/observers.ts).
 
 import { Or } from 'koota';
 
@@ -34,13 +31,7 @@ export function removeChild(world: World, entity: Entity, parent: Entity): void 
 	entity.add(ChildOf(world.get(Root)!));
 }
 
-/**
- * Move a single entity within its node siblings by rewriting `ItemIndex`
- * on every sibling. `target` may be:
- * - `'front'`: move to the last index (highest ItemIndex = drawn on top)
- * - `'back'`: move to index 0 (lowest ItemIndex = drawn first)
- * - a number: move to that absolute index (clamped into range)
- */
+/** `'front'` = last index (drawn on top), `'back'` = 0, or an absolute index (clamped). */
 export function reorderEntity(world: World, entity: Entity, target: ReorderTarget): void {
 	const parent = getParentNode(entity);
 	if (parent === null) return;
@@ -58,15 +49,7 @@ export function reorderEntity(world: World, entity: Entity, target: ReorderTarge
 	}
 }
 
-/**
- * Move the current node selection within its parent. `target` may be:
- * - `'front'`: move all selected entities to the front
- * - `'back'`: move all selected entities to the back
- * - a number: insert the selected entities starting at that absolute index
- *
- * Selections that span multiple parents are reordered per-parent; the
- * relative order of the selected entities within each parent is preserved.
- */
+/** Selections spanning several parents are reordered per parent, keeping their relative order. */
 export function reorderSelection(world: World, target: ReorderTarget): void {
 	const selection = [...world.query(Selected, Or(Geometry, Group, AdjustmentLayer))];
 	if (selection.length === 0) return;
@@ -115,6 +98,5 @@ export function reorderSelection(world: World, target: ReorderTarget): void {
 function resolveReorderIndex(target: ReorderTarget, length: number): number {
 	if (target === 'front') return length - 1;
 	if (target === 'back') return 0;
-	// Numeric target: clamp into [0, length - 1].
 	return Math.max(0, Math.min(length - 1, Math.trunc(target)));
 }

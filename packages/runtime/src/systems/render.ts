@@ -2,11 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Render system (was systems/render.ts): draws the document tree onto the
-// world's RenderSurface. Runs identically against the editor and capture
-// canvases; without a surface it is a no-op. Hit
-// regions are pushed callback-less (see HitRegions); the app's input layer
-// attaches its handlers.
+// Runs identically against the editor and capture canvases; a no-op without a surface. Hit regions
+// are pushed callback-less (see HitRegions); the app's input layer attaches its handlers.
 
 import { Not, Or } from 'koota';
 
@@ -128,11 +125,10 @@ function getScaledImageProps(
 		const sh = imgH * scale;
 		return [(targetW - sw) / 2, (targetH - sh) / 2, sw, sh];
 	}
-	// ScaleModeType.NONE — original size
 	return [0, 0, imgW, imgH];
 }
 
-/** The source rectangle a media crop names, in the frame's pixels. The whole frame when there is no crop. */
+/** In the frame's pixels; the whole frame when there is no crop. */
 function mediaCropPixels(world: World, source: Entity, frameWidth: number, frameHeight: number): { x: number; y: number; width: number; height: number } {
 	const full = { x: 0, y: 0, width: frameWidth, height: frameHeight };
 	if (!source.has(MediaCrop) || frameWidth <= 0 || frameHeight <= 0) return full;
@@ -154,15 +150,9 @@ function mediaCropPixels(world: World, source: Entity, frameWidth: number, frame
 }
 
 /**
- * The geometry's intrinsic fill: its own Color trait (a solid, read from
- * Computed.color so it animates) and its own Paint trait (see
- * `getIntrinsicPaint`), if any, in that order. Drawn into the current path
- * before the Paint sub-entities so it always sits at the bottom of the fill
- * stack. A shader paint first in the stack takes an intrinsic image/video as
- * its input instead (see `renderShaderFill`), in which case the media is not
- * drawn here. Media paints and the surface paint (a `<surface>`, whose host
- * lives on the geometry) are intrinsic; a waveform (an audio clip's) has no
- * picture on the canvas.
+ * Own Color (from Computed, so it animates), then own Paint, drawn before the Paint sub-entities so
+ * it sits at the bottom of the stack. A shader paint first in the stack takes intrinsic media as its
+ * input instead (see `renderShaderFill`), so the media isn't drawn here.
  */
 export function renderIntrinsicFill(world: World, entity: Entity): void {
 	if (entity.has(Color)) {
@@ -206,7 +196,6 @@ function mediaKind(paint: PaintType | undefined): MediaKind | null {
 	return null;
 }
 
-/** What the image and video decoders hand out to draw. */
 type MediaFrame = ImageBitmap | HTMLImageElement | HTMLCanvasElement | OffscreenCanvas;
 
 // html-in-canvas (https://github.com/WICG/html-in-canvas). Chromium only,
@@ -251,11 +240,7 @@ function renderHtmlFill(world: World, entity: Entity, source: Entity): void {
 	ctx.restore();
 }
 
-/**
- * Draws the current frame of `source` (an image or video paint, or the
- * geometry itself for intrinsic media) into `entity`'s box, fitted by the
- * source's ScaleMode; a failed decoder paints the missing-asset color.
- */
+/** A failed decoder paints the missing-asset color. */
 function renderMedia(world: World, entity: Entity, source: Entity, kind: MediaKind): void {
 	const ctx = getCtx(world);
 	const computed = store(world, Computed);
@@ -356,10 +341,6 @@ export function renderFills(world: World, entity: Entity): void {
 	}
 }
 
-/**
- * Whether `source` is a picture a shader can sample: an image/video paint,
- * be it a paint sub-entity or the geometry's own intrinsic paint.
- */
 function shaderMediaKind(world: World, source: Entity): 'IMAGE' | 'VIDEO' | null {
 	if (!source.has(Paint)) return null;
 	const paint = store(world, Paint).value[source.id()];
@@ -368,7 +349,6 @@ function shaderMediaKind(world: World, source: Entity): 'IMAGE' | 'VIDEO' | null
 	return null;
 }
 
-/** The current frame of a video/image source, as a GPU-uploadable source. */
 function shaderSourceBitmap(
 	world: World,
 	source: Entity,
@@ -388,26 +368,14 @@ function shaderSourceBitmap(
 	return null;
 }
 
-/**
- * The media directly below the fill at `index`, if it is one a shader could
- * take as input: the visible image/video paint right before it, or, for the
- * first fill, the geometry's own intrinsic image/video. Only the immediate
- * neighbor counts (a hidden paint in between decouples the pair).
- */
+/** Only the immediate neighbor counts: a hidden paint in between decouples the pair. */
 function mediaBelow(world: World, entity: Entity, fills: Entity[], index: number): Entity | null {
 	const source = index === 0 ? entity : fills[index - 1]!;
 	if (source.has(Hidden)) return null;
 	return shaderMediaKind(world, source) === null ? null : source;
 }
 
-/**
- * The media the shader paint at `index` will sample this frame, or null when
- * it has none to (there is no shader there, it is not ready, nothing samplable
- * sits below it, or that has no frame yet). Whatever it returns is drawn by
- * the shader and not on its own — a consumed media that the shader then fails
- * to draw would blank the element, so this checks pipeline readiness and frame
- * availability, and `renderShaderFill` draws exactly what it says.
- */
+/** Media this returns is drawn by the shader, not on its own, so it checks pipeline readiness and frame availability: a consumed media the shader then fails to draw would blank the element. */
 function shaderInput(world: World, entity: Entity, fills: Entity[], index: number): Entity | null {
 	const shader = fills[index];
 	if (shader === undefined || store(world, Paint).value[shader.id()] !== PaintType.SHADER) return null;
@@ -423,22 +391,11 @@ function shaderInput(world: World, entity: Entity, fills: Entity[], index: numbe
 	return shaderSourceBitmap(world, media, w, h) === null ? null : media;
 }
 
-/**
- * Whether the fill at `index` is the input of a ready shader paint directly
- * above it (see `shaderInput`).
- */
 function shaderConsumesFill(world: World, entity: Entity, fills: Entity[], index: number): boolean {
 	return shaderInput(world, entity, fills, index + 1) === fills[index];
 }
 
-/**
- * Draws a shader paint: the media directly below it — the image/video paint
- * before it in the fill stack, or the geometry's intrinsic media under the
- * first fill — is sampled as the shader's `source` texture and its output
- * lands in the parent's box in the media's place. Without media below the
- * shader runs procedurally over a transparent source; before the pipeline is
- * ready it draws nothing and the media, if any, draws normally.
- */
+/** Samples the media below as the `source` texture; without media it runs procedurally over a transparent source. Before the pipeline is ready it draws nothing and the media draws normally. */
 function renderShaderFill(world: World, entity: Entity, fills: Entity[], index: number): void {
 	const ctx = getCtx(world);
 	const computed = store(world, Computed);
@@ -450,8 +407,7 @@ function renderShaderFill(world: World, entity: Entity, fills: Entity[], index: 
 	const w = computed.width[eid]!;
 	const h = computed.height[eid]!;
 
-	// Anything but samplable media below (no fill below, a hidden one, a
-	// solid/gradient) runs the shader procedurally over a transparent source,
+	// Anything but samplable media below runs the shader procedurally over a transparent source,
 	// stacking like a normal paint.
 	const media = mediaBelow(world, entity, fills, index);
 	let input: ReturnType<typeof shaderSourceBitmap> = null;
@@ -548,9 +504,6 @@ function renderStrokes(world: World, entity: Entity): void {
 	}
 }
 
-/**
- * The pulse a node waiting on a generation is filled with
- */
 function renderGenerating(world: World, entity: Entity): void {
 	const errored = getSourceFailure(entity) !== undefined;
 	if (!errored && !isGenerating(entity)) return;
@@ -559,12 +512,6 @@ function renderGenerating(world: World, entity: Entity): void {
 	ctx.fillStyle = errored ? FAILED_COLOR : getGeneratingColor(world);
 	ctx.fill();
 }
-
-// ── WAVEFORM paint ─────────────────────────────────────
-//
-// Renders an audio asset's pre-computed peaks as a bar chart inside the
-// parent geometry's bounds. Sourced from the paint's own AssetId — the paint
-// carries its asset reference, exactly like IMAGE and VIDEO paints.
 
 const WAVEFORM_BAR_WIDTH = 6;
 const WAVEFORM_BAR_GAP = 6;
@@ -587,13 +534,11 @@ function renderWaveform(world: World, entity: Entity, fill: Entity): void {
 	ctx.save();
 	ctx.clip();
 
-	// Background
 	ctx.fillStyle = WAVEFORM_BG_COLOR;
 	ctx.beginPath();
 	ctx.roundRect(0, 0, w, h, WAVEFORM_BG_RADIUS);
 	ctx.fill();
 
-	// Bars
 	const step = WAVEFORM_BAR_WIDTH + WAVEFORM_BAR_GAP;
 	const availableWidth = w - WAVEFORM_PADDING * 2;
 	const barCount = Math.floor(availableWidth / step);
@@ -639,8 +584,6 @@ function renderCaptionNode(world: World, entity: Entity): void {
 	resolveCaptionDecoder(world, entity)?.draw(world, entity);
 }
 
-// ── Transition rendering ─────────────────────────────────────
-
 function renderTransition(world: World, scene: Entity, left: Entity): void {
 	const ctx = getCtx(world);
 	const computed = store(world, Computed);
@@ -654,7 +597,6 @@ function renderTransition(world: World, scene: Entity, left: Entity): void {
 
 	if (currentTime < win.start || currentTime >= win.end) return;
 
-	// we are transitioning
 	const duration = win.end - win.start;
 	const completion = (currentTime - win.start) / duration;
 
@@ -669,7 +611,6 @@ function renderTransition(world: World, scene: Entity, left: Entity): void {
 	switch (type) {
 		case TransitionType.SLIDE_FROM_RIGHT:
 		case TransitionType.SLIDE_FROM_LEFT: {
-			// The next shot comes in over the first, slowing as it lands.
 			const p = settings.ease(completion, (t) => 1 - (1 - t) ** 2);
 			const [ux, uy] = transitionDirection(settings.direction, type === TransitionType.SLIDE_FROM_RIGHT ? 'left' : 'right');
 			renderNode(world, left);
@@ -708,7 +649,6 @@ function renderTransition(world: World, scene: Entity, left: Entity): void {
 			break;
 		}
 		default: {
-			// Dissolve (default)
 			renderNode(world, left);
 			ctx.save();
 			ctx.globalAlpha = settings.ease(completion, linear);
@@ -726,12 +666,7 @@ function renderTransition(world: World, scene: Entity, left: Entity): void {
 
 type Box = { x: number; y: number; width: number; height: number };
 
-/**
- * The box two clips share in their parent's space: the union of their own
- * boxes, through each one's local transform. What a transition moves, wipes
- * and zooms about, so a clip that is not at the parent's origin still turns
- * about its own middle.
- */
+/** The union of both boxes through each local transform, so a clip away from the parent's origin still turns about its own middle. */
 function transitionBox(world: World, ...clips: Entity[]): Box {
 	const computed = store(world, Computed);
 	const local = store(world, LocalTransform);
@@ -786,7 +721,6 @@ const DIRECTIONS: Record<TransitionDirection, Way | null> = {
 	[TransitionDirection.DOWN]: 'down',
 };
 
-/** The way what moves goes, as a unit vector: the one set, else the style's own. */
 function transitionDirection(direction: TransitionDirection, own: Way): [number, number] {
 	return WAYS[DIRECTIONS[direction] ?? own];
 }
@@ -794,12 +728,8 @@ function transitionDirection(direction: TransitionDirection, own: Way): [number,
 type TransitionSettings = {
 	type: TransitionType;
 	direction: TransitionDirection;
-	/**
-	 * How far along `t` (0 → 1) is: through the style's own curve, or with
-	 * an easing set, through that instead, so Linear really is linear.
-	 */
+	/** With an easing set, `t` goes through that instead of the style's own curve, so Linear really is linear. */
 	ease: (t: number, own: (t: number) => number) => number;
-	/** The colour a fade or flash goes through: the one set, else the style's own. */
 	color: (own: string) => string;
 };
 
@@ -816,14 +746,9 @@ function transitionSettings(world: World, trait: typeof Transition | typeof Tran
 	};
 }
 
-/**
- * The part of `box` a wipe going `way` shows, `fraction` of it: from the
- * side it sets off from, or with `leading`, at the side it heads for.
- */
 function wipeRect(ctx: Ctx2D, box: Box, [ux, uy]: [number, number], fraction: number, leading: boolean): void {
 	const w = ux ? box.width * fraction : box.width;
 	const h = uy ? box.height * fraction : box.height;
-	// Anchored at the far edge when it heads that way and leads, or sets off from it.
 	const far = (u: number) => (u > 0) === leading;
 	const x = ux && far(ux) ? box.x + box.width - w : box.x;
 	const y = uy && far(uy) ? box.y + box.height - h : box.y;
@@ -844,7 +769,6 @@ function addBlur(ctx: Ctx2D, pixels: number): void {
 	ctx.filter = current && current !== 'none' ? `${current} blur(${radius.toFixed(2)}px)` : `blur(${radius.toFixed(2)}px)`;
 }
 
-/** Draws `clip` scaled and turned about `cx`, `cy`, at `alpha`, blurred by `blur`. */
 function drawPosed(
 	world: World,
 	clip: Entity,
@@ -864,18 +788,12 @@ function drawPosed(
 	ctx.restore();
 }
 
-/**
- * The transitions that move, zoom, blur, flash or cut a shape out of the two
- * clips, drawn about the box they share. `completion` runs 0 → 1 across the
- * window; each one eases it its own way.
- */
 function renderMotionTransition(world: World, settings: TransitionSettings, left: Entity, right: Entity, completion: number): void {
 	const ctx = getCtx(world);
 	const { type } = settings;
 	const box = transitionBox(world, left, right);
 	const cx = box.x + box.width / 2;
 	const cy = box.y + box.height / 2;
-	// How far along: as it plays, or along the easing set (see `TransitionSettings`).
 	const p = settings.ease(completion, linear);
 	const e = settings.ease(completion, easeInOutCubic);
 	// How far the blurs reach: a share of the frame, so they read the same at any size.
@@ -907,7 +825,6 @@ function renderMotionTransition(world: World, settings: TransitionSettings, left
 			break;
 		}
 		case TransitionType.CROSS_ZOOM: {
-			// In on the first clip, blurring as it goes; out of the second, sharpening.
 			if (p < 0.5) {
 				const q = easeInCubic(p * 2);
 				drawPosed(world, left, { cx, cy, scale: 1 + 1.2 * q, blur: q * blurReach * 2 });
@@ -926,7 +843,6 @@ function renderMotionTransition(world: World, settings: TransitionSettings, left
 			break;
 		}
 		case TransitionType.FLASH: {
-			// A cut at the middle under a flash that comes up quickly and fades slower.
 			renderNode(world, p < 0.5 ? left : right);
 			const alpha = p < 0.5 ? smoothstep(clamp01(p / 0.5)) : 1 - smoothstep(clamp01((p - 0.5) / 0.5));
 			ctx.save();
@@ -964,12 +880,7 @@ function renderMotionTransition(world: World, settings: TransitionSettings, left
 	}
 }
 
-/**
- * A clip playing in from its start or out to its end on its own, over
- * whatever is under it (see `getEdgeTransition`). Each style plays as its
- * half of a cut would with nothing on the other side: what moves comes in
- * from one side and leaves by the other, what fades fades through nothing.
- */
+/** Each style plays as its half of a cut would with nothing on the other side. */
 function renderEdgeTransition(world: World, parent: Entity, clip: Entity): void {
 	const computed = store(world, Computed);
 	if (computed.visibility[clip.id()] === 0 || clip.has(Culled) || clip.has(Hidden) || clip.has(IsMask)) return;
@@ -983,17 +894,11 @@ function renderEdgeTransition(world: World, parent: Entity, clip: Entity): void 
 	const box = transitionBox(world, clip);
 	const cx = box.x + box.width / 2;
 	const cy = box.y + box.height / 2;
-	// How much shows: as it plays, or along the easing set (see `TransitionSettings`).
 	const s = settings.ease(playing.shown, linear);
 	const e = settings.ease(playing.shown, easeInOutCubic);
-	// Coming in, a clip arrives from the right (or below); going out it leaves by the left (or top).
 	const side = playing.edge === 'in' ? 1 : -1;
 	const blurReach = Math.max(box.width, box.height) * 0.02;
 
-	/**
-	 * Where a clip that moves sits, `away` (0 → 1) of the way off: coming in
-	 * it arrives going `way`, going out it leaves going `way`.
-	 */
 	const offset = (own: Way, away: number) => {
 		const [ux, uy] = transitionDirection(settings.direction, own);
 		const sign = playing.edge === 'in' ? -1 : 1;
@@ -1001,7 +906,6 @@ function renderEdgeTransition(world: World, parent: Entity, clip: Entity): void 
 	};
 
 	const fadeThrough = (color: string) => {
-		// Up to the colour over the clip, then the two go together.
 		ctx.save();
 		ctx.globalAlpha *= clamp01(s / 0.4);
 		renderNode(world, clip);
@@ -1036,7 +940,6 @@ function renderEdgeTransition(world: World, parent: Entity, clip: Entity): void 
 			fadeThrough(settings.color('#FFFFFF'));
 			break;
 		case TransitionType.ZOOM_IN:
-			// Larger as it goes: settling from a little larger, or growing away.
 			drawPosed(world, clip, {
 				cx,
 				cy,
@@ -1048,7 +951,6 @@ function renderEdgeTransition(world: World, parent: Entity, clip: Entity): void 
 			drawPosed(world, clip, { cx, cy, scale: 0.75 + 0.25 * e, alpha: smoothstep(clamp01(s / 0.6)) });
 			break;
 		case TransitionType.CROSS_ZOOM: {
-			// How far into the zoom: easing out of it coming in, into it going out.
 			const q = playing.edge === 'in' ? 1 - easeOutCubic(s) : easeInCubic(1 - s);
 			drawPosed(world, clip, { cx, cy, scale: 1 + 1.2 * q, blur: q * blurReach * 2, alpha: clamp01(s / 0.3) });
 			break;
@@ -1057,7 +959,6 @@ function renderEdgeTransition(world: World, parent: Entity, clip: Entity): void 
 			drawPosed(world, clip, { cx, cy, scale: e, rotate: (1 - e) * -side * Math.PI, alpha: smoothstep(clamp01(s / 0.3)) });
 			break;
 		case TransitionType.FLASH: {
-			// The clip is there for its half of the flash, which peaks as it appears or goes.
 			if (s >= 0.5) renderNode(world, clip);
 			ctx.save();
 			ctx.globalAlpha *= s >= 0.5 ? smoothstep(clamp01((1 - s) / 0.5)) : smoothstep(clamp01(s / 0.5));
@@ -1070,7 +971,6 @@ function renderEdgeTransition(world: World, parent: Entity, clip: Entity): void 
 			drawPosed(world, clip, { cx, cy, alpha: e, blur: (1 - e) * blurReach * 2 });
 			break;
 		case TransitionType.WIPE: {
-			// The edge travels its way across: revealing the clip, or taking it away.
 			ctx.save();
 			ctx.beginPath();
 			wipeRect(ctx, box, transitionDirection(settings.direction, 'right'), e, playing.edge === 'out');
@@ -1089,7 +989,6 @@ function renderEdgeTransition(world: World, parent: Entity, clip: Entity): void 
 			break;
 		}
 		default:
-			// Dissolve
 			drawPosed(world, clip, { cx, cy, alpha: s });
 			break;
 	}
@@ -1150,9 +1049,8 @@ export function renderNode(world: World, entity: Entity): void {
 	const bi = entity.has(BlendMode) ? store(world, BlendMode).value[eid] ?? 0 : 0;
 	if (bi !== 0) ctx.globalCompositeOperation = COMPOSITE_OPERATIONS[bi]!;
 
-	// The node's own grade and effects, then whatever a scene or group around
-	// it set: a clip's grade goes under its scene's. The restore below puts
-	// the filter back with the rest of the state.
+	// The node's own grade and effects go under whatever a scene or group around it set; the restore
+	// below puts the filter back with the rest of the state.
 	const grade = gradeFilter(world, entity);
 	const effects = buildEffects(world, entity);
 
@@ -1174,7 +1072,6 @@ export function renderNode(world: World, entity: Entity): void {
 		renderShapeNode(world, entity);
 	}
 
-	// Clip and render children
 	const children = store(world, Cache).children[eid] ?? [];
 	if (children.length) {
 		if (entity.has(ClipsContent)) {
@@ -1199,13 +1096,7 @@ export function renderNode(world: World, entity: Entity): void {
 	ctx.restore();
 }
 
-/**
- * Render system entry point. Call after transformSystem.
- *
- * Reads camera, background, and canvas size from world state and applies
- * DPR * Camera as the base canvas transform before drawing top-level nodes.
- * Without a render surface (headless world) this is a no-op.
- */
+/** Call after transformSystem. A no-op without a render surface (headless world). */
 export function renderSystem(world: World): void {
 	const surface = world.get(RenderSurface);
 	const ctx = surface?.ctx;
@@ -1215,7 +1106,6 @@ export function renderSystem(world: World): void {
 	const cw = canvas.width;
 	const ch = canvas.height;
 
-	// Clear + background (identity transform for full-canvas clear)
 	ctx.setTransform(1, 0, 0, 1, 0, 0);
 	ctx.clearRect(0, 0, cw, ch);
 
@@ -1246,7 +1136,6 @@ export function renderSystem(world: World): void {
 		ctx.clip();
 	}
 
-	// Apply camera transform: DPR * Camera
 	const view = getViewMatrix(world);
 	ctx.setTransform(view.a * scale, view.b * scale, view.c * scale, view.d * scale, view.e * scale, view.f * scale);
 

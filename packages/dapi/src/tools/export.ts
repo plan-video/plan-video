@@ -8,10 +8,7 @@ import { SceneId } from "../schemas";
 
 export const ExportFormat = z.enum(["mp4", "webm", "ogg", "mov"]);
 
-// The settings shape mirrors the scene's `planvideo.export.<id>` entry in the
-// project's package.json (see the web app's engine/project-config). Codecs
-// are strings on the wire; the app validates them against what the encoder
-// accepts.
+/** Mirrors the scene's `planvideo.export.<id>` entry in package.json; codecs are strings the app validates against the encoder. */
 export const ExportSettings = z.object({
   format: ExportFormat.optional(),
   video: z

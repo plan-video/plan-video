@@ -2,26 +2,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/**
- * The live `__inspect` — substituted for the throwing declaration in
- * @plan.video/jsx (see "./runtime"), so a compiled `@inspect` declaration
- * resolves to a signal on the host's Solid instance. The composition reads it
- * through the rewritten references; the inspector reads and writes it through
- * the entry collected here. One signal, one graph: a set from the inspector
- * lands in the mounted entities without a remount.
- */
+// Replaces the throwing `__inspect` in @plan.video/jsx (see "./runtime"): one signal on the
+// host's Solid instance, so a set from the inspector lands in the mounted entities without a remount.
 
 import { createSignal } from 'solid-js';
 
 import type { Accessor } from 'solid-js';
 import type { InspectDeclaration, InspectType, InspectValue } from '@plan.video/jsx';
 
-/**
- * One inspected variable of a mount: its identity (`file` and `name`, which is
- * how an edit of it is addressed to the source), how the inspector presents it
- * (`label`, `group` — derived from the authored `path`, or from the name), the
- * constraints its annotation put on it, and the signal itself.
- */
 export interface InspectEntry {
 	file: string;
 	name: string;
@@ -32,18 +20,13 @@ export interface InspectEntry {
 	min?: number;
 	max?: number;
 	step?: number;
-	/** What a `select` chooses between, in the authored order. */
 	options?: string[];
-	/** What the source declared, before anyone touched the signal. */
 	initial: InspectValue;
 	/** The live value — what the composition reads, previews included. */
 	get: Accessor<InspectValue>;
 	/** Moves the live value alone: a hover preview, taken back on commit. */
 	set: (value: InspectValue) => void;
-	/**
-	 * The last committed value — where the live value returns to when a
-	 * preview ends, and the `previous` an edit of the variable inverts to.
-	 */
+	/** Where the live value returns to when a preview ends, and the `previous` an edit inverts to. */
 	committed: Accessor<InspectValue>;
 	/** Settles a value: the live signal and the committed one, together. */
 	commit: (value: InspectValue) => void;
@@ -53,11 +36,7 @@ export interface InspectEntry {
 // whichever mount is evaluating right now is who the entries belong to.
 let collecting: InspectEntry[] | null = null;
 
-/**
- * Runs `fn` (a mount evaluating a bundle) collecting every `__inspect` call it
- * makes, in declaration order — imported modules first, the way CommonJS
- * evaluates them.
- */
+/** Collects every `__inspect` call `fn` makes, in declaration order (imported modules first, as CommonJS evaluates them). */
 export function collectInspect<T>(fn: () => T): { result: T; entries: InspectEntry[] } {
 	const entries: InspectEntry[] = [];
 	const previous = collecting;
@@ -69,7 +48,6 @@ export function collectInspect<T>(fn: () => T): { result: T; entries: InspectEnt
 	}
 }
 
-/** `fontFamily` as a label: "Font Family". */
 function prettify(name: string): string {
 	return name
 		.replace(/([a-z0-9])([A-Z])/g, '$1 $2')

@@ -2,8 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Text layout, measurement, and canvas rendering (was engine/utils/text.ts).
-
 import { store } from '../world/store';
 import {
 	COMPOSITE_OPERATIONS, PaintType, FontStyle,
@@ -26,21 +24,10 @@ import type { Entity, World } from 'koota';
 type Ctx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 
 export type TokenOptions = {
-	/**
-	 * Defines the characters to render
-	 */
 	chars: string;
-	/**
-	 * Defines the X offset of the token to the left of the line
-	 */
 	offset: number;
-	/**
-	 * Defines the metrics of the token
-	 */
 	metrics: TextMetrics;
-	/**
-	 * Defines the style of the token (TextRange sub-entities)
-	 */
+	/** The TextRange sub-entities styling the token. */
 	ranges: Entity[];
 }
 
@@ -56,7 +43,6 @@ type RenderSplit = {
 	ranges: Entity[];
 };
 
-/** Global offscreen canvas used solely for text measurement. */
 let measureCanvas: OffscreenCanvas | null = null;
 let measureCtx: OffscreenCanvasRenderingContext2D | null = null;
 
@@ -157,14 +143,11 @@ function shapeTokens(world: World, entity: Entity): void {
 	const textBaseline = textStyle.textBaseline[eid] ?? TextBaseline.TOP;
 	if (!lines) return;
 
-	// Measure each line's width by summing word widths and spaces
 	const lineWidths: number[] = lines.map(line => line.reduce((acc, word) => acc + word.width, 0));
 	const lineHeights: number[] = lines.map(line => Math.max(...line.map(word => word.height)));
 
-	// Find the maximum line width
 	const maxLineWidth = Math.max(...lineWidths);
 
-	// Calculate total height based on leading
 	const totalHeight = lineHeights.reduce((acc, height, i) => acc + height * (i < lineHeights.length - 1 ? leading : 1), 0);
 
 	// When Size is assigned, use Computed for positioning; otherwise set it from text dimensions
@@ -176,7 +159,6 @@ function shapeTokens(world: World, entity: Entity): void {
 	const containerWidth = computed.width[eid]!;
 	const containerHeight = computed.height[eid]!;
 
-	// Calculate initial vertical offset based on text baseline and container height
 	let offsetY = 0;
 	if (textBaseline === TextBaseline.MIDDLE) {
 		offsetY = (containerHeight - totalHeight) / 2;
@@ -184,7 +166,6 @@ function shapeTokens(world: World, entity: Entity): void {
 		offsetY = containerHeight - totalHeight;
 	}
 
-	// Calculate coordinates for each word
 	const line = {
 		offsetX: 0,
 		offsetY,
@@ -225,7 +206,6 @@ function shapeTokens(world: World, entity: Entity): void {
 function tokenizeText(world: World, entity: Entity) {
 	const ctx = getMeasureCtx();
 
-	// Split text into segments based on style overrides first
 	const lines: Token[][] = [[]];
 
 	const maxWidth = store(world, Size).width[entity.id()] ?? Number.POSITIVE_INFINITY;
@@ -243,17 +223,14 @@ function tokenizeText(world: World, entity: Entity) {
 
 				const metrics = ctx.measureText(chars);
 
-				// check if word is too wide for the current line but not the first word
 				if (offset + metrics.width > maxWidth && offset > 0) {
 					lines.push([]);
 					offset = 0;
 				}
 
-				// add word to current line
 				lines[lines.length - 1]!.push(new Token({ chars, ranges, metrics, offset }));
 				offset += metrics.width;
 
-				// add new line if not the last line
 				if (i < splits.length - 1) {
 					lines.push([]);
 					offset = 0;
@@ -266,7 +243,6 @@ function tokenizeText(world: World, entity: Entity) {
 	store(world, TextCache).tokens[entity.id()] = lines;
 }
 
-/** Renders text tokens directly to the given canvas context. */
 function renderTokens(ctx: Ctx, world: World, entity: Entity): void {
 	const eid = entity.id();
 	const lines = store(world, TextCache).tokens[eid];
@@ -285,7 +261,6 @@ function renderTokens(ctx: Ctx, world: World, entity: Entity): void {
 	const poses = new Map<Token, WordPose | null>();
 	for (const word of words) poses.set(word, getWordPose(world, word.ranges));
 
-	// Draw all text shadows
 	{
 		ctx.save();
 		ctx.textAlign = 'start';
@@ -309,7 +284,6 @@ function renderTokens(ctx: Ctx, world: World, entity: Entity): void {
 				applyStrokeStyle(ctx, world, widest);
 			}
 
-			// Draw shadows first (if any)
 			for (const shadow of shadows) {
 				if (shadow.has(Hidden)) continue;
 				const sid = shadow.id();
@@ -330,7 +304,6 @@ function renderTokens(ctx: Ctx, world: World, entity: Entity): void {
 				}
 			}
 
-			// Reset shadow properties if any shadows are applied
 			if (shadows.length) {
 				ctx.globalAlpha = savedAlpha;
 				ctx.shadowColor = 'transparent';
@@ -339,7 +312,6 @@ function renderTokens(ctx: Ctx, world: World, entity: Entity): void {
 		ctx.restore();
 	}
 
-	// Draw all text strokes
 	{
 		ctx.save();
 		ctx.textAlign = 'start';
@@ -354,7 +326,6 @@ function renderTokens(ctx: Ctx, world: World, entity: Entity): void {
 			const w = computed.width[eid]!;
 			const h = computed.height[eid]!;
 
-			// Draw strokes (if any)
 			for (const stroke of strokes) {
 				if (stroke.has(Hidden)) continue;
 				const sid = stroke.id();
@@ -383,7 +354,6 @@ function renderTokens(ctx: Ctx, world: World, entity: Entity): void {
 		ctx.restore();
 	}
 
-	// Draw all text fills
 	{
 		ctx.save();
 		ctx.textAlign = 'start';
@@ -436,7 +406,6 @@ function renderTokens(ctx: Ctx, world: World, entity: Entity): void {
 	}
 }
 
-/** How a caption word with a look of its own is placed and composited. */
 type WordPose = {
 	hidden: boolean;
 	opacity: number;
@@ -449,10 +418,7 @@ type WordPose = {
 	filter: string | null;
 };
 
-/**
- * The pose of the last word range among `ranges` (see `WordTiming`), which
- * `animateCaptionWords` writes into its Computed; null for any other token.
- */
+/** Written into Computed by `animateCaptionWords`; null for any token that isn't a word range. */
 function getWordPose(world: World, ranges: Entity[]): WordPose | null {
 	let range: Entity | null = null;
 	for (const candidate of ranges) {
@@ -475,11 +441,7 @@ function getWordPose(world: World, ranges: Entity[]): WordPose | null {
 	};
 }
 
-/**
- * Runs `draw` for one token, in its word's pose: moved, turned and scaled
- * about the word's own center, and faded, blended and filtered on top of
- * whatever the pass set.
- */
+/** Moved, turned and scaled about the word's own centre, then faded, blended and filtered on top of the pass. */
 function drawWord(ctx: Ctx, word: Token, pose: WordPose | null | undefined, draw: () => void): void {
 	if (!pose) {
 		draw();
@@ -508,14 +470,9 @@ function drawWord(ctx: Ctx, word: Token, pose: WordPose | null | undefined, draw
 	ctx.restore();
 }
 
-/**
- * Something a caption draws behind its words, such as a box behind the one
- * being said: called once the words are laid out, before any glyph is drawn,
- * in the text's own coordinates.
- */
+/** Called once the words are laid out, before any glyph is drawn, in the text's own coordinates. */
 export type TextUnderlay = (ctx: Ctx, lines: readonly Token[][]) => void;
 
-/** Render text tokens directly to the world's render surface. */
 export function renderText(world: World, entity: Entity, underlay?: TextUnderlay) {
 	const ctx = world.get(RenderSurface)?.ctx;
 	if (!ctx) return;
@@ -532,14 +489,10 @@ export function renderText(world: World, entity: Entity, underlay?: TextUnderlay
 	renderTokens(ctx, world, entity);
 }
 
-/** A run's box: the ink of its glyphs across, its line's height down. */
+/** The ink of its glyphs across, its line's height down. */
 export type TextRunBounds = { x: number; y: number; width: number; height: number };
 
-/**
- * Where the glyphs `range` styles were laid out, from the lines an underlay is
- * handed: the left edge of the first to the right edge of the last, over the
- * height of the line they sit on. Null when the range drew nothing.
- */
+/** From the lines an underlay is handed; null when the range drew nothing. */
 export function textRangeBounds(lines: readonly Token[][], range: Entity): TextRunBounds | null {
 	let bounds: TextRunBounds | null = null;
 	for (const line of lines) {
@@ -559,19 +512,10 @@ export function textRangeBounds(lines: readonly Token[][], range: Entity): TextR
 	return bounds;
 }
 
-/**
- * One laid-out line as a caret sees it, in the text's own coordinates: the
- * characters `start`..`end` of what was laid out, and `stops[i]`, the x a
- * caret stands at before character `start + i` (so one more stop than there
- * are characters). A line break between two lines is between their `end` and
- * the next `start`; a line the width wrapped has none.
- */
+/** In the text's coordinates; `stops[i]` is the caret x before character `start + i` (one more stop than characters). A wrapped line has no break between its `end` and the next `start`. */
 export type CaretLine = { start: number; end: number; top: number; height: number; stops: number[] };
 
-/**
- * Where a caret can stand in `entity`'s text as it was last drawn, measured in
- * the fonts each run was drawn in. Empty until the text has been drawn once.
- */
+/** Measured in the fonts each run was drawn in; empty until the text has been drawn once. */
 export function textCaretLines(world: World, entity: Entity): CaretLine[] {
 	const lines = store(world, TextCache).tokens[entity.id()];
 	if (!lines) return [];
@@ -606,18 +550,13 @@ export function textCaretLines(world: World, entity: Entity): CaretLine[] {
 	return result;
 }
 
-/**
- * Splits text into segments based on overlapping text range entities.
- * Handles overlapping ranges by merging them.
- * @returns Array of RenderSplit objects with words and contributing ranges
- */
+/** Overlapping ranges are merged. */
 function createRenderSplits(world: World, entity: Entity): RenderSplit[] {
 	const eid = entity.id();
 	const chars = store(world, Computed).chars[eid] ?? store(world, Chars).value[eid] ?? '';
 
 	const textRanges = store(world, Cache).textRanges[eid] ?? [];
 
-	// Fast path: no styles
 	if (textRanges.length === 0) {
 		return [{
 			words: tokenize(chars),
@@ -625,7 +564,6 @@ function createRenderSplits(world: World, entity: Entity): RenderSplit[] {
 		}];
 	}
 
-	// Fast path: empty text
 	if (chars.length === 0) {
 		return [{
 			words: [],
@@ -635,7 +573,6 @@ function createRenderSplits(world: World, entity: Entity): RenderSplit[] {
 
 	const rangeStore = store(world, TextRange);
 
-	// Collect all unique boundary points
 	const boundaries = new Set<number>();
 	boundaries.add(0);
 	boundaries.add(chars.length);
@@ -644,7 +581,6 @@ function createRenderSplits(world: World, entity: Entity): RenderSplit[] {
 		let start = rangeStore.start[range.id()] ?? 0;
 		let end = rangeStore.end[range.id()] ?? chars.length;
 
-		// Clamp boundaries to valid text range
 		start = clamp(start, 0, chars.length);
 		end = clamp(end, 0, chars.length);
 
@@ -652,27 +588,22 @@ function createRenderSplits(world: World, entity: Entity): RenderSplit[] {
 		boundaries.add(end);
 	}
 
-	// Sort boundaries in ascending order
 	const sortedBoundaries = Array.from(boundaries).sort((a, b) => a - b);
 
-	// Create segments between each pair of boundaries
 	const segments: RenderSplit[] = [];
 
 	for (let i = 0; i < sortedBoundaries.length - 1; i++) {
 		const segStart = sortedBoundaries[i]!;
 		const segEnd = sortedBoundaries[i + 1]!;
 
-		// Skip empty segments
 		if (segStart >= segEnd) continue;
 
-		// Find all active styles for this segment
 		const ranges: Entity[] = [];
 
 		for (const range of textRanges) {
 			let start = rangeStore.start[range.id()] ?? 0;
 			let end = rangeStore.end[range.id()] ?? chars.length;
 
-			// Clamp boundaries to valid text range
 			start = clamp(start, 0, chars.length);
 			end = clamp(end, 0, chars.length);
 
@@ -693,14 +624,10 @@ function createRenderSplits(world: World, entity: Entity): RenderSplit[] {
 }
 
 function tokenize(input: string): string[] {
-	// Fast path for inputs without spaces
 	if (input.indexOf(' ') === -1) {
 		return [input];
 	}
 
-	// Use regex to match:
-	// 1. Any characters up to and including a space
-	// 2. OR any remaining characters to the end
 	return input.match(/[^]*? |[^]+$/g) || [input];
 }
 
@@ -716,10 +643,7 @@ export function transformText(text: string, textCase?: number): string {
 	return text;
 }
 
-/**
- * The intrinsic glyph color for a run: the last of `ranges` carrying a Color
- * wins over the text's own, as a hex string; null when neither has one.
- */
+/** The last of `ranges` carrying a Color wins over the text's own; null when neither has one. */
 function getIntrinsicColor(world: World, entity: Entity, ranges: Entity[]): string | null {
 	const computed = store(world, Computed);
 	let value: number | undefined = entity.has(Color) ? computed.color[entity.id()] ?? 0 : undefined;

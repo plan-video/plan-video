@@ -15,24 +15,13 @@ import type { InspectEntry } from './inspect';
 export interface Mount {
 	/** Tears down the reactive graph and every entity the project rendered. */
 	dispose(): void;
-	/**
-	 * The `@inspect` variables the bundle declared, in declaration order, each
-	 * holding the live signal the composition reads. Die with the mount: a
-	 * remount evaluates the module again and declares them afresh.
-	 */
+	/** Die with the mount: a remount evaluates the module again and declares them afresh. */
 	inspect: InspectEntry[];
 }
 
 /**
- * Renders a compiled project bundle into `world`. Throws if the bundle does
- * not evaluate, if its root is not a <stage>, or if `world` still has a
- * mounted project (dispose that one first — the stage is a singleton, so
- * two mounts would render into each other); nothing is left behind in the
- * world when it throws.
- *
- * The mount stays live: it puts the document's ticker advance into the
- * world's `Tickers`, and the playback system fires it once per tick, which
- * is what `useTicker` subscribes to.
+ * Throws if the bundle does not evaluate, its root is not a <stage>, or `world` still has a
+ * mounted project (the stage is a singleton); nothing is left in the world when it throws.
  */
 export function mount(code: string, world: World): Mount {
 	const { result: component, entries } = collectInspect(() => evaluate(code));

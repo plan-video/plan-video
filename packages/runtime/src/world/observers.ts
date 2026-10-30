@@ -28,15 +28,9 @@ import { resetAnimatedValues } from '../systems/motion';
 
 import type { Entity, Trait, World } from 'koota';
 
-/**
- * Wire the runtime invariants into a world. Returns a disposer (worlds are
- * normally destroyed outright, but tests recycling the 16-world budget can
- * unhook explicitly).
- */
+/** Returns a disposer, for tests recycling the 16-world budget. */
 export function observeWorld(world: World): () => void {
 	const subs: (() => void)[] = [];
-
-	// ── Structure ─────────────────────────────────────────────
 
 	subs.push(world.onAdd(ChildOf('*'), (child, parent) => {
 		rebuildCaches(world, child, parent);
@@ -48,13 +42,9 @@ export function observeWorld(world: World): () => void {
 		syncStagePlayback(parent);
 	}));
 
-	// On re-target (and destroy) the remove event fires while the child is
-	// still present in the old parent's queries, so it is excluded by hand.
-	// Destroy cascades parent-first through ChildOf (autoDestroy 'orphan'),
-	// so a descendant's parent may already be gone: nothing to rebuild then.
-	// The eviction follows the rebuild rather than replacing it: a destroy has
-	// already taken the child's traits, so the rebuild files nothing and the
-	// child would stay in the lists it was in.
+	// The remove event fires while the child is still in the old parent's queries, so it is excluded by
+	// hand; a destroy cascades parent-first, so the parent may be gone. The eviction follows the rebuild:
+	// a destroy has already taken the child's traits, so the rebuild alone files nothing.
 	subs.push(world.onRemove(ChildOf('*'), (child, parent) => {
 		disconnectAudioBus(world, child);
 		if (!world.has(parent)) return;
@@ -82,7 +72,6 @@ export function observeWorld(world: World): () => void {
 		disposeDecoders(world, entity);
 	}));
 
-	// Keyframes re-sort by frame, siblings re-sort by index.
 	subs.push(world.onChange(Keyframe, (entity) => {
 		rebuildCaches(world, entity, getParentEntity(entity));
 	}));
@@ -90,8 +79,6 @@ export function observeWorld(world: World): () => void {
 	subs.push(world.onChange(ItemIndex, (entity) => {
 		rebuildCaches(world, entity, getParentEntity(entity));
 	}));
-
-	// ── Model invariants ──────────────────────────────────────
 
 	// A sequence is a group without spatial identity of its own.
 	subs.push(world.onAdd(Sequential, (entity) => {
@@ -121,8 +108,6 @@ export function observeWorld(world: World): () => void {
 			child.remove(Active);
 		}
 	}));
-
-	// ── Time ranges ───────────────────────────────────────────
 
 	const recomputeAndBubble = (entity: Entity) => {
 		recomputeEntityTimeRange(world, entity);
@@ -174,13 +159,8 @@ export function observeWorld(world: World): () => void {
 		}));
 	}
 
-	// ── Authored → Computed mirrors ───────────────────────────
-	// Base values for entities the motion system skips (no animation data);
-	// animated entities re-derive them every frame via resetAnimatedValues.
-	// Registered on add and change so both spawn-with-value and add-then-set
-	// arrive in Computed. Removal re-derives from what is left (the trait
-	// being removed counts as gone), so an unset prop falls back to its
-	// default on the canvas rather than holding the last value.
+	// Base values for entities the motion system skips. On add and change, so spawn-with-value and
+	// add-then-set both arrive; removal re-derives from what is left, so an unset prop falls back to its default.
 
 	const mirror = (trait: Trait, apply: (entity: Entity) => void, onRemove = true) => {
 		subs.push(world.onAdd(trait, apply));

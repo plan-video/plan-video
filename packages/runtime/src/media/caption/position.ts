@@ -39,11 +39,7 @@ function captionFrame(entity: Entity): Entity | null {
 	return parent;
 }
 
-/**
- * What a caption's placement depends on: the size of the frame it sits in and
- * its vertical alignment. When this changes, the caption has to be placed
- * again. Null when there is no frame to place against.
- */
+/** When this changes the caption has to be placed again; null when there is no frame to place against. */
 export function captionPlacementKey(world: World, entity: Entity): string | null {
 	const parent = captionFrame(entity);
 	if (parent === null) return null;
@@ -52,14 +48,7 @@ export function captionPlacementKey(world: World, entity: Entity): string | null
 	return `${computed.width[parent.id()]}x${computed.height[parent.id()]}:${align}`;
 }
 
-/**
- * Sizes the caption box and places it within its parent. An authored `x`/`y`
- * is the author's own placement and wins; the preset only places the axes the
- * file does not say. Horizontal placement belongs to the preset (centered
- * unless a fixed `x` is given); vertical placement follows the entity's
- * `Caption.verticalAlign`, falling back to the preset's default. Returns
- * false when the entity has no parent to place against.
- */
+/** An authored `x`/`y` wins; the preset places only the axes the file doesn't say. False when there is no parent to place against. */
 export function placeCaption(
 	world: World,
 	entity: Entity,

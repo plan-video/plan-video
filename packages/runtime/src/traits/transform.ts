@@ -24,7 +24,6 @@ export const Size = trait({ width: 0, height: 0 });
 
 export const Flip = trait({ x: 1 as -1 | 1, y: 1 as -1 | 1 });
 
-// Constraint anchoring relative to the parent frame (see ConstraintType).
 export const Constraint = trait({
 	horizontal: ConstraintType.MIN as ConstraintType,
 	vertical: ConstraintType.MIN as ConstraintType,
@@ -35,17 +34,14 @@ export const KeepAspectRatio = trait({ width: 0, height: 0 });
 
 // Derived state below: written by the transform system, never serialized.
 
-// Local 2D affine matrix from Offset, Rotation, Scale, Anchor, Skew and Size.
 export const LocalTransform = trait({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 });
 
 export const WorldTransform = trait({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 });
 
 export const WorldBounds = trait({ minX: 0, minY: 0, maxX: 0, maxY: 0 });
 
-// Tag: entity is outside the viewport this frame.
 export const Culled = trait();
 
-// Parent/child dimensions snapshotted for constraint resolution.
 export const ConstraintCache = trait({
 	parentWidth: 0,
 	parentHeight: 0,

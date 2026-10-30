@@ -2,9 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The numbers on the Analytics page, for the dashboard agent. Not in the
-// catalog: the numbers are fetched by the dashboard, so agents over MCP don't
-// have them yet.
+// Not in the catalog: the dashboard fetches these numbers, so agents over MCP don't have them yet.
 
 import { z } from "zod";
 import { defineTool } from "../tool";

@@ -2,10 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Codex through `codex app-server`: JSON-RPC over the child's stdio. The
-// protocol is hand-typed here for the dozen methods and notifications we
-// use; anything else is ignored. The MCP server is injected with a `-c`
-// override so nothing is written to the user's config.
+// `codex app-server` speaks JSON-RPC over stdio; only the methods we use are typed. The MCP server
+// is injected with a `-c` override so nothing is written to the user's config.
 
 import { spawn } from "node:child_process";
 
@@ -65,7 +63,7 @@ type UserInputRequest = {
 const errorText = (error: { message?: string } | string | null | undefined): string | undefined =>
   typeof error === "string" ? error : error?.message;
 
-/** How the policy is spelled on every call: full access, or the sandbox when an admin said no (§5.4). */
+/** Full access, or the sandbox when an admin said no. */
 type Policy = { full: boolean };
 
 function threadIdOf(result: unknown): string | null {
@@ -255,9 +253,6 @@ class CodexSession implements HarnessSession {
     }
     await killTree(this.child);
   }
-
-  // -------------------------------------------------------------------
-  // Notifications and requests from the server
 
   private toItem(raw: ThreadItem, completed: boolean): Item | null {
     const id = raw.id ?? newItemId("x");

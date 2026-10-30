@@ -2,10 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The thumbnail of an image or video file: scaled to a width, its aspect
-// ratio kept, encoded as WebP. For a video it is the frame shortly after the
-// start. The decoder does the scaling (mediabunny's CanvasSink for video,
-// createImageBitmap for images), so the picture is encoded once, as it comes.
+// The decoder does the scaling (mediabunny's CanvasSink, createImageBitmap), so the picture is encoded once.
 
 import { ALL_FORMATS, BlobSource, CanvasSink, Input } from 'mediabunny';
 
@@ -17,7 +14,7 @@ const VIDEO_THUMBNAIL_OFFSET = 0.3;
 
 const WEBP_QUALITY = 0.7;
 
-/** A WebP thumbnail of `file`, `width` wide, or null when it is neither an image nor a video with a picture. */
+/** Null when `file` is neither an image nor a video with a picture. */
 export async function deriveThumbnail(file: Blob, mimeType: string, width = DEFAULT_THUMBNAIL_WIDTH): Promise<Blob | null> {
 	if (mimeType.startsWith('image/')) return imageThumbnail(file, width);
 	if (mimeType.startsWith('video/')) return videoThumbnail(file, width);

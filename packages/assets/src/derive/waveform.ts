@@ -10,12 +10,7 @@ import type { WaveformRequest, WaveformResponse } from './waveform-worker';
  */
 export const WAVEFORM_PEAKS_PER_SECOND = 800;
 
-/**
- * The waveform of `file`'s primary audio track, or null when it has none:
- * one byte a peak, `peaksPerSecond` of them a second, and the peak at a
- * moment of the file at that moment's index. Decoded in a worker of its own,
- * gone when it answers.
- */
+/** One byte a peak, the peak at a moment at that moment's index. Decoded in a worker of its own, gone when it answers. */
 export function deriveWaveform(file: Blob, peaksPerSecond = WAVEFORM_PEAKS_PER_SECOND): Promise<Uint8ClampedArray | null> {
 	const worker = new Worker(new URL('./waveform-worker.ts', import.meta.url), { type: 'module' });
 	return new Promise<Uint8ClampedArray | null>((resolve, reject) => {
@@ -29,15 +24,9 @@ export function deriveWaveform(file: Blob, peaksPerSecond = WAVEFORM_PEAKS_PER_S
 }
 
 /**
- * The peaks of `data` at `target` positions: the loudest of each slice, and
- * never fewer than one position per sample.
- *
- * Asked for more positions than there are samples — a waveform zoomed in past
- * the resolution it was derived at — a position's slice is narrower than one
- * sample, and every slice whose ends round to the same sample would read
- * nothing at all: a fifth of them at the far end of the zoom, drawn as a
- * regular pattern of gaps. Holding the sample the slice starts in draws what
- * there is to draw instead; past that zoom there is no more detail to show.
+ * The loudest of each slice, never fewer than one position per sample. Zoomed in past the derived
+ * resolution, slices narrower than a sample would read nothing and draw a regular pattern of gaps,
+ * so each holds the sample it starts in.
  */
 export function downsamplePeaks(data: Uint8ClampedArray, target: number): Uint8ClampedArray {
 	const peaks = new Uint8ClampedArray(target);

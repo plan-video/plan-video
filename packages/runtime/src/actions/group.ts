@@ -2,8 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Group and ungroup actions (was api/group.ts).
-
 import { Or } from 'koota';
 
 import { store } from '../world/store';
@@ -21,12 +19,7 @@ import { resolveNewSequenceOverlaps } from './overlap';
 
 import type { Entity, World } from 'koota';
 
-/**
- * Wrap the current node selection in a new GROUP. All selected nodes must
- * share the same parent; scenes are skipped. Children's positions are
- * rewritten into the group's local space so their on-canvas position is
- * preserved.
- */
+/** All selected nodes must share one parent; scenes are skipped. Children keep their on-canvas position. */
 export function groupSelection(world: World, sequential: boolean = false): Entity | null {
 	const selection = [...world.query(Selected, Or(Geometry, Group))];
 	if (selection.length === 0) return null;
@@ -39,7 +32,6 @@ export function groupSelection(world: World, sequential: boolean = false): Entit
 		.filter(entity => getParentNode(entity) === targetParent)
 		.sort(sortByItemIndex);
 
-	// Bounding box of children in target-parent local space.
 	let minX = Infinity;
 	let minY = Infinity;
 	let maxX = -Infinity;
@@ -100,11 +92,7 @@ export function groupSelection(world: World, sequential: boolean = false): Entit
 	return group;
 }
 
-/**
- * Inverse of `groupSelection`. For every GROUP in the current selection,
- * lift its direct children up to the group's parent and remove the group.
- * Children's positions are rewritten so they stay put on canvas.
- */
+/** Lifts each selected group's children to its parent and removes the group; children stay put on canvas. */
 export function ungroupSelection(world: World): void {
 	const groups = [...world.query(Selected, Group)];
 	if (groups.length === 0) return;

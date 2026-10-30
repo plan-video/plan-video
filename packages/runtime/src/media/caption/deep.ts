@@ -16,13 +16,10 @@ import type { WordRange } from './line';
 
 /** The spoken word's color until the file gives it one. */
 export const DEEP_HIGHLIGHT = 0xFFFFFF;
-/** How faint the words not being said are. */
 const DIM = 0.4;
-/** How much larger the spoken word is. */
 const LIFT = 0.04;
 const LIFT_SECONDS = 0.12;
 
-// The whole line up, the word being said bright and a touch larger, the rest faint.
 export const DEEP_TEXT_STYLE = {
 	fontFamily: 'Montserrat',
 	fontWeight: '800',

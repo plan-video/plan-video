@@ -10,10 +10,7 @@ import { getAsset, getAssetFile } from '../actions/assets';
 import type { Entity, World } from 'koota';
 import type { AssetCache, AudioAsset, VideoAsset } from '@plan.video/assets';
 
-/**
- * What a waveform paint's entity holds while it is on screen: the peaks of
- * its asset once they have loaded. Released on cull like the decoders.
- */
+/** The peaks of a waveform paint's asset once loaded; released on cull like the decoders. */
 export class Waveform {
 	public readonly asset: AudioAsset | VideoAsset;
 	public readonly cache?: AssetCache;
@@ -46,10 +43,7 @@ export class Waveform {
 	}
 }
 
-/**
- * The peaks for a waveform paint, synchronously for the render loop: what the
- * paint entity holds, or null while they load (the load is started here).
- */
+/** Synchronous for the render loop: null while the peaks load (the load is started here). */
 export function resolveWaveformPeaks(world: World, fill: Entity): Uint8ClampedArray | null {
 	const assetId = fill.get(AssetId)?.value;
 	if (!assetId) return null;

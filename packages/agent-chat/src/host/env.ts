@@ -17,14 +17,12 @@ import type { ChildProcess } from "node:child_process";
 export type HostEnv = {
   /** Hydrated environment for children: login-shell PATH, no ELECTRON_* / NODE_OPTIONS. */
   env: Record<string, string>;
-  /** Directories searched after PATH. */
   extraDirs: string[];
 };
 
 const SHELL_TIMEOUT_MS = 5000;
 const IS_WINDOWS = process.platform === "win32";
 
-/** Variables the app's own process carries that a user's CLI must not inherit. */
 function stripElectron(env: NodeJS.ProcessEnv): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [key, value] of Object.entries(env)) {
@@ -118,10 +116,7 @@ function isExecutable(path: string): boolean {
   }
 }
 
-/**
- * `which`, over the hydrated PATH and then the known install dirs. On Windows
- * the PATHEXT variants are tried, so `claude.cmd` and `codex.exe` are found.
- */
+/** Over the hydrated PATH, then the known install dirs; on Windows the PATHEXT variants are tried (`claude.cmd`, `codex.exe`). */
 export function which(name: string, host: HostEnv): string | null {
   const dirs = [...(host.env.PATH ?? "").split(delimiter).filter(Boolean), ...host.extraDirs];
   const names = IS_WINDOWS
@@ -159,7 +154,6 @@ export function resolveClaudeExecutable(path: string): string {
     resolve(dir, "..", "lib", "node_modules", "@anthropic-ai", "claude-code", "cli.js"),
   ];
   for (const candidate of candidates) if (existsSync(candidate)) return candidate;
-  // A shim of another shape: read the target out of it.
   try {
     const shim = readFileSync(path, "utf8");
     const match = /"%dp0%\\([^"]+cli\.js)"/i.exec(shim) ?? /"%~dp0\\([^"]+cli\.js)"/i.exec(shim);
@@ -201,7 +195,6 @@ export function runOnce(path: string, args: string[], host: HostEnv, timeoutMs =
   });
 }
 
-/** The version in a `--version` line: "2.1.236 (Claude Code)" → "2.1.236". */
 export function parseVersion(output: string | null): string | undefined {
   if (!output) return undefined;
   return /(\d+\.\d+\.\d+)/.exec(output)?.[1];

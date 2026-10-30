@@ -28,12 +28,9 @@ export const MixedCornerRadius = trait({
 
 export const Blur = trait({ value: 0 });
 
-// Scale mode for image fills and any other scaled asset display.
 export const ScaleMode = trait({ value: ScaleModeType.COVER as ScaleModeType });
 
-// The part of a media frame drawn into the box, as fractions of the source.
-// Absent means the whole frame. A layout clip is the slot, and this is the
-// piece of the footage that fills it.
+/** Fractions of the source; absent means the whole frame. */
 export const MediaCrop = trait({
 	x: 0,
 	y: 0,
@@ -41,17 +38,12 @@ export const MediaCrop = trait({
 	height: 1,
 });
 
-// Effect sub-entity: one per applied effect, ChildOf its target.
 export const Effect = trait({
 	type: EffectType.DROP_SHADOW as EffectType,
 	value: 0,
 });
 
-// Colour grade sub-entity, ChildOf the node it grades (a clip, or a scene and
-// all that is in it). Only the last one under a node counts. Every slider runs
-// -100..100 with 0 leaving the picture as it is; a wheel is a hue (degrees),
-// how far towards it (0..100) and a level (-100..100). `look` names one of
-// GRADE_LOOKS, laid under the sliders at `lookAmount` percent.
+/** Only the last one under a node counts. Sliders -100..100 (0 = unchanged); a wheel is a hue (degrees), amount (0..100) and level (-100..100). */
 export const Grade = trait({
 	exposure: 0,
 	contrast: 0,
@@ -75,16 +67,10 @@ export const Grade = trait({
 	lookAmount: 100,
 });
 
-// Single gradient stop: its position along the gradient (0-1). Its color and
-// opacity are the entity's Color and Opacity. Each stop is its own entity, ChildOf the
-// gradient fill. Stop count is fixed for the lifetime of the fill: to animate
-// between gradients with different stop counts use a separate fill and
-// cross-fade.
+/** Position 0-1; colour and opacity are the entity's Color and Opacity. Stop count is fixed for the fill's lifetime. */
 export const ColorStop = trait({ offset: 0 });
 
-// How a stroke sub-entity is drawn: line width, joins, caps. Lives on the
-// stroke itself (next to its Paint/Color/Opacity), so each stroke of a node
-// has its own width. Absent means a 1px miter/butt line.
+/** On the stroke itself, so each stroke of a node has its own width. Absent means a 1px miter/butt line. */
 export const StrokeStyle = trait({
 	width: 1,
 	join: StrokeJoin.MITER as StrokeJoin,

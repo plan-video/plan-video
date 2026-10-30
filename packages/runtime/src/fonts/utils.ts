@@ -2,9 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Web font loading (was engine/font/utils.ts, minus the app-side pieces:
-// getLocalFonts needs window.queryLocalFonts, and font persistence is the
-// app's IndexedDB concern; it wraps loadWebFont and re-calls it on restore).
+// App-side pieces stay out: getLocalFonts needs window.queryLocalFonts, and font persistence is the
+// app's IndexedDB concern.
 
 import { WebFonts } from './fixtures';
 import { FontStyle } from '../constants';
@@ -25,9 +24,6 @@ function getFontFaceSet(): FontFaceSet | null {
 	return scope.document?.fonts ?? scope.fonts ?? null;
 }
 
-/**
- * Get common web fonts
- */
 export function getWebFonts(): types.FontSources[] {
 	return Object.keys(WebFonts).map((family) => {
 		return {
@@ -65,7 +61,6 @@ export async function loadWebFont(
 	// measurement falls back to the system font.
 	if (!fonts || typeof FontFace === 'undefined') return font;
 
-	// Already loaded, or loading
 	if (fonts.some((f) => f.source === font.source && f.weight === font.weight)) {
 		await pending.get(`${font.source} ${font.weight}`)?.catch(() => {});
 		return font;

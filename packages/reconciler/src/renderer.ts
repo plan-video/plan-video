@@ -71,12 +71,7 @@ export const {
   mergeProps,
 } = renderer;
 
-/**
- * Ref application (compiled `ref={fn}`). Hosts that materialize elements
- * lazily route refs through `applyRef` so the callback receives the backing
- * object once it exists; hosts without `applyRef` keep the renderer's
- * immediate call with the host node.
- */
+/** Hosts that materialize elements lazily route refs through `applyRef` so the callback receives the backing object once it exists. */
 export function use(fn: (target: unknown, arg?: unknown) => void, node: unknown, arg?: unknown): unknown {
   const document = doc();
   if (document.applyRef) {
@@ -87,14 +82,9 @@ export function use(fn: (target: unknown, arg?: unknown) => void, node: unknown,
 }
 
 /**
- * The live `useTicker` — substituted for the throwing declaration in
- * @plan.video/jsx (see "./runtime"), so a mounted project's import
- * resolves to this one. Each accessor only propagates when its value changes,
- * so a paused scene re-runs nothing.
- *
- * `hold` is the host's frame barrier, or a no-op where the host has none:
- * a project holding work in a document that draws in realtime is not an
- * error, there is simply nothing there that waits.
+ * Replaces the throwing declaration in @plan.video/jsx (see "./runtime"). Each accessor only
+ * propagates when its value changes, so a paused scene re-runs nothing. `hold` is a no-op where
+ * the host has no frame barrier.
  */
 export function useTicker(): Ticker {
   const document = doc();
@@ -113,23 +103,14 @@ export function useTicker(): Ticker {
   };
 }
 
-/**
- * The live `useResolution` — the host's rasterization density as a memo,
- * a constant 1 where the host reports none: a project reading it in a
- * document that never scales is not an error, everything there is drawn
- * pixel for pixel.
- */
+/** A constant 1 where the host reports no rasterization density. */
 export function useResolution(): Accessor<number> {
   const document = doc();
   const read = document.resolution?.bind(document);
   return createMemo(() => read?.() ?? 1);
 }
 
-/**
- * Runs `fn` with `document` as the one the static runtime exports write into.
- * Anything creating elements outside a project render — a host inserting
- * elements of its own — goes through here.
- */
+/** Runs `fn` with `document` as the one the static runtime exports write into; anything creating elements outside a project render goes through here. */
 export function withDocument<N, T>(document: ProjectDocument<N>, fn: () => T): T {
   const previous = currentDocument;
   currentDocument = document as ProjectDocument;
@@ -140,10 +121,7 @@ export function withDocument<N, T>(document: ProjectDocument<N>, fn: () => T): T
   }
 }
 
-/**
- * Host entry point: renders a project component directly into `document`.
- * Mounting is synchronous — the document is fully written when this returns.
- */
+/** Mounting is synchronous: the document is fully written when this returns. */
 export function renderProject<N>(project: () => unknown, document: ProjectDocument<N>): () => void {
   return withDocument(document, () =>
     render(() => createComponent(DocumentContext.Provider, {
