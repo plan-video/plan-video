@@ -1,0 +1,20 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/*
+ * A preset tile's CSS preview holds a still until the tile plays: every
+ * animation in it is paused `--still` seconds in (a negative delay, set per
+ * preview). Playing draws the preview afresh (see PresetTile), so its loop
+ * starts from the first frame with its own delays.
+ */
+.preset-preview:not([data-playing]) * {
+  animation-delay: var(--still, 0s) !important;
+  animation-play-state: paused !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .preset-preview * {
+    animation-play-state: paused !important;
+  }
+}

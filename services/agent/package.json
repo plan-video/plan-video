@@ -1,0 +1,12 @@
+{
+  "name": "@plan.video/agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "tools": "node scripts/build-tools.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.132.0"
+  }
+}

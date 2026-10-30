@@ -1,0 +1,52 @@
+[Unit]
+Description=plan.video publisher
+After=network-online.target
+Wants=network-online.target
+
+# Sends scheduled posts and keeps connected accounts' logins. Laid out like
+# the repo, so it can import the network services' code:
+#   /opt/plan-video-publisher/publisher   this folder, with its node_modules
+#   /opt/plan-video-publisher/{tiktok,youtube,linkedin}/handler.mjs
+# Secrets: /etc/plan-video/publisher.env (SUPABASE_URL,
+# SUPABASE_SERVICE_ROLE_KEY, TOKEN_KEY, SEND_FROM, PUBLIC_URL and, for
+# "Sign in with Bluesky", BLUESKY_OAUTH_JWK; for emailing failed posts and
+# expiring logins, RESEND_API_KEY), plus r2.env and each network's env for
+# refreshing logins. Deleting an account ends its plan through the
+# billing service, at BILLING_URL (http://127.0.0.1:8799 unless set).
+#
+# Node: the official build in /opt/node-v22.22.1 (nodejs.org's linux-x64
+# tarball), not the distro's /usr/bin/node, which doesn't report
+# process.versions.undici, so "Sign in with Bluesky" fails on every sign-in and
+# post while everything else works. The drop-in beside this file pins the same
+# Node; install both:
+#   install -m 644 plan-video-publisher.service /etc/systemd/system/
+#   install -D -m 644 plan-video-publisher.service.d/node.conf \
+#     /etc/systemd/system/plan-video-publisher.service.d/node.conf
+#   systemctl daemon-reload
+
+[Service]
+# Its own user, so a bug in another service can't read publisher.env. The extra
+# groups read r2.env and each network's file, for refreshing logins.
+User=planvideo-publisher
+Group=planvideo-publisher
+SupplementaryGroups=planvideo-r2 planvideo-tiktok planvideo-youtube planvideo-linkedin planvideo-x
+WorkingDirectory=/opt/plan-video-publisher/publisher
+ExecStart=/opt/node-v22.22.1/bin/node server.mjs
+Restart=always
+RestartSec=2
+# Up to 16 sends go at once (worker.mjs): the ones holding files share 256 MB, beside two pictures being made (photos.mjs).
+MemoryMax=1G
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+InaccessiblePaths=-/etc/plan-video/agent.env -/etc/plan-video/transcribe.env -/etc/plan-video/mcp.env
+
+[Install]
+WantedBy=multi-user.target

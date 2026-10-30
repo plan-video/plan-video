@@ -1,0 +1,32 @@
+[Unit]
+Description=plan.video transcription proxy
+After=network-online.target
+Wants=network-online.target
+
+# Reads ELEVENLABS_API_KEY from /etc/plan-video/transcribe.env (root:planvideo-transcribe,
+# mode 640), and SUPABASE_URL / SUPABASE_ANON_KEY from r2.env.
+
+[Service]
+# Its own user, so a bug here can't read the other services' keys; planvideo-r2
+# reads r2.env, which several services share.
+User=planvideo-transcribe
+Group=planvideo-transcribe
+SupplementaryGroups=planvideo-r2
+WorkingDirectory=/opt/plan-video-transcribe
+ExecStart=/usr/bin/node server.mjs
+Restart=always
+RestartSec=2
+MemoryMax=768M
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

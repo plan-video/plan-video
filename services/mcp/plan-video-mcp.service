@@ -1,0 +1,34 @@
+[Unit]
+Description=plan.video Claude connector
+After=network-online.target
+Wants=network-online.target
+
+# Its own user, unlike the other services: this one is reachable by anyone on
+# the internet, so it must not be able to read their secrets. It needs only
+# /etc/plan-video/mcp.env (owned by planvideo-mcp, mode 600):
+#   SUPABASE_URL, SUPABASE_ANON_KEY, and optionally PUBLIC_URL, ALLOWED_ORIGINS.
+#
+#   useradd --system --no-create-home --shell /usr/sbin/nologin planvideo-mcp
+
+[Service]
+User=planvideo-mcp
+Group=planvideo-mcp
+WorkingDirectory=/opt/plan-video-mcp
+ExecStart=/usr/bin/node server.mjs
+Restart=always
+RestartSec=2
+MemoryMax=512M
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+InaccessiblePaths=-/etc/plan-video/r2.env -/etc/plan-video/tiktok.env -/etc/plan-video/youtube.env -/etc/plan-video/transcribe.env
+
+[Install]
+WantedBy=multi-user.target

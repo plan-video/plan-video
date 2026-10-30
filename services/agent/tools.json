@@ -1,0 +1,722 @@
+[
+  {
+    "name": "social_accounts",
+    "description": "List the social accounts connected in Plan Video. Call this before scheduling and use the returned ids. Tokens are never returned. When a platform has more than one account, schedule_post has to be given an id from here.",
+    "input_schema": {
+      "type": "object",
+      "properties": {}
+    }
+  },
+  {
+    "name": "social_schema",
+    "description": "Posting rules for each platform: caption limit, what it accepts, and whether Plan Video can publish it. Call this before writing a caption for a short platform such as X or Bluesky. One caption is shared by every platform on a post.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "platform": {
+          "description": "One platform. Omit for every platform.",
+          "type": "string",
+          "enum": [
+            "tiktok",
+            "instagram",
+            "youtube",
+            "x",
+            "facebook",
+            "linkedin",
+            "threads",
+            "bluesky",
+            "pinterest"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "tiktok_creator",
+    "description": "Ask TikTok what a connected TikTok account can post right now: the name it posts as, who can watch, whether comments, Duet and Stitch can be on, and the longest video. TikTok requires this before anything goes to a profile, and it can change, so call it each time before you schedule or publish to the TikTok profile. Then tell the user which account the post goes out as, and ask them who can watch (one of privacy; there is no default), whether to allow comments, Duet and Stitch (not those the account has off), and whether the post promotes something. Last, show them consent word for word with its links, or brandedConsent for branded content, and pass agreed true only once they accept. Not needed for tiktok.inbox, where they finish the post in TikTok.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "account": {
+          "description": "A TikTok connection id from social_accounts. Required when there's more than one.",
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  },
+  {
+    "name": "analytics",
+    "description": "Read the person's numbers from the Analytics page: views, likes and comments for each connected account that reports them (TikTok, YouTube, Instagram, Facebook Pages and Threads), how posts did by the weekday and hour they went out, and their top posts. Call this before picking days or times from how their posts perform, or when they ask how they're doing. Days and hours are in the dashboard time zone. A post's numbers are its totals so far, so the newest posts have had less time.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "platform": {
+          "description": "One network. Omit for every account that reports numbers.",
+          "type": "string",
+          "enum": [
+            "tiktok",
+            "youtube",
+            "instagram",
+            "facebook",
+            "threads"
+          ]
+        },
+        "account": {
+          "description": "One account id, from social_accounts.",
+          "type": "string"
+        },
+        "days": {
+          "description": "How far back to look, counting today. Defaults to 90.",
+          "type": "integer",
+          "minimum": 7,
+          "maximum": 730
+        }
+      }
+    }
+  },
+  {
+    "name": "schedule_post",
+    "description": "Save a post on the Plan Video calendar. This does not publish. Pass platforms and a caption, then either a future day and time or draft true. Call social_accounts first, and pass account ids when a platform has more than one account. Attach a video, or pictures for a carousel, from the library with media. TikTok, YouTube, Bluesky, LinkedIn and X are sent only by publish_post, and only while Plan Video is open. Other platforms are stored on the calendar and are not sent.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "caption": {
+          "type": "string",
+          "description": "The caption stored for every platform on the post. One caption: a short platform needs a shorter caption, or leave it off."
+        },
+        "platforms": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "tiktok",
+              "instagram",
+              "youtube",
+              "x",
+              "facebook",
+              "linkedin",
+              "threads",
+              "bluesky",
+              "pinterest"
+            ]
+          },
+          "description": "Where it goes. Ids from social_schema, such as tiktok or x."
+        },
+        "accounts": {
+          "description": "Connection ids from social_accounts. Required when a platform has more than one account.",
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "day": {
+          "description": "YYYY-MM-DD in the dashboard time zone, which social_accounts reports.",
+          "type": "string"
+        },
+        "time": {
+          "description": "HH:MM in that time zone, 24-hour. 9:00 and 09:00 both work.",
+          "type": "string"
+        },
+        "draft": {
+          "description": "Save it without scheduling a send. A day and time can still be stored.",
+          "type": "boolean"
+        },
+        "media": {
+          "description": "One video, or up to 35 pictures as a list for a carousel, from the person's media library, by the media ids their message lists, such as media:2f9c1e. Pass nothing else: paths and URLs are refused.",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "minItems": 1,
+              "maxItems": 35,
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ]
+        },
+        "link": {
+          "description": "A destination link stored on the post.",
+          "type": "string"
+        },
+        "youtube": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "description": "YouTube title. Defaults to the first line of the caption.",
+              "type": "string"
+            },
+            "privacy": {
+              "description": "Who can watch. Defaults to public.",
+              "type": "string",
+              "enum": [
+                "public",
+                "unlisted",
+                "private"
+              ]
+            },
+            "madeForKids": {
+              "description": "Whether the video is made for kids.",
+              "type": "boolean"
+            },
+            "tags": {
+              "description": "Tags, without a leading #. 30 characters each, 500 altogether.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "tiktok": {
+          "type": "object",
+          "properties": {
+            "privacy": {
+              "description": "Who can watch, as the user picked it from the choices tiktok_creator lists. There is no default: ask. Required to schedule a TikTok post to the profile, together with promotion.",
+              "type": "string",
+              "enum": [
+                "public",
+                "friends",
+                "followers",
+                "private"
+              ]
+            },
+            "comments": {
+              "description": "Allow comments. Off unless the user turns it on.",
+              "type": "boolean"
+            },
+            "duet": {
+              "description": "Allow Duet, for a video. Off unless the user turns it on.",
+              "type": "boolean"
+            },
+            "stitch": {
+              "description": "Allow Stitch, for a video. Off unless the user turns it on.",
+              "type": "boolean"
+            },
+            "promotion": {
+              "description": "Whether the post promotes something, as the user answered: none; your_brand, when it promotes themselves or their own business (labelled Promotional content); branded_content, when it promotes another brand or a third party (labelled Paid partnership, and it can't be private); or both. Required with privacy.",
+              "type": "string",
+              "enum": [
+                "none",
+                "your_brand",
+                "branded_content",
+                "both"
+              ]
+            },
+            "agreed": {
+              "description": "True once the user has accepted TikTok's terms for this post: show them consent from tiktok_creator word for word with its links (brandedConsent for branded content) and wait for their yes. Required to schedule a post to the TikTok profile.",
+              "type": "boolean"
+            },
+            "inbox": {
+              "description": "Send the video to the TikTok inbox instead of posting it to the profile. The person finishes it in TikTok.",
+              "type": "boolean"
+            }
+          }
+        },
+        "repeat": {
+          "description": "Repeat from the first day. Scheduling still does not publish.",
+          "type": "object",
+          "properties": {
+            "every": {
+              "description": "How many of unit between posts. Omit for weekday, which is Monday to Friday.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 99
+            },
+            "unit": {
+              "type": "string",
+              "enum": [
+                "day",
+                "week",
+                "month",
+                "weekday"
+              ]
+            },
+            "until": {
+              "description": "Last day, YYYY-MM-DD, inclusive.",
+              "type": "string"
+            },
+            "times": {
+              "description": "Stop after this many posts, including the first.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 99
+            }
+          },
+          "required": [
+            "unit"
+          ]
+        },
+        "thread": {
+          "maxItems": 10,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "text": {
+                "type": "string",
+                "minLength": 1,
+                "description": "The words. X takes 280 characters, Bluesky 300, and a LinkedIn comment 1,250."
+              },
+              "delayMinutes": {
+                "description": "Minutes after the post, or the follow-up before it, that this one goes out: 0, 1, 5, 15, 30, 60, 180, 360, 720 or 1440. Others are rounded to the nearest. Default 0.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1440
+              }
+            },
+            "required": [
+              "text"
+            ]
+          },
+          "description": "Follow-ups posted under the post once it's out, each its delay after the one before: replies under it on X and Bluesky, comments on it on LinkedIn. Other platforms get the post alone. Up to 10."
+        }
+      },
+      "required": [
+        "caption",
+        "platforms"
+      ]
+    }
+  },
+  {
+    "name": "copy_post",
+    "description": "Make a new post from an existing one, posted or not: the same caption, platforms, accounts, video or pictures, link and platform settings, on a new day and time or as a draft. Pass caption, platforms or accounts to change them on the copy. The original stays as it is. This does not publish. Use it to post something again.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The post to copy, from list_posts."
+        },
+        "day": {
+          "description": "YYYY-MM-DD in the dashboard time zone, which social_accounts reports.",
+          "type": "string"
+        },
+        "time": {
+          "description": "HH:MM in that time zone, 24-hour. 9:00 and 09:00 both work.",
+          "type": "string"
+        },
+        "draft": {
+          "description": "Save it without scheduling a send. A day and time can still be stored.",
+          "type": "boolean"
+        },
+        "caption": {
+          "description": "A new caption for the copy. Omit to keep the original's.",
+          "type": "string"
+        },
+        "platforms": {
+          "description": "Where the copy goes. Omit to keep the original's platforms.",
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "tiktok",
+              "instagram",
+              "youtube",
+              "x",
+              "facebook",
+              "linkedin",
+              "threads",
+              "bluesky",
+              "pinterest"
+            ]
+          }
+        },
+        "accounts": {
+          "description": "Connection ids from social_accounts. Required when a platform has more than one account.",
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "thread": {
+          "description": "Follow-ups for the copy, in place of the original's. Omit to keep the original's, or pass [] for none.",
+          "maxItems": 10,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "text": {
+                "type": "string",
+                "minLength": 1,
+                "description": "The words. X takes 280 characters, Bluesky 300, and a LinkedIn comment 1,250."
+              },
+              "delayMinutes": {
+                "description": "Minutes after the post, or the follow-up before it, that this one goes out: 0, 1, 5, 15, 30, 60, 180, 360, 720 or 1440. Others are rounded to the nearest. Default 0.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1440
+              }
+            },
+            "required": [
+              "text"
+            ]
+          }
+        },
+        "tiktok": {
+          "description": "Changes to the copy's TikTok settings. To schedule a copy to the TikTok profile, pass agreed true once the user accepted TikTok's terms, as tiktok_creator describes.",
+          "type": "object",
+          "properties": {
+            "privacy": {
+              "description": "Who can watch, as the user picked it from the choices tiktok_creator lists. There is no default: ask. Required to schedule a TikTok post to the profile, together with promotion.",
+              "type": "string",
+              "enum": [
+                "public",
+                "friends",
+                "followers",
+                "private"
+              ]
+            },
+            "comments": {
+              "description": "Allow comments. Off unless the user turns it on.",
+              "type": "boolean"
+            },
+            "duet": {
+              "description": "Allow Duet, for a video. Off unless the user turns it on.",
+              "type": "boolean"
+            },
+            "stitch": {
+              "description": "Allow Stitch, for a video. Off unless the user turns it on.",
+              "type": "boolean"
+            },
+            "promotion": {
+              "description": "Whether the post promotes something, as the user answered: none; your_brand, when it promotes themselves or their own business (labelled Promotional content); branded_content, when it promotes another brand or a third party (labelled Paid partnership, and it can't be private); or both. Required with privacy.",
+              "type": "string",
+              "enum": [
+                "none",
+                "your_brand",
+                "branded_content",
+                "both"
+              ]
+            },
+            "agreed": {
+              "description": "True once the user has accepted TikTok's terms for this post: show them consent from tiktok_creator word for word with its links (brandedConsent for branded content) and wait for their yes. Required to schedule a post to the TikTok profile.",
+              "type": "boolean"
+            },
+            "inbox": {
+              "description": "Send the video to the TikTok inbox instead of posting it to the profile. The person finishes it in TikTok.",
+              "type": "boolean"
+            }
+          }
+        }
+      },
+      "required": [
+        "id"
+      ]
+    }
+  },
+  {
+    "name": "list_posts",
+    "description": "List posts on the calendar, oldest first, or one post when id is set. Includes status, time, accounts, and whether a send succeeded or failed. Does not include tokens.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "One post. Other filters are ignored.",
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "draft",
+            "scheduled",
+            "posted"
+          ]
+        },
+        "platform": {
+          "type": "string",
+          "enum": [
+            "tiktok",
+            "instagram",
+            "youtube",
+            "x",
+            "facebook",
+            "linkedin",
+            "threads",
+            "bluesky",
+            "pinterest"
+          ]
+        },
+        "from": {
+          "description": "First day, YYYY-MM-DD, inclusive.",
+          "type": "string"
+        },
+        "to": {
+          "description": "Last day, YYYY-MM-DD, inclusive.",
+          "type": "string"
+        },
+        "limit": {
+          "description": "How many to return (default 50).",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        }
+      }
+    }
+  },
+  {
+    "name": "update_post",
+    "description": "Change a draft or a scheduled post. Omitted fields stay as they are. Posted posts stay as they went out. This does not publish. Pass draft true to take a scheduled post back to a draft, or a day and time to schedule a draft.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "caption": {
+          "description": "The caption stored for every platform on the post. Omit to leave it. One caption: a short platform needs a shorter caption, or leave that platform off.",
+          "type": "string"
+        },
+        "platforms": {
+          "description": "Where it goes. Ids from social_schema, such as tiktok or x. Omit to leave the platforms as they are.",
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "tiktok",
+              "instagram",
+              "youtube",
+              "x",
+              "facebook",
+              "linkedin",
+              "threads",
+              "bluesky",
+              "pinterest"
+            ]
+          }
+        },
+        "accounts": {
+          "description": "Connection ids from social_accounts. Required when a platform has more than one account.",
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "day": {
+          "description": "YYYY-MM-DD in the dashboard time zone, which social_accounts reports.",
+          "type": "string"
+        },
+        "time": {
+          "description": "HH:MM in that time zone, 24-hour. 9:00 and 09:00 both work.",
+          "type": "string"
+        },
+        "draft": {
+          "description": "Save it without scheduling a send. A day and time can still be stored.",
+          "type": "boolean"
+        },
+        "media": {
+          "description": "One video, or up to 35 pictures as a list for a carousel, from the person's media library, by the media ids their message lists, such as media:2f9c1e. Pass nothing else: paths and URLs are refused.",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "minItems": 1,
+              "maxItems": 35,
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ]
+        },
+        "link": {
+          "description": "A destination link stored on the post.",
+          "type": "string"
+        },
+        "youtube": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "description": "YouTube title. Defaults to the first line of the caption.",
+              "type": "string"
+            },
+            "privacy": {
+              "description": "Who can watch. Defaults to public.",
+              "type": "string",
+              "enum": [
+                "public",
+                "unlisted",
+                "private"
+              ]
+            },
+            "madeForKids": {
+              "description": "Whether the video is made for kids.",
+              "type": "boolean"
+            },
+            "tags": {
+              "description": "Tags, without a leading #. 30 characters each, 500 altogether.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "tiktok": {
+          "type": "object",
+          "properties": {
+            "privacy": {
+              "description": "Who can watch, as the user picked it from the choices tiktok_creator lists. There is no default: ask. Required to schedule a TikTok post to the profile, together with promotion.",
+              "type": "string",
+              "enum": [
+                "public",
+                "friends",
+                "followers",
+                "private"
+              ]
+            },
+            "comments": {
+              "description": "Allow comments. Off unless the user turns it on.",
+              "type": "boolean"
+            },
+            "duet": {
+              "description": "Allow Duet, for a video. Off unless the user turns it on.",
+              "type": "boolean"
+            },
+            "stitch": {
+              "description": "Allow Stitch, for a video. Off unless the user turns it on.",
+              "type": "boolean"
+            },
+            "promotion": {
+              "description": "Whether the post promotes something, as the user answered: none; your_brand, when it promotes themselves or their own business (labelled Promotional content); branded_content, when it promotes another brand or a third party (labelled Paid partnership, and it can't be private); or both. Required with privacy.",
+              "type": "string",
+              "enum": [
+                "none",
+                "your_brand",
+                "branded_content",
+                "both"
+              ]
+            },
+            "agreed": {
+              "description": "True once the user has accepted TikTok's terms for this post: show them consent from tiktok_creator word for word with its links (brandedConsent for branded content) and wait for their yes. Required to schedule a post to the TikTok profile.",
+              "type": "boolean"
+            },
+            "inbox": {
+              "description": "Send the video to the TikTok inbox instead of posting it to the profile. The person finishes it in TikTok.",
+              "type": "boolean"
+            }
+          }
+        },
+        "repeat": {
+          "description": "A new repeat, or null to stop repeating.",
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "every": {
+                  "description": "How many of unit between posts. Omit for weekday, which is Monday to Friday.",
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 99
+                },
+                "unit": {
+                  "type": "string",
+                  "enum": [
+                    "day",
+                    "week",
+                    "month",
+                    "weekday"
+                  ]
+                },
+                "until": {
+                  "description": "Last day, YYYY-MM-DD, inclusive.",
+                  "type": "string"
+                },
+                "times": {
+                  "description": "Stop after this many posts, including the first.",
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 99
+                }
+              },
+              "required": [
+                "unit"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "thread": {
+          "description": "Follow-ups in place of the post's own. Omit to leave them, or pass [] for none.",
+          "maxItems": 10,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "text": {
+                "type": "string",
+                "minLength": 1,
+                "description": "The words. X takes 280 characters, Bluesky 300, and a LinkedIn comment 1,250."
+              },
+              "delayMinutes": {
+                "description": "Minutes after the post, or the follow-up before it, that this one goes out: 0, 1, 5, 15, 30, 60, 180, 360, 720 or 1440. Others are rounded to the nearest. Default 0.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1440
+              }
+            },
+            "required": [
+              "text"
+            ]
+          }
+        }
+      },
+      "required": [
+        "id"
+      ]
+    }
+  },
+  {
+    "name": "delete_post",
+    "description": "Delete a draft or a scheduled post from the calendar. Posted posts cannot be deleted, because the platform already has them.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "id"
+      ]
+    }
+  },
+  {
+    "name": "publish_post",
+    "description": "Send a saved post now. TikTok, YouTube, Bluesky, LinkedIn and X publish from Plan Video, and every platform on the post has to be one of them. YouTube needs a video attached, and TikTok a video or pictures; Bluesky, LinkedIn and X also send pictures, or the words alone. This cannot be undone. Do not call it unless the user asked to publish now. Plan Video has to stay open until the send finishes. Call it again to retry a failed send. A post to the TikTok profile needs tiktok_creator first and agreed true.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "agreed": {
+          "description": "For a post to the TikTok profile: true once the user has accepted TikTok's terms for it just now. Show them consent from tiktok_creator word for word with its links (brandedConsent for branded content) and wait for their yes. Required for those posts.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id"
+      ]
+    }
+  }
+]

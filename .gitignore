@@ -1,0 +1,53 @@
+# Installed packages, build output, and local secrets.
+# These are created on each machine and are not source changes.
+node_modules
+dist
+dist-ssr
+dist-contract
+build
+out
+
+# Local env files and keys (copy .env.example to .env, server.env.example to server.env)
+.env
+.env.*
+!.env.example
+*.env
+*.local
+*.pem
+*.key
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.claude
+.claire
+
+# AI
+skills-lock.json
+.agents
+
+# Private notes: audits, plans and research stay on the machine, out of the
+# repository.
+reports/
+research_notes/
+
+# plan.video's own homepage and marketing pages: a private repository of
+# their own, checked out here on plan.video's machines (lib/site.ts). Without
+# it the app builds and runs as is, opening straight into the dashboard.
+apps/web/site/

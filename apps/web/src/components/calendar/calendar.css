@@ -1,0 +1,161 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* A post on Month and Week: a quiet card, with the calendar's colour as a bar
+   down its left edge and nowhere else. The card is the same in both views, so
+   the eye learns it once, and the posts' pictures are what stand out on the grid. */
+.cal-chip {
+  background-color: var(--plane-layer-2);
+  border-color: var(--plane-border-subtle-1);
+  transition:
+    background-color 120ms ease-out,
+    border-color 120ms ease-out;
+}
+
+.cal-chip:hover {
+  background-color: var(--plane-layer-2-hover);
+  border-color: var(--plane-border-strong);
+}
+
+.cal-chip-bar {
+  position: absolute;
+  inset: 5px auto 5px 4px;
+  width: 3px;
+  border-radius: 2px;
+  background-color: var(--cal-color);
+}
+
+.cal-chip-title {
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: var(--font-weight-medium);
+  color: var(--plane-text-primary);
+}
+
+.cal-chip-meta {
+  font-size: 11px;
+  line-height: 14px;
+  color: var(--plane-text-tertiary);
+}
+
+/* A draft is only a plan: an outline, and quieter words. */
+.cal-chip[data-status="draft"] {
+  background-color: transparent;
+  border-style: dashed;
+  border-color: var(--plane-border-strong);
+}
+
+.cal-chip[data-status="draft"]:hover {
+  background-color: var(--plane-layer-transparent-hover);
+  border-color: var(--plane-border-strong-1);
+}
+
+.cal-chip[data-status="draft"] .cal-chip-title {
+  color: var(--plane-text-secondary);
+}
+
+.cal-chip[data-status="draft"] .cal-chip-bar {
+  opacity: 0.45;
+}
+
+/* A posted one is done, so it steps back, with no mark of its own: only a
+   post that needs the user carries one. It comes forward again on hover.
+   Its network logos stay as they are: YouTube's branding rules don't allow
+   its icon faded, so the words and picture step back around them. */
+.cal-chip[data-status="posted"]:not([data-delivery]) > :not(.cal-chip-text),
+.cal-chip[data-status="posted"]:not([data-delivery]) .cal-chip-title,
+.cal-chip[data-status="posted"]:not([data-delivery]) .cal-chip-meta > :not(.cal-chip-logos) {
+  opacity: 0.6;
+  transition: opacity 120ms ease-out;
+}
+
+.cal-chip[data-status="posted"]:not([data-delivery]):hover > :not(.cal-chip-text),
+.cal-chip[data-status="posted"]:not([data-delivery]):hover .cal-chip-title,
+.cal-chip[data-status="posted"]:not([data-delivery]):hover .cal-chip-meta > :not(.cal-chip-logos) {
+  opacity: 1;
+}
+
+.cal-chip[data-status="posted"] .cal-chip-bar {
+  opacity: 0.5;
+}
+
+.cal-chip[data-delivery="failed"] .cal-chip-bar {
+  background-color: var(--destructive);
+  opacity: 1;
+}
+
+.cal-chip[data-paused] {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent 0 5px,
+    var(--plane-layer-transparent-hover) 5px 10px
+  );
+}
+
+/* Paused steps back the same way, logos left whole. */
+.cal-chip[data-paused] > :not(.cal-chip-text),
+.cal-chip[data-paused] .cal-chip-title,
+.cal-chip[data-paused] .cal-chip-meta > :not(.cal-chip-logos) {
+  opacity: 0.7;
+}
+
+.cal-chip[data-paused] .cal-chip-title {
+  color: var(--plane-text-secondary);
+}
+
+.cal-now-dot {
+  animation: cal-now-pulse 2s ease-in-out infinite;
+}
+
+/* Opacity and scale only. The panel's position is left/top, and drag uses the
+   translate property, so a transform-based utility animation fights both. */
+@keyframes cal-popup-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.cal-popup {
+  transform-origin: var(--cal-popup-origin, top center);
+  animation: cal-popup-in 120ms ease-out backwards;
+}
+
+@keyframes cal-now-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes cal-hover-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* A post's preview on hover: quicker than the popup, since it is only a glance. */
+.cal-hover-card {
+  animation: cal-hover-in 120ms ease-out backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cal-now-dot,
+  .cal-popup,
+  .cal-hover-card {
+    animation: none;
+  }
+}

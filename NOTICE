@@ -1,0 +1,51 @@
+plan.video
+==========
+
+Copyright (c) 2026 Cihan Kat, trading as plan.video.
+
+Licenses
+--------
+
+plan.video is released under the GNU Affero General Public License v3.0
+(see LICENSE).
+
+Every file that starts with this notice stays under the Mozilla Public
+License 2.0 (see LICENSES/MPL-2.0.txt):
+
+  This Source Code Form is subject to the terms of the Mozilla Public
+  License, v. 2.0. If a copy of the MPL was not distributed with this
+  file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+The source of those files is this repository.
+
+Diffusion Studio
+----------------
+
+plan.video's editor began as a fork of the Diffusion Studio editor,
+imported on 2026-09-29:
+
+  Upstream: https://github.com/diffusionstudio/editor
+  Commit:   666cdced1f6b97a792b63e551f45797649efb27a
+  Version:  0.206.0
+  License:  Mozilla Public License 2.0
+
+Upstream's desktop brand assets are not part of the MPL grant, and their
+copyright stays with Diffusion Studio Inc. They were not copied: the
+folder apps/desktop/assets (icons, disk-image artwork, install spinner
+and the Windows manifest) holds original files instead.
+
+The Diffusion Studio name and logos are not licensed as this product's
+brand. This project is plan.video.
+
+Trademarks
+----------
+
+"plan.video", the plan.video wordmark and the squirrel logo are
+trademarks of Cihan Kat, trading as plan.video. The licenses above cover
+the code, not these names and logos: a modified version or a service run
+from this code must not use them as its own name or brand, or suggest it
+is plan.video or made by it. Saying truthfully that it is based on
+plan.video is fine.
+
+The plan.video website (its homepage and marketing pages) is not part of
+this repository and is not released under these licenses.

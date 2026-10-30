@@ -1,0 +1,17 @@
+# Secret scan settings (gitleaks). Run `gitleaks dir .` before pushing; the
+# Secret scan workflow runs it on every pull request too.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Values that are public by design"
+regexes = [
+  # Supabase's local demo keys (iss "supabase-demo"), used by the tests and e2e checks.
+  '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIi[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+''',
+  # PostHog's project token is a write-only key every page sends; it only runs on plan.video (lib/posthog.ts).
+  '''phc_[A-Za-z0-9]{40,}''',
+]
+paths = [
+  # Translations, where words like "LinkedIn Posts" look like client ids.
+  '''apps/web/src/locales/.*\.json''',
+]

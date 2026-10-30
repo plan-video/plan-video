@@ -1,0 +1,70 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/*
+ * A transition drawn between two shots of real footage, the surf going out
+ * and the sunset coming in, the same cut for every style so they compare.
+ * Each loop holds the first shot, plays the transition through the middle
+ * and holds the second, so the eye has time to see both. The runtime's own
+ * easing is cubic in-out, and so is this.
+ */
+.tp {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #000;
+}
+
+.tp > div {
+  position: absolute;
+  inset: 0;
+  background-position: center;
+  background-size: cover;
+  animation-duration: 2.4s;
+  animation-iteration-count: infinite;
+  animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
+  animation-fill-mode: both;
+}
+
+.tp-a {
+  background-image: url("/site/surf.webp");
+}
+
+.tp-b {
+  background-image: url("/site/sunset.webp");
+  opacity: 0;
+}
+
+/* Dissolve */
+@keyframes tp-in { 0%, 25% { opacity: 0 } 70%, 100% { opacity: 1 } }
+.tp[data-type="dissolve"] .tp-b { animation-name: tp-in; }
+
+/* Fade to black: out to it, then in from it. */
+@keyframes tp-out-half { 0%, 25% { opacity: 1 } 47.5%, 100% { opacity: 0 } }
+@keyframes tp-in-half { 0%, 47.5% { opacity: 0 } 70%, 100% { opacity: 1 } }
+.tp[data-type="fadeToBlack"] .tp-a { animation-name: tp-out-half; }
+.tp[data-type="fadeToBlack"] .tp-b { animation-name: tp-in-half; }
+
+/* Blur */
+@keyframes tp-blur-a { 0%, 25% { filter: blur(0) } 70%, 100% { filter: blur(6px) } }
+@keyframes tp-blur-b { 0%, 25% { opacity: 0; filter: blur(6px) } 70%, 100% { opacity: 1; filter: blur(0) } }
+.tp[data-type="blur"] .tp-a { animation-name: tp-blur-a; }
+.tp[data-type="blur"] .tp-b { animation-name: tp-blur-b; }
+
+/* Slide: the next shot comes in over the first. */
+@keyframes tp-from-right { 0%, 25% { opacity: 1; transform: translateX(100%) } 70%, 100% { opacity: 1; transform: none } }
+.tp[data-type="slideFromRight"] .tp-b { animation-name: tp-from-right; }
+
+/* Whip: a fast push, blurred while it moves. */
+@keyframes tp-whip-a { 0%, 25% { transform: none; filter: blur(0) } 47.5% { filter: blur(5px) } 70%, 100% { transform: translateX(-100%); filter: blur(0) } }
+@keyframes tp-whip-b { 0%, 25% { opacity: 1; transform: translateX(100%); filter: blur(0) } 47.5% { filter: blur(5px) } 70%, 100% { opacity: 1; transform: none; filter: blur(0) } }
+.tp[data-type="whip"] > div { animation-timing-function: cubic-bezier(0.83, 0, 0.17, 1); }
+.tp[data-type="whip"] .tp-a { animation-name: tp-whip-a; }
+.tp[data-type="whip"] .tp-b { animation-name: tp-whip-b; }
+
+/* Zoom in: into the first shot as it fades, the next settling under it. */
+@keyframes tp-zoom-in-a { 0%, 25% { opacity: 1; transform: none } 62%, 100% { opacity: 0; transform: scale(1.6) } }
+@keyframes tp-zoom-in-b { 0%, 32% { opacity: 0; transform: scale(1.15) } 70%, 100% { opacity: 1; transform: none } }
+.tp[data-type="zoomIn"] .tp-a { z-index: 1; animation-name: tp-zoom-in-a; }
+.tp[data-type="zoomIn"] .tp-b { animation-name: tp-zoom-in-b; }

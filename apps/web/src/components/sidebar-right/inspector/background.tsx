@@ -1,0 +1,93 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+import { ControlRow } from "@/components/ui/control-group";
+import {
+  FloatingInspector,
+  FloatingInspectorContent,
+  FloatingInspectorHeader,
+  FloatingInspectorTitle,
+} from "@/components/ui/floating-inspector";
+import { Icon } from "@/components/ui/icon";
+import { PanelSection } from "@/components/ui/panel-section";
+import { ColorOpacityPicker } from "@/components/ui/color-opacity-picker";
+import { ColorOpacityRow } from "@/components/ui/color-opacity-row";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { createSignal } from "solid-js";
+import { Background, DEFAULT_BACKGROUND, DefaultBackground, Root, colorToHex } from "@plan.video/runtime";
+import { useTrait, useWorld } from "@plan.video/koota-solid";
+import { useEditor } from "@/engine/hooks/use-editor";
+import { t } from "@/lib/i18n";
+
+export function BackgroundSettings() {
+  const world = useWorld();
+  const editor = useEditor();
+
+  const [isPickerOpen, setIsPickerOpen] = createSignal(false);
+  const background = useTrait(world.get(Root)!, Background);
+  // The default background is drawn in the editor's canvas color for its
+  // theme, so that is the color shown for it.
+  const fallback = useTrait(world, DefaultBackground);
+  const defaultColor = () => fallback()?.value ?? DEFAULT_BACKGROUND;
+  const color = () => {
+    const value = background()?.value ?? DEFAULT_BACKGROUND;
+    return value === DEFAULT_BACKGROUND ? defaultColor() : value;
+  };
+
+
+  let anchorRef: HTMLDivElement | undefined;
+
+  const assignColor = (value: number) => {
+    const root = world.get(Root)!;
+    // Picking the theme's own canvas color goes back to the default, which
+    // keeps following the theme.
+    const color = colorToHex(value === defaultColor() ? DEFAULT_BACKGROUND : value);
+    editor.editProperty(root, "background", color);
+  };
+
+  return (
+    <PanelSection title={t("Background")} ref={anchorRef}>
+      <ControlRow label={t("Color")}>
+        <ColorOpacityRow
+          color={color()}
+          onChangeColor={assignColor}
+          onClick={() => setIsPickerOpen(true)}
+        />
+      </ControlRow>
+
+      <FloatingInspector
+        open={isPickerOpen}
+        anchorRef={anchorRef}
+      >
+        <FloatingInspectorHeader>
+          <FloatingInspectorTitle>{t("Color")}</FloatingInspectorTitle>
+          <div class="ml-auto">
+            <Tooltip>
+              <TooltipTrigger
+                as={Button}
+                size="icon"
+                variant="ghost"
+                class="text-muted-foreground"
+                onClick={() => setIsPickerOpen(false)}
+              >
+                <Icon name="close-remove" class="size-6" />
+              </TooltipTrigger>
+              <TooltipContent>{t("Close")}</TooltipContent>
+            </Tooltip>
+          </div>
+        </FloatingInspectorHeader>
+        <FloatingInspectorContent class="p-0">
+          <ColorOpacityPicker
+            color={color()}
+            opacity={1}
+            onColorChange={assignColor}
+            withoutOpacity
+            defaultColor={defaultColor()}
+          />
+        </FloatingInspectorContent>
+      </FloatingInspector>
+    </PanelSection>
+  );
+}

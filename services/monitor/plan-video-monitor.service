@@ -1,0 +1,24 @@
+[Unit]
+Description=plan.video watchdog
+After=network-online.target
+Wants=network-online.target
+
+# One check of the whole server (watchdog.sh), started every minute by
+# plan-video-monitor.timer. Installed as /opt/plan-video-monitor/watchdog.sh.
+# Alerts go through Healthchecks.io: put its ping URL in
+# /etc/plan-video/monitor.env as HC_PING_URL=https://hc-ping.com/<uuid>.
+# A copy hosted somewhere else also puts its address there, as
+# PUBLIC_URL=https://example.com (plan.video's when unset).
+# Runs as root to read every unit's journal.
+
+[Service]
+Type=oneshot
+ExecStart=/opt/plan-video-monitor/watchdog.sh
+EnvironmentFile=-/etc/plan-video/monitor.env
+StateDirectory=plan-video-monitor
+TimeoutStartSec=4min
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+InaccessiblePaths=-/etc/plan-video/agent.env -/etc/plan-video/billing.env -/etc/plan-video/linkedin.env -/etc/plan-video/mcp.env -/etc/plan-video/publisher.env -/etc/plan-video/r2.env -/etc/plan-video/tiktok.env -/etc/plan-video/transcribe.env -/etc/plan-video/youtube.env -/etc/plan-video/x.env

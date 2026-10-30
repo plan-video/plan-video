@@ -1,0 +1,50 @@
+name: Bug report
+description: Something in plan.video doesn't work as it should.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Found a security problem? Please don't open an issue: follow [SECURITY.md](https://github.com/plan-video/plan-video/blob/main/SECURITY.md) instead.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open the calendar
+        2. Click New post
+        3. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where
+      options:
+        - plan.video (the hosted version)
+        - My own copy (self-hosted)
+        - Local development
+    validations:
+      required: true
+  - type: input
+    id: network
+    attributes:
+      label: Network
+      description: If it's about posting, which network? YouTube, TikTok, X, LinkedIn, Bluesky, Instagram, Facebook, Threads or Pinterest.
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and system
+      placeholder: Chrome 141 on macOS 26
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Screenshots, a short video, or errors from the browser's console. Leave out tokens and keys.

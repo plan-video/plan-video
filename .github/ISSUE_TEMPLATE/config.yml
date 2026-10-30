@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security problem
+    url: https://github.com/plan-video/plan-video/blob/main/SECURITY.md
+    about: Please report security problems privately, not in an issue.
+  - name: Questions and help
+    url: https://discord.gg/4C3g9FZsyr
+    about: Ask in the Discord community.
+  - name: Roadmap
+    url: https://plan.video/roadmap
+    about: See what's planned, and vote for what you'd like next.

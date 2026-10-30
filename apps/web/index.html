@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/mark.svg?v=2" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2" />
+    <script>
+      (function () {
+        try {
+          var apply = function (mode) {
+            var resolved =
+              mode === "system"
+                ? window.matchMedia("(prefers-color-scheme: dark)").matches
+                  ? "dark"
+                  : "light"
+                : mode;
+            var root = document.documentElement;
+            root.style.colorScheme = resolved;
+            root.dataset.kbTheme = resolved;
+            return mode;
+          };
+          var stored = localStorage.getItem("kb-color-mode");
+          if (stored) apply(stored);
+          else localStorage.setItem("kb-color-mode", apply("dark"));
+
+          // The theme, as src/lib/dashboard-theme.ts resolves it: the one
+          // picked in the dashboard or the site's footer, else light. The
+          // site's pages take it from the first paint (EditorColorMode in app.tsx keeps it after
+          // that). A shared post (/p/<id>, src/pages/post-preview.tsx) and a
+          // client connect link (/connect/<link>, src/pages/connect.tsx) are
+          // drawn in the dashboard's own palette, as the dashboard draws it
+          // over the dark mode.
+          var picked = localStorage.getItem("plan.dashboard-theme");
+          if (picked !== "light" && picked !== "dark") picked = null;
+          if (/^\/(p|connect)\/[^/]+\/?$/.test(location.pathname)) {
+            apply("dark");
+            document.documentElement.classList.add("dashboard-theme");
+            document.documentElement.dataset.dashboardTheme = picked || "light";
+          } else if (!window.desktop && !/^\/(dashboard|try|projects)(\/|$)/.test(location.pathname)) {
+            var site = picked || "light";
+            apply(site);
+            if (site === "light") document.documentElement.classList.add("site-light");
+          }
+        } catch (e) {}
+
+        // The language: the one picked in the footer or the settings, else the
+        // browser's first that we have. lib/i18n.ts starts in it and keeps the
+        // same list of codes.
+        try {
+          var languages = ["en", "es", "fr", "de", "it", "pt-BR", "nl", "pl", "tr", "ja", "ko", "zh-CN"];
+          var match = function (tag) {
+            if (!tag) return null;
+            tag = String(tag).toLowerCase();
+            var base = tag.split("-")[0];
+            // Traditional Chinese readers aren't sent to Simplified Chinese unasked.
+            if (base === "zh" && /-(tw|hk|mo|hant)\b/.test(tag)) return null;
+            for (var i = 0; i < languages.length; i++) if (languages[i].toLowerCase() === tag) return languages[i];
+            for (var j = 0; j < languages.length; j++) if (languages[j].split("-")[0].toLowerCase() === base) return languages[j];
+            return null;
+          };
+          var language = match(localStorage.getItem("plan.language"));
+          var wanted = navigator.languages || [navigator.language];
+          for (var k = 0; !language && k < wanted.length; k++) language = match(wanted[k]);
+          if (language) document.documentElement.lang = language;
+        } catch (e) {}
+
+        if (window.desktop) {
+          document.documentElement.dataset.platform = window.desktop.platform;
+        }
+
+        // A dashboard opens on the loading screen (#boot-splash), in its
+        // theme: guest mode's demo, and the account's for someone signed in
+        // (signed out, /dashboard is the sign-in page). Every other page draws
+        // without it. src/components/page-loader.tsx takes it from here.
+        var signedIn = false;
+        try {
+          for (var n = 0; n < localStorage.length; n++) {
+            if (/^sb-.+-auth-token$/.test(localStorage.key(n) || "")) signedIn = true;
+          }
+        } catch (e) {}
+        if (window.desktop ? window.desktop.platform === "darwin" : /^\/try\/?$/.test(location.pathname) || (signedIn && /^\/dashboard\/?$/.test(location.pathname))) {
+          // The app's theme, as above: the one picked, else light.
+          var theme = "light";
+          try {
+            var choice = localStorage.getItem("plan.dashboard-theme");
+            if (choice === "light" || choice === "dark") theme = choice;
+          } catch (e) {}
+          document.documentElement.dataset.boot = theme;
+        }
+
+        // @site:hero-preload
+      })();
+    </script>
+    <style>
+      /* The loading screen: the squirrel traces its outline and fills in
+         (docs/brand/logo.md), holds, then fades as the outline is wiped
+         away from where it began. The script under #boot-splash draws it. */
+      #boot-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 2147483000;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+        background: #0a0a0a;
+        color: #ededed;
+      }
+
+      html[data-boot] #boot-splash {
+        display: flex;
+      }
+
+      html[data-boot="light"] #boot-splash {
+        background: #ffffff;
+        color: #171717;
+      }
+
+      /* Over a page still on screen, it fades in. */
+      #boot-splash[data-fade-in] {
+        animation: boot-in 0.15s ease-out;
+      }
+
+      #boot-splash canvas {
+        width: 56px;
+        height: 56px;
+      }
+
+      @keyframes boot-in {
+        from {
+          opacity: 0;
+        }
+      }
+
+      /* Without motion, the whole mark fades in and breathes. */
+      @media (prefers-reduced-motion: reduce) {
+        #boot-splash canvas {
+          animation:
+            boot-in 0.2s ease-out,
+            boot-breathe 1.6s ease-in-out 0.2s infinite;
+        }
+
+        @keyframes boot-breathe {
+          50% {
+            opacity: 0.4;
+          }
+        }
+      }
+    </style>
+    <!-- Fetched with the page, not once the stylesheet asks for it, so the site's text is ready when the hero rises in. -->
+    <link rel="preload" href="/src/assets/fonts/Inter-Variable-Latin.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/src/assets/fonts/Geist-Variable-Latin.woff2" as="font" type="font/woff2" crossorigin />
+    <link href="/src/index.css" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>plan.video</title>
+    <meta name="application-name" content="plan.video" />
+  </head>
+  <body>
+    <div id="boot-splash" aria-hidden="true"><canvas id="boot-mark" width="112" height="112"></canvas></div>
+    <script>
+      // The loading screen's mark. A worker draws it on the canvas, so it keeps
+      // moving while the page's own script keeps the main thread busy, which it
+      // does for whole tenths of a second as the dashboard opens; without
+      // OffscreenCanvas the page draws it itself. It runs while <html> has
+      // data-boot, in that theme. src/components/page-loader.tsx holds it still
+      // through window.bootMark while the screen fades out.
+      (function () {
+        var html = document.documentElement;
+        var canvas = document.getElementById("boot-mark");
+        // The mark (src/components/brand/logo.tsx): the squirrel, its eye, then the ▶ it holds.
+        var FULL = "M5.76,25.69c-1.62,-2.69 -2.42,-6.46 -2.42,-10.23c0,-8.08 1.88,-13.46 6.19,-13.46c2.56,0 4.8,1.72 5.46,4.19c0.66,2.47 -0.42,5.08 -2.64,6.36c-0.87,0.48 -1.97,0.18 -2.46,-0.68c-0.5,-0.86 -0.21,-1.96 0.64,-2.47c0.85,-0.49 1.22,-1.52 0.89,-2.44c-0.33,-0.92 -1.28,-1.47 -2.25,-1.3c-0.96,0.17 -1.67,1.01 -1.67,1.99c0,5.92 0.74,11.44 2.36,15.43c0.14,0.34 0.48,0.57 0.85,0.57c0.43,0 0.79,-0.29 0.89,-0.71c0.9,-3.86 4.65,-6.46 4.65,-10.72c0,-1.92 0.76,-3.36 1.89,-4.22c-0.38,-0.36 -0.67,-0.81 -0.83,-1.35c-0.24,-0.85 -0.09,-1.71 0.34,-2.4c0.05,-0.09 0.14,-0.15 0.24,-0.18c0.1,-0.03 0.21,-0.02 0.3,0.03c0.73,0.35 1.32,1.01 1.56,1.85c0.12,0.43 0.15,0.86 0.08,1.27c0.32,-0.07 0.65,-0.1 0.98,-0.1c1.88,0 3.23,1.08 4.31,2.69l1.35,1.88c0.54,0.81 0.54,1.88 -0.27,2.42c-0.35,0.24 -0.76,0.42 -1.19,0.58l-0.14,-0.08c-0.5,-0.29 -1.12,-0.3 -1.62,-0.01c-0.5,0.29 -0.81,0.82 -0.81,1.4v4.58c0,0.58 0.31,1.11 0.81,1.4c0.28,0.16 0.6,0.23 0.91,0.21c0.1,0.76 0.16,1.57 0.16,2.43c0,3.23 -2.69,5.38 -4.85,5.38h-7c-2.69,0 -5.11,-1.62 -6.73,-4.31zM22.18,11.61c0.4,0 0.73,-0.33 0.73,-0.73c0,-0.4 -0.33,-0.73 -0.73,-0.73c-0.4,0 -0.73,0.33 -0.73,0.73c0,0.4 0.33,0.73 0.73,0.73zM23.36,16v4.58c0,0.25 0.13,0.48 0.35,0.61c0.22,0.12 0.48,0.12 0.7,0l3.9,-2.29c0.22,-0.13 0.35,-0.36 0.35,-0.6c0,-0.25 -0.13,-0.48 -0.35,-0.6l-3.9,-2.29c-0.22,-0.13 -0.48,-0.13 -0.7,0c-0.22,0.12 -0.35,0.36 -0.35,0.61z";
+        var BODY = FULL.slice(0, FULL.indexOf("M22.18"));
+        var PLAY = FULL.slice(FULL.indexOf("M23.36,16"));
+        // Without motion the mark just stands, as it does 1.0 s into its loop.
+        var STILL = 1000;
+
+        // Draws the mark as it stands t ms into its 1.8 s loop, in a colour, on
+        // a canvas px wide: a 1-unit stroke, kept to the inside of the mark so
+        // the fill takes it over without the edge moving, traces the outline
+        // (148.2 long) from the base of the tail by 0.7 s, with the ▶ (18
+        // long) drawn as the pen rounds the paws; the fill rises to 0.9 s and
+        // holds, then fades from 1.3 s as the outline is wiped away from
+        // where it began. Runs in the worker too, so it keeps to its arguments.
+        function frame(ctx, t, px, colour, paths) {
+          var s = px / 32;
+          t %= 1800;
+          var ease = function (x) {
+            return x <= 0 ? 0 : x >= 1 ? 1 : (1 - Math.cos(Math.PI * x)) / 2;
+          };
+          var run = function (from, to) {
+            return ease((t - from) / (to - from));
+          };
+          var body = t < 1404 ? 149 * (1 - run(0, 700)) : -149 * run(1404, 1800);
+          var play = t < 1584 ? 18.5 * (1 - run(486, 702)) : -18.5 * run(1584, 1800);
+          var fill = t < 1296 ? run(702, 900) : 1 - run(1296, 1440);
+          ctx.setTransform(s, 0, 0, s, 0, 0);
+          ctx.clearRect(0, 0, 32, 32);
+          ctx.strokeStyle = ctx.fillStyle = colour;
+          ctx.lineWidth = 2;
+          ctx.lineCap = ctx.lineJoin = "round";
+          ctx.save();
+          ctx.clip(paths.full);
+          ctx.setLineDash([149, 149]);
+          ctx.lineDashOffset = body;
+          ctx.stroke(paths.body);
+          ctx.setLineDash([18.5, 18.5]);
+          ctx.lineDashOffset = play;
+          ctx.stroke(paths.play);
+          ctx.restore();
+          if (fill > 0) {
+            ctx.globalAlpha = fill;
+            ctx.fill(paths.full);
+            ctx.globalAlpha = 1;
+          }
+        }
+
+        // Keeps a canvas drawing the mark, on messages: {canvas, px} takes one
+        // over, {t0, colour} runs the loop from an absolute time, {t} stands at
+        // one moment, {stop} clears it. Drives the worker, or the page's own
+        // canvas without one.
+        function driver() {
+          var ctx, px, paths, colour, t0, running, queued;
+          var raf = typeof requestAnimationFrame === "function" ? function (f) { requestAnimationFrame(f); } : function (f) { setTimeout(f, 16); };
+          var now = function () { return performance.timeOrigin + performance.now(); };
+          function tick() {
+            queued = false;
+            if (!running) return;
+            frame(ctx, now() - t0, px, colour, paths);
+            queued = true;
+            raf(tick);
+          }
+          return function (msg) {
+            if (msg.canvas) {
+              ctx = msg.canvas.getContext("2d");
+              px = msg.px;
+              paths = { full: new Path2D(FULL), body: new Path2D(BODY), play: new Path2D(PLAY) };
+              return;
+            }
+            if (msg.colour) colour = msg.colour;
+            if (msg.t0) {
+              t0 = msg.t0;
+              running = true;
+              if (!queued) tick();
+              return;
+            }
+            running = false;
+            if (msg.t >= 0) frame(ctx, msg.t, px, colour, paths);
+            else frame(ctx, 0, px, colour, paths);
+          };
+        }
+
+        var still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+        var px = Math.round(56 * Math.min(devicePixelRatio || 1, 4));
+        canvas.width = canvas.height = px;
+        var drive, colour, t0 = 0, heldAt = -1, up = false;
+        var now = function () { return performance.timeOrigin + performance.now(); };
+
+        function makeDriver() {
+          if (!still && canvas.transferControlToOffscreen) {
+            try {
+              var source = "var FULL=" + JSON.stringify(FULL) + ",BODY=" + JSON.stringify(BODY) + ",PLAY=" + JSON.stringify(PLAY) + ";" + frame + driver + "var drive=driver();onmessage=function(e){drive(e.data)};";
+              var worker = new Worker(URL.createObjectURL(new Blob([source], { type: "text/javascript" })));
+              var off = canvas.transferControlToOffscreen();
+              worker.postMessage({ canvas: off, px: px }, [off]);
+              worker.onerror = function () {
+                // The page takes over on a fresh canvas, the first one being the worker's for good.
+                worker.terminate();
+                var fresh = canvas.cloneNode();
+                canvas.replaceWith(fresh);
+                canvas = fresh;
+                drive = driver();
+                drive({ canvas: canvas, px: px });
+                if (up) drive(heldAt >= 0 ? { colour: colour, t: heldAt } : { colour: colour, t0: t0 });
+              };
+              return function (msg) { worker.postMessage(msg); };
+            } catch (e) {}
+          }
+          var local = driver();
+          local({ canvas: canvas, px: px });
+          return local;
+        }
+
+        function sync() {
+          if (!html.dataset.boot) {
+            if (up) drive({ stop: true });
+            up = false;
+            return;
+          }
+          colour = html.dataset.boot === "light" ? "#171717" : "#ededed";
+          if (!drive) drive = makeDriver();
+          if (!up) {
+            t0 = now();
+            heldAt = -1;
+          }
+          up = true;
+          if (still) drive({ colour: colour, t: STILL });
+          else drive(heldAt >= 0 ? { colour: colour, t: heldAt } : { colour: colour, t0: t0 });
+        }
+
+        window.bootMark = {
+          // How far into its loop the mark is, in ms, like an animation's currentTime.
+          time: function () { return still ? STILL : !up ? 0 : heldAt >= 0 ? heldAt : now() - t0; },
+          // Holds the mark where it stands, or lets it run on from there.
+          hold: function (on) {
+            if (still || !up || on === (heldAt >= 0)) return;
+            if (on) {
+              heldAt = now() - t0;
+              drive({ t: heldAt });
+            } else {
+              t0 = now() - heldAt;
+              heldAt = -1;
+              drive({ t0: t0 });
+            }
+          },
+        };
+
+        new MutationObserver(sync).observe(html, { attributes: true, attributeFilter: ["data-boot"] });
+        sync();
+      })();
+    </script>
+    <div id="root"></div>
+    <script type="module" src="/src/index.tsx"></script>
+  </body>
+</html>

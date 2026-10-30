@@ -1,0 +1,21 @@
+{
+  "name": "@plan.video/api-contract",
+  "version": "0.1.0",
+  "private": true,
+  "description": "API contract for the plan.video backend: zod schemas and tRPC AppRouter types.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./index.mjs",
+  "types": "./index.d.mts",
+  "exports": {
+    ".": {
+      "types": "./index.d.mts",
+      "default": "./index.mjs"
+    }
+  },
+  "sideEffects": false,
+  "dependencies": {
+    "@trpc/server": "^11.10.0",
+    "zod": "^4.3.6"
+  }
+}

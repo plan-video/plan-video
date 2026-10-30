@@ -1,0 +1,1383 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is([data-kb-theme="dark"] *));
+
+/* Screens the dashboard and editor don't open on (see ScreenTooSmall), so the
+   site leaves out its ways into them there, such as the demo. */
+@custom-variant too-small {
+  @media (max-width: 719px), (max-height: 479px) {
+    @slot;
+  }
+}
+
+/* Inter and JetBrains Mono (SIL Open Font License) come in two files each: a
+   Latin subset every page loads, and the whole font, loaded only for a
+   character outside it. scripts/subset-fonts.py makes the subsets and prints
+   these ranges. */
+@font-face {
+  font-family: 'Inter';
+  src: url('./assets/fonts/Inter-Variable-Latin.woff2') format('woff2');
+  font-weight: 100 900;
+  font-stretch: normal;
+  font-style: normal;
+  font-optical-sizing: auto;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-209F, U+20AC, U+2122, U+2190-21FF, U+2212, U+2215, U+2300-23FF, U+2500-257F, U+25A0-25FF, U+2700-27BF, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Inter';
+  src: url('./assets/fonts/Inter-Variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-stretch: normal;
+  font-style: normal;
+  font-optical-sizing: auto;
+  unicode-range: U+0100-0130, U+0132-0151, U+0154-02BA, U+02BD-02C5, U+02C7-02D9, U+02DB, U+02DD-0303, U+0305-0307, U+0309-0328, U+032A-1FFF, U+20A0-20AB, U+20AD-2121, U+2123-218F, U+2200-2211, U+2213-2214, U+2216-22FF, U+2400-24FF, U+2580-259F, U+2600-26FF, U+27C0-FEFE, U+FF00-FFFC, U+FFFE-10FFFF;
+}
+
+@font-face {
+  font-family: 'Inter';
+  src: url('./assets/fonts/Inter-Italic-Variable-Latin.woff2') format('woff2');
+  font-weight: 100 900;
+  font-stretch: normal;
+  font-style: italic;
+  font-optical-sizing: auto;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-209F, U+20AC, U+2122, U+2190-21FF, U+2212, U+2215, U+2300-23FF, U+2500-257F, U+25A0-25FF, U+2700-27BF, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Inter';
+  src: url('./assets/fonts/Inter-Italic-Variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-stretch: normal;
+  font-style: italic;
+  font-optical-sizing: auto;
+  unicode-range: U+0100-0130, U+0132-0151, U+0154-02BA, U+02BD-02C5, U+02C7-02D9, U+02DB, U+02DD-0303, U+0305-0307, U+0309-0328, U+032A-1FFF, U+20A0-20AB, U+20AD-2121, U+2123-218F, U+2200-2211, U+2213-2214, U+2216-22FF, U+2400-24FF, U+2580-259F, U+2600-26FF, U+27C0-FEFE, U+FF00-FFFC, U+FFFE-10FFFF;
+}
+
+/* Geist (Vercel, SIL Open Font License, see assets/fonts/Geist-OFL.txt): the dashboard's typeface. */
+/* @site:hero-rise */
+
+/* @site:glass */
+
+/* While the editor's toolbar is dragged (Toolbar in canvas/toolbar.tsx), the
+   pointer stays on the button it was pressed on: that button's tooltip would
+   ride along. */
+[data-toolbar-dragging] [data-slot="tooltip-content"] {
+  display: none;
+}
+
+/* @site:audience */
+
+/* A post stashed (StashMark in components/brand/logo.tsx): the ▶ slides in
+   from the right into the squirrel's paws, and as it lands the squirrel hops
+   once. Half a second in all. */
+@keyframes stash-play {
+  from {
+    opacity: 0;
+    transform: translateX(9px);
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes stash-hop {
+  55% {
+    transform: none;
+  }
+  75% {
+    transform: translateY(-2.5px);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .stash-play {
+    animation: stash-play 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) 0.12s both;
+  }
+
+  .stash-hop {
+    animation: stash-hop 0.5s ease-out 0.12s;
+  }
+}
+
+/* @site:cards */
+
+/* Geist, split like Inter above: the Latin subset, which the page preloads for the homepage's headline
+   (HOME_HEADLINE in lib/hero-shell.ts) and the dashboard, and the whole font for every other script. */
+@font-face {
+  font-family: 'Geist';
+  src: url('./assets/fonts/Geist-Variable-Latin.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-209F, U+20AC, U+2122, U+2190-21FF, U+2212, U+2215, U+2300-23FF, U+2500-257F, U+25A0-25FF, U+2700-27BF, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Geist';
+  src: url('./assets/fonts/Geist-Variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0100-0130, U+0132-0151, U+0154-02BA, U+02BD-02C5, U+02C7-02D9, U+02DB, U+02DD-0303, U+0305-0307, U+0309-0328, U+032A-1FFF, U+20A0-20AB, U+20AD-2121, U+2123-218F, U+2200-2211, U+2213-2214, U+2216-22FF, U+2400-24FF, U+2580-259F, U+2600-26FF, U+27C0-FEFE, U+FF00-FFFC, U+FFFE-10FFFF;
+}
+
+@font-face {
+  font-family: 'Geist';
+  src: url('./assets/fonts/Geist-Italic-Variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('./assets/fonts/JetBrainsMono-Variable-Latin.woff2') format('woff2');
+  font-weight: 100 900;
+  font-stretch: normal;
+  font-style: normal;
+  font-feature-settings: 'zero' 1;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-209F, U+20AC, U+2122, U+2190-21FF, U+2212, U+2215, U+2300-23FF, U+2500-257F, U+25A0-25FF, U+2700-27BF, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('./assets/fonts/JetBrainsMono-Variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-stretch: normal;
+  font-style: normal;
+  font-feature-settings: 'zero' 1;
+  unicode-range: U+0100-0130, U+0132-0151, U+0154-02BA, U+02BD-02C5, U+02C7-02D9, U+02DB, U+02DD-0303, U+0305-0307, U+0309-0328, U+032A-1FFF, U+20A0-20AB, U+20AD-2121, U+2123-218F, U+2200-2211, U+2213-2214, U+2216-22FF, U+2400-24FF, U+2580-259F, U+2600-26FF, U+27C0-FEFE, U+FF00-FFFC, U+FFFE-10FFFF;
+}
+
+@theme inline {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  /* The homepage headline's face: Geist, as the dashboard and the wordmark are set in. */
+  --font-display: 'Geist', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-weight-strong: 450;
+  --radius-xs: calc(var(--radius) - 4px);
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
+  --radius-xl: 12px;
+  --radius-xxl: 16px;
+  --text-xxs: 10px;
+  --text-xs: 11px;
+  --text-lg: 18px;
+  --color-canvas: var(--canvas);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary-hover: var(--secondary-hover);
+  --color-secondary-pressing: var(--secondary-pressing);
+  --color-tertiary: var(--tertiary);
+  --color-tertiary-foreground: var(--tertiary-foreground);
+  --color-tertiary-hover: var(--tertiary-hover);
+  --color-tertiary-pressing: var(--tertiary-pressing);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-disabled-foreground: var(--disabled-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-pressing: var(--primary-pressing);
+  --color-destructive: var(--destructive);
+  --color-destructive-hover: var(--destructive-hover);
+  --color-destructive-pressing: var(--destructive-pressing);
+  --color-destructive-accent: var(--destructive-accent);
+  --color-destructive-accent-foreground: var(--destructive-accent-foreground);
+  --color-success-accent: var(--success-accent);
+  --color-success-accent-foreground: var(--success-accent-foreground);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-surface: var(--surface);
+  --color-surface-foreground: var(--surface-foreground);
+  --color-code: var(--code);
+  --color-code-foreground: var(--code-foreground);
+  --color-code-highlight: var(--code-highlight);
+  --color-code-number: var(--code-number);
+  --color-selection: var(--selection);
+  --color-selection-foreground: var(--selection-foreground);
+  --color-inset: var(--inset);
+  --color-overlay: var(--overlay);
+  --color-overlay-soft: var(--overlay-soft);
+  --color-overlay-strong: var(--overlay-strong);
+  --color-meter-green: var(--meter-green);
+  --color-meter-yellow: var(--meter-yellow);
+  --color-meter-red: var(--meter-red);
+  --color-meter-clip: var(--meter-clip);
+
+  /** Timeline colors */
+  --color-audio-background: var(--audio-background);
+  --color-audio-primary: var(--audio-primary);
+  --color-caption-background: var(--caption-background);
+  --color-caption-accent: var(--caption-accent);
+}
+
+:root {
+  --radius: 6px;
+
+  --text-xs: 10px;
+  --text-sm: 11px;
+  --text-base: 11px;
+  --text-lg: 12px;
+  --text-xl: 14px;
+  --text-2xl: 16px;
+  --text-3xl: 18px;
+  --text-4xl: 20px;
+  --text-5xl: 24px;
+  --text-6xl: 32px;
+
+  /* The editor's light theme: white panels around a light gray canvas, the
+     dark theme's translucent tints flipped to black so they sit on any panel,
+     and selected states in a pale blue. */
+  --canvas: hsla(0, 0%, 95%, 1);
+  --background: hsla(0, 0%, 100%, 1);
+  --sidebar: var(--background);
+  --foreground: hsla(0, 0%, 9%, 1);
+  --card: hsla(0, 0%, 100%, 1);
+  --card-foreground: hsla(0, 0%, 9%, 1);
+  --popover: hsla(0, 0%, 100%, 1);
+  --popover-foreground: hsla(0, 0%, 9%, 1);
+  --primary: #2563eb;
+  --primary-foreground: hsla(0, 0%, 100%, 1);
+  --primary-hover: #1d4ed8;
+  --primary-pressing: #1e40af;
+  --secondary: hsla(0, 0%, 0%, 0.05);
+  --secondary-foreground: hsla(0, 0%, 9%, 1);
+  --secondary-hover: hsla(0, 0%, 0%, 0.08);
+  --secondary-pressing: hsla(0, 0%, 0%, 0.12);
+  --tertiary: #dbe6fd;
+  --tertiary-foreground: #1d4ed8;
+  --tertiary-hover: #cddcfc;
+  --tertiary-pressing: #bfd2fb;
+  --muted: hsla(0, 0%, 0%, 0.06);
+  --muted-foreground: hsla(0, 0%, 0%, 0.55);
+  --disabled-foreground: hsla(0, 0%, 64%, 1);
+  --accent: hsla(0, 0%, 0%, 0.04);
+  --accent-foreground: hsla(0, 0%, 0%, 0.55);
+  --destructive: hsla(0, 72%, 51%, 1);
+  --destructive-foreground: hsla(0, 0%, 100%, 1);
+  --destructive-hover: hsla(0, 74%, 42%, 1);
+  --destructive-pressing: hsla(0, 70%, 35%, 1);
+  --destructive-accent: hsla(0, 72%, 51%, 0.1);
+  --destructive-accent-foreground: hsla(0, 74%, 42%, 1);
+  --success-accent: hsla(160, 77%, 27%, 0.12);
+  --success-accent-foreground: hsla(160, 76%, 25%, 1);
+  --border: hsla(0, 0%, 0%, 0.07);
+  --border-strong: hsla(0, 0%, 0%, 0.1);
+  --border-input: hsla(0, 0%, 0%, 0.12);
+  --border-darker: var(--background);
+  --input: hsla(0, 0%, 0%, 0.04);
+  --ring: #2563eb;
+  --overlay: hsla(0, 0%, 0%, 0.45);
+  --overlay-soft: hsla(0, 0%, 0%, 0.2);
+  --overlay-strong: hsla(0, 0%, 0%, 0.65);
+  --selection: #dbe6fd;
+  --selection-foreground: #0b1f4a;
+  --selection-muted-foreground: hsla(0, 0%, 0%, 0.06);
+  --inset: hsla(0, 0%, 0%, 0.08);
+  --meter-green: hsla(130, 70%, 42%, 1);
+  --meter-yellow: hsla(42, 95%, 48%, 1);
+  --meter-red: hsla(1, 80%, 52%, 1);
+  --meter-clip: hsla(52, 100%, 45%, 1);
+  --audio-background: #d3f4e8;
+  --audio-primary: #16a97c;
+  --caption-background: #f7dcec;
+  --caption-accent: rgba(207, 63, 149, 0.24);
+}
+
+[data-kb-theme="dark"] {
+  --canvas: hsla(0, 0%, 9%, 1);
+  --background: hsla(0, 0%, 7%, 1);
+  --sidebar: var(--background);
+  --foreground: hsla(0, 0%, 95%, 1);
+  --card: hsla(0, 0%, 7%, 1);
+  --card-foreground: hsla(0, 0%, 95%, 1);
+  --popover: hsla(0, 0%, 9%, 1);
+  --popover-foreground: hsla(0, 0%, 95%, 1);
+  --primary: #2f6ff0;
+  --primary-foreground: hsla(0, 0%, 95%, 1);
+  --primary-hover: #3d7bf3;
+  --primary-pressing: #2563eb;
+  --secondary: hsla(0, 0%, 100%, 0.06);
+  --secondary-foreground: hsla(0, 0%, 95%, 1);
+  --secondary-hover: hsla(0, 0%, 100%, 0.09);
+  --secondary-pressing: hsla(0, 0%, 40%, 1);
+  --tertiary: hsla(220, 87%, 22%, 1);
+  --tertiary-foreground: hsla(220, 87%, 90%, 1);
+  --tertiary-hover: hsla(220, 80%, 17%, 1);
+  --tertiary-pressing: hsla(220, 80%, 14%, 1);
+  --muted: hsla(0, 0%, 100%, 0.09);
+  --muted-foreground: hsla(0, 0%, 95%, 0.64);
+  --disabled-foreground: hsla(0, 0%, 40%, 1);
+  --accent: hsla(0, 0%, 100%, 0.06);
+  --accent-foreground: hsla(0, 0%, 95%, 0.64);
+  --destructive: hsla(0, 79%, 54%, 1);
+  --destructive-foreground: hsla(0, 0%, 100%, 1);
+  --destructive-hover: hsla(0, 60%, 40%, 1);
+  --destructive-pressing: hsla(0, 53%, 27%, 1);
+  --destructive-accent: hsla(0, 79%, 54%, 0.24);
+  --destructive-accent-foreground: hsla(0, 78%, 95%, 1);
+  --success-accent: hsla(162, 66%, 29%, 0.24);
+  --success-accent-foreground: hsla(162, 84%, 89%, 1);
+  --border: hsla(0, 0%, 100%, 0.03);
+  --border-strong: hsla(0, 0%, 100%, 0.06);
+  --border-input: hsla(0, 0%, 100%, 0.09);
+  --border-darker: hsla(0, 0%, 7%, 1);
+  --input: hsla(0, 0%, 100%, 0.06);
+  --ring: #2f6ff0;
+  --canvas: hsla(0, 0%, 9%, 1);
+  --overlay: hsla(0, 0%, 4%, 0.8);
+  --overlay-soft: hsla(0, 0%, 4%, 0.4);
+  --overlay-strong: hsla(0, 0%, 4%, 0.95);
+  --selection: hsla(220, 87%, 22%, 1);
+  --selection-foreground: hsla(220, 87%, 90%, 1);
+  --selection-muted-foreground: hsla(0, 0%, 100%, 0.06);
+  --inset: hsla(0, 0%, 100%, 0.09);
+  --meter-green: hsla(125, 85%, 57%, 1);
+  --meter-yellow: hsla(46, 90%, 62%, 1);
+  --meter-red: hsla(1, 90%, 62%, 1);
+  --meter-clip: hsla(60, 100%, 50%, 1);
+  --audio-background: hsla(168, 67%, 17%, 1);
+  --audio-primary: hsla(162, 66%, 29%, 1);
+  --caption-background: #5F254A;
+  --caption-accent: rgba(207, 63, 149, 0.24);
+}
+
+/* Windows desktop: the native minimize/maximize/close buttons overlay the
+   top-right corner. Chromium reports the free part of the title bar through
+   the titlebar-area variables, so this is the width the controls take at any
+   DPI, and 0 wherever there is no overlay (web, macOS, fullscreen). */
+:root {
+  --titlebar-controls-width: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw));
+  --titlebar-height: 0px;
+  /* No lift outside the dashboard; it sets its own below. */
+  --button-raised-shadow: 0 0 #0000;
+  --button-secondary-shadow: 0 0 #0000;
+  --button-outline-shadow: 0 0 #0000;
+}
+
+/* Windows desktop: the editor draws its own title bar (`WindowsTitleBar`) as a
+   fixed row under the native controls, and pads its root by this height. It matches `WINDOWS_OVERLAY_HEIGHT` in the main process. */
+[data-platform="win32"] {
+  --titlebar-height: 40px;
+}
+
+/* macOS desktop: the BrowserWindow uses native vibrancy, so the page keeps a
+   transparent background and the sidebars go translucent to let the blur show. */
+[data-platform="darwin"],
+[data-platform="darwin"] body {
+  background: transparent;
+}
+
+[data-platform="darwin"]:not([data-fullscreen="true"]) {
+  --sidebar: hsla(0, 0%, 0%, 0);
+}
+
+/* The native blur is tinted dark, so the light theme stays opaque over it. */
+[data-platform="darwin"][data-kb-theme="light"],
+[data-platform="darwin"][data-kb-theme="light"] body {
+  background: var(--background);
+}
+
+[data-platform="darwin"][data-kb-theme="light"]:not([data-fullscreen="true"]) {
+  --sidebar: var(--background);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50 select-none;
+    /* The focus ring's own width at rest, so a transition-all control fades
+       its ring in instead of shrinking it from the browser's 3px. */
+    outline-width: 1px;
+
+    /* Hide scrollbars (keep scroll behavior) until we add custom styling. */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+
+    /* disables things like pull-to-refresh and overscroll effects */
+    /* overscroll-behavior: none; */
+  }
+
+  *::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+
+  ::selection {
+    background-color: var(--color-selection);
+    color: var(--color-selection-foreground);
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+  }
+
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  button {
+    @apply cursor-default;
+  }
+}
+
+/* A label set in a flex-centered box rides high, Geist most of all: its line box
+   rounds onto a tall ascender. Trimmed to the capitals and padded back to a full
+   line, the box keeps its size and centers on the cap height. */
+@supports (text-box: trim-both cap alphabetic) {
+  .cap-centered {
+    text-box: trim-both cap alphabetic;
+    padding-block: calc((1lh - 1cap) / 2);
+  }
+
+  /* For a fixed-height block button: its own height holds, so the trim alone
+     does it. Flex buttons need .cap-centered on a span around the label. */
+  .cap-trim {
+    text-box: trim-both cap alphabetic;
+  }
+}
+
+@layer utilities {
+  /* The one focus ring: a 1px line in --ring just inside the edge. It is an
+     outline, so it follows the corners, sits over the element's own children
+     and leaves box-shadow free for rings and lifts. */
+  .focus-ring:focus-visible,
+  .focus-ring[data-dragging='true'] {
+    border-color: var(--ring);
+    outline: 1px solid var(--ring);
+    outline-offset: -1px;
+  }
+
+  /* A button pressing in: a hair smaller while held. Lists every property the
+     color transitions animate as well, so adding it keeps those fades. */
+  .press {
+    transition-property: color, background-color, border-color, outline-color, fill, stroke, opacity, box-shadow, transform, translate, scale, rotate;
+    transition-duration: var(--tw-duration, 150ms);
+    transition-timing-function: var(--tw-ease, cubic-bezier(0.2, 0, 0, 1));
+  }
+
+  .press:active:not(:disabled, [aria-disabled="true"], [data-disabled]) {
+    scale: 0.97;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .press:active {
+    scale: none !important;
+  }
+}
+
+/* Menus, popovers, dialogs and the other panels that come and go with
+   tw-animate's animate-in and animate-out: quick and easing out, 120ms in and
+   100ms out. Fallbacks, so a duration-* or ease-* class on the element wins. */
+@layer base {
+  :where([class*="animate-in"], [class*="animate-out"]) {
+    --tw-duration: 120ms;
+    --tw-ease: cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  :where([class*="animate-out"][data-closed]) {
+    --tw-duration: 100ms;
+  }
+}
+
+/* For people who ask their device for less motion, they appear and go at once. */
+@media (prefers-reduced-motion: reduce) {
+  :is([class*="animate-in"], [class*="animate-out"]) {
+    animation: none;
+  }
+}
+
+@media (max-width: 719px), (max-height: 479px) {
+  .screen-too-small {
+    display: flex;
+  }
+}
+
+/**
+ * The soundboard is as tall as the timeline the user drags, not as tall as the
+ * viewport, so its scale thins itself out against its own box. Both columns are
+ * laid out with justify-between, so hiding an element re-spreads the rest —
+ * dropping a label and its major tick together keeps the two lined up.
+ *
+ * Heights below are the soundboard's content box; the meters themselves sit
+ * 32px shorter than that (row gap + the layer picker underneath).
+ */
+.soundboard {
+  container: soundboard / size;
+}
+
+/* Halve the minor ticks — the labels still have room at this height. */
+@container soundboard (max-height: 188px) {
+  .soundboard-tick:nth-child(even) {
+    display: none;
+  }
+}
+
+/**
+ * Halve the scale itself. Majors sit at 4n+1 of the 21 ticks, so keeping
+ * 6n+1 plus the last one leaves major-minor-major-minor-major: three majors for
+ * the three surviving labels, still with a minor between each pair.
+ */
+@container soundboard (max-height: 167px) {
+  .soundboard-tick {
+    display: none;
+  }
+
+  .soundboard-tick:nth-child(6n + 1),
+  .soundboard-tick:nth-last-child(2) {
+    display: block;
+  }
+
+  .soundboard-scale > span:nth-child(even) {
+    display: none;
+  }
+}
+
+/* The dashboard's dark theme: Plane's token structure (packages/tailwind-config),
+   on a darker, near-black neutral ramp of our own. The dashboard puts
+   `dashboard-theme` on <html> while it is open, so menus, tooltips and dialogs
+   (which mount on <body>) get the same palette. The app's own tokens are
+   pointed at these, so every page inside the dashboard sits on one palette. */
+html.dashboard-theme {
+  --plane-canvas: #060606;
+  --plane-surface-1: #0b0b0b;
+  --plane-surface-2: #111111;
+  --plane-layer-1: #111111;
+  --plane-layer-1-hover: #161616;
+  --plane-layer-2: #161616;
+  --plane-layer-2-hover: #1b1b1b;
+  --plane-layer-2-active: #232323;
+  --plane-layer-3: #1b1b1b;
+  --plane-layer-3-hover: #232323;
+  --plane-layer-transparent-hover: oklch(1 0 0 / 5%);
+  --plane-layer-transparent-active: oklch(1 0 0 / 9%);
+  --plane-layer-transparent-selected: oklch(1 0 0 / 13%);
+  --plane-border-subtle: #1c1c1c;
+  --plane-border-subtle-1: #252525;
+  --plane-border-strong: #2e2e2e;
+  --plane-border-strong-1: #3a3a3a;
+  /* Text steps far enough apart to read as levels: titles and the item you are
+     on, then labels, then descriptions, then hints. */
+  --plane-text-primary: #ededed;
+  --plane-text-secondary: #a1a1a1;
+  --plane-text-tertiary: #7d7d7d;
+  --plane-text-placeholder: #666666;
+  --plane-text-disabled: #4a4a4a;
+  /* A clean, saturated blue: the brightest that still carries white text at 4.5:1. */
+  --plane-accent-primary: #2f6ff0;
+  --plane-accent-primary-hover: #3d7bf3;
+  --plane-accent-primary-active: #2563eb;
+  --plane-accent-secondary: #7aa7f7;
+  --plane-accent-subtle: #0f1a2e;
+  --plane-accent-subtle-active: #17284a;
+  --plane-danger-primary: oklch(0.4446 0.1774 26.79);
+  --plane-danger-subtle: oklch(0.2615 0.085 24.41);
+  --plane-danger-text: oklch(0.7022 0.1892 22.23);
+  --plane-shadow-raised-100: 0px 1px 6px -1px #00000014, 0px 1px 4px 0px #0000001a;
+  --plane-shadow-overlay-200: 0px 10px 10px -10px #0000001f, 0px 30px 60px -12px #00000066;
+  /* Tints that flip with the theme: light on dark, dark on light. */
+  --plane-fill-faint: rgb(255 255 255 / 0.03);
+  --plane-fill-subtle: rgb(255 255 255 / 0.07);
+  --plane-fill-recessed: rgb(0 0 0 / 0.2);
+  --plane-chart-muted: rgb(255 255 255 / 0.42);
+  /* Empty-state drawings, in the timeline's clip colours. */
+  --art-card: #151515;
+  --art-card-edge: #262626;
+  --art-line: #2e2e2e;
+  --art-line-soft: #222222;
+  --art-video: #1a2a4a;
+  --art-video-ink: #7aa7f7;
+  --art-audio: #143c2f;
+  --art-audio-ink: #34d399;
+  --art-text: #2e3239;
+  --art-text-ink: #8fa3bb;
+  /* The logo badge: the white tile on dark, the black one on light. */
+  --logo-tile: #ffffff;
+  --logo-ink: #000000;
+  --scrollbar-thumb: rgb(255 255 255 / 0.13);
+  --scrollbar-thumb-hover: rgb(255 255 255 / 0.26);
+  /* Depth: light catching a surface's top edge, a card lifted off the page,
+     and what floats above it all. */
+  --depth-edge: rgb(255 255 255 / 0.07);
+  --depth-overlay: 0 0 0 1px rgb(0 0 0 / 0.25), 0 6px 12px -4px rgb(0 0 0 / 0.35), 0 24px 56px -12px rgb(0 0 0 / 0.65);
+  --depth-tooltip: 0 4px 12px -4px rgb(0 0 0 / 0.5);
+  --depth-card: 0 8px 24px -12px rgb(0 0 0 / 0.8);
+
+  --text-sm: 13px;
+  --text-base: 13px;
+  --text-lg: 14px;
+  --text-xl: 16px;
+  --text-2xl: 20px;
+
+  --canvas: var(--plane-canvas);
+  --background: var(--plane-surface-1);
+  --sidebar: var(--plane-surface-1);
+  --foreground: var(--plane-text-primary);
+  --card: var(--plane-surface-1);
+  --card-foreground: var(--plane-text-primary);
+  --popover: var(--plane-surface-1);
+  --popover-foreground: var(--plane-text-primary);
+  --primary: var(--plane-accent-primary);
+  --primary-foreground: #ffffff;
+  --primary-hover: var(--plane-accent-primary-hover);
+  --primary-pressing: var(--plane-accent-primary-active);
+  --secondary: var(--plane-layer-2);
+  --secondary-foreground: var(--plane-text-secondary);
+  --secondary-hover: var(--plane-layer-2-hover);
+  --secondary-pressing: var(--plane-layer-2-active);
+  --muted: var(--plane-layer-1);
+  --muted-foreground: var(--plane-text-tertiary);
+  --accent: var(--plane-layer-transparent-hover);
+  --accent-foreground: var(--plane-text-secondary);
+  --border: var(--plane-border-subtle);
+  --border-strong: var(--plane-border-subtle);
+  --border-input: var(--plane-border-subtle-1);
+  --input: var(--plane-layer-1);
+  --inset: var(--plane-layer-2);
+  /* An off switch's track: a step up from the cards it sits on, which --muted isn't here. */
+  --switch-track: var(--plane-border-strong);
+  --ring: var(--plane-accent-primary);
+  --selection: var(--plane-accent-subtle-active);
+}
+
+/* The light theme: the same tokens on white panels and a light gray frame.
+   Kobalte keeps the app's <html> in dark mode (an inline color-scheme), so
+   the dashboard's own choice needs !important to reach native controls. */
+html.dashboard-theme[data-dashboard-theme="light"] {
+  color-scheme: light !important;
+  --art-card: #ffffff;
+  --art-card-edge: #e3e3e3;
+  --art-line: #dedede;
+  --art-line-soft: #ececec;
+  --art-video: #e5edfd;
+  --art-video-ink: #2563eb;
+  --art-audio: #ddf6ec;
+  --art-audio-ink: #0a9e72;
+  --art-text: #edf0f4;
+  --art-text-ink: #7b8ba0;
+  --logo-tile: #000000;
+  --logo-ink: #ffffff;
+  --scrollbar-thumb: rgb(0 0 0 / 0.16);
+  --scrollbar-thumb-hover: rgb(0 0 0 / 0.32);
+  --depth-edge: rgb(255 255 255 / 0.9);
+  --depth-overlay: 0 1px 3px rgb(0 0 0 / 0.06), 0 12px 32px -8px rgb(0 0 0 / 0.16);
+  --depth-tooltip: 0 4px 12px -4px rgb(0 0 0 / 0.14);
+  --depth-card: 0 1px 2px rgb(0 0 0 / 0.04), 0 8px 24px -8px rgb(0 0 0 / 0.08);
+
+  --plane-canvas: #f3f3f3;
+  --plane-surface-1: #ffffff;
+  --plane-surface-2: #fafafa;
+  --plane-layer-1: #f6f6f6;
+  --plane-layer-1-hover: #f0f0f0;
+  --plane-layer-2: #ffffff;
+  --plane-layer-2-hover: #f6f6f6;
+  --plane-layer-2-active: #efefef;
+  --plane-layer-3: #efefef;
+  --plane-layer-3-hover: #e7e7e7;
+  --plane-layer-transparent-hover: rgb(0 0 0 / 0.04);
+  --plane-layer-transparent-active: rgb(0 0 0 / 0.07);
+  --plane-layer-transparent-selected: rgb(0 0 0 / 0.1);
+  --plane-border-subtle: #ebebeb;
+  --plane-border-subtle-1: #e3e3e3;
+  --plane-border-strong: #d4d4d4;
+  --plane-border-strong-1: #c2c2c2;
+  --plane-text-primary: #171717;
+  --plane-text-secondary: #5c5c5c;
+  --plane-text-tertiary: #737373;
+  --plane-text-placeholder: #a3a3a3;
+  --plane-text-disabled: #c7c7c7;
+  --plane-accent-primary: #2563eb;
+  --plane-accent-primary-hover: #1d4ed8;
+  --plane-accent-primary-active: #1e40af;
+  --plane-accent-secondary: #1d4ed8;
+  --plane-accent-subtle: #eef3fe;
+  --plane-accent-subtle-active: #dbe6fd;
+  --plane-danger-primary: #dc2626;
+  --plane-danger-subtle: #fdecec;
+  --plane-danger-text: #c81e1e;
+  --plane-shadow-raised-100: 0px 1px 2px 0px rgb(0 0 0 / 0.05);
+  --plane-shadow-overlay-200: 0px 1px 3px 0px rgb(0 0 0 / 0.06), 0px 12px 32px -8px rgb(0 0 0 / 0.16);
+  --plane-fill-faint: rgb(0 0 0 / 0.025);
+  --plane-fill-subtle: rgb(0 0 0 / 0.06);
+  --plane-fill-recessed: rgb(0 0 0 / 0.025);
+  --plane-chart-muted: rgb(0 0 0 / 0.3);
+
+  /* App tokens whose dark values are not a step on the --plane-* ramp. */
+  --secondary: #f0f0f0;
+  --secondary-hover: #e8e8e8;
+  --secondary-pressing: #dedede;
+  --overlay: rgb(0 0 0 / 0.45);
+  --overlay-soft: rgb(0 0 0 / 0.2);
+  --overlay-strong: rgb(0 0 0 / 0.65);
+  --selection: #dbe6fd;
+  --selection-foreground: #0b1f4a;
+  --success-accent: rgb(16 122 87 / 0.12);
+  --success-accent-foreground: #0f6e4f;
+  --destructive-accent: rgb(220 38 38 / 0.1);
+  --destructive-accent-foreground: #b91c1c;
+}
+
+/* Fields that pin a dark color-scheme for their native parts (date and time
+   pickers, select arrows) follow the light theme instead. */
+html.dashboard-theme[data-dashboard-theme="light"] [class*="color-scheme:dark"] {
+  color-scheme: light;
+}
+
+/* The site's pages (everything but the dashboard and the editor) take the same
+   theme as the dashboard. They're drawn in Tailwind's white and black, at many
+   strengths, on a near-black page, so their light theme, `site-light` on
+   <html>, swaps the two ends: white becomes ink and black becomes white, and
+   every word, line, card and button turns over at once. The surfaces the site
+   names itself, from the page to the panels of its product pictures, are the
+   --site-* colours here: the dark ones, then the dashboard's light ones. A
+   picture that stays as it is, such as a frame of video, sits in `.site-dark`. */
+:root,
+html.site-light .site-dark {
+  --site-page: #0a0a0a;
+  /* The product pictures' surfaces, from the window behind everything to the
+     rows inside a panel, and their edges. */
+  --site-canvas: #060606;
+  --site-surface: #0b0b0b;
+  --site-raised: #111111;
+  --site-panel: #141414;
+  --site-layer: #161616;
+  --site-popover: #161616;
+  --site-layer-2: #1a1a1a;
+  --site-frame: #161616;
+  --site-edge-soft: #1c1c1c;
+  --site-rail: #7d7d7d;
+  --site-rail-on: #ededed;
+  --site-accent-film: #0b1630;
+  --site-streak: rgb(170 200 255);
+  --site-edge: #1f1f1f;
+  --site-shadow-float: inset 0 1px 0 rgb(255 255 255 / 0.05), 0 12px 32px -12px rgb(0 0 0 / 0.8);
+  --site-shadow-menu: 0 16px 24px -8px rgb(0 0 0 / 0.5), 0 4px 8px -4px rgb(0 0 0 / 0.4);
+  --site-shadow-panel: 0 24px 48px -16px rgb(0 0 0 / 0.8);
+  --site-shadow-pop: 0 40px 80px -24px rgb(0 0 0 / 0.95);
+  --site-shadow-popover: 0 24px 60px -20px rgb(0 0 0 / 0.9);
+  /* Words the pictures set in their own colours, and the accents they share. */
+  --site-label: #f2f2f2;
+  --site-ink: #f8f8f8;
+  --site-ink-soft: #a4a4a4;
+  --site-accent: #2f6ff0;
+  --site-accent-hover: #3d7af2;
+  --site-accent-ink: #7aa7f7;
+  --site-accent-soft: #5b8ef5;
+  --site-best-ink: #9cbcf9;
+  --site-selection: hsl(220 87% 22%);
+  --site-selection-hover: hsl(220 87% 28%);
+  --site-selection-ink: hsl(220 87% 90%);
+  --site-keyframe: rgb(242 242 242 / 0.64);
+  --site-knob: #f2f2f2;
+  --site-up: #3ccb7f;
+  --site-down: #f0655d;
+  --site-logo-tile: #ffffff;
+  --site-logo-ink: #000000;
+  --site-scrollbar: rgb(255 255 255 / 0.13);
+  --site-scrollbar-hover: rgb(255 255 255 / 0.26);
+  /* The timeline's clips, as the editor draws them (engine/timeline/constants.ts). */
+  --clip-video-bg: #1a2a4a;
+  --clip-video-edge: #2a4785;
+  --clip-video-ink: #7aa7f7;
+  --clip-video-label: #d6e4ff;
+  --clip-video-film: rgb(26 42 74 / 0.55);
+  --clip-audio-bg: #143c2f;
+  --clip-audio-edge: #17664a;
+  --clip-audio-ink: #34d399;
+  --clip-audio-label: #c9f5e3;
+  --clip-text-bg: #2e3239;
+  --clip-text-edge: #4b525d;
+  --clip-text-label: #e2e8f0;
+  --clip-caption-bg: #45213a;
+  --clip-caption-edge: #7a2f5c;
+  --clip-caption-ink: #8e3566;
+  --clip-caption-label: #fbd5e8;
+  --clip-group-bg: #202227;
+  --clip-group-edge: #363a42;
+  --clip-group-ink: #3a3f47;
+  --clip-group-label: #e5e7eb;
+}
+
+html.site-light {
+  color-scheme: light;
+  --color-white: #0a0a0a;
+  --color-black: #ffffff;
+  --color-neutral-50: #0a0a0a;
+  --color-red-300: #dc2626;
+  --color-red-400: #ef4444;
+
+  /* Buffer's warm near-white (buffer.com's neutral-050), so the page isn't a
+     glaring white; panels on it stay white. The frame is their neutral-100. */
+  --site-page: #fefdfb;
+  --site-canvas: #f3f3f3;
+  --site-surface: #ffffff;
+  --site-raised: #ffffff;
+  --site-panel: #ffffff;
+  --site-layer: #f6f6f6;
+  --site-popover: #ffffff;
+  --site-layer-2: #f0f0f0;
+  --site-frame: #f7f7f3;
+  --site-edge-soft: #ebebeb;
+  --site-rail: #737373;
+  --site-rail-on: #171717;
+  --site-accent-film: #e5edfd;
+  --site-streak: #2563eb;
+  --site-edge: #e6e6e6;
+  --site-shadow-float: 0 1px 3px rgb(0 0 0 / 0.06), 0 12px 32px -12px rgb(0 0 0 / 0.16);
+  --site-shadow-menu: 0 1px 3px rgb(0 0 0 / 0.06), 0 16px 32px -8px rgb(0 0 0 / 0.14);
+  --site-shadow-panel: 0 1px 3px rgb(0 0 0 / 0.06), 0 16px 32px -12px rgb(0 0 0 / 0.14);
+  --site-shadow-pop: 0 1px 3px rgb(0 0 0 / 0.08), 0 24px 48px -16px rgb(0 0 0 / 0.22);
+  --site-shadow-popover: 0 1px 3px rgb(0 0 0 / 0.08), 0 24px 48px -16px rgb(0 0 0 / 0.2);
+  --site-label: #171717;
+  --site-ink: #0a0a0a;
+  --site-ink-soft: #6b6b6b;
+  --site-accent: #2563eb;
+  --site-accent-hover: #1d4ed8;
+  --site-accent-ink: #2563eb;
+  --site-accent-soft: #3b82f6;
+  --site-best-ink: #1d4ed8;
+  --site-selection: #dbe6fd;
+  --site-selection-hover: #cfdcfb;
+  --site-selection-ink: #0b1f4a;
+  --site-keyframe: rgb(0 0 0 / 0.5);
+  --site-knob: #171717;
+  --site-up: #0a9e72;
+  --site-down: #dc2626;
+  --site-logo-tile: #000000;
+  --site-logo-ink: #ffffff;
+  --site-scrollbar: rgb(0 0 0 / 0.16);
+  --site-scrollbar-hover: rgb(0 0 0 / 0.32);
+  /* Claude's and Codex's own light themes, for their windows (site-agents.tsx;
+     the dark ones are the fallbacks written there). */
+  --claude-bg: #faf9f5;
+  --claude-ask: #f0eee6;
+  --claude-input: #ffffff;
+  --codex-side: #f7f7f7;
+  --codex-main: #ffffff;
+  --codex-raised: #f0f0f0;
+  --codex-link: #1a6fe0;
+  --clip-video-bg: #e5edfd;
+  --clip-video-edge: #bbcff8;
+  --clip-video-ink: #5b8def;
+  --clip-video-label: #1d4ed8;
+  --clip-video-film: rgb(229 237 253 / 0.6);
+  --clip-audio-bg: #ddf6ec;
+  --clip-audio-edge: #a9e5cf;
+  --clip-audio-ink: #16a97c;
+  --clip-audio-label: #067352;
+  --clip-text-bg: #edf0f4;
+  --clip-text-edge: #d2d9e2;
+  --clip-text-label: #3d4e63;
+  --clip-caption-bg: #fae4f0;
+  --clip-caption-edge: #efbdd9;
+  --clip-caption-ink: #edb6d6;
+  --clip-caption-label: #9d1f6b;
+  --clip-group-bg: #eceef1;
+  --clip-group-edge: #d3d8de;
+  --clip-group-ink: #c9cfd6;
+  --clip-group-label: #3b434d;
+}
+
+/* @site:grounds */
+
+/* Fields that pin a dark color-scheme for their native parts follow the light theme, as in the dashboard. */
+html.site-light [class*="color-scheme:dark"] {
+  color-scheme: light;
+}
+
+/* @site:site-dark */
+
+/* The dashboard shows thin scrollbars, so a long page says there is more below
+   it; the editor keeps them hidden. Unlayered, so these win over the base
+   layer's `scrollbar-width: none`. Chromium and Safari draw them from the
+   ::-webkit-scrollbar parts (Chromium only when scrollbar-width is auto),
+   Firefox from scrollbar-color. */
+html.dashboard-theme * {
+  scrollbar-width: auto;
+  -ms-overflow-style: auto;
+}
+
+html.dashboard-theme *::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+html.dashboard-theme *::-webkit-scrollbar-track,
+html.dashboard-theme *::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* A 4px pill: the transparent border keeps it off the edges. */
+html.dashboard-theme *::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+  background-color: var(--scrollbar-thumb);
+}
+
+html.dashboard-theme *::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scrollbar-thumb-hover);
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  html.dashboard-theme * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+  }
+}
+
+/* The site's pages scroll the document itself. With a mouse, its scrollbar
+   is drawn over the page (site-scrollbar.tsx), so the page keeps the window's
+   whole width; the browser's own is hidden. Touch screens keep the browser's,
+   which floats over the page already. Everything inside keeps the base
+   layer's hidden scrollbars, and the editor's document never scrolls. */
+@media (pointer: fine) {
+  html:not(.dashboard-theme) {
+    scrollbar-width: none;
+  }
+
+  html:not(.dashboard-theme)::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@media not (pointer: fine) {
+  html:not(.dashboard-theme) {
+    scrollbar-width: auto;
+    -ms-overflow-style: auto;
+  }
+}
+
+html:not(.dashboard-theme)::-webkit-scrollbar {
+  width: 14px;
+  height: 14px;
+}
+
+html:not(.dashboard-theme)::-webkit-scrollbar-track,
+html:not(.dashboard-theme)::-webkit-scrollbar-corner {
+  background: var(--site-page);
+}
+
+html:not(.dashboard-theme)::-webkit-scrollbar-thumb {
+  border: 4px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+  background-color: var(--site-scrollbar);
+}
+
+html:not(.dashboard-theme)::-webkit-scrollbar-thumb:hover {
+  background-color: var(--site-scrollbar-hover);
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  @media not (pointer: fine) {
+    html:not(.dashboard-theme) {
+      scrollbar-width: thin;
+      scrollbar-color: var(--site-scrollbar) transparent;
+    }
+  }
+}
+
+/* Depth, in the dashboard only. The top-edge light is a 1px background line,
+   not a shadow, so it never covers a card's ring, drawn with box-shadow, or
+   the focus ring, drawn with an outline. */
+html.dashboard-theme :is(.depth-panel, .depth-card) {
+  background-image: linear-gradient(90deg, transparent, var(--depth-edge) 12%, var(--depth-edge) 88%, transparent);
+  background-size: 100% 1px;
+  background-position: top;
+  background-repeat: no-repeat;
+}
+
+/* The workspace frame: its children cover its background, so the light is drawn above them. */
+html.dashboard-theme .depth-frame::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 30;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--depth-edge) 12%, var(--depth-edge) 88%, transparent);
+  pointer-events: none;
+}
+
+/* Cards rise a pixel on hover and their background brightens: a tint laid
+   over whatever color the card has, under the top light. No shadow. A
+   bordered card brightens its border with `hover:border-(--border-input)`.
+   Pressed, a card settles back down. The lift steps aside while the card has
+   keyboard focus. */
+html.dashboard-theme .depth-card {
+  transition-property: transform, background-color, border-color, color;
+  transition-duration: 150ms;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
+html.dashboard-theme .depth-card:hover {
+  background-image:
+    linear-gradient(90deg, transparent, var(--depth-edge) 12%, var(--depth-edge) 88%, transparent),
+    linear-gradient(var(--plane-layer-transparent-hover), var(--plane-layer-transparent-hover));
+  background-size: 100% 1px, 100% 100%;
+  background-position: top, 0 0;
+}
+
+/* A card with no fill of its own, like a thumbnail with its title under it,
+   has no top edge to light: the line would float above the thumbnail. It
+   keeps the tint and the lift. */
+html.dashboard-theme .depth-card.depth-unlit {
+  background-image: none;
+}
+
+html.dashboard-theme .depth-card.depth-unlit:hover {
+  background-image: linear-gradient(var(--plane-layer-transparent-hover), var(--plane-layer-transparent-hover));
+  background-size: 100% 100%;
+  background-position: 0 0;
+}
+
+html.dashboard-theme .depth-card:hover:not(:focus-visible) {
+  transform: translateY(-1px);
+}
+
+html.dashboard-theme .depth-card:hover:active {
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.dashboard-theme .depth-card:hover:not(:focus-visible) {
+    transform: none;
+  }
+}
+
+/* Anything you can tab to in the dashboard gets the focus ring, even without
+   .focus-ring or with an `outline-none` it was given. Text fields show focus
+   with their border, and menu items with their highlight. */
+html.dashboard-theme :is(button, a[href], summary, [role="button"], [role="tab"], [role="radio"], [role="checkbox"], [role="switch"], [role="link"], [role="slider"], [tabindex="0"]):focus-visible {
+  outline: 1px solid var(--ring);
+  outline-offset: -1px;
+}
+
+/* Menus, popovers, dialogs and popups float with a soft shadow and the same top light. */
+html.dashboard-theme :is([data-popper-positioner] > :not([role="tooltip"]), [role="dialog"]) {
+  box-shadow: var(--depth-overlay);
+  background-image: linear-gradient(90deg, transparent, var(--depth-edge) 12%, var(--depth-edge) 88%, transparent);
+  background-size: 100% 1px;
+  background-position: top;
+  background-repeat: no-repeat;
+}
+
+html.dashboard-theme [data-popper-positioner] > [role="tooltip"] {
+  box-shadow: var(--depth-tooltip);
+}
+
+/* The Assistant's message box: a card lifted off the page with the same top
+   light as the panels above, and no ring when the cursor lands in it. */
+html.dashboard-theme .assistant-composer {
+  box-shadow: var(--depth-card);
+  background-image: linear-gradient(90deg, transparent, var(--depth-edge) 12%, var(--depth-edge) 88%, transparent);
+  background-size: 100% 1px;
+  background-position: top;
+  background-repeat: no-repeat;
+}
+
+/* The Assistant's answers read at the dashboard's base size, a step up from
+   the editor's chat, which shares the Markdown. */
+.assistant-prose > div {
+  font-size: 14px;
+  line-height: 1.6;
+}
+.assistant-prose :is(h1, h2) {
+  font-size: 15px;
+}
+.assistant-prose h3 {
+  font-size: 14px;
+}
+.assistant-prose code {
+  font-size: 12.5px;
+}
+
+/* Grayscale smoothing keeps light text on the dark surfaces thin. Set on
+   <html> so menus and dialogs get it too. */
+html.dashboard-theme {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* The dashboard sets in Geist, the editor keeps Inter. Inter is the first
+   fallback, so the moment before Geist loads looks almost the same. On <body>
+   too, for menus and dialogs. */
+html.dashboard-theme :is(body, .font-sans) {
+  font-family: 'Geist', 'Inter', ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+}
+
+/* Every weight a touch heavier than Tailwind's steps, the same in both themes:
+   Geist is variable, so 430 is a real weight, and thin 12-13px strokes read
+   firmer on dark and light alike. Tailwind's weight classes read these. */
+html.dashboard-theme {
+  --font-weight-normal: 430;
+  --font-weight-medium: 530;
+  --font-weight-semibold: 630;
+  --font-weight-bold: 730;
+}
+
+html.dashboard-theme body {
+  font-weight: var(--font-weight-normal);
+}
+
+/* One button look across the dashboard: the shared Button takes PlaneButton's
+   hairline border, lift, ghost colours and 13px medium label. */
+html.dashboard-theme {
+  --button-raised-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.15), inset 0 1px 0 rgb(255 255 255 / 0.2), 0 1px 2px rgb(0 0 0 / 0.25);
+  --button-secondary-shadow: inset 0 0 0 1px var(--plane-border-strong), var(--plane-shadow-raised-100);
+  --button-outline-shadow: var(--plane-shadow-raised-100);
+  --button-ghost-text: var(--plane-text-secondary);
+  --button-ghost-text-hover: var(--plane-text-primary);
+}
+
+html.dashboard-theme [data-slot="button"][data-size="default"] {
+  font-size: 13px;
+  font-weight: var(--font-weight-medium);
+}
+
+/* Corners: 6px for controls, 12px for cards and anything that floats over the
+   page, dialogs included (the shared dialog is rounder for the editor). */
+html.dashboard-theme [data-slot="dialog-content"] {
+  border-radius: var(--radius-xl);
+}
+
+/* 13px body at the face's own spacing; added tracking only loosens it. */
+.dashboard-shell {
+  background: var(--plane-canvas);
+  color: var(--plane-text-primary);
+  font-size: 13px;
+  line-height: 1.45;
+  letter-spacing: normal;
+}
+
+/* The app's 10px and 11px steps are sized for the editor's dense panels. Next
+   to 13px navigation they read as fine print, so the dashboard takes each one
+   step up. (Declared before the menu rules, which set their own size.) */
+html.dashboard-theme .text-xxs {
+  font-size: 11px;
+}
+
+html.dashboard-theme .text-xs {
+  font-size: 12px;
+}
+
+/* Large type gets tighter tracking, as display sizes want. */
+html.dashboard-theme :is(.text-xl, .text-2xl, .text-3xl, .text-4xl, .text-5xl) {
+  letter-spacing: -0.015em;
+}
+
+/* Plane's menus: a surface with a strong hairline, 4px in, rows that only tint on hover. */
+html.dashboard-theme :is([data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="select-content"]) {
+  gap: 2px;
+  padding: 4px;
+  border-radius: 6px;
+  border-color: var(--plane-border-strong);
+  box-shadow: var(--plane-shadow-overlay-200);
+}
+
+html.dashboard-theme :is([data-slot="dropdown-menu-item"], [data-slot="dropdown-menu-checkbox-item"], [data-slot="dropdown-menu-radio-item"], [data-slot="dropdown-menu-sub-trigger"], [data-slot="select-item"]) {
+  border-radius: 4px;
+  background: transparent;
+  font-size: 13px;
+  color: var(--plane-text-secondary);
+}
+
+html.dashboard-theme :is([data-slot="dropdown-menu-item"], [data-slot="dropdown-menu-checkbox-item"], [data-slot="dropdown-menu-radio-item"], [data-slot="dropdown-menu-sub-trigger"], [data-slot="select-item"]):is([data-highlighted], [data-expanded]):not([data-variant="destructive"]) {
+  background: var(--plane-layer-transparent-hover);
+  color: var(--plane-text-primary);
+}
+
+html.dashboard-theme :is([data-slot="dropdown-menu-item"], [data-slot="dropdown-menu-checkbox-item"], [data-slot="dropdown-menu-radio-item"], [data-slot="dropdown-menu-sub-trigger"], [data-slot="select-item"]):is([data-highlighted], [data-expanded]) svg {
+  color: var(--plane-text-primary);
+}
+
+html.dashboard-theme [data-slot="dropdown-menu-item"][data-variant="destructive"] {
+  color: var(--plane-danger-text);
+}
+
+html.dashboard-theme [data-slot="dropdown-menu-item"][data-variant="destructive"][data-highlighted] {
+  background: var(--plane-danger-subtle);
+}
+
+/* On the near-black surfaces a field's fill alone is not enough to see it,
+   so text fields get a hairline, like Plane's inputs. Focus keeps its ring. */
+html.dashboard-theme [data-slot="text-field-input"] {
+  border-width: 1px;
+  border-style: solid;
+}
+
+html.dashboard-theme [data-slot="text-field-input"]:not(:focus-visible) {
+  border-color: var(--plane-border-subtle-1);
+}
+
+html.dashboard-theme [data-slot="tooltip-content"] {
+  border-color: var(--plane-border-strong);
+  background: var(--plane-layer-2);
+  font-weight: var(--font-weight-medium);
+}
+
+/* The editor's theme: the dashboard's near-black ramp and Geist, so the editor
+   reads as the same product. The editor puts `editor-theme` on <html> while it
+   is open, so its menus, tooltips and dialogs get it too. The canvas sits a
+   step darker than the panels around it, and the text runs a step larger than
+   the 10-11px the app's base tokens are sized for. */
+html.editor-theme {
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 12px;
+  --text-lg: 13px;
+  /* Four steps far enough apart to read: values and body at 440, labels,
+     section titles and buttons at 500, panel titles at 530. A touch over
+     Tailwind's steps, as small grey text on near-black reads thin, but no
+     more: with macOS's stem thickening (below) 560-600 came out bold. */
+  --font-weight-normal: 440;
+  --font-weight-strong: 500;
+  --font-weight-medium: 530;
+  --font-weight-semibold: 600;
+  --radius: 6px;
+  /* No antialiased smoothing here, unlike the dashboard: on macOS it turns
+     off the stem thickening that light text on a dark ground gets, and the
+     editor's 11-12px labels go spindly without it, most of all at 1x. */
+}
+
+html.editor-theme :is(body, .font-sans) {
+  font-family: 'Geist', 'Inter', ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+}
+
+html.editor-theme body {
+  font-weight: var(--font-weight-normal);
+}
+
+/* The 10px and 11px steps, a step up: the theme sets them inline, so the
+   classes are overridden rather than the tokens. */
+html.editor-theme .text-xxs {
+  font-size: 11px;
+}
+
+html.editor-theme .text-xs {
+  font-size: 12px;
+}
+
+/* The editor's labels ask for `font-450`, which Tailwind does not generate
+   (an arbitrary weight is `font-[450]`), so they fell back to body weight.
+   Here it is the label step. */
+html.editor-theme .font-450 {
+  font-weight: var(--font-weight-strong);
+}
+
+/* Text a step down from white: at the editor's weights, near-white on
+   near-black glares in titles and labels. */
+html.editor-theme[data-kb-theme="dark"] {
+  --canvas: #060606;
+  --background: #0b0b0b;
+  --foreground: #d4d4d4;
+  --card: #0b0b0b;
+  --card-foreground: #d4d4d4;
+  --popover: #111111;
+  --popover-foreground: #d4d4d4;
+  --primary: #2f6ff0;
+  --primary-foreground: rgb(255 255 255 / 0.9);
+  --primary-hover: #3d7bf3;
+  --primary-pressing: #2563eb;
+  --secondary: rgb(255 255 255 / 0.06);
+  --secondary-foreground: #d4d4d4;
+  --secondary-hover: rgb(255 255 255 / 0.09);
+  --secondary-pressing: rgb(255 255 255 / 0.13);
+  --tertiary: #17284a;
+  --tertiary-foreground: #cfe0ff;
+  --tertiary-hover: #1c3159;
+  --tertiary-pressing: #12203c;
+  --muted: rgb(255 255 255 / 0.08);
+  --muted-foreground: #a1a1a1;
+  --disabled-foreground: #4a4a4a;
+  --accent: rgb(255 255 255 / 0.05);
+  --accent-foreground: #a1a1a1;
+  --border: #1a1a1a;
+  --border-strong: #1f1f1f;
+  --border-input: #262626;
+  --border-darker: #0b0b0b;
+  --input: rgb(255 255 255 / 0.05);
+  --ring: #2f6ff0;
+  --inset: rgb(255 255 255 / 0.08);
+  --selection: #17284a;
+  --selection-foreground: #cfe0ff;
+}
+
+html.editor-theme[data-kb-theme="light"] {
+  --canvas: #f3f3f3;
+  --background: #ffffff;
+  --foreground: #171717;
+  --card: #ffffff;
+  --card-foreground: #171717;
+  --popover: #ffffff;
+  --popover-foreground: #171717;
+  --muted-foreground: #5c5c5c;
+  --accent-foreground: #5c5c5c;
+  --disabled-foreground: #a3a3a3;
+  --border: #ededed;
+  --border-strong: #e6e6e6;
+  --border-input: #e0e0e0;
+}
+
+/* Menus and tooltips: a hairline a step stronger than the panels', and the
+   dashboard's soft lift. */
+html.editor-theme :is([data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="select-content"]) {
+  border-color: var(--border-input);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.12), 0 12px 32px -8px rgb(0 0 0 / 0.4);
+}
+
+html.editor-theme[data-kb-theme="light"] :is([data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="select-content"]) {
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.06), 0 12px 32px -8px rgb(0 0 0 / 0.16);
+}
+
+/* The dashboard's menus: 4px in, rows that tint on hover instead of filling
+   with the accent, and corners no rounder than the rest of the app. */
+html.editor-theme :is([data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="select-content"], [data-slot="context-menu-content"], [data-slot="context-menu-sub-content"]) {
+  gap: 1px;
+  padding: 4px;
+  border-radius: 8px;
+}
+
+html.editor-theme :is([data-slot="dropdown-menu-item"], [data-slot="dropdown-menu-checkbox-item"], [data-slot="dropdown-menu-radio-item"], [data-slot="dropdown-menu-sub-trigger"], [data-slot="select-item"], [data-slot="context-menu-item"], [data-slot="context-menu-checkbox-item"], [data-slot="context-menu-radio-item"], [data-slot="context-menu-sub-trigger"]) {
+  border-radius: 5px;
+}
+
+html.editor-theme :is([data-slot="dropdown-menu-item"], [data-slot="dropdown-menu-checkbox-item"], [data-slot="dropdown-menu-radio-item"], [data-slot="dropdown-menu-sub-trigger"], [data-slot="select-item"], [data-slot="context-menu-item"], [data-slot="context-menu-checkbox-item"], [data-slot="context-menu-radio-item"], [data-slot="context-menu-sub-trigger"]):is([data-highlighted], [data-expanded]):not([data-variant="destructive"]) {
+  background: var(--secondary-hover);
+  color: var(--foreground);
+}
+
+html.editor-theme :is([data-slot="dropdown-menu-item"], [data-slot="dropdown-menu-checkbox-item"], [data-slot="dropdown-menu-radio-item"], [data-slot="dropdown-menu-sub-trigger"], [data-slot="select-item"], [data-slot="context-menu-item"], [data-slot="context-menu-checkbox-item"], [data-slot="context-menu-radio-item"], [data-slot="context-menu-sub-trigger"]):is([data-highlighted], [data-expanded]):not([data-variant="destructive"]) :is(svg, [data-slot="dropdown-menu-shortcut"], [data-slot="context-menu-shortcut"]) {
+  color: var(--foreground);
+}
+
+html.editor-theme [data-slot="tooltip-content"] {
+  border-color: var(--border-input);
+}
+
+html.editor-theme :is([data-slot="dropdown-menu-separator"], [data-slot="context-menu-separator"]) {
+  margin-block: 3px;
+}
+
+/* A laptop's short screen, from the lg breakpoint up: the homepage hero's
+   card has less height to give the headline there, between the week's day
+   labels and the window rising from its bottom (HOME_HEADLINE in
+   lib/hero-shell.ts). */
+@custom-variant short (@media (max-height: 820px) and (min-width: 1024px));

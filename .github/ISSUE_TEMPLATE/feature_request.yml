@@ -1,0 +1,21 @@
+name: Feature request
+description: Suggest something plan.video should do.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you're trying to do
+      description: What are you trying to get done, and what gets in the way today?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+      description: How would you like it to work?
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Other tools that do it well, sketches or screenshots.

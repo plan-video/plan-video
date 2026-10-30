@@ -1,0 +1,128 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/*
+ * An effect played on one real shot, the same shot for every effect so they
+ * compare: a photographer behind a camera (Benjamin Combs on Unsplash), or
+ * the surf for the speed. Each loop holds the plain shot, plays the effect
+ * and settles back.
+ */
+.fx {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #000;
+}
+
+.fx > div {
+  position: absolute;
+  inset: 0;
+  animation-duration: 2.4s;
+  animation-iteration-count: infinite;
+  animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
+  animation-fill-mode: both;
+}
+
+.fx-shot {
+  background: url("/site/effects-shot.webp") center / cover;
+  transform-origin: 50% 40%;
+}
+
+.fx[data-kind="slowMotion"] .fx-shot {
+  background-image: url("/site/ride.webp");
+  background-position: center;
+  inset: 0 -60% 0 0;
+}
+
+/*
+ * The zooms mark the crop they go to with a viewfinder's corners. The frame
+ * is the crop's size and plays the shot's own animation, so at full zoom it
+ * lands on the tile's edges.
+ */
+.fx-frame {
+  --corner: linear-gradient(#fff, #fff);
+  opacity: 0.9;
+  background:
+    var(--corner) top left / 10px 1.5px no-repeat, var(--corner) top left / 1.5px 10px no-repeat,
+    var(--corner) top right / 10px 1.5px no-repeat, var(--corner) top right / 1.5px 10px no-repeat,
+    var(--corner) bottom left / 10px 1.5px no-repeat, var(--corner) bottom left / 1.5px 10px no-repeat,
+    var(--corner) bottom right / 10px 1.5px no-repeat, var(--corner) bottom right / 1.5px 10px no-repeat;
+}
+
+.fx[data-kind="zoomIn"] > div,
+.fx[data-kind="autoZoom"] > div,
+.fx[data-kind="slowZoom"] > div { transform-origin: 50% 50%; }
+
+.fx[data-kind="zoomIn"] .fx-frame { inset: 15.5% !important; }
+.fx[data-kind="autoZoom"] .fx-frame { inset: 10% !important; }
+.fx[data-kind="slowZoom"] .fx-frame { inset: 9% !important; }
+
+/* Zoom in: in on the face, held, back out. */
+@keyframes fx-zoom-in { 0%, 20% { transform: none } 35%, 70% { transform: scale(1.45) } 85%, 100% { transform: none } }
+.fx[data-kind="zoomIn"] > div { animation-name: fx-zoom-in; }
+
+/* Slow zoom: one long push in. */
+@keyframes fx-slow-zoom { 0% { transform: none } 100% { transform: scale(1.22) } }
+.fx[data-kind="slowZoom"] > div { animation-name: fx-slow-zoom; animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1); }
+
+/* Auto zoom: punch-ins on the beats of a sentence. */
+@keyframes fx-auto-zoom {
+  0%, 14% { transform: none }
+  15%, 36% { transform: scale(1.25) }
+  37%, 52% { transform: none }
+  53%, 78% { transform: scale(1.4) }
+  79%, 100% { transform: none }
+}
+.fx[data-kind="autoZoom"] > div { animation-name: fx-auto-zoom; animation-timing-function: steps(1, end); }
+
+/* Shake: thrown hard, then settling. */
+@keyframes fx-shake {
+  0%, 25% { transform: none }
+  27% { transform: scale(1.1) translate(-4%, 2.5%) rotate(-1.5deg) }
+  30% { transform: scale(1.1) translate(3.5%, -3%) rotate(1.2deg) }
+  33% { transform: scale(1.1) translate(-3%, -2%) rotate(-1deg) }
+  36% { transform: scale(1.1) translate(3%, 2.5%) rotate(1deg) }
+  40% { transform: scale(1.1) translate(-2%, 1.5%) rotate(-0.6deg) }
+  44% { transform: scale(1.1) translate(1.5%, -1.5%) rotate(0.5deg) }
+  49% { transform: scale(1.1) translate(-1%, -0.8%) rotate(-0.3deg) }
+  55% { transform: scale(1.1) translate(0.5%, 0.5%) rotate(0.15deg) }
+  62%, 100% { transform: none }
+}
+.fx[data-kind="shake"] .fx-shot { animation-name: fx-shake; animation-timing-function: ease-in-out; }
+
+/* Flash: a hit of white that fades. */
+.fx-over {
+  opacity: 0;
+}
+
+@keyframes fx-flash { 0%, 38% { opacity: 0 } 40% { opacity: 1 } 70%, 100% { opacity: 0 } }
+.fx[data-kind="flash"] .fx-over { background: #fff; animation-name: fx-flash; animation-timing-function: ease-out; }
+
+/* Blur: out of focus, then sharp. */
+@keyframes fx-blur { 0%, 20% { filter: blur(7px); transform: scale(1.04) } 65%, 100% { filter: blur(0); transform: scale(1.04) } }
+.fx[data-kind="blur"] .fx-shot { animation-name: fx-blur; }
+
+/* Slow motion: the shot pans, slows right down and picks up again. */
+@keyframes fx-slow-motion {
+  0% { transform: none; animation-timing-function: linear }
+  30% { transform: translateX(-16%); animation-timing-function: cubic-bezier(0.2, 0.6, 0.4, 1) }
+  75% { transform: translateX(-21%); animation-timing-function: cubic-bezier(0.6, 0, 0.8, 0.4) }
+  100% { transform: translateX(-37.5%) }
+}
+.fx[data-kind="slowMotion"] .fx-shot { animation-name: fx-slow-motion; animation-timing-function: linear; }
+
+/* Cinematic bars: black bars close in over the shot and hold. */
+.fx-bar {
+  inset: auto 0 !important;
+  height: 13%;
+  background: #000;
+}
+
+.fx-bar-top { top: 0 !important; transform: translateY(-100%); }
+.fx-bar-bottom { bottom: 0 !important; transform: translateY(100%); }
+
+@keyframes fx-bar-top { 0%, 20% { transform: translateY(-100%) } 40%, 80% { transform: none } 95%, 100% { transform: translateY(-100%) } }
+@keyframes fx-bar-bottom { 0%, 20% { transform: translateY(100%) } 40%, 80% { transform: none } 95%, 100% { transform: translateY(100%) } }
+.fx[data-kind="bars"] .fx-bar-top { animation-name: fx-bar-top; }
+.fx[data-kind="bars"] .fx-bar-bottom { animation-name: fx-bar-bottom; }
