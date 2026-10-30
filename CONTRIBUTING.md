@@ -20,6 +20,22 @@ Fixes, features, translations and docs are all welcome. By taking part you agree
    ```
 4. **Open a pull request** against `main`. Say what changes for the people using plan.video and why, and add a screenshot or a short video for anything you can see.
 
+## Commit messages and pull request titles
+
+They follow [Conventional Commits](https://www.conventionalcommits.org): a type, the part of plan.video it touches, and what changes, in plain words.
+
+```text
+fix(publisher): retry TikTok uploads that time out
+feat(editor): add a blur effect to the Effects tab
+perf(web): load the calendar's thumbnails as they scroll into view
+```
+
+- **Types:** `feat` (something new), `fix`, `perf`, `refactor`, `docs`, `test`, `ci`, `chore`.
+- **Scopes:** `web` (the dashboard), `editor`, `publisher`, `mcp`, `billing`, `storage`, a network (`tiktok`, `youtube`, `x`, …), `db` (Supabase), `i18n`, `docs`.
+- **The subject:** lowercase, no full stop, under about 72 characters, saying what changes for the people using plan.video when it's something they'd notice.
+
+Pull requests are squash-merged, so the title becomes the commit on `main`.
+
 ## How the code is written
 
 Match the code around your change. A few things hold everywhere:
