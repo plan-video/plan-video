@@ -12,7 +12,7 @@ The dev server reloads as you edit, and you need no accounts or keys to start: i
   <Step title="Get the code">
     ```bash
     git clone https://github.com/plan-video/plan-video.git
-    cd plan.video
+    cd plan-video
     ```
   </Step>
   <Step title="Install">
@@ -32,7 +32,7 @@ The dev server reloads as you edit, and you need no accounts or keys to start: i
   </Step>
 </Steps>
 
-That's enough to work on the website, the dashboard and the editor.
+That's enough to work on the dashboard and the editor.
 
 ## Sign in
 

@@ -47,7 +47,7 @@ You need Node.js 22, npm, git and a Chromium browser.
 
 ```bash
 git clone https://github.com/plan-video/plan-video.git
-cd plan.video
+cd plan-video
 npm install
 npm run dev -w @plan.video/web
 ```
