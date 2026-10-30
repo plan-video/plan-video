@@ -11,7 +11,6 @@ import { SheetCollector } from "../lib/sheets";
 
 import type { ToolHandler } from "../handler";
 
-// Ceiling on the height a sheet cell renders a node at.
 const SHEET_CAPTURE_HEIGHT = 1080;
 
 export const capture: ToolHandler<"capture"> = async ({ id, times, separate, perSheet }, ctx) => {
@@ -22,16 +21,12 @@ export const capture: ToolHandler<"capture"> = async ({ id, times, separate, per
   // none given means the export's first frame (the workarea's start).
   const shots = times && times.length > 0 ? times.map((t) => Math.round(t * TIME_FPS)) : [0];
 
-  // The project re-rendered into a world of its own, reduced to this scene:
-  // the same arrangement an export runs against, and the encoder's to draw.
   const target = await createCapture(world, scene, { dir: project.dir() });
   try {
     const encoder = await createImageEncoder(target.world, { frames: shots, resolution: 720 });
 
-    // Sheets render at their cell size instead of the flat 720p: with a few
-    // frames that is sharper than a standalone capture, never coarser. A
-    // scene is drawn, not decoded, so a small one is worth rendering past
-    // its own size; beyond SHEET_CAPTURE_HEIGHT that only costs tokens.
+    // Sheets render at their cell size instead of the flat 720p: sharper with a few frames,
+    // never coarser. Beyond SHEET_CAPTURE_HEIGHT a larger render only costs tokens.
     let sheets: SheetCollector | undefined;
     if (!separate) {
       const aspect = encoder.bounds.width / encoder.bounds.height;

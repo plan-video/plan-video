@@ -2,14 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/**
- * Running a workflow on a scene: its steps one after another, each with what
- * the editor's own panels do for it (resize, stream layout, grade, auto zoom,
- * captions and the tools on their words, progress bar), so what it leaves is
- * what doing it by hand would have. The run reports each step as it goes for
- * the Workflows panel to show. A step that can't be done says why and the
- * run goes on; only Stop ends it early.
- */
+// A step that can't be done says why and the run goes on; only Stop ends it early.
 
 import { createSignal } from 'solid-js';
 import { Captions, Grade as GradeElement } from '@plan.video/reconciler';
@@ -73,31 +66,27 @@ export type WorkflowRun = {
 	name: string;
 	steps: RunStep[];
 	state: 'running' | 'done' | 'stopped';
-	/** The post the run set the project up for, for the panel's Schedule post. */
 	post?: PostTemplate;
 };
 
 export type RunOptions = {
-	/** Captions and the tools on their words need an account. */
+	// Captions and the tools on their words need an account.
 	signedIn: boolean;
 };
 
 const [run, setRun] = createSignal<WorkflowRun | null>(null);
 export { run as workflowRun };
 
-/** Bumped by every start and stop: a run that sees another number has been stopped. */
+// Bumped by every start and stop: a run that sees another number has been stopped.
 let current = 0;
 
-/** How long a clip may take to load before the run gives up on it. */
 const CLIP_TIMEOUT_MS = 30_000;
-/** Transcribing a long clip on a busy server can take minutes. */
+// Transcribing a long clip on a busy server can take minutes.
 const CAPTION_TIMEOUT_MS = 15 * 60_000;
 
 class Stopped extends Error {}
-/** A step that had nothing to do, or was let go of; the message says why. */
 class Skip extends Error {}
 
-/** Ends the run where it is. What its steps already did stays, as one undo each. */
 export function stopWorkflow(): void {
 	if (run()?.state !== 'running') return;
 	current++;
@@ -105,7 +94,6 @@ export function stopWorkflow(): void {
 	markStopped();
 }
 
-/** The steps not reached yet are left out. */
 function markStopped(): void {
 	setRun((value) =>
 		value && {
@@ -116,16 +104,11 @@ function markStopped(): void {
 	);
 }
 
-/** Lets go of a finished run, so the panel shows the workflow again. */
 export function clearWorkflowRun(): void {
 	if (run()?.state === 'running') return;
 	setRun(null);
 }
 
-/**
- * Puts `assets` in a new scene, as a drop on the empty canvas does, and runs
- * `workflow` on it. False when there was nowhere to put them.
- */
 export function runWorkflowOnAssets(
 	world: World,
 	workflow: Workflow,
@@ -139,7 +122,6 @@ export function runWorkflowOnAssets(
 	return true;
 }
 
-/** Runs `workflow` on `scene`'s main clip. Resolves when the run ends, stopped or not. */
 export async function runWorkflow(world: World, workflow: Workflow, scene: Entity, options: RunOptions): Promise<void> {
 	stopWorkflow();
 	const token = ++current;
@@ -188,7 +170,7 @@ export async function runWorkflow(world: World, workflow: Workflow, scene: Entit
 		setRun((value) => value && { ...value, state: 'done' });
 		editor.activate(scene);
 		editor.select(scene);
-		// The scene's new size reaches its bounds a frame or two later; frame it once it has.
+		// The scene's new size reaches its bounds a frame or two later.
 		await frames(3);
 		zoomToFitWhenSettled(world);
 	} catch (error) {
@@ -201,7 +183,6 @@ export async function runWorkflow(world: World, workflow: Workflow, scene: Entit
 			}
 			return;
 		}
-		// The clip never loaded: nothing else can be done either.
 		setRun((value) =>
 			value && {
 				...value,
@@ -220,7 +201,6 @@ type StepContext = {
 	mark: (id: WorkflowStepId, status: StepStatus, note?: string) => void;
 };
 
-/** Does one step. Returns a note for the panel; throws Skip, or with the reason it failed. */
 async function doStep(world: World, workflow: Workflow, id: WorkflowStepId, context: StepContext): Promise<string | undefined> {
 	const { scene, clip, options, alive, mark } = context;
 	const steps = workflow.steps;
@@ -251,7 +231,6 @@ async function doStep(world: World, workflow: Workflow, id: WorkflowStepId, cont
 				setLayoutSetup(layout);
 				applyStreamLayout(world);
 			} else {
-				// Nothing saved for this footage yet: the crops go where the person puts them.
 				mark(id, 'waiting', t('Place the crops on the canvas, then Apply layout'));
 				await until(() => !layoutTarget(), alive);
 			}
@@ -281,7 +260,7 @@ async function doStep(world: World, workflow: Workflow, id: WorkflowStepId, cont
 		case 'captions': {
 			if (!options.signedIn) throw new Error(t('Sign in to add captions'));
 			const existing = getEntityTree(world, scene).find((entity) => entity !== scene && entity.has(Caption));
-			// Captions with words already only take the look: no second transcription.
+			// Captions that already have words only take the look: no second transcription.
 			if (existing && existing.get(AssetId)?.value) {
 				applyCaptionLook(world, editor, existing, steps.captions!.look);
 				return;
@@ -321,7 +300,6 @@ async function doStep(world: World, workflow: Workflow, id: WorkflowStepId, cont
 	}
 }
 
-/** Waits for `scene`'s main clip to have a size and a length. */
 async function readyClip(world: World, scene: Entity, alive: () => void): Promise<Entity> {
 	let clip: Entity | null = null;
 	await until(() => {
@@ -337,7 +315,6 @@ async function readyClip(world: World, scene: Entity, alive: () => void): Promis
 const captionDone = (caption: Entity) =>
 	!caption.isAlive() || caption.has(SourceError) || (!!caption.get(AssetId)?.value && !caption.has(PendingSource) && !caption.has(Generating));
 
-/** Runs `work` over the words of the scene's captions and writes what comes back, as one undo step. */
 async function rewriteWords(world: World, scene: Entity, work: (words: Transcript) => Promise<Transcript>): Promise<void> {
 	const caption = getEntityTree(world, scene).find((entity) => entity !== scene && entity.has(Caption));
 	const library = world.get(Library);
@@ -356,7 +333,6 @@ const frames = async (count: number) => {
 	for (let i = 0; i < count; i++) await new Promise((resolve) => requestAnimationFrame(resolve));
 };
 
-/** Polls `done` every tenth of a second; throws when stopped or after `timeout`. */
 async function until(done: () => boolean, alive: () => void, timeout = Infinity, message = t('This took too long')): Promise<void> {
 	const started = performance.now();
 	for (;;) {
@@ -367,13 +343,11 @@ async function until(done: () => boolean, alive: () => void, timeout = Infinity,
 	}
 }
 
-/** The scene's video clips, in groups and sequences too, not in other scenes. */
 export function videoClips(world: World, scene: Entity): Entity[] {
 	const found: Entity[] = [];
 	const visit = (parent: Entity) => {
 		for (const child of getEntityChildren(world, parent)) {
 			if (isMask(child) || isScene(child)) continue;
-			// A sequence is a track in the scene's own frame and time, and where footage usually sits.
 			if (isSequence(child)) {
 				visit(child);
 				continue;
@@ -389,7 +363,6 @@ export function videoClips(world: World, scene: Entity): Entity[] {
 	return found;
 }
 
-/** The clip a workflow works on: the biggest one with its sound on, as the stream layout picks. */
 export function mainClip(world: World, scene: Entity): Entity | null {
 	const clips = videoClips(world, scene);
 	const pool = clips.filter((clip) => !clip.has(Muted));

@@ -14,31 +14,17 @@ import { getSavedPreviewQuality } from './preview-quality';
 import type { Rect, RuntimeWorld } from '@plan.video/runtime';
 import type { CanvasPointerEvent, PointerEventType } from '@plan.video/runtime';
 
-/**
- * With nothing moving, the loop runs this often instead of every frame, on a
- * timer rather than animation frames. Each pass redraws the stage and the
- * timeline whether or not anything changed, which a browser without hardware
- * acceleration copies on the CPU, and a pending animation frame alone has the
- * browser prepare and commit a frame: an editor left open and still kept a
- * third of the main thread busy on a fast Mac. Anything this misses (an
- * agent's edit) still shows within this long.
- */
+// Idle loop interval, on a timer rather than animation frames: every pass
+// redraws stage and timeline, which costs a lot without hardware acceleration,
+// and a pending animation frame alone makes the browser commit a frame.
 const IDLE_FRAME_MS = 100;
 
-/**
- * How long after input or playback the loop keeps running every frame, so a
- * gesture's last moves and the playhead's trail settle smoothly.
- */
 const ACTIVE_AFTER_MS = 500;
 
-/** Events that mean someone is using the editor, wherever on the page. */
 const ACTIVITY_EVENTS = ['pointerdown', 'pointermove', 'pointerup', 'wheel', 'keydown', 'keyup', 'dragover', 'drop'] as const;
 
 export interface EngineOptions {
-	/**
-	 * Inject an existing AudioContext (e.g. shared across projects). When
-	 * omitted, the engine creates and owns one; it is closed on dispose().
-	 */
+	// When omitted, the engine creates and owns one and closes it on dispose().
 	audioContext?: AudioContext;
 }
 
@@ -46,12 +32,10 @@ class Engine {
 	readonly world: RuntimeWorld;
 
 	private canvas: HTMLCanvasElement | null = null;
-	/** The canvas's size in CSS pixels when it was last measured, null until it is. */
 	private size: { width: number; height: number } | null = null;
 	private rafId: number | null = null;
 	private idleTimer: ReturnType<typeof setTimeout> | null = null;
 	private lastTimestamp: number | null = null;
-	/** Errors a frame has thrown, by message, so each is reported once rather than every frame. */
 	private readonly reported = new Set<string>();
 	private resizeObserver = new ResizeObserver(this.resize.bind(this));
 
@@ -61,21 +45,15 @@ class Engine {
 	private unsubscribe: (() => void)[] = [];
 	private interactiveDirty = true;
 
-	/**
-	 * Until when the loop runs every frame, a timestamp on the frame clock;
-	 * Infinity for "from the next frame on", set where that clock is not at hand.
-	 */
+	// A timestamp on the frame clock; Infinity means "from the next frame on".
 	private activeUntil = Infinity;
 	private lastCamera: readonly number[] = [];
 
 	public running: Accessor<boolean>;
 	private setRunning: Setter<boolean>;
 
-	/**
-	 * Ticks once per frame, after the systems ran. The one signal derived
-	 * state is sampled against (see `useDerived`); a plain Solid signal, so
-	 * following the tick costs no koota subscription.
-	 */
+	// Ticks once per frame after the systems ran; derived state samples against
+	// it (see `useDerived`). A plain Solid signal, so it costs no koota subscription.
 	public frame: Accessor<number>;
 	private setFrame: Setter<number>;
 
@@ -86,9 +64,8 @@ class Engine {
 		this.unsubscribe.push(
 			this.world.onAdd(ChildOf('*'), () => (this.interactiveDirty = true)),
 			this.world.onRemove(ChildOf('*'), () => (this.interactiveDirty = true)),
-			// The timeline keeps a clip's waveform and thumbnails by entity id,
-			// and koota hands ids back out: a clip that is gone has to take its
-			// pictures with it, or the next clip to be given its id inherits them.
+			// koota reuses entity ids: a removed clip's pictures must go with it, or the
+			// next clip given its id inherits them.
 			this.world.onRemove(Geometry, (entity) => {
 				clearClipPeaks(entity.id());
 				clearClipFrames(entity.id());
@@ -125,10 +102,6 @@ class Engine {
 		this.addEvent('pointerup', event)
 	}
 
-	/**
-	 * Whether the pointer is on the stage, which a shortcut reads to tell a
-	 * press that could start a canvas gesture from one that could not.
-	 */
 	private readonly onPointerEnter = () => {
 		this.world.set(Pointer, { over: true });
 	}
@@ -142,12 +115,8 @@ class Engine {
 		this.world.get(Keys)!.held.clear();
 	}
 
-	/**
-	 * Only records: what a press does is decided once a frame by the shortcut
-	 * system. Presses in text fields belong to the field. The one thing
-	 * decided here is whether the browser gets the event, since that cannot
-	 * wait for the frame — backspace would have navigated by then.
-	 */
+	// Only records; the shortcut system decides once a frame. Whether the browser
+	// gets the event cannot wait for the frame: backspace would have navigated.
 	private readonly onKeyDown = (event: KeyboardEvent) => {
 		if (
 			event.target instanceof HTMLInputElement
@@ -188,16 +157,11 @@ class Engine {
 		}
 	};
 
-	/**
-	 * Runs the next frames in full: someone is using the editor, or something
-	 * changed that should not wait for the next idle pass to show.
-	 */
 	public readonly wake = (): void => {
 		this.activeUntil = Infinity;
 		this.requestFrame();
 	}
 
-	/** Asks for the next frame now, unless one is already coming. */
 	private requestFrame(): void {
 		if (!this.running() || this.rafId !== null) return;
 		if (this.idleTimer !== null) {
@@ -207,11 +171,6 @@ class Engine {
 		this.rafId = requestAnimationFrame(this.loop);
 	}
 
-	/**
-	 * Whether the frame after this one has anything new to show: someone used
-	 * the editor a moment ago, a scene is playing, the camera is moving, or a
-	 * fill is shimmering while it generates.
-	 */
 	private isActive(timestamp: number): boolean {
 		if (this.interactiveDirty || timestamp < this.activeUntil) return true;
 
@@ -228,13 +187,11 @@ class Engine {
 	private readonly loop = (timestamp: number): void => {
 		this.rafId = null;
 
-		// The first frame after an idle stretch steps nothing forward: a play
-		// started from idle must not jump by the length of the wait.
+		// A play started from idle must not jump by the length of the wait.
 		const delta = this.lastTimestamp === null ? 0 : timestamp - this.lastTimestamp;
 		this.lastTimestamp = timestamp;
 		this.world.set(Time, { now: timestamp, delta });
 
-		// Moved from outside the loop (a zoom to fit settling): animate it.
 		const camera = getCameraMatrix(this.world);
 		if (this.activeUntil === Infinity || camera.some((value, index) => value !== this.lastCamera[index])) {
 			this.activeUntil = timestamp + ACTIVE_AFTER_MS;
@@ -245,9 +202,8 @@ class Engine {
 			this.interactiveDirty = false;
 		}
 
-		// A frame that throws must not end the loop: the canvas would freeze
-		// (or stay half drawn) until the page is reloaded. The error still
-		// goes to the console and Sentry, once.
+		// A frame that throws must not end the loop, or the canvas freezes until
+		// reload. The error is still reported once.
 		try {
 			this.runSystems();
 		} catch (error) {
@@ -283,14 +239,13 @@ class Engine {
 		if (!parent || !this.canvas) return;
 
 		const { width, height } = parent.getBoundingClientRect();
-		// A detached or hidden canvas measures 0×0. Culling against that would
-		// release every decoder and restart all audio once the canvas is back.
+		// A detached or hidden canvas measures 0×0; culling against that would release
+		// every decoder and restart all audio once it is back.
 		if (width === 0 || height === 0) return;
 		const dpr = window.devicePixelRatio;
 
-		// The camera's offset is from the canvas's top-left corner, so a canvas
-		// that grows (panels hidden) would leave the stage up and to the left.
-		// Moving it by half the change keeps what was in the middle there.
+		// The camera offset is from the top-left corner, so on resize move it by half
+		// the change to keep the middle in place.
 		const previous = this.size;
 		this.size = { width, height };
 		if (previous && (width !== previous.width || height !== previous.height)) {
@@ -380,11 +335,7 @@ class Engine {
 		this.resizeObserver.observe(canvas.parentElement!);
 	}
 
-	/**
-	 * The canvas as a PNG. `frame` is drawn filling the shot — a project cover
-	 * wants the scene, not whatever corner the canvas was scrolled to — and
-	 * the view is put back before the next paint.
-	 */
+	// `frame` is drawn filling the shot; the view is put back before the next paint.
 	public snapshot(frame?: Rect): Promise<Blob | null> {
 		const canvas = this.canvas;
 		if (!canvas?.width || !canvas.height) return Promise.resolve(null);
@@ -397,8 +348,7 @@ class Engine {
 		if (frame) transformSystem(this.world);
 		renderSystem(this.world);
 
-		// Copied now: `toBlob` encodes later, and the canvas is about to show
-		// the live view again.
+		// Copied now: `toBlob` encodes later, after the canvas shows the live view again.
 		const copy = document.createElement('canvas');
 		copy.width = canvas.width;
 		copy.height = canvas.height;
@@ -419,8 +369,7 @@ class Engine {
 			this.audioContext.close();
 		}
 
-		// The timeline's decoded pictures and peaks are of this project's
-		// files, and are held outside the world: they go with the engine.
+		// Held outside the world, so they go with the engine.
 		clearPeaks();
 		clearMedia();
 

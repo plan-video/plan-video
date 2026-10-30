@@ -2,12 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// A project's first scene, and the assets that started it. Dropping media
-// into a project that has no scene to put it in makes one around it rather
-// than leaving the clips loose at the root, which is what `insertAsset`
-// would otherwise do. The canvas and the timeline share this; they differ
-// only in where the new scene should end up on screen.
-
 import { Scene as SceneElement, SolidPaint } from '@plan.video/reconciler';
 import { focusRect, getCameraMatrix, getNextName, Root, Source } from '@plan.video/runtime';
 
@@ -25,10 +19,8 @@ export interface Size {
 	height: number;
 }
 
-/** The format a new scene gets when nothing going into it brings one. */
 export const DEFAULT_SCENE_FORMAT: Size = { width: 1920, height: 1080 };
 
-/** Where a new scene sits: `format`, centered on the world origin. */
 export function sceneFrame(format: Size): Rect {
 	return {
 		x: Math.round(-format.width / 2),
@@ -39,25 +31,13 @@ export function sceneFrame(format: Size): Rect {
 }
 
 export interface NewSceneOptions {
-	/** The scene's name; the next free "Scene N" by default. */
 	name?: string;
-	/** The format to fall back to when no asset has one of its own. */
 	format?: Size;
-	/**
-	 * Brings the new scene into view, given the rect it occupies in world
-	 * space. The camera is framed on it by default; the canvas placeholder
-	 * puts it exactly where the placeholder was instead.
-	 */
 	focus?: (rect: Rect) => void;
-	/** Where on the timeline the assets start, in seconds; the playhead by default. */
+	/** Seconds; the playhead by default. */
 	start?: number;
 }
 
-/**
- * Adds the project's first scene, of `format`, centered on the world origin,
- * makes it the active one, and brings it into view. Returns the scene, or
- * null when there is no project for it to be written under.
- */
 export function createScene(world: World, format: Size, options: NewSceneOptions = {}): Entity | null {
 	const root = world.get(Root)!;
 	if (!root.get(Source)?.value) return null;
@@ -81,13 +61,6 @@ export function createScene(world: World, format: Size, options: NewSceneOptions
 	return scene;
 }
 
-/**
- * Puts `assets` in a scene of their own and selects them. The scene's format
- * is the last asset that has a size of its own — that one fills the scene
- * exactly, and the rest are centered in it; a drop of nothing but audio or a
- * transcript falls back to `options.format`. Returns the scene, or null when
- * there is nothing to insert into.
- */
 export function insertAssetsInNewScene(
 	world: World,
 	assets: ReadonlyArray<Asset>,
@@ -117,7 +90,6 @@ export function insertAssetsInNewScene(
 	return scene;
 }
 
-/** Assets that bring a format with them; the rest are laid out inside one. */
 export const hasSize = (asset: Asset): asset is Extract<Asset, Size> => 'width' in asset && 'height' in asset;
 
 export const sizeOf = (asset: Extract<Asset, Size>): Size => ({

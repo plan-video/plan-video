@@ -2,11 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/**
- * Renaming a node from its header. The header itself is painted on the canvas,
- * which cannot take text input, so an <input> is placed over it for the
- * duration; the HUD moves it into place each frame while it is mounted.
- */
+/** The header is painted on the canvas, which cannot take text input, so an <input> is placed over it. */
 
 import { Name, RenderSurface } from '@plan.video/runtime';
 
@@ -31,12 +27,10 @@ const INPUT_STYLE = {
 
 let mounted: { input: HTMLInputElement; entity: Entity } | null = null;
 
-/** The input being edited, for the HUD to position. */
 export function getMountedNameInput(): { input: HTMLInputElement; entity: Entity } | null {
 	return mounted;
 }
 
-/** Opens the rename field over `entity`'s header. */
 export function mountNameInput(world: World, entity: Entity): void {
 	const canvas = world.get(RenderSurface)?.canvas;
 	const container = canvas instanceof HTMLCanvasElement ? canvas.parentElement : null;
@@ -56,14 +50,13 @@ export function mountNameInput(world: World, entity: Entity): void {
 
 	input.addEventListener('blur', () => {
 		input.remove();
-		// A name is what the node is called; an empty one is not an edit.
+		// An empty name is not an edit.
 		if (!input.value.trim()) editor.editProperty(entity, 'name', original);
 		if (mounted?.input === input) mounted = null;
 	});
 
 	input.addEventListener('keydown', (event) => {
-		// The canvas shortcuts are listening on the window; typing here is not
-		// for them.
+		// Canvas shortcuts listen on the window; keep typing here away from them.
 		event.stopPropagation();
 
 		if (event.key === 'Escape') {
@@ -83,7 +76,6 @@ export function mountNameInput(world: World, entity: Entity): void {
 	mounted = { input, entity };
 }
 
-/** Closes the rename field, if one is open. */
 export function unmountNameInput(): void {
 	mounted?.input.blur();
 	mounted = null;

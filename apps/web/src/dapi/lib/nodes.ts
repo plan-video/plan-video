@@ -8,8 +8,7 @@ import { DapiError } from "@plan.video/dapi";
 
 import type { Entity, World } from "koota";
 
-// Scenes are nodes too, so node-targeting tools accept them alongside
-// geometry, groups, and adjustment layers.
+// Scenes count as nodes, so node-targeting tools accept them.
 export function isNode(entity: Entity): boolean {
   return entity.has(Geometry)
     || entity.has(Group)
@@ -17,7 +16,6 @@ export function isNode(entity: Entity): boolean {
     || entity.has(Scene);
 }
 
-/** The one node an id names, or the error that says why there is not exactly one. */
 export function resolveNode(world: World, id: string): Entity {
   const matches = world.query(Source).filter((entity) => {
     const stamp = entity.get(Source)!.value;

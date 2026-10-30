@@ -6,10 +6,7 @@ import { createSignal } from 'solid-js';
 
 import type { Entity } from 'koota';
 
-/**
- * Which caption words are picked on the timeline. This is not the caption
- * element: selecting a word must not select the captions layer.
- */
+/** Not the caption element: selecting a word must not select the captions layer. */
 export type CaptionWordSelection = {
 	entity: Entity;
 	indices: ReadonlySet<number>;
@@ -26,7 +23,7 @@ export function isSoleCaptionWord(entity: Entity, index: number): boolean {
 	return !!current && current.entity === entity && current.indices.size === 1 && current.indices.has(index);
 }
 
-/** Replaces the picked words. Returns false when the pick is already that. */
+/** Returns false when the pick is already that. */
 export function setCaptionWordSelection(entity: Entity, indices: readonly number[]): boolean {
 	const next = new Set(indices);
 	const current = selection();
@@ -42,7 +39,7 @@ export function setCaptionWordSelection(entity: Entity, indices: readonly number
 	return true;
 }
 
-/** Adds one word. A word on another caption replaces the pick. */
+/** A word on another caption replaces the pick. */
 export function addCaptionWord(entity: Entity, index: number): boolean {
 	const current = selection();
 	if (current?.entity === entity) {

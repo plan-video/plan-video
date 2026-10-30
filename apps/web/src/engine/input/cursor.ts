@@ -3,14 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 /**
- * The stage cursor. Resize and rotate handles point along the selection's
- * rotation, which no CSS keyword can express, so those are drawn as inline
- * SVG and handed to `cursor:` as a data URL. Everything that touches the
- * cursor goes through here (the camera controller included), so the last
- * writer always wins and no one has to know who wrote it before.
- *
- * This one is the stage's; the timeline sets the cursor on its own canvas
- * through `@/hooks/use-cursor`, which is where the trim cursors live.
+ * Rotated resize/rotate handles need a cursor no CSS keyword can express, so
+ * they are inline SVG data URLs. Everything that touches the stage cursor must
+ * go through here so the last writer always wins.
  */
 
 import { RenderSurface, Tool, ToolType } from '@plan.video/runtime';
@@ -24,8 +19,6 @@ const ROTATE_SVG = `<path d="M22.4789 9.45728L25.9935 12.9942L22.4789 16.5283V14
 const STATIC_CURSORS = new Set(['default', 'pointer', 'cross', 'move', 'grab', 'grabbing', 'text', 'zoom-in', 'zoom-out']);
 
 function getCursorCss(svg: string, rotation: number, turn: number, color: string, hx = 16, hy = 16): string {
-	// Keep the drop shadow pointing the same way whatever the cursor's own
-	// rotation is, so a rotated handle still reads as lit from one side.
 	const angle = (-turn - rotation) * (Math.PI / 180);
 	const dx = Math.cos(angle) - Math.sin(angle);
 	const dy = Math.sin(angle) + Math.cos(angle);
@@ -50,11 +43,9 @@ export type CursorType =
 	| 'ew-resize' | 'ns-resize' | 'nesw-resize' | 'nwse-resize'
 	| 'nesw-rotate' | 'nwse-rotate' | 'swne-rotate' | 'senw-rotate';
 
-// What each canvas is showing, so an unchanged cursor is not rebuilt (the SVG
-// data URL is rebuilt from scratch on every write otherwise).
+// Cached so an unchanged cursor's SVG data URL is not rebuilt on every write.
 const current = new WeakMap<HTMLCanvasElement, string>();
 
-/** Points the stage cursor at `type`, turned by `rotation` radians. */
 export function updateCursor(world: World, type: CursorType, rotation = 0, color = 'black'): void {
 	const canvas = world.get(RenderSurface)?.canvas;
 	if (!(canvas instanceof HTMLCanvasElement)) return;
@@ -69,17 +60,9 @@ export function updateCursor(world: World, type: CursorType, rotation = 0, color
 }
 
 /**
- * What each tool points the cursor at while it is armed: `idle`, and
- * `pressed` where the answer changes while the button is down. There is
- * always a
- * tool armed, so there is always an answer — adding a `ToolType` without a
- * row here does not compile.
- *
- * This is the resting cursor, not the last word: what the pointer is over
- * may say something more specific for as long as it is over it (the move
- * tool's resize and rotate handles do, see `updateResizeCursor`). The tool
- * takes the cursor back whenever its own answer changes, which is what
- * `inputSystem` watches.
+ * The resting cursor: what the pointer is over may override it (the move
+ * tool's handles, see `updateResizeCursor`). `inputSystem` watches this to take
+ * the cursor back whenever the tool's answer changes.
  */
 const TOOL_CURSORS: Record<ToolType, { idle: CursorType; pressed?: CursorType }> = {
 	[ToolType.MOVE]: { idle: 'default' },
@@ -91,7 +74,6 @@ const TOOL_CURSORS: Record<ToolType, { idle: CursorType; pressed?: CursorType }>
 	[ToolType.TEXT_EDIT]: { idle: 'text' },
 };
 
-/** The cursor the armed tool asks for, pressed or at rest. */
 export function getToolCursor(world: World, pressed = false): CursorType {
 	const cursor = TOOL_CURSORS[world.get(Tool)?.value ?? ToolType.MOVE];
 	return pressed ? cursor.pressed ?? cursor.idle : cursor.idle;

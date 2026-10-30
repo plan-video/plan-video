@@ -2,11 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/* What a row shows while the agent is at work: a highlight sweeping
-   through the muted text of a running tool, and the stepping ellipsis of
-   the transcript's running indicator. Both settle on plain text for anyone
-   who asked the system for less motion. */
-
 .agent-shimmer {
   color: transparent;
   background-image: linear-gradient(
@@ -38,7 +33,7 @@
   }
 }
 
-/* "Thinking" → ".", "..", "..." on a fixed-width tail so the label does not jitter. */
+/* Fixed-width tail so the label does not jitter. */
 .agent-ellipsis::after {
   content: ".";
   display: inline-block;

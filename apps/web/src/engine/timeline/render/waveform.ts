@@ -20,31 +20,18 @@ import type { Entity, World } from 'koota';
 import type { RowCursor } from '../layout';
 import type { TimelineSurfaceState } from '../surface';
 
-/** How far either side of the viewport peaks are asked for, in pixels. */
 const VIEWPORT_MARGIN = 5;
 
 export type WaveformOptions = {
 	asset: AudioAsset | VideoAsset;
 	color: string;
-	/** How far down the clip the waveform starts. */
 	offsetY: number;
-	/** How much of the height to leave for it to sit inside. */
 	padding: number;
 };
 
-/**
- * The clip's audio, one column of pixels at a time.
- *
- * A column is a moment of the source, so what it is worth changes with the
- * zoom: the peaks are asked for at one per pixel (see `../peaks`), and only
- * for the stretch of the clip that is on screen. Drawing then reads them back
- * by time rather than by index, so a column outside what has been cut — a
- * waveform not derived yet, or the margin a scroll has just left — is simply
- * left out and filled in on a later frame.
- *
- * Tall rows show the waveform about its middle, short ones stand it on the
- * bottom of the clip and fade it, so the label above it stays readable.
- */
+// Peaks are asked for at one per pixel and only for the on-screen stretch, then
+// read back by time rather than index, so a column not derived yet is left out
+// and filled in on a later frame.
 export function renderWaveform(
 	world: World,
 	scene: Entity,
@@ -55,7 +42,6 @@ export function renderWaveform(
 ): void {
 	const ctx = surface.ctx!;
 
-	// A video with no audio track has nothing to draw here.
 	if (!options.asset.sampleRate) return;
 
 	const eid = entity.id();
@@ -72,21 +58,18 @@ export function renderWaveform(
 
 	ctx.save();
 
-	// Everything below is drawn against the clip's own rounded body.
 	ctx.beginPath();
 	ctx.roundRect(clipLeft, options.offsetY, clipWidth, maskHeight, CLIP_CORNER_RADIUS);
 	ctx.clip();
 
-	// A little smaller than the mask, so the tallest sample does not touch it.
 	const waveformHeight = maskHeight - options.padding;
 
 	const playbackRate = computed.playbackRate[eid] || 1;
 	const curve = readSpeedCurve(entity);
 	const pixelsToSeconds = (pixels: number): number => pixels / (fps * resolution);
 
-	// The source window is in source frames; the clip occupies
-	// window / playbackRate timeline frames, measured from its own origin.
-	// A speed curve places those edges by integrating 1/rate instead.
+	// The source window is in source frames; the clip occupies window / playbackRate
+	// timeline frames from its own origin. A speed curve integrates 1/rate instead.
 	const source = getSourceWindow(entity);
 	const origin = computed.origin[eid] ?? 0;
 	const inOffset = curve.keys.length > 0 ? timelineOffsetAtSource(curve, source.in) : source.in / playbackRate;
@@ -95,10 +78,9 @@ export function renderWaveform(
 	const outPx = framesToPixels(outOffset, resolution);
 	const originPx = framesToPixels(origin, resolution);
 
-	// Each pixel covers playbackRate× more source audio when sped up, so we
-	// need proportionally fewer peaks per source second to keep one peak/pixel.
-	// A curve uses the average rate across the window. Never none: zoomed far
-	// enough out a pixel is worth less than a second of source.
+	// Sped up, each pixel covers playbackRate× more source, so fewer peaks per
+	// source second are needed. A curve uses its average rate. Never none: zoomed
+	// far out a pixel is worth less than a second of source.
 	const averageRate = curve.keys.length > 0
 		? Math.max(source.out - source.in, 1) / Math.max(outOffset - inOffset, 1)
 		: playbackRate;
@@ -121,12 +103,9 @@ export function renderWaveform(
 
 	ctx.fillStyle = options.color;
 
-	// A tall row centres the waveform on the space it has; a short one stands
-	// it on the bottom, where it reads as a strip under the label.
 	const anchor = maskHeight > CLIP_BREAKPOINTS.sm ? 0.5 : 1;
 	const minSampleHeight = maskHeight > CLIP_BREAKPOINTS.sm ? 1 : 0;
 
-	// Tone the waveform down on short clip rows so the label stays readable.
 	if (row.height <= CLIP_BREAKPOINTS.sm) ctx.globalAlpha *= 0.6;
 
 	ctx.translate(originPx, options.offsetY + options.padding * anchor);

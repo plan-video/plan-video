@@ -7,7 +7,6 @@ import { useTrait, useWorld } from '@plan.video/koota-solid';
 
 import type { Accessor } from 'solid-js';
 
-/** Reactive read of the armed canvas tool. Write it with world.set(Tool, { value }). */
 export function useTool(): Accessor<ToolType> {
 	const tool = useTrait(useWorld(), Tool);
 	return () => tool()?.value ?? ToolType.MOVE;

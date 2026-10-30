@@ -2,12 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/**
- * The timeline's draw pass, run once a frame by the engine loop alongside the
- * stage's own. Immediate mode: the render functions decide what the pointer
- * did to the thing they are about to draw as they draw it, so a frame both
- * paints the timeline and handles what was done to it (see `./surface`).
- */
+// Immediate mode: render functions handle what the pointer did to a thing as they draw it
+// (see `./surface`).
 
 import { useCursor } from '@/hooks/use-cursor';
 import { RULER_HEIGHT, SCROLLBAR_LANE } from './config';
@@ -33,10 +29,8 @@ export function timelineSystem(world: World): void {
 		return;
 	}
 
-	// Re-derived every pass rather than only on gestures: the view store can
-	// move under the draw loop's feet — the reconciler restoring a
-	// `<scene timeline>` from the file, or a scene shown again after the
-	// canvas was resized while another was up.
+	// Every pass, not only on gestures: the view store can move under the draw loop, e.g. the
+	// reconciler restoring `<scene timeline>`, or a resize while another scene was up.
 	updateTimelineTransform(world, scene);
 
 	try {
@@ -44,21 +38,16 @@ export function timelineSystem(world: World): void {
 		ctx.clearRect(0, 0, canvas.width, canvas.height);
 		ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
 
-		// Claimed during the pass by whatever the pointer is over; nothing
-		// claiming it means it is over nothing in particular.
+		// Claimed during the pass by whatever the pointer is over.
 		surface.cursor = 'default';
 		surface.joins = [];
 		surface.clips = [];
 
-		// Before anything is drawn, and whether or not the rows are: a gesture
-		// that ended has to be closed before the clips it moved are laid out
-		// again, and collapsing the timeline mid-drag must not strand one.
+		// Before any drawing, rows or not: an ended gesture must close before its clips are laid
+		// out again, and collapsing the timeline mid-drag must not strand one.
 		updateDragGestures(world, surface);
 
-		// The rows are clipped to between the ruler, which is then painted over
-		// the top of them, and the scrollbar's lane: a clip scrolled up under
-		// the ruler disappears behind it rather than through it, and none is
-		// ever drawn under the scrollbar.
+		// Rows are clipped between the ruler, painted over them afterwards, and the scrollbar's lane.
 		if (!surface.minimized) {
 			updateMarquee(world, surface);
 
@@ -90,13 +79,8 @@ export function timelineSystem(world: World): void {
 }
 
 /**
- * Wipes the timeline when there is no scene left to show. A canvas keeps
- * whatever was painted on it last, so the scene that was just deleted would
- * otherwise leave its rows, ruler and playhead behind, drawn over nothing.
- *
- * The regions the pointer tests against go with them: they describe rows that
- * are gone, and the first frame of whichever scene comes next must not be hit
- * against them.
+ * A canvas keeps what was painted last, so wipe it when no scene is left, and drop the hit
+ * regions so the next scene's first frame is not tested against rows that are gone.
  */
 function clearTimeline(
 	surface: TimelineSurfaceState,

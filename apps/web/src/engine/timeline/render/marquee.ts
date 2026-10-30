@@ -10,14 +10,8 @@ import type { World } from 'koota';
 import type { TimelineSurfaceState } from '../surface';
 
 /**
- * The empty space behind the rows, and what a gesture on it means: a click
- * clears the selection, a drag pulls a marquee out (Shift or Cmd held: one
- * that adds to the selection). The marquee itself is
- * only recorded here — which clips fall inside it is each clip's own
- * business, decided as it draws (see `renderClip`).
- *
- * Runs before the rows so its region sits beneath theirs: the pointer takes
- * the last region drawn over it, so a clip drawn afterwards wins.
+ * Runs before the rows so its region sits beneath theirs: the pointer takes the last region
+ * drawn over it. Each clip decides whether it is inside the marquee as it draws (see `renderClip`).
  */
 export function updateMarquee(world: World, surface: TimelineSurfaceState): void {
 	const { canvas, pointer } = surface;
@@ -27,8 +21,7 @@ export function updateMarquee(world: World, surface: TimelineSurfaceState): void
 		.scope('canvas')
 		.region(0, 0, canvas.width, canvas.height);
 
-	// A click with Shift or Cmd held may have just missed a clip; it keeps
-	// the selection rather than throwing it away.
+	// A Shift/Cmd click may have just missed a clip, so it keeps the selection.
 	if (clicked && !pointer.extending) {
 		getDocumentEditor(world).clearSelection();
 	}
@@ -42,9 +35,6 @@ export function updateMarquee(world: World, surface: TimelineSurfaceState): void
 	const position = pointer.position;
 	if (!position || position.state === 'idle') return;
 
-	// Opening the marquee clears what was selected, so the drag starts from
-	// nothing and each clip decides for itself from there — unless Shift or
-	// Cmd is held, when it adds to what is already selected.
 	if (!surface.marquee) {
 		if (pointer.extending) {
 			surface.marqueeBase = new Set(world.query(Selected));
@@ -62,7 +52,6 @@ export function updateMarquee(world: World, surface: TimelineSurfaceState): void
 	};
 }
 
-/** The marquee rectangle itself, over the rows it is selecting. */
 export function renderMarquee(surface: TimelineSurfaceState): void {
 	const { ctx, marquee } = surface;
 	if (!ctx || !marquee) return;

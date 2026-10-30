@@ -22,12 +22,8 @@ import type { ExportSettings } from "@plan.video/dapi";
 import type { ContainerFormat, ExportConfig } from "@/engine/project-config";
 import type { ToolHandler } from "../handler";
 
-/**
- * The container the export writes: the output extension when a path was
- * given (ffmpeg's rule — the file must be what its name says), the config's
- * format otherwise, mp4 when neither says. A given path settles it entirely,
- * so a bad config format only fails an export that would actually use it.
- */
+// A given path's extension wins (ffmpeg's rule: the file must be what its name says), then the config, then mp4.
+// So a bad config format only fails an export that would actually use it.
 function resolveFormat(path: string | undefined, config: ExportConfig): ContainerFormat {
   const supported = VIDEO_FORMAT_OPTIONS.map((format) => `.${format}`).join(", ");
   if (path !== undefined) {
@@ -50,7 +46,7 @@ function resolveFormat(path: string | undefined, config: ExportConfig): Containe
   return format;
 }
 
-/** The container's format class, imported on demand: the muxers are not part of the main bundle. */
+// Imported on demand: the muxers are not part of the main bundle.
 async function outputFormat(format: ContainerFormat): Promise<OutputFormat> {
   const { MovOutputFormat, Mp4OutputFormat, OggOutputFormat, WebMOutputFormat } = await import("mediabunny");
   switch (format) {
@@ -65,19 +61,11 @@ async function outputFormat(format: ContainerFormat): Promise<OutputFormat> {
   }
 }
 
-/** What each container is given when the entry's codec cannot go in it. */
 const FALLBACK_VIDEO: Record<ContainerFormat, VideoCodec> = { mp4: "avc", mov: "avc", webm: "vp9", ogg: "vp9" };
 const FALLBACK_AUDIO: Record<ContainerFormat, AudioCodec> = { mp4: "aac", mov: "aac", webm: "opus", ogg: "opus" };
 
-/**
- * The entry's codecs, reconciled with the container the extension picked: an
- * entry written for MP4 names AAC, which WebM and Ogg cannot hold, so an
- * export to `.webm` would fail on the codec rather than produce the file the
- * name asks for. A codec the container cannot contain is swapped for the
- * container's own (Opus for WebM and Ogg audio, VP9 for WebM video); the
- * echoed config carries the swap. Codecs the container can hold stay as
- * written, including ones the entry leaves to the encoder's default.
- */
+// An entry written for MP4 names AAC, which WebM and Ogg can't hold, so codecs the container can't contain
+// are swapped for its own (Opus, VP9); the echoed config carries the swap.
 async function reconcileCodecs(settings: ExportConfig, format: ContainerFormat): Promise<ExportConfig> {
   const container = await outputFormat(format);
   const video = settings.video?.codec;
@@ -95,18 +83,14 @@ export const exportScene: ToolHandler<"export"> = async ({ id, path }, ctx) => {
   const { world, project, engine } = ctx.requireSession();
   const scene = requireScene(world, id, "export");
 
-  // The scene's entry in the project's package.json (`planvideo.export.<id>`)
-  // — the same one the app's export panel writes — so a tool export
-  // reproduces the in-app one; a scene without an entry uses the default
-  // template, the way ⌘E does. `template` is only the preset's label.
+  // Uses the same `planvideo.export.<id>` entry the export panel writes, so a tool export matches the in-app one.
   const base = world.get(ProjectConfigTrait)?.exportOf(scene) ?? getDefaultExportTemplate();
   const format = resolveFormat(path, { format: base.format, video: base.video, audio: base.audio });
   const settings = await reconcileCodecs({ format, video: base.video, audio: base.audio }, format);
   const key = sceneConfigKey(scene) ?? id;
   const target = path ?? `${project.dir()}/exports/${key.replace(/[^\w.-]+/g, "-")}.${format}`;
 
-  // Fail before the render machinery spins up: an unencodable configuration
-  // is known right away (same precheck the UI export runs).
+  // Fail before the render machinery spins up (same precheck the UI export runs).
   const videoEnabled = format !== "ogg" && settings.video?.enabled !== false;
   const computed = scene.get(Computed);
   const { width, height } = computeOutputSize(
@@ -130,10 +114,8 @@ export const exportScene: ToolHandler<"export"> = async ({ id, path }, ctx) => {
   const frames = workarea ? workarea.end - workarea.start : computed?.duration ?? 0;
   const duration = frames / (world.get(FrameRate)?.value || 30);
 
-  // renderScene owns the one render slot (it stops the live engine and
-  // raises the progress overlay), so refuse a second export rather than
-  // interleave. No await sits between this check and renderScene claiming
-  // the overlay, so two racing requests cannot both pass.
+  // renderScene owns the one render slot, so refuse a second export rather than interleave. No await between
+  // this check and renderScene claiming the overlay, so two racing requests can't both pass.
   if (renderOverlay()) {
     throw new DapiError("busy", "An export is already running — wait for it to finish, or cancel it in the app.");
   }
@@ -155,7 +137,6 @@ export const exportScene: ToolHandler<"export"> = async ({ id, path }, ctx) => {
       throw result.error;
     }
   } catch (error) {
-    // Close the fd and drop the partial file; a failed export leaves nothing.
     await handle.dispose().catch(() => { });
     throw error;
   }

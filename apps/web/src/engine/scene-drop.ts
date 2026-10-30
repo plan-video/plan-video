@@ -2,12 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// A clip dropped on an empty scene is the scene's main picture, so it is
-// fitted to the scene rather than left at its own size wherever the pointer
-// let go. While the drag is over such a scene the canvas lights it up and
-// outlines where the clip will land (SceneDropOverlay); on the drop the clip
-// is put straight there.
-
 import { createSignal } from 'solid-js';
 import { Computed, getEntityBounds, store } from '@plan.video/runtime';
 
@@ -23,7 +17,6 @@ interface Size {
 	height: number;
 }
 
-/** A visual asset: the kind a scene can be fitted around. */
 export type FittableAsset = Extract<Asset, Size>;
 
 export const isFittable = (asset: Asset | null | undefined): asset is FittableAsset =>
@@ -31,21 +24,13 @@ export const isFittable = (asset: Asset | null | undefined): asset is FittableAs
 	// A killfeed entry goes over the footage, never in its place.
 	&& !isKillfeedPicture(asset);
 
-/**
- * How much bigger "cover" may be than "contain" and still fill the scene.
- * Below it the two shapes differ by a sliver (1920×1080 in 1920×1088): bars
- * that thin read as a mistake, while the few pixels cut off are never missed.
- */
+/** Below this, cover beats contain: bars a sliver thin (1920×1080 in 1920×1088) read as a mistake. */
 const NEAR_SAME_SHAPE = 1.04;
 
 /**
- * Where `asset` goes in a scene of `scene`, in the scene's own space: as big
- * as fits whole, centered. A clip of the scene's shape fills it; one of
- * another shape (landscape footage in a vertical scene) is shown whole with
- * the scene's background above and below rather than cropped, since what a
- * crop would cut is anyone's guess. A small picture (a logo, a sticker,
- * under half the scene each way) keeps its own size: blown up to fill the
- * frame it would only blur.
+ * Another shape is shown whole rather than cropped, since what a crop would
+ * cut is anyone's guess. A small picture (under half the scene each way)
+ * keeps its own size: blown up it would only blur.
  */
 export function fitInScene(scene: Size, asset: FittableAsset): Rect {
 	const contain = Math.min(scene.width / asset.width, scene.height / asset.height);
@@ -63,7 +48,6 @@ export function fitInScene(scene: Size, asset: FittableAsset): Rect {
 	};
 }
 
-/** A scene with nothing timed in it yet: the one a drop fits its clip to. */
 export function isEmptyScene(world: World, scene: Entity): boolean {
 	return !!store(world, Computed).empty[scene.id()];
 }
@@ -73,29 +57,20 @@ export function sceneSize(world: World, scene: Entity): Size {
 	return { width: computed.width[scene.id()] ?? 0, height: computed.height[scene.id()] ?? 0 };
 }
 
-/**
- * The library asset being dragged right now, if any. A drag says what it
- * carries only on the drop, so the panel tells the canvas at the start,
- * which is what lets the canvas outline the landing spot while hovering.
- */
+/** A drag says what it carries only on the drop, so the panel sets this at the start for the canvas to outline the landing spot. */
 export const [draggedAsset, setDraggedAsset] = createSignal<Asset | null>(null);
 
 export interface SceneDropTarget {
 	scene: Entity;
-	/** The scene in document space, taken when the drag reached it. */
 	bounds: Rect;
-	/** The scene's own size, which `fit` is in. */
+	/** The space `fit` is in. */
 	size: Size;
-	/** Where the clip will land in the scene, when the drag says what it is. */
 	fit: Rect | null;
 }
 
 const [dropTarget, setDropTargetSignal] = createSignal<SceneDropTarget | null>(null);
 export { dropTarget };
 
-/**
- * Lights `scene` up for the drag over it, or puts the light out with null.
- */
 export function setDropScene(world: World, scene: Entity | null, asset: Asset | null): void {
 	if (!scene) {
 		if (dropTarget()) setDropTargetSignal(null);

@@ -15,14 +15,9 @@ import { editorSession, requireEditorSession } from "./session";
 import type { ContextFactory } from "./bridge";
 
 /**
- * Registers the tool handlers for as long as the app runs. Every tool is
- * reachable whether or not a project is open; the ones that need one read
- * the session slot (see ./session) per call and fail with a clear error —
- * or, for `context`, report that nothing is open. Renders nothing; must sit
- * inside the router tree for `useNavigate` and inside the auth provider.
- *
- * Kept out of the editor shell module so the dashboard can paint before
- * this graph (export, capture, the engine) is compiled.
+ * Must sit inside the router tree (for `useNavigate`) and the auth provider.
+ * Kept out of the editor shell module so the dashboard can paint before this
+ * graph (export, capture, the engine) is compiled.
  */
 export function EditorApi() {
   const navigate = useNavigate();

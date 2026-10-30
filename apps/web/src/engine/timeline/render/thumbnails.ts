@@ -21,35 +21,18 @@ import type { Entity, World } from 'koota';
 import type { RowCursor } from '../layout';
 import type { TimelineSurfaceState } from '../surface';
 
-/**
- * Tile widths, chosen by row height. Three fixed sizes rather than one
- * derived from the height, so dragging a row taller does not slide every
- * tile along as it goes.
- */
+/** Fixed sizes rather than derived from the height, so resizing a row does not slide every tile along. */
 const STILL_WIDTHS = [80, 100, 120] as const;
 
-/** Where a still's tiles start, and where the strip they sit in does. */
 const STILL_TOP = 18;
 const STILL_MASK_TOP = 20;
 
-/**
- * The least a video's picture strip is worth drawing at. Under it the row
- * is all waveform, which says more about a clip that short than four rows of
- * pixels would.
- */
 const MIN_STRIP_HEIGHT = 42;
 
-/** The tile a video's strip is drawn with, and the strip height it changes at. */
 const SMALL_TILE = { width: 56, height: 46 } as const;
 const LARGE_TILE = { width: 84, height: 52 } as const;
 const LARGE_TILE_STRIP_HEIGHT = 44;
 
-/**
- * A still, tiled along the clip. An image shows the same frame however long
- * it runs, so tiling one picture is the whole truth about it — a sequence is
- * shown by its first frame for the same reason a folder of frames has a
- * cover.
- */
 export function renderStillThumbnails(
 	world: World,
 	scene: Entity,
@@ -60,11 +43,9 @@ export function renderStillThumbnails(
 ): void {
 	const ctx = surface.ctx!;
 
-	// SVGs aren't supported by createImageBitmap on every browser, so skip
-	// the timeline thumbnail strip for them.
+	// createImageBitmap does not take SVGs on every browser, so they get no strip.
 	if (asset.mimeType === 'image/svg+xml') return;
 
-	// Too short a row to hold anything but its label.
 	if (row.height <= CLIP_BREAKPOINTS.sm) return;
 
 	const eid = entity.id();
@@ -80,8 +61,6 @@ export function renderStillThumbnails(
 
 	const maskHeight = row.height - CLIP_LABEL_HEIGHT;
 
-	// Only the tiles on screen: a clip an hour long is as cheap to draw as a
-	// clip a second long.
 	const [viewportLeft, viewportRight] = getViewport(world, scene, surface.layout.width);
 	const tiles = Math.ceil(clipWidth / tileWidth);
 	const first = Math.max(0, Math.floor((viewportLeft - clipLeft) / tileWidth));
@@ -107,14 +86,8 @@ export function renderStillThumbnails(
 }
 
 /**
- * A video: its picture along the top of the row and its sound along the
- * bottom, each with half of what the label leaves.
- *
- * The picture is a strip of the clip's own frames rather than one frame
- * repeated, so what a tile shows is what the footage is doing at that point
- * of the clip. Tiles are placed in the source's own time — the strip is
- * drawn from the clip's origin, so trimming an end slides the footage under
- * the clip instead of re-cutting the tiles.
+ * Tiles are placed in source time from the clip's origin, so trimming an end
+ * slides the footage under the clip instead of re-cutting the tiles.
  */
 export function renderVideoThumbnails(
 	world: World,
@@ -141,8 +114,6 @@ export function renderVideoThumbnails(
 		padding: 0,
 	});
 
-	// Nothing left of the row for a picture once the label and the waveform
-	// have had theirs.
 	if (layout.stripHeight === 0) return;
 
 	const clipLeft = framesToPixels(computed.start[eid] ?? 0, resolution);
@@ -160,9 +131,8 @@ export function renderVideoThumbnails(
 
 	const [viewportLeft, viewportRight] = getViewport(world, scene, surface.layout.width);
 
-	// The viewport is intersected with the source window directly in frames.
-	// Going through pixels first lets `framesToPixels` floor and
-	// `pixelsToFrames` round, which can shave a frame off the last tile.
+	// Intersect in frames, not pixels: `framesToPixels` floors and
+	// `pixelsToFrames` rounds, which can shave a frame off the last tile.
 	const source = getSourceWindow(entity);
 	const viewIn = pixelsToFrames(viewportLeft, resolution) - origin;
 	const viewOut = pixelsToFrames(viewportRight, resolution) - origin;
@@ -175,10 +145,8 @@ export function renderVideoThumbnails(
 		curve.keys.length > 0 ? sourceFrameAtOffset(curve, viewOut) : viewOut * playbackRate,
 	);
 
-	// How much source one tile covers. A constant rate scales the tile width
-	// straight through; a curve uses the average rate across what's on screen
-	// so the same decode size still covers the strip. Kept as a float: at high
-	// zoom this is sub-frame, and rounding it to 0 collapses the decode range.
+	// Kept as a float: at high zoom this is sub-frame, and rounding it to 0
+	// collapses the decode range.
 	const timelineSpan = curve.keys.length > 0
 		? Math.max(1, timelineOffsetAtSource(curve, lastFrame) - timelineOffsetAtSource(curve, firstFrame))
 		: 0;
@@ -198,8 +166,6 @@ export function renderVideoThumbnails(
 		interval,
 	});
 
-	// Only the tiles on screen — the rest are inside the clip but outside the
-	// viewport, and drawing them is work the clip path would throw away.
 	if (curve.keys.length > 0) {
 		for (let i = Math.floor(firstFrame / interval); i <= Math.floor(lastFrame / interval); i++) {
 			const sourceFrame = i * interval;
@@ -211,8 +177,8 @@ export function renderVideoThumbnails(
 			ctx.drawImage(frame.canvas, x0, layout.tileTop, Math.max(1, x1 - x0), layout.tile.height);
 		}
 	} else {
-		// Tile indices are in source time, so they line up with the frames the
-		// decoder filed under source timestamps once the origin is translated to.
+		// Tile indices are in source time, matching the frames the decoder filed
+		// under source timestamps.
 		ctx.translate(framesToPixels(origin, resolution), 0);
 
 		for (let i = Math.floor(firstFrame / interval); i <= Math.floor(lastFrame / interval); i++) {
@@ -226,11 +192,6 @@ export function renderVideoThumbnails(
 	ctx.restore();
 }
 
-/**
- * How a video row is split. The picture takes half of what the label leaves,
- * the waveform the other half; below the point where a picture would be too
- * short to read, the waveform takes all of it.
- */
 function videoLayout(rowHeight: number) {
 	const body = rowHeight - CLIP_LABEL_HEIGHT;
 	const stripHeight = body > MIN_STRIP_HEIGHT ? body * 0.5 : 0;
@@ -239,8 +200,6 @@ function videoLayout(rowHeight: number) {
 	return {
 		stripHeight,
 		tile,
-		// Bottom-aligned in the strip, so a tile taller than it is cropped at
-		// the top rather than dangling over the waveform.
 		tileTop: CLIP_LABEL_HEIGHT + (stripHeight - tile.height),
 		waveformOffsetY: rowHeight > CLIP_BREAKPOINTS.sm ? stripHeight + CLIP_LABEL_HEIGHT : 2,
 	};
@@ -252,10 +211,6 @@ function stillWidth(rowHeight: number): number {
 	return STILL_WIDTHS[0];
 }
 
-/**
- * The part of the picture to draw, so a tile is filled rather than letterboxed
- * — the same as `object-fit: cover`, cropped from the middle.
- */
 function coverCrop(sourceWidth: number, sourceHeight: number, width: number, height: number) {
 	const source = sourceWidth / sourceHeight;
 	const target = width / height;

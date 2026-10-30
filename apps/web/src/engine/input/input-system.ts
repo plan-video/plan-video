@@ -13,10 +13,7 @@ import type { World } from 'koota';
 import type { CursorType } from './cursor';
 import type { CanvasPointerEvent, DispatchedPointerEvent, HitRegion, PointerEventType } from '@plan.video/runtime';
 
-/**
- * A region's identity for enter/leave: two headers are two targets even
- * though both are called 'label'.
- */
+/** Two headers are two targets even though both are called 'label'. */
 function targetKey(region: HitRegion | null): string | null {
 	if (region === null) return null;
 	const { target } = region;
@@ -84,16 +81,15 @@ export function inputSystem(world: World) {
 			...(event.type === 'pointerup' && { phase: 'lifted' as const }),
 		});
 
-		// One pointer hold is one undo step, whatever the drag writes along
-		// the way. Bracketed before the panning skip: a release must close
-		// the gesture however the press has been reinterpreted since.
+		// One pointer hold is one undo step. Bracketed before the panning skip: a
+		// release must close the gesture however the press has been reinterpreted since.
 		if (event.type === 'pointerdown' && event.button === 0) history.beginGesture();
 		if (event.type === 'pointerup') history.endGesture();
 
 		if (panning) continue;
 
-		// The other buttons belong to the camera (middle-drag pans) and to
-		// the browser's own menu, so they never start a gesture here.
+		// Other buttons belong to the camera (middle-drag pans) and the browser's
+		// menu, so they never start a gesture here.
 		if ((event.type === 'pointerdown' || event.type === 'pointerup') && event.button !== 0) continue;
 
 		const region = hitTest(world, event);
@@ -118,9 +114,6 @@ export function inputSystem(world: World) {
 			hovered = region;
 		}
 
-		// A press arms the drag on whatever it landed on, and every move
-		// until the release goes to that same region, wherever the pointer
-		// has traveled since.
 		if (event.type === 'pointerdown') {
 			if (region !== null) {
 				if (region.target.kind === 'entity') region.target.id.add(Dragging);

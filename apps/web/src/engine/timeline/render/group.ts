@@ -11,17 +11,10 @@ import type { Entity, World } from 'koota';
 import type { RowCursor } from '../layout';
 import type { TimelineSurfaceState } from '../surface';
 
-/** How far below the label the children are drawn. */
 const CHILD_TOP = 20;
-/** Below this there is no room to say anything, so nothing is drawn. */
 const MIN_CHILD_HEIGHT = 12;
 
-/**
- * What a collapsed group holds, as bars inside its own clip: enough to see
- * where its children sit in time without expanding it. Clipped to the
- * group's rounded body so a child reaching past the group's own bounds does
- * not spill out of it.
- */
+// Clipped to the group's rounded body so a child reaching past its bounds does not spill out.
 export function renderGroup(
 	world: World,
 	scene: Entity,

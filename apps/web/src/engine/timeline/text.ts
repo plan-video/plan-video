@@ -2,19 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Measuring is the expensive part of drawing a label, and a clip's label does
-// not change from frame to frame, so widths are kept. Widths measured before
-// the web fonts land describe the fallback and under-report once the real
-// font swaps in, so the cache is dropped when that happens.
+// Widths measured before the web fonts land describe the fallback, so the cache is dropped when they swap in.
 const WIDTHS = new Map<string, number>();
 
 document?.fonts.addEventListener('loadingdone', () => WIDTHS.clear());
 
-/**
- * `text` if it fits in `maxWidth`, otherwise as much of it as fits with an
- * ellipsis, or null when not even the ellipsis does. `font` keys the cache,
- * since the same string measures differently in two of them.
- */
+/** `font` keys the cache, since the same string measures differently in two fonts. */
 export function truncateText(
 	ctx: CanvasRenderingContext2D,
 	text: string,
@@ -36,8 +29,6 @@ export function truncateText(
 	const available = maxWidth - measure('...');
 	if (available <= 0) return null;
 
-	// Binary search rather than a walk: a long label is measured a handful of
-	// times instead of once per character.
 	let low = 0;
 	let high = text.length;
 	let best = 0;

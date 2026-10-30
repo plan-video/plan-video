@@ -115,7 +115,6 @@ function scrollableParent(target: EventTarget | null): HTMLElement | null {
   return element;
 }
 
-/** Watches the element and every descendant for size changes. */
 function observeResize(element: HTMLElement, callback: () => void): () => void {
   const resizeObserver = new ResizeObserver(callback);
   const observed = new WeakSet<Element>();

@@ -2,10 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Where something new goes on the infinite canvas: beside the work rather
-// than over it. Carried over from the engine the editor is migrating off,
-// where this is what generations have always been placed by.
-
 import {
 	aabbsIntersect, getEntityBounds, getEntityChildren, getViewport, Hidden, Root, screenToWorld,
 } from '@plan.video/runtime';
@@ -13,7 +9,7 @@ import {
 import type { AABB, Point } from '@plan.video/runtime';
 import type { World } from 'koota';
 
-/** The visible part of the canvas in document space, or null before a surface is mounted. */
+/** In document space; null before a surface is mounted. */
 function viewportBounds(world: World): AABB | null {
 	const viewport = getViewport(world);
 	if (!viewport) return null;
@@ -34,11 +30,7 @@ function viewportBounds(world: World): AABB | null {
 	};
 }
 
-/**
- * What stands on the canvas: the bounds of every visible root-level node.
- * A node the transform system has not measured yet reports nothing and is
- * left out — it has no place on the canvas to be avoided at.
- */
+/** A node the transform system has not measured yet is left out. */
 function occupied(world: World): AABB[] {
 	const boxes: AABB[] = [];
 
@@ -57,14 +49,8 @@ const centerOf = (box: AABB): Point => ({ x: (box.minX + box.maxX) / 2, y: (box.
 const distance = (a: Point, b: Point): number => Math.hypot(a.x - b.x, a.y - b.y);
 
 /**
- * Where the middle of a `width`×`height` block goes on the canvas: beside
- * something already standing there, level with it — to its right, or to its
- * left when the right is taken — leaving `gap` between the two. Neighbours are
- * tried nearest the middle of the view first, and those in view before those
- * out of it, so a block lands next to what the user is looking at.
- *
- * The middle of the view when the canvas is empty, or when nothing has a free
- * side left; the origin when no surface is mounted yet.
+ * Beside something already there, level with it (right, else left), nearest the view's middle
+ * first. The view's middle when nothing has a free side; the origin before a surface mounts.
  */
 export function findEmptyPlacement(world: World, width: number, height: number, gap: number): Point {
 	const viewport = viewportBounds(world);
@@ -81,8 +67,6 @@ export function findEmptyPlacement(world: World, width: number, height: number, 
 	const free = (rect: AABB): boolean => !boxes.some((box) => aabbsIntersect(rect, box));
 
 	for (const box of ordered) {
-		// Level with the neighbour: the block keeps its middle, whatever the
-		// two are sized like.
 		const y = (box.minY + box.maxY) / 2;
 		const minY = y - height / 2;
 		const maxY = y + height / 2;

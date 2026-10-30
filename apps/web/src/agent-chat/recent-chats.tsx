@@ -2,10 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// What an empty draft shows above the composer: the project's five most
-// recent chats, name on the left, last use on the right. Nothing when the
-// project has no chats yet.
-
 import { For, Show } from "solid-js";
 
 import { Icon } from "@/components/ui/icon";

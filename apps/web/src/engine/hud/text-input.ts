@@ -2,19 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/**
- * Typing into a text where it stands on the canvas. The canvas cannot take
- * text input, so a <textarea> the user never sees holds the text and the
- * caret while the editor is open: the keyboard, the clipboard, an IME and the
- * browser's own undo all work on it, and every change is written to the
- * document as it is typed, so the text redraws with each key. The caret and
- * the selection are drawn by the HUD from where the renderer put the glyphs
- * (`textCaretLines`), which is the only layout that is sure to match them.
- *
- * Pointer gestures inside the text go to the region the HUD pushes for it: a
- * press puts the caret down, a drag selects, a double-click takes a word. A
- * press anywhere else lets focus leave the field, which closes it.
- */
+// The canvas cannot take text input, so a hidden <textarea> holds the text and
+// caret (keyboard, clipboard, IME and undo all work on it). The caret is drawn
+// from where the renderer put the glyphs (`textCaretLines`), the only layout
+// sure to match them.
 
 import {
 	Chars, Computed, HitRegions, RenderSurface,
@@ -32,7 +23,6 @@ import type { CaretLine, DispatchedPointerEvent, Point, Quad } from '@plan.video
 
 const ACCENT = '#2f6ff0';
 const SELECTION = 'rgba(47, 111, 240, 0.32)';
-/** One half of the caret's blink, on or off, in milliseconds. */
 const BLINK = 530;
 
 const INPUT_STYLE = {
@@ -53,29 +43,23 @@ type Editing = {
 	world: World;
 	entity: Entity;
 	input: HTMLTextAreaElement;
-	/** Where the caret was last moved or typed at, so it shows solid while in use. */
+	// Last caret move or keystroke, so the caret shows solid while in use.
 	since: number;
-	/** The character a drag selects from. */
 	anchor: number;
 	close: () => void;
 };
 
 let editing: Editing | null = null;
 
-/** Whether `entity` is a text the canvas can type into: a caption's words come from its transcript. */
+// A caption's words come from its transcript, so it is not editable here.
 export function isEditableText(entity: Entity): boolean {
 	return entity.isAlive() && isText(entity) && !isCaption(entity);
 }
 
-/** The text being typed into, if any. */
 export function getEditingText(): Entity | null {
 	return editing?.entity ?? null;
 }
 
-/**
- * Opens the editor on `entity`, with the caret at `point` (device pixels) or,
- * without one, the whole text selected.
- */
 export function mountTextInput(world: World, entity: Entity, point?: Point): void {
 	if (!isEditableText(entity)) return;
 	const canvas = world.get(RenderSurface)?.canvas;
@@ -113,13 +97,11 @@ export function mountTextInput(world: World, entity: Entity, point?: Point): voi
 		}
 	});
 
-	// Switching to another window takes the focus too, and gives it back.
 	input.addEventListener('blur', () => {
 		if (document.hasFocus()) close();
 	});
 
-	// A press inside the text keeps the focus here (its region moves the
-	// caret); anywhere else, the focus leaves and the editor closes with it.
+	// A press inside the text keeps the focus here; anywhere else focus leaves and the editor closes.
 	const keepFocus = (event: MouseEvent) => {
 		if (event.button !== 0) return;
 		const rect = canvas.getBoundingClientRect();
@@ -149,15 +131,11 @@ export function mountTextInput(world: World, entity: Entity, point?: Point): voi
 	editing.anchor = index ?? 0;
 }
 
-/** Closes the editor, keeping what was typed. */
 export function unmountTextInput(): void {
 	editing?.close();
 }
 
-/**
- * Where a press belongs to the text: its box, and the lines that run out of
- * it, which a box too small for its text lets them do.
- */
+// The box plus any lines that run out of it, which a box too small for its text allows.
 function textArea(world: World, entity: Entity): Quad {
 	const computed = store(world, Computed);
 	let [left, top] = [0, 0];
@@ -174,18 +152,16 @@ function textArea(world: World, entity: Entity): Quad {
 	return rectToQuad(multiply2D(entityWorldMat(world, entity), translate2D(left, top)), right - left, bottom - top);
 }
 
-/** The line a character is on: at a wrap, the one it begins. */
+// At a wrap, the character belongs to the line it begins.
 function lineOf(lines: CaretLine[], index: number): CaretLine | undefined {
 	return lines.find((line, i) => index >= line.start && (index < line.end || index === line.end && lines[i + 1]?.start !== index))
 		?? lines[lines.length - 1];
 }
 
-/** The caret's x on `line` before character `index`. */
 function stopAt(line: CaretLine, index: number): number {
 	return line.stops[Math.min(Math.max(index - line.start, 0), line.stops.length - 1)]!;
 }
 
-/** The character a device-pixel point puts the caret before. */
 function indexAt(world: World, entity: Entity, point: Point): number | null {
 	const lines = textCaretLines(world, entity);
 	if (!lines.length) return null;
@@ -202,7 +178,6 @@ function indexAt(world: World, entity: Entity, point: Point): number | null {
 
 const WORD = /[\p{L}\p{N}_'’]/u;
 
-/** The word around `index`, or the run of anything else when it is not in one. */
 function wordAt(text: string, index: number): [number, number] {
 	const at = Math.min(index, Math.max(text.length - 1, 0));
 	const inWord = WORD.test(text[at] ?? '');
@@ -218,7 +193,6 @@ function select(input: HTMLTextAreaElement, anchor: number, focus: number): void
 	input.setSelectionRange(Math.min(anchor, focus), Math.max(anchor, focus), focus < anchor ? 'backward' : 'forward');
 }
 
-/** Presses and drags inside the text being typed into. */
 function handleTextInputInteraction(world: World, event: DispatchedPointerEvent): void {
 	if (!editing || editing.world !== world) return;
 	const { entity, input } = editing;
@@ -254,11 +228,6 @@ function handleTextInputInteraction(world: World, event: DispatchedPointerEvent)
 	if (input !== document.activeElement) input.focus({ preventScroll: true });
 }
 
-/**
- * Draws the caret or the selection over the text being typed into, and puts
- * the field where an IME would show its candidates. Closes the editor when
- * the text is gone or no longer a text.
- */
 export function drawTextInput(world: World, ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D, resolution: number): void {
 	if (!editing || editing.world !== world) return;
 	const { entity, input } = editing;
@@ -274,7 +243,6 @@ export function drawTextInput(world: World, ctx: CanvasRenderingContext2D | Offs
 
 	const quad = entityQuad(world, entity);
 
-	// The box the text sets in, as the selection would draw it without its handles.
 	ctx.resetTransform();
 	ctx.beginPath();
 	ctx.moveTo(quad[0].x, quad[0].y);
@@ -297,7 +265,6 @@ export function drawTextInput(world: World, ctx: CanvasRenderingContext2D | Offs
 		for (const line of lines) {
 			if (end < line.start || start > line.end) continue;
 			const from = stopAt(line, Math.max(start, line.start));
-			// A selection that runs on past the line's end takes its break too.
 			const to = stopAt(line, Math.min(end, line.end)) + (end > line.end ? line.height * 0.25 : 0);
 			if (to > from) ctx.fillRect(from, line.top, to - from, line.height);
 		}

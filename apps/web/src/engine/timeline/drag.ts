@@ -2,15 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/**
- * Moving and trimming clips. A gesture lives on the entities it touches — the
- * snapshot traits say a drag is in flight and what it started from — rather
- * than in a variable here, so a clip scrolled off screen and back is still
- * being dragged, and so the drag survives the frame it began on.
- *
- * Every write goes through the editor's time props, so dragging a clip in the
- * timeline is the same edit as typing its start into the inspector.
- */
+// A gesture lives on the entities it touches (the snapshot traits), not in a
+// variable here, so a clip scrolled off screen and back is still being dragged.
+// Writes go through the editor's time props, the same edit as the inspector's.
 
 import {
 	AdjustmentLayer,
@@ -40,17 +34,10 @@ import type { TimelineSurfaceState } from './surface';
 
 const NODES = Or(Geometry, Group, AdjustmentLayer);
 
-/** Which edge of a clip a trim is holding. */
 export type TrimEdge = 'in' | 'out';
 
-/**
- * Opens and closes the gestures in flight, once a frame before anything is
- * drawn.
- *
- * Closing is what has to happen here rather than where the drag was applied:
- * a gesture ends when the pointer is let go, which is not an event any clip
- * receives — the clip only ever hears that it is still being dragged.
- */
+// Closing happens here because letting go of the pointer is not an event any
+// clip receives; a clip only hears that it is still being dragged.
 export function updateDragGestures(world: World, surface: TimelineSurfaceState): void {
 	const position = surface.pointer?.position;
 	const dragging = !!position && position.state !== 'idle';
@@ -59,16 +46,13 @@ export function updateDragGestures(world: World, surface: TimelineSurfaceState):
 		surface.press = null;
 		endGesture(world, ClipDragOrigin);
 		endGesture(world, TrimDragOrigin);
-		// Keyframes have no sequence to settle: they sit where they are put.
 		for (const keyframe of world.query(KeyframeDragOrigin)) keyframe.remove(KeyframeDragOrigin);
 		settleCaptionWordEdits(world);
 		return;
 	}
 
-	// A drag of a selected clip is a drag of the selection, so the rest of it
-	// is snapshotted the moment the first clip starts moving. Done here, once,
-	// rather than per clip: a clip scrolled out of view is not drawn, and it
-	// would otherwise be left behind by the drag.
+	// The rest of the selection is snapshotted here, once, not per clip: a clip
+	// scrolled out of view is not drawn and would be left behind by the drag.
 	if (world.query(NODES, ClipDragOrigin, Selected).length > 0) {
 		for (const entity of world.query(NODES, Selected, Not(ClipDragOrigin))) {
 			beginClipDrag(world, entity);
@@ -76,11 +60,7 @@ export function updateDragGestures(world: World, surface: TimelineSurfaceState):
 	}
 }
 
-/**
- * Ends whichever gesture `origin` marks: the snapshots come off, and the
- * sequences the clips landed in are settled around them (the clips that moved
- * win, and their neighbours give way).
- */
+// Settles the sequences the clips landed in: the moved clips win, neighbours give way.
 function endGesture(world: World, origin: typeof ClipDragOrigin | typeof TrimDragOrigin): void {
 	const moved = [...world.query(NODES, origin)];
 	if (moved.length === 0) return;
@@ -90,7 +70,6 @@ function endGesture(world: World, origin: typeof ClipDragOrigin | typeof TrimDra
 	resolveSequentialOverlaps(world, moved);
 }
 
-/** Notes where `entity` is, so the frames of the drag can be measured from it. */
 export function beginClipDrag(world: World, entity: Entity): void {
 	const computed = store(world, Computed);
 	const eid = entity.id();
@@ -103,10 +82,6 @@ export function beginClipDrag(world: World, entity: Entity): void {
 	});
 }
 
-/**
- * Places `entity` at where it started plus how far the pointer has come,
- * pulled to a snap if one is near, and never before the start of the scene.
- */
 export function applyClipDrag(
 	world: World,
 	surface: TimelineSurfaceState,
@@ -118,8 +93,7 @@ export function applyClipDrag(
 	const floor = -earliestDraggedStart(world);
 	const offset = Math.max(pixelsToFrames(draggedPixels(surface), resolution), floor);
 
-	// One snap for the whole drag, found from every clip in it — unless it
-	// would pull the drag back past the floor the pointer just hit.
+	// One snap for the whole drag, unless it would pull back past the floor the pointer just hit.
 	const snap = findSnapDelta(world, resolution, offset);
 	const snapped = snap !== null && offset - snap.delta >= floor;
 	if (snapped) surface.snapX = framesToPixels(snap.frame, resolution);
@@ -127,7 +101,6 @@ export function applyClipDrag(
 	moveEntityTo(world, entity, origin.start + offset - (snapped ? snap.delta : 0));
 }
 
-/** Where the first clip of the drag in flight started, from the snapshots. */
 function earliestDraggedStart(world: World): number {
 	const origins = store(world, ClipDragOrigin);
 	let earliest = Number.POSITIVE_INFINITY;
@@ -137,7 +110,6 @@ function earliestDraggedStart(world: World): number {
 	return Number.isFinite(earliest) ? earliest : 0;
 }
 
-/** Notes where `entity`'s edges are, so a trim can be measured from them. */
 export function beginTrim(world: World, entity: Entity): void {
 	const computed = store(world, Computed);
 	const eid = entity.id();
@@ -149,11 +121,6 @@ export function beginTrim(world: World, entity: Entity): void {
 	});
 }
 
-/**
- * Moves the edge being held to where the pointer has taken it, within what
- * the clip can actually do: never past its other edge, and never past the end
- * of what it has to play.
- */
 export function applyTrim(
 	world: World,
 	surface: TimelineSurfaceState,
@@ -167,8 +134,8 @@ export function applyTrim(
 	const [min, max] = trimBounds(world, entity, edge, origin);
 	const wanted = (edge === 'in' ? origin.start : origin.end) + offset;
 
-	// Snapped only where the snap is somewhere the edge could have gone
-	// anyway; otherwise it would look like it stuck and then slipped.
+	// Snapped only where the edge could have gone anyway, or it would look like it
+	// stuck and then slipped.
 	const snapped = findSnapFrame(world, resolution, wanted);
 	const frame = clamp(snapped !== null && snapped > min && snapped < max ? snapped : wanted, min, max);
 
@@ -178,11 +145,8 @@ export function applyTrim(
 	else trimOut(world, entity, frame);
 }
 
-/**
- * How far the edge can go. Each clip is its own row, so a neighbour is no
- * constraint — only the clip's other edge, and how much source there is left
- * to show at this end.
- */
+// Each clip is its own row, so a neighbour is no constraint: only the other
+// edge and how much source is left at this end.
 function trimBounds(
 	world: World,
 	entity: Entity,
@@ -198,7 +162,6 @@ function trimBounds(
 	const computed = entity.get(Computed);
 	const rate = computed?.playbackRate || 1;
 	const curve = readSpeedCurve(entity);
-	// The scene frame the source starts at, and the one it runs out at.
 	const sourceStart = computed?.origin ?? 0;
 
 	if (edge === 'in') min = Math.max(min, sourceStart);
@@ -207,13 +170,11 @@ function trimBounds(
 	return [min, max];
 }
 
-/** How far the pointer has come since the press, in pixels. */
 function draggedPixels(surface: TimelineSurfaceState): number {
 	const position = surface.pointer?.position;
 	return position && position.state !== 'idle' ? position.deltaX : 0;
 }
 
-/** Whether a gesture is currently moving `entity`. */
 export function isDragging(entity: Entity): boolean {
 	return entity.has(ClipDragOrigin) || entity.has(TrimDragOrigin);
 }

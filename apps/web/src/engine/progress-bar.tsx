@@ -2,12 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/**
- * A progress bar: a rect along the top or bottom edge whose `width` is
- * keyframed from nothing to the frame's width over the scene's length, so
- * viewers see how much is left. Adding again replaces the one already there.
- */
-
 import { Keyframe, KeyframeTrack, Rect, authoredElement } from '@plan.video/reconciler';
 import { Cache, Computed, FrameRate, getActiveEntity, isScene, store } from '@plan.video/runtime';
 
@@ -35,7 +29,6 @@ export const DEFAULT_PROGRESS_BAR: ProgressBarOptions = { position: 'bottom', th
 const THICKNESS: Record<ProgressThickness, number> = { thin: 6, medium: 10, thick: 16 };
 const TRACK_OPACITY = 0.3;
 
-/** Puts the bar on the active scene, across its whole length, selected. Null without a scene. */
 export function addProgressBar(world: World, options: ProgressBarOptions): Entity | null {
 	const scene = getActiveEntity(world);
 	if (!scene || !isScene(scene)) return null;

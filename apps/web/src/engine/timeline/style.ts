@@ -54,17 +54,7 @@ export function getClipStyle(colors: TimelineColors, entity: Entity, asset: Asse
 	}
 }
 
-/**
- * What to call a clip that was never named. A name is only ever authored —
- * the reconciler adds `Name` when the JSX asks for one — so most clips have
- * none, and a column of rows all reading "Layer" says no more than a column
- * of blank ones does. What a clip is, is the next best thing to what it is
- * called. This is only what the timeline shows; nothing is written back to
- * the document, so an unnamed clip stays unnamed.
- *
- * The cascade follows `getClipStyle`, so the word and the colour agree on
- * what the clip is.
- */
+/** Display-only, never written back. Follows `getClipStyle`'s cascade so the word and the colour agree. */
 export function getClipFallbackName(world: World, entity: Entity): string {
 	if (isCaption(entity)) return t('Captions');
 	if (isText(entity)) return t('Text');
@@ -89,7 +79,6 @@ export function getClipFallbackName(world: World, entity: Entity): string {
 	return isRect(entity) ? t('Rectangle') : t('Layer');
 }
 
-/** The asset a clip shows, whether it is the clip's own or one of its fills. */
 export function getClipAsset(world: World, entity: Entity): Asset | null {
 	return findGeometryAsset(world, entity);
 }

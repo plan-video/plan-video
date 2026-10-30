@@ -2,15 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/**
- * The Text tab's text box and text styles. The box is white text in the
- * default face, the same the canvas's text tool puts in with a click. A style
- * is one text with a face, a fill (a colour or a gradient), outlines and
- * shadows, nothing else: every part of it is in the inspector afterwards, and
- * typing over it keeps the look. Both go on the active scene at the playhead,
- * centred on it.
- */
-
 import { ColorStop, LinearGradientPaint, Shadow, Stroke, Text } from '@plan.video/reconciler';
 import { Computed, getActiveEntity, getNextName, isScene, loadWebFont, store, TEXT_LOOKS } from '@plan.video/runtime';
 
@@ -21,15 +12,10 @@ import { getDocumentEditor } from './editor';
 import type { Entity, World } from 'koota';
 import type { TextLook, TextLookId, WebFonts } from '@plan.video/runtime';
 
-/** How long a text stays on, from the playhead. */
 const SECONDS = 4;
 
 const WHITE = '#FFFFFF';
 
-/**
- * A look from the runtime's TEXT_LOOKS as the Text tab offers it: what the
- * layer is called and the words it goes in with, ready to type over.
- */
 export type TextStyle = TextLook & { id: TextLookId; name: string; sample: string };
 
 /** In the order the tab shows them, two to a row. */
@@ -67,7 +53,7 @@ type Font = { family: keyof typeof WebFonts; weight: number; italic?: boolean; s
 
 let measureCtx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null = null;
 
-/** How wide and tall `text` is drawn in `font`, once the font has loaded, the way the renderer lays out a line. */
+/** Measured once the font has loaded, the way the renderer lays out a line. */
 function measure(text: string, font: Font): { width: number; height: number } {
 	if (!measureCtx) {
 		measureCtx = typeof OffscreenCanvas !== 'undefined'
@@ -81,7 +67,6 @@ function measure(text: string, font: Font): { width: number; height: number } {
 	return { width: metrics.width, height: metrics.fontBoundingBoxAscent + metrics.fontBoundingBoxDescent };
 }
 
-/** The words as the style draws them, cased. */
 export function textStyleWords(style: TextStyle, text: string): string {
 	if (style.textCase === 'upper') return text.toUpperCase();
 	if (style.textCase === 'lower') return text.toLocaleLowerCase();
@@ -90,7 +75,6 @@ export function textStyleWords(style: TextStyle, text: string): string {
 
 const r = (value: number) => Math.round(value);
 
-/** The scene at the playhead, its size and where the playhead is in it, or null when there is none. */
 function target(world: World) {
 	const scene = getActiveEntity(world);
 	if (!scene || !isScene(scene)) return null;
@@ -103,10 +87,6 @@ function target(world: World) {
 	return { scene, width, height, start, end };
 }
 
-/**
- * Puts a text box on the active scene at the playhead and selects it. Null
- * when there is no scene to put it on.
- */
 export async function addTextBox(world: World): Promise<Entity | null> {
 	const at = target(world);
 	if (!at) return null;
@@ -136,10 +116,6 @@ export async function addTextBox(world: World): Promise<Entity | null> {
 	return entity ?? null;
 }
 
-/**
- * Puts a text in `style` on the active scene at the playhead, centred, and
- * selects it. Null when there is no scene to put it on.
- */
 export async function addTextStyle(world: World, style: TextStyle): Promise<Entity | null> {
 	const at = target(world);
 	if (!at) return null;

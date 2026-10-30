@@ -2,14 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/**
- * Align and distribute the selection: the nodes are moved in device space
- * against the upright box of them all (`WorldBounds`, which the transform
- * system writes), and each move becomes the `x`/`y` a drag would write, in
- * the node's own parent's space. Only nodes directly inside a scene (or
- * top-level ones) take part, as before: a nested node aligns to siblings in
- * its group, which has no box of its own to align against here.
- */
+// Only top-level nodes and direct children of scenes take part: a nested node's group has
+// no box of its own to align against here.
 
 import {
   Geometry,
@@ -43,7 +37,6 @@ export type Axis = "x" | "y";
 
 type Box = { minX: number; minY: number; maxX: number; maxY: number };
 
-/** The selected nodes alignment moves: top-level ones and direct children of scenes. */
 export function getAlignableSelection(world: World): Entity[] {
   return [...world.query(Selected, Or(Geometry, Group))].filter((entity) => {
     const parent = getParentNode(entity);
@@ -71,11 +64,7 @@ function union(boxes: Box[]): Box {
   };
 }
 
-/**
- * Moves `entity` by a device-space delta: the delta in its parent's space
- * (the stage's is the view) added to its `x`/`y`, rounded like a drag's, and
- * kept in step with any position track.
- */
+/** The delta in the parent's space (the stage's is the view), rounded like a drag's, kept in step with any position track. */
 function moveByWorldDelta(world: World, entity: Entity, dx: number, dy: number): void {
   if (dx === 0 && dy === 0) return;
   const position = entity.get(Position);
@@ -98,10 +87,6 @@ function moveByWorldDelta(world: World, entity: Entity, dx: number, dy: number):
   }
 }
 
-/**
- * Aligns every selected node to the edge or center of the selection's box.
- * One node is a no-op: the box is the node.
- */
 export function alignSelection(world: World, action: AlignAction): void {
   const entities = getAlignableSelection(world);
   if (entities.length < 2) return;
@@ -132,10 +117,6 @@ export function alignSelection(world: World, action: AlignAction): void {
   });
 }
 
-/**
- * Spaces the selected nodes evenly along `axis` between the two outermost,
- * in their current order. Needs three: two have nothing between them.
- */
 export function distributeSelection(world: World, axis: Axis): void {
   const entities = getAlignableSelection(world);
   if (entities.length < 3) return;
@@ -162,12 +143,7 @@ export function distributeSelection(world: World, axis: Axis): void {
 
 export type StackEdge = "left" | "center" | "right";
 
-/**
- * Lines the selected nodes up in one column, top to bottom in the order they
- * stand: the topmost keeps its height, each next one sits under the one
- * before, and their `edge`s line up on the selection's. The gap is an eighth
- * of the typical height, as a killfeed's entries stack.
- */
+/** The gap is an eighth of the typical height, as a killfeed's entries stack. */
 export function stackSelection(world: World, edge: StackEdge): void {
   const entities = getAlignableSelection(world);
   if (entities.length < 2) return;

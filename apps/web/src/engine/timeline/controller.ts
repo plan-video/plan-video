@@ -2,12 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/**
- * The DOM around the timeline: which canvas it draws on, how big that is,
- * and what the wheel does to it. Everything it changes is view state on the
- * scene (see `./view`), which the draw pass reads back a frame later — the
- * controller itself never paints.
- */
+/** The controller never paints: it changes view state on the scene, which the draw pass reads a frame later. */
 
 import { getTimelineView } from '@plan.video/runtime';
 
@@ -52,21 +47,15 @@ export function createTimelineController(world: World) {
 
 	let layersEl: HTMLElement | null = null;
 	let layersViewportEl: HTMLElement | null = null;
-	// How far the row labels have been scrolled sideways, in pixels. A DOM
-	// concern rather than the scene's: it is the same for every scene.
+	// Pixels. Same for every scene, so kept on the DOM side rather than the scene's.
 	let layerScrollX = 0;
 
-	/** Runs `action` against the scene on show, if there is one. */
 	const withScene = (action: (scene: Entity) => void): void => {
 		const scene = getTimelineScene(world);
 		if (scene !== null) action(scene);
 	};
 
-	/**
-	 * A gesture moved the view: report it so the file remembers where the
-	 * scene's timeline is looking (`<scene timeline>`), the way the camera
-	 * controller reports a pan. No `previous`, so it never enters the history.
-	 */
+	/** No `previous`, so a view change never enters the history. */
 	const reportView = (scene: Entity): void => {
 		const view = getTimelineView(world, scene);
 		if (view) getDocumentEditor(world).reportEdit(scene, 'timeline', view);
@@ -106,11 +95,7 @@ export function createTimelineController(world: World) {
 		withScene((scene) => updateTimelineTransform(world, scene));
 	});
 
-	/**
-	 * Moves the row labels to match the scroll the canvas is drawn at. They
-	 * are DOM, so they cannot be drawn scrolled — they are translated instead,
-	 * and the scroll is clamped to what there is to scroll through.
-	 */
+	/** Labels are DOM, so they are translated to match the canvas scroll. */
 	const applyScroll = (): void => {
 		if (!layersEl || !layersViewportEl) return;
 
@@ -120,7 +105,6 @@ export function createTimelineController(world: World) {
 			layersEl!.style.transform = `translateY(${-scrollY}px)`;
 		});
 
-		// The labels scroll sideways only as far as the widest one overflows.
 		let maxScrollX = 0;
 		for (const label of layersEl.querySelectorAll<HTMLElement>('[data-layer-label]')) {
 			maxScrollX = Math.max(maxScrollX, label.scrollWidth - label.clientWidth);
@@ -129,19 +113,14 @@ export function createTimelineController(world: World) {
 		layersEl.style.setProperty('--layer-x', `${layerScrollX}px`);
 	};
 
-	/** Whether the rows are taller than their panel, so a vertical scroll has somewhere to go. */
 	const rowsOverflow = (): boolean => (
 		layersEl !== null && layersViewportEl !== null && layersEl.scrollHeight > layersViewportEl.clientHeight
 	);
 
 	/**
-	 * One axis at a time, in the order the gesture is most likely to have
-	 * meant: zoom while a modifier is held, then whichever of the two scroll
-	 * axes the wheel moved further in.
-	 *
 	 * A mouse wheel only turns one way, so it scrolls sideways with Shift held
-	 * (not every browser turns that into a sideways delta itself), and also
-	 * when the rows all fit and there is nothing to scroll up or down.
+	 * (not every browser turns that into a sideways delta itself), and also when
+	 * the rows all fit.
 	 */
 	const handleWheel = (event: WheelEvent): void => {
 		event.preventDefault();
@@ -167,8 +146,7 @@ export function createTimelineController(world: World) {
 					1 / TIMELINE_RESOLUTION_RANGE[0],
 				);
 
-				// The frame under the pointer stays under it: the scroll takes
-				// up whatever the change in scale moved it by.
+				// Keep the frame under the pointer still while the scale changes.
 				setResolution(world, scene, next);
 				setScrollX(world, scene, scrollX + anchor / resolution - anchor / next);
 			} else if (Math.abs(deltaX) > Math.abs(deltaY)) {
@@ -183,7 +161,6 @@ export function createTimelineController(world: World) {
 		});
 	};
 
-	/** The wheel over the row labels, which scroll but do not zoom. */
 	const scroll = (event: WheelEvent): void => {
 		event.preventDefault();
 
@@ -202,7 +179,6 @@ export function createTimelineController(world: World) {
 		});
 	};
 
-	/** Programmatic vertical scroll, for gestures that hold near an edge. */
 	const scrollBy = (deltaY: number): void => {
 		withScene((scene) => {
 			setScrollY(world, scene, getScrollY(world, scene) + deltaY);
@@ -259,10 +235,7 @@ export function createTimelineController(world: World) {
 		surface.ctx = null;
 	};
 
-	/**
-	 * The row labels and the pointer, which outlive the canvas: the timeline
-	 * can be collapsed and reopened without the rows going anywhere.
-	 */
+	/** These outlive the canvas, so the timeline can be collapsed and reopened. */
 	const mount = (): void => {
 		const layers = document.querySelector<HTMLElement>('[data-timeline-layers]');
 		assert(layers, 'Timeline layers element must be defined');
@@ -302,10 +275,7 @@ export function createTimelineController(world: World) {
 	};
 }
 
-/**
- * Wheel deltas in the units the event says they are in. A line or a page is
- * whatever the platform decides; pixels are the only comparable unit.
- */
+/** A line or a page delta is whatever the platform decides; pixels are the only comparable unit. */
 function normalizeWheel(event: WheelEvent): { deltaX: number; deltaY: number } {
 	const scale = event.deltaMode === WheelEvent.DOM_DELTA_LINE
 		? WHEEL_LINE_HEIGHT

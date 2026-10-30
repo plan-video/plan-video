@@ -2,9 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The one thing an agent can wait on: a multiple-choice question, pinned
-// between the transcript and the composer. Answer, skip, or press Stop.
-
 import { For, Show, createMemo, createSignal } from "solid-js";
 import { createStore } from "solid-js/store";
 
@@ -47,7 +44,6 @@ export function QuestionCard(props: QuestionCardProps) {
       return;
     }
     setChosen(question.id, [label]);
-    // One single-choice question submits on click; "Other" needs its text first.
     if (props.request.questions.length === 1 && label !== OTHER) {
       queueMicrotask(submit);
     }

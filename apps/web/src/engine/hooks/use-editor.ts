@@ -7,7 +7,6 @@ import { getDocumentEditor } from "../editor";
 
 import type { DocumentEditor } from "../editor";
 
-/** The editor of the mounted project: prop edits and element inserts, reported back to the source. */
 export function useEditor(): DocumentEditor {
   return getDocumentEditor(useWorld());
 }

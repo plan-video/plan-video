@@ -21,7 +21,6 @@ import { mediaListen } from "./media-listen";
 
 import type { Handlers } from "../handler";
 
-/** Every tool the renderer answers, keyed by its catalog name. */
 export const handlers: Handlers = {
   open,
   context,

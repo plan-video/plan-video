@@ -2,9 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// One component per item kind. Small enough to live together: what they
-// share is the 12 px body text and the muted 11 px chrome.
-
 import { For, Show, createSignal } from "solid-js";
 
 import { Icon } from "@/components/ui/icon";
@@ -43,7 +40,6 @@ export function AssistantItem(props: { item: Of<"assistant"> }) {
   );
 }
 
-/** The record of a thought: what the model is on right now is the transcript's running indicator, not this row. */
 export function ReasoningItem(props: { item: Of<"reasoning"> }) {
   const [open, setOpen] = createSignal(false);
   const expandable = () => props.item.text.trim().length > 0;
@@ -125,7 +121,6 @@ export function ToolItem(props: { item: Of<"tool"> }) {
   );
 }
 
-/** The compact record of what was asked and answered: "Format → 9:16", or "Skipped". */
 export function QuestionItem(props: { item: Of<"question"> }) {
   return (
     <div class="flex flex-col gap-0.5 px-0.5 text-[11px] text-muted-foreground">
@@ -155,7 +150,6 @@ export function NoticeItem(props: { item: Of<"notice"> }) {
   );
 }
 
-/** Dispatches on kind. */
 export function ChatItem(props: { item: Item }) {
   const item = () => props.item;
   return (
@@ -166,7 +160,7 @@ export function ChatItem(props: { item: Item }) {
       <Show when={item().kind === "assistant"}>
         <AssistantItem item={item() as Of<"assistant">} />
       </Show>
-      {/* Thinking the model keeps to itself arrives as an empty block: nothing to show. */}
+      {/* Thinking the model keeps to itself arrives as an empty block. */}
       <Show when={item().kind === "reasoning" && (item() as Of<"reasoning">).text.trim()}>
         <ReasoningItem item={item() as Of<"reasoning">} />
       </Show>

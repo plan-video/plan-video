@@ -19,12 +19,6 @@ import { framesToPixels, getFrameRate, getResolution, getScrollX, getViewport, p
 import type { Entity, World } from 'koota';
 import type { TimelineSurfaceState } from '../surface';
 
-/**
- * The time ruler, and the two gestures that belong to it: a drag scrubs the
- * playhead, a shift-drag sets the work area. Both go to the file, which is
- * where the project remembers them (`<scene playhead>`, `<scene workarea>`);
- * the writer coalesces a gesture's frames into one write.
- */
 export function renderRuler(world: World, scene: Entity, surface: TimelineSurfaceState): void {
 	const { ctx, pointer } = surface;
 	if (!ctx || !pointer) return;
@@ -42,12 +36,10 @@ export function renderRuler(world: World, scene: Entity, surface: TimelineSurfac
 		.scope('ruler')
 		.region(minX, 0, maxX - minX, RULER_HEIGHT);
 
-	// A scrub takes over from playback: the playhead goes where it is put.
 	if (clicked || (dragging && !pointer.shiftPressed)) {
 		assert(pointer.position, 'Pointer position must be set');
 
-		// Set rather than written through the store, and only when it would
-		// change something: the transport button is watching.
+		// Set only when it changes something: the transport button is watching.
 		if (scene.get(Playback)?.playing) scene.set(Playback, { playing: false });
 
 		editPlayhead(world, scene, pixelsToFrames(pointer.position.currentX + scrollX * resolution, resolution));
@@ -62,8 +54,6 @@ export function renderRuler(world: World, scene: Entity, surface: TimelineSurfac
 
 		editWorkarea(world, scene, [start, end]);
 
-		// The playhead follows the edge being dragged, so the frame under the
-		// pointer is the one on the canvas.
 		editPlayhead(world, scene, pointer.position.currentX > pointer.position.initialX ? end : start);
 	}
 
@@ -84,8 +74,6 @@ export function renderRuler(world: World, scene: Entity, surface: TimelineSurfac
 		const x = framesToPixels(frame, resolution);
 		let y = minorOffset;
 
-		// Only the ticks of the interval itself are labelled; the rest are the
-		// subdivisions between them.
 		if (frame % interval.numerator === 0) {
 			y = majorOffset;
 			ctx.fillText(formatTickLabel(frame, fps), x, RULER_LABEL_Y);
@@ -102,7 +90,6 @@ export function renderRuler(world: World, scene: Entity, surface: TimelineSurfac
 	ctx.restore();
 }
 
-/** Whole seconds read as a clock, anything finer as a frame count. */
 function formatTickLabel(frame: number, fps: number): string {
 	if (frame === 0) return '0';
 	if (frame % fps !== 0) return `${frame}f`;
@@ -114,10 +101,6 @@ function formatTickLabel(frame: number, fps: number): string {
 	return `${minutes}:${seconds}`;
 }
 
-/**
- * The tick interval whose labelled ticks land nearest the target spacing at
- * this zoom, so the ruler stays about as dense however far in it is.
- */
 function getRulerInterval(resolution: number) {
 	let closest = RULER_INTERVALS[0]!;
 	let closestDelta = Infinity;

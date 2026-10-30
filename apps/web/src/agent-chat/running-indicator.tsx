@@ -9,7 +9,7 @@ import type { Item } from "@plan.video/agent-chat";
 
 import "./activity.css";
 
-/** What the agent is doing, judged by the item the turn is on. A tool in flight has its own row, so it never lands here. */
+/** A tool in flight has its own row, so it never lands here. */
 export function runningLabel(last: Item | undefined): string {
   return last?.kind === "assistant" ? t("Writing") : t("Thinking");
 }

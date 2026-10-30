@@ -10,10 +10,8 @@ import type { FontFamily } from "@plan.video/dapi";
 import type { ToolHandler } from "../handler";
 
 /**
- * The machine's fonts, from the same Local Font Access listing the text
- * inspector shows, so the tool answers alike on every platform and names
- * exactly the families the editor can render. The catalog knows two styles;
- * an oblique is an italic to anyone choosing a font.
+ * Same Local Font Access listing as the text inspector, so it names exactly
+ * the families the editor can render. The catalog knows two styles: an oblique counts as italic.
  */
 export const fonts: ToolHandler<"fonts"> = async ({ family, weights, style, limit = FONT_LIMIT }) => {
   const pattern = family?.toLowerCase();

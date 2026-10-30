@@ -2,9 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Assistant text as markdown: marked for the parse, DOMPurify for the
-// sanitising, no syntax highlighting. Links open in the shell, not the app.
-
 import DOMPurify from "dompurify";
 import { marked } from "marked";
 import { createMemo } from "solid-js";
@@ -22,10 +19,8 @@ DOMPurify.addHook("afterSanitizeAttributes", (node) => {
 });
 
 /**
- * What a reply mustn't load by itself. A picture or a styled background
- * fetches its address the moment it shows, so a reply tricked into writing
- * one could send what it knows to someone else's server. Links still work:
- * they only go anywhere when clicked.
+ * A picture or styled background fetches its address the moment it shows, so a reply
+ * tricked into writing one could leak what it knows. Links only go anywhere when clicked.
  */
 const NO_REMOTE = {
   FORBID_TAGS: ["img", "picture", "source", "video", "audio", "track", "iframe", "object", "embed", "svg", "math", "link", "style", "form", "input"],
@@ -44,7 +39,6 @@ const handleClick = (event: MouseEvent) => {
   void mainBridge.call(MAIN_CHANNELS.APP_OPEN_EXTERNAL, { url: anchor.href });
 };
 
-/** The classes that give the rendered HTML its 12 px, muted-chrome look. */
 const MARKDOWN_CLASS = [
   "text-[12px] leading-5 text-foreground break-words min-w-0 max-w-full",
   "[&_p]:my-1.5 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0",

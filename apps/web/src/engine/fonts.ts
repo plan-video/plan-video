@@ -13,10 +13,7 @@ interface LocalFont {
 	style: string;
 }
 
-/**
- * Every family installed on the machine, grouped by family. Requires the Local
- * Font Access API and a granted permission; the caller handles the rejection.
- */
+// Needs the Local Font Access API and a granted permission; the caller handles the rejection.
 export async function getLocalFonts(): Promise<FontSources[]> {
 	const families = new Map<string, LocalFont[]>();
 
@@ -37,17 +34,13 @@ export async function getLocalFonts(): Promise<FontSources[]> {
 	}));
 }
 
-/** The style a local font names itself in, as the runtime spells it. */
 function matchFontStyle(style: string): FontStyle {
 	if (/oblique/i.test(style)) return FontStyle.OBLIQUE;
 	if (/italic/i.test(style)) return FontStyle.ITALIC;
 	return FontStyle.NORMAL;
 }
 
-/**
- * The CSS weight a local font's style name comes to. Ordered so the longer
- * names win: "extrabold" is not a bold, and "extralight" is not a light.
- */
+// Ordered so the longer names win: "extrabold" is not a bold, "extralight" not a light.
 function matchFontWeight(weight: string): string {
 	const matches: [RegExp, string][] = [
 		[/black|heavy/i, '900'],

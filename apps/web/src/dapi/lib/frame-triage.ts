@@ -11,31 +11,23 @@ import type { InputVideoTrack } from "mediabunny";
 // Triage scan rate; 2fps is enough to understand footage.
 const SCAN_FPS = 2;
 
-// Fingerprint: a GRID x GRID grid of block luma averages, computed on the GPU
-// so no full frame is ever read back (only GRID*GRID floats per frame).
+// Block luma averages are computed on the GPU so no full frame is ever read back.
 const GRID = 32;
 const DIM = GRID * GRID;
 const TAPS = 8; // bilinear taps per block axis; approximates a box filter
 
-// Distance between fingerprints is the fraction of meaningfully changed
-// blocks: per-block deltas below the deadzone count as encoder noise, deltas
-// past saturation as a fully changed block, ramping linearly in between. A
-// block-wise measure keeps small local changes (a new line of text in a
-// screen recording) from being averaged away by an otherwise static frame.
+// Distance = fraction of changed blocks: deltas under the deadzone are encoder noise, past
+// saturation a full change. Block-wise so a small local change isn't averaged away.
 const DEADZONE = 0.02;
 const SATURATION = 0.1;
 
-// A sample joins the result only when it differs from the last kept frame
-// (novelty) by at least about two blocks; static footage collapses to one frame.
+// Keep a sample only when it differs from the last kept one by about two blocks.
 const THRESHOLD = 2 / DIM;
 
-// Adjacent samples farther apart than this mean the scene is mid-transition;
-// grabbing waits until it settles so frames are sharp and fully drawn instead
-// of caught inside a scroll, pan, or animation.
+// Adjacent samples farther apart than this are mid-transition; wait for it to settle so frames are sharp.
 const MOTION_EPS = 2 / DIM;
 
-// Footage that never settles (talking head, handheld) still yields a frame
-// per run of this many seconds: the calmest, least motion-blurred sample.
+// Footage that never settles still yields its calmest sample per run of this many seconds.
 const MAX_UNSETTLED = 4;
 
 const fingerprintLayout = tgpu.bindGroupLayout({
@@ -65,14 +57,7 @@ const fingerprintFn = tgpu.computeFn({
   fingerprintLayout.$.blocks[input.id.y * GRID + input.id.x] = sum / (TAPS * TAPS);
 });
 
-/**
- * Scans the track at 2fps within [from, to] (track time) and picks up to
- * `max` timestamps covering the footage's distinct visual states. A frame is
- * kept when the footage settles into a state that differs meaningfully from
- * the last kept frame; grabbing waits out transitions, so picks land on
- * sharp, at-rest frames rather than mid-motion. Static footage collapses to
- * a single frame. Timestamps come back in presentation order.
- */
+/** Timestamps come back in presentation order. */
 export async function pickInformativeTimes(
   track: InputVideoTrack,
   opts: { from: number; to: number; max: number },
@@ -117,25 +102,22 @@ export async function pickInformativeTimes(
       prev = print;
 
       if (motion <= MOTION_EPS) {
-        // At rest: grab if the footage has drifted to a new state.
         calmest = undefined;
         const novelty = lastKept ? distance(print, lastKept) : Infinity;
         if (novelty >= THRESHOLD) keep(time, print, novelty);
       } else {
-        // Mid-transition: never grab here. Track the calmest sample so a run
-        // that never settles still yields its least blurred frame.
+        // Never grab mid-transition; track the calmest sample in case the run never settles.
         if (!calmest) runStart = time;
         if (!calmest || motion < calmest.motion) calmest = { time, print, motion };
         if (time - runStart >= MAX_UNSETTLED) {
           const novelty = lastKept ? distance(calmest.print, lastKept) : Infinity;
           if (novelty >= THRESHOLD) keep(calmest.time, calmest.print, novelty);
-          calmest = undefined; // start a new run window
+          calmest = undefined;
         }
       }
     }
     assert(kept.length, "No frames could be decoded for auto frame selection.");
 
-    // Over budget: drop the most marginal state changes, then restore order.
     return kept
       .sort((a, b) => b.novelty - a.novelty)
       .slice(0, opts.max)
@@ -173,7 +155,6 @@ async function createFingerprinter() {
   };
 }
 
-// Fraction of blocks whose luma moved meaningfully between two fingerprints.
 function distance(a: Float32Array, b: Float32Array): number {
   let sum = 0;
   for (let i = 0; i < DIM; i++) {

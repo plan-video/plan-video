@@ -2,14 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/**
- * Asking again for a generation that failed. A failed generation stands in
- * the library as a partial document in error, and a declaration whose key
- * stands there resolves to the failure rather than to another run — in
- * this session and the next. Removing the record is what asks again; this
- * is that removal, plus making the elements still waiting on the answer ask
- * right away rather than on the next mount.
- */
+// A failed generation stays in the library as a partial in error, and its key resolves to that failure
+// this session and the next; removing the record is what asks again.
 
 import { isAssetRef } from '@plan.video/jsx';
 import { authoredElement } from '@plan.video/reconciler';
@@ -20,7 +14,6 @@ import {
 import type { AssetLibrary, PartialAsset } from '@plan.video/assets';
 import type { World } from 'koota';
 
-/** Forgets the failure `partial` records and re-asks for every failed source. */
 export async function retryGeneration(world: World, library: AssetLibrary, partial: PartialAsset): Promise<void> {
 	await library.remove([partial]);
 

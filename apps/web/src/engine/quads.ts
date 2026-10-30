@@ -5,11 +5,8 @@
 import type { Quad } from '@plan.video/runtime';
 
 /**
- * Whether two quads share any area. Both are transformed rects, so convex:
- * they overlap unless one of their edges' normals separates them. Unlike the
- * runtime's corner check (`quadsIntersect`), this also catches two that cross
- * without either holding a corner of the other, such as a thin marquee drawn
- * across a scene.
+ * Separating-axis test for two convex quads. Unlike the runtime's corner check (`quadsIntersect`),
+ * this catches two that cross without either holding a corner of the other (a thin marquee).
  */
 export function quadsOverlap(a: Quad, b: Quad): boolean {
 	for (const quad of [a, b]) {

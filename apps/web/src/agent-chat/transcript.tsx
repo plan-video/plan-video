@@ -2,10 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The messages, top-anchored like a document and pinned to the bottom once
-// they overflow: the end of the streaming text stays right above the
-// composer, a wheel-up lets go, scrolling back near the bottom pins again.
-
 import { For, Show, createEffect, createSignal, on } from "solid-js";
 
 import type { Item } from "@plan.video/agent-chat";
@@ -20,7 +16,6 @@ type TranscriptProps = {
   sendCount: number;
   /** Changes with the chat, so a newly opened one starts at its end. */
   chatKey: string;
-  /** A turn is running: the last item is where the agent is right now. */
   running: boolean;
   /** The turn is paused on a question: the card below is the affordance, not a loader. */
   waiting: boolean;
@@ -34,7 +29,6 @@ export function Transcript(props: TranscriptProps) {
   const last = () => props.items[props.items.length - 1];
 
   const pin = () => {
-    // A chat opens at its end, with no scroll to watch
     const element = scrollEl();
     if (!element) return;
     element.scrollTop = element.scrollHeight;

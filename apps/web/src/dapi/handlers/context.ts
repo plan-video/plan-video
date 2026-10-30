@@ -9,14 +9,7 @@ import type { Entity, World } from "koota";
 import type { GenerationRow } from "@plan.video/dapi";
 import type { ToolHandler } from "../handler";
 
-/**
- * What the project's source cannot say. The JSX is the composition — its
- * scenes, what is selected, which scene is active, the work area are all in
- * the file, and a caller that wants them reads it. What is left over is which
- * folder new projects go in, which project folder the app has open, where its
- * playhead sits, which font families are actually registered in the world
- * drawing it. With no project open only the root is left to report.
- */
+/** Only what the project's source cannot say; callers read the JSX for the rest. */
 export const context: ToolHandler<"context"> = async (_, ctx) => {
   const rootDir = await getProjectsRoot();
 

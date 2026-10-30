@@ -15,7 +15,6 @@ const DELTA_MODE_SCALE = [1, 16, 600];
 /** Cap a single wheel notch so a coarse mouse wheel doesn't jump zoom levels. */
 const MAX_ZOOM_DELTA = 50;
 
-/** Wheel pixels → zoom exponent. Higher = faster ctrl/pinch zoom. */
 const ZOOM_SENSITIVITY = 0.01;
 
 const LEFT_BUTTON = 0;
@@ -47,7 +46,7 @@ export function CameraController(): JSX.Element {
 
 
 
-	/** Pointer position in canvas CSS pixels. */
+	/** In canvas CSS pixels. */
 	const localPoint = (event: { clientX: number; clientY: number }): [x: number, y: number] => {
 		const rect = canvas()?.getBoundingClientRect();
 		if (!rect) return [0, 0];
@@ -66,8 +65,7 @@ export function CameraController(): JSX.Element {
 	};
 
 	const handleWheel = (event: WheelEvent): void => {
-		// The page must not scroll and the browser must not run its own
-		// ctrl-wheel page zoom while the cursor is over the stage.
+		// Stop page scroll and the browser's own ctrl-wheel page zoom over the stage.
 		event.preventDefault();
 
 		const scale = DELTA_MODE_SCALE[event.deltaMode] ?? 1;
@@ -103,8 +101,7 @@ export function CameraController(): JSX.Element {
 	const handlePointerMove = (event: PointerEvent): void => {
 		if (!panning || event.pointerId !== panPointerId) return;
 
-		// Absolute offset from the drag origin rather than per-move deltas, so
-		// a long drag can't accumulate rounding error.
+		// Absolute offset from the drag origin, so a long drag can't accumulate rounding error.
 		const [x, y] = localPoint(event);
 		setCamera(world, { e: startE + (x - startX), f: startF + (y - startY) });
 		editor.reportEdit(world.get(Root)!, 'camera', getCameraMatrix(world));

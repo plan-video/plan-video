@@ -11,13 +11,12 @@ import { HistoryMenu } from "./history-menu";
 
 type HeaderActionsProps = {
   projectId: string;
-  /** The chat the panel shows; null for the empty draft. */
+  /** Null for the empty draft. */
   chatId: string | null;
   onNewChat(): void;
   onOpenChat(chatId: string): void;
 };
 
-/** History (Chat history) and plus (New chat), at the right of the header. */
 export function HeaderActions(props: HeaderActionsProps) {
   return (
     <div class="ml-auto flex items-center gap-1 relative z-30" style="-webkit-app-region: no-drag;">

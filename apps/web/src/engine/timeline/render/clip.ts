@@ -32,12 +32,7 @@ import type { ClipStyle } from '../style';
 import type { RowCursor } from '../layout';
 import type { TimelineSurfaceState } from '../surface';
 
-/**
- * One clip: its body, what it holds, its label and its border, plus the
- * selection gestures that belong to its rectangle. The context is already
- * translated to the top of the row it is in, so everything here is drawn from
- * y = 0 and the row's own height.
- */
+/** The context is already translated to the row's top, so everything is drawn from y = 0. */
 export function renderClip(
 	world: World,
 	scene: Entity,
@@ -54,8 +49,7 @@ export function renderClip(
 	let left = framesToPixels(computed.start[entity.id()] ?? 0, resolution);
 	const width = framesToPixels(computed.end[entity.id()] ?? 0, resolution) - left;
 
-	// Every region of this clip is scoped to it, so two clips at the same
-	// place on two rows are told apart by the pointer.
+	// Scoped per clip so two clips at the same place on two rows are told apart.
 	pointer.scope(String(entity.id()));
 	markClip(surface, entity, left, width, row);
 
@@ -70,8 +64,6 @@ export function renderClip(
 
 	handleBody(world, surface, entity, left, width, row, resolution);
 
-	// A drag that has just moved the clip has moved where it is drawn, so the
-	// left edge is read again; the width does not change with it.
 	if (entity.has(ClipDragOrigin)) {
 		left = framesToPixels(computed.start[entity.id()] ?? 0, resolution);
 	}
@@ -88,7 +80,6 @@ export function renderClip(
 	}
 
 
-	// Render the label
 	{
 		let label = entity.get(Name)?.value ?? '';
 
@@ -113,19 +104,15 @@ export function renderClip(
 
 		const fitted = truncateText(ctx, label, maxWidth, CLIP_FONT);
 		if (fitted) {
-			// Tall enough for the label to sit at the top of the clip; below that
-			// there is only the middle.
 			ctx.fillText(fitted, CLIP_LABEL_X, row.height >= CLIP_BREAKPOINTS.xs ? CLIP_LABEL_Y : row.height / 2);
 		}
 
 		ctx.restore();
 	}
 
-	// Last, so it sits over whatever the clip drew inside itself.
+	// Drawn last so it sits over the clip's content.
 	const selected = entity.has(Selected);
 
-	// Clipped to the body, so half the line shows: a 1px edge in the clip's
-	// own colour, or a 1.5px ring once it is selected.
 	ctx.save();
 	ctx.beginPath();
 	ctx.roundRect(left, 0, width, row.height, CLIP_CORNER_RADIUS);
@@ -140,7 +127,6 @@ export function renderClip(
 	handleTrim(world, surface, entity, left, width, row, resolution);
 }
 
-/** Notes where the clip is on the canvas, for a right click or a drop to find it. */
 function markClip(surface: TimelineSurfaceState, entity: Entity, left: number, width: number, row: RowCursor): void {
 	const dpr = window.devicePixelRatio;
 	const matrix = surface.ctx!.getTransform();
@@ -155,17 +141,12 @@ function markClip(surface: TimelineSurfaceState, entity: Entity, left: number, w
 	});
 }
 
-/** The last clip drawn under a point of the canvas, in CSS pixels, if any. */
 export function findClipAt(surface: TimelineSurfaceState, x: number, y: number): Entity | null {
 	if (y < RULER_HEIGHT) return null;
 	const mark = surface.clips.findLast((mark) => x >= mark.left && x < mark.right && y >= mark.top && y < mark.bottom);
 	return mark?.clip ?? null;
 }
 
-/**
- * A clip a file is being dragged onto with Option held: filled with the
- * selection's blue and saying what letting go will do.
- */
 function renderReplaceDrop(surface: TimelineSurfaceState, left: number, width: number, row: RowCursor): void {
 	const ctx = surface.ctx!;
 	ctx.save();
@@ -186,10 +167,8 @@ function renderReplaceDrop(surface: TimelineSurfaceState, left: number, width: n
 }
 
 /**
- * The handles at either end of the clip. They sit inside its edges rather
- * than straddling them, so a clip is always grabbable in the middle however
- * narrow it is — a third of the clip at most, and never more than half, or a
- * short clip would be nothing but handles.
+ * Handles sit inside the edges, a third of the clip at most, so even a narrow clip stays
+ * grabbable in the middle.
  */
 function handleTrim(
 	world: World,
@@ -200,9 +179,7 @@ function handleTrim(
 	row: RowCursor,
 	resolution: number,
 ): void {
-	// A container that takes its bounds from its children has no edge of its
-	// own to take hold of — moving one would be moving a child. One that
-	// authors its own end does, and is trimmed like any other clip.
+	// A container sized by its children has no edge of its own; moving one would move a child.
 	if (fitsChildren(entity)) return;
 
 	const pointer = surface.pointer!;
@@ -211,7 +188,6 @@ function handleTrim(
 	const inHandle = pointer.region(left, 0, handle, row.height);
 	const outHandle = pointer.region(left + width - handle, 0, handle, row.height);
 
-	// The cursor points into the clip, at the frames the handle would take.
 	if (inHandle.hovering || inHandle.dragging) surface.cursor = 'trim-right';
 	else if (outHandle.hovering || outHandle.dragging) surface.cursor = 'trim-left';
 
@@ -223,11 +199,6 @@ function handleTrim(
 	applyTrim(world, surface, entity, edge, resolution);
 }
 
-/**
- * What the clip holds, drawn inside it: what a group has in it, the picture
- * of a still, the audio of a sound, the words of a caption. Each is clipped
- * to the clip's own body by the border that is drawn over it afterwards.
- */
 function renderContent(
 	world: World,
 	scene: Entity,
@@ -242,7 +213,6 @@ function renderContent(
 		return;
 	}
 
-	// Too short a row to hold anything but its label.
 	const tall = row.height > CLIP_BREAKPOINTS.sm;
 
 	switch (asset?.type) {
@@ -261,24 +231,12 @@ function renderContent(
 			return;
 
 		case 'VIDEO':
-			// A video shows both: its picture along the top of the row, its
-			// sound along the bottom. Which of the two the row has room for is
-			// the strip's own to work out.
 			renderVideoThumbnails(world, scene, surface, entity, asset, row, style.primary ?? style.foreground);
 			return;
 	}
 }
 
-/**
- * What the clip's body means: a click selects it, a drag moves it, and while
- * a marquee is out, being under it does the selecting. One region for all
- * three, since they are all the same rectangle — asking twice would make the
- * pointer think there were two of them.
- *
- * Selection is a document property, so it goes through the editor like every
- * other change: a click in the timeline ends up in the file the same way a
- * click on the canvas does.
- */
+/** Click, drag and marquee share one region: asking twice would look like two clips to the pointer. */
 function handleBody(
 	world: World,
 	surface: TimelineSurfaceState,
@@ -294,11 +252,8 @@ function handleBody(
 	const { pressed, clicked, dragging, intersectsMarquee } = pointer.region(left, 0, width, row.height);
 	const selected = entity.has(Selected);
 
-	// The press decides the selection, before it knows whether it is a click
-	// or a drag: an unselected clip is selected (alone, or added with Shift or
-	// Cmd held) so a drag takes it along. A selected one waits for the
-	// release — a drag of it moves everything selected, a click makes it the
-	// only one selected, or with Shift or Cmd takes it out.
+	// Selection is decided on press so a drag takes the clip along; an already selected clip waits
+	// for release (drag moves the whole selection, click selects only it, Shift/Cmd removes it).
 	if (pressed && !surface.marquee) {
 		if (selected) {
 			surface.press = { clip: entity, onClick: pointer.extending ? 'deselect' : 'select' };
@@ -308,9 +263,6 @@ function handleBody(
 		}
 	}
 
-	// A press that travels starts a move. The press selected the clip first,
-	// so a drag of an unselected clip moves that one and a drag of a selected
-	// one moves everything selected (see `updateDragGestures`).
 	if (dragging && !entity.has(ClipDragOrigin) && !entity.has(TrimDragOrigin)) {
 		beginClipDrag(world, entity);
 	}
@@ -318,11 +270,8 @@ function handleBody(
 		applyClipDrag(world, surface, entity, resolution);
 	}
 
-	// While a marquee is out, the clips it covers are the selection: entering
-	// it selects and leaving it deselects, so dragging back the way you came
-	// undoes what the drag did.
-	// A marquee opened with Shift or Cmd held adds to what was already
-	// selected, so only the clips it took can be given back.
+	// Under a marquee, entering selects and leaving deselects, so dragging back undoes it.
+	// With Shift/Cmd it only gives back the clips it took.
 	if (surface.marquee) {
 		if (intersectsMarquee && !selected) editor.select(entity, { extend: true });
 		if (!intersectsMarquee && selected && !surface.marqueeBase?.has(entity)) editor.deselect(entity);
@@ -331,8 +280,7 @@ function handleBody(
 
 	if (!clicked) return;
 
-	// A click quicker than a frame is let go before its press is drawn, and
-	// has the whole say here instead.
+	// A click quicker than a frame is released before its press is drawn, so it is handled here.
 	const onClick = surface.press?.clip === entity
 		? surface.press.onClick
 		: pointer.extending ? (selected ? 'deselect' : 'extend') : 'select';
@@ -360,7 +308,6 @@ const CAPTION_PRESETS: Record<CaptionType, string> = {
 };
 
 
-/** Whether a clip is drawn faded: hidden nodes still take up their row. */
 export function getClipAlpha(entity: Entity): number {
 	return entity.has(Hidden) ? 0.5 : 1;
 }

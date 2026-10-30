@@ -45,7 +45,7 @@ import type { TransformWrite } from './input/interactions';
 import type { Mat2D } from '@plan.video/runtime';
 import type { Entity, World } from 'koota';
 
-/** The node kinds a group holds; a mask belongs to its target, not the group. */
+/** A mask belongs to its target, not the group. */
 const NODES = Or(Geometry, Group, AdjustmentLayer);
 
 const EPSILON = 1e-6;
@@ -53,7 +53,6 @@ const EPSILON = 1e-6;
 const round2 = (value: number): number => Math.round(value * 100) / 100;
 const round4 = (value: number): number => Math.round(value * 10000) / 10000;
 
-/** Whether `mat` is close enough to the identity for a bake to write nothing. */
 function isIdentity(mat: Mat2D): boolean {
 	return Math.abs(mat.a - 1) < EPSILON && Math.abs(mat.b) < EPSILON
 		&& Math.abs(mat.c) < EPSILON && Math.abs(mat.d - 1) < EPSILON
@@ -61,12 +60,8 @@ function isIdentity(mat: Mat2D): boolean {
 }
 
 /**
- * Puts the selection into a new group where it stands. The group is authored
- * with no transform of its own, so the members keep the coordinates they had
- * and nothing moves; its box is derived from theirs (see `computeGroupBounds`),
- * so there is no size to author either. Only the members sharing the first
- * one's parent go in — a wrap has one place to put things (see `wrap`). The
- * selection moves to the group.
+ * The group has no transform and its box comes from the members, so nothing
+ * moves. Only members sharing the first one's parent go in.
  */
 export function groupSelection(world: World): void {
 	const editor = getDocumentEditor(world);
@@ -78,13 +73,8 @@ export function groupSelection(world: World): void {
 }
 
 /**
- * Puts the selection into a new sequence where it stands, the wrap `split`
- * makes for a cut clip's halves. A sequence has no space or time of its own,
- * so the members keep both their position and their start; what it does have
- * is the rule that its children cannot overlap in time, so members that did
- * are settled the way a sequence that has just been made is always settled —
- * the earlier clip keeps what it has and the later one gives way (see
- * `resolveNewSequenceOverlaps`). The selection moves to the sequence.
+ * A sequence has no space or time of its own, but its children cannot overlap
+ * in time: the earlier clip keeps its span and the later one gives way.
  */
 export function wrapSelectionInSequence(world: World): void {
 	const editor = getDocumentEditor(world);
@@ -98,35 +88,22 @@ export function wrapSelectionInSequence(world: World): void {
 	editor.select(sequence);
 }
 
-/** The children of `entity` that are nodes of the container, in file order. */
 function nodeChildren(world: World, entity: Entity): Entity[] {
 	return getEntityChildren(world, entity).filter(
 		(child) => (child.has(Geometry) || child.has(Group) || child.has(AdjustmentLayer)) && !child.has(IsMask),
 	);
 }
 
-/**
- * The nodes under `entity` that hold a place of their own: the entity itself,
- * unless it is a sequence — a sequence mirrors its parent's space and cannot
- * author a position, so its node children (in the same space, the sequence
- * being passthrough) are the ones with a box to measure and an `x` to shift.
- */
+/** A sequence cannot author a position, so its node children are measured and shifted instead. */
 function spatialLeaves(world: World, entity: Entity): Entity[] {
 	if (!entity.has(Sequential)) return [entity];
 	return nodeChildren(world, entity).flatMap((child) => spatialLeaves(world, child));
 }
 
 /**
- * Puts the selection into a new scene. Unlike a group or a sequence, a scene
- * has a place and a size of its own, so it is authored around the members —
- * their box in the parent's space, edges rounded outward so the scene's clip
- * crops nothing — and the members move into it shifted by exactly the
- * scene's corner, so nothing moves on the canvas (the scene's own transform
- * is a pure translation: it has no rotation or scale to author). Members
- * that cannot hold a position (a sequence's are measured and shifted through
- * it; anything else without one is left be, like a nudge leaves it) ride
- * along unshifted. No fill is authored, so the picture behind the members
- * stays whatever it was. The selection moves to the scene.
+ * The scene is authored around the members (edges rounded outward so its clip
+ * crops nothing) and members shift by its corner, so nothing moves on the
+ * canvas. Members that cannot hold a position ride along unshifted.
  */
 export function wrapSelectionInScene(world: World): void {
 	const editor = getDocumentEditor(world);
@@ -137,8 +114,6 @@ export function wrapSelectionInScene(world: World): void {
 	const parent = getParentEntity(first);
 	if (!parent) return;
 
-	// The same members `wrap` will take: the selected among the first one's
-	// parent's children.
 	const members = getEntityChildren(world, parent).filter((entity) => selected.has(entity));
 	const measured = members.flatMap((member) => spatialLeaves(world, member));
 	if (!measured.length) return;
@@ -152,8 +127,7 @@ export function wrapSelectionInScene(world: World): void {
 	for (const entity of measured) {
 		const eid = entity.id();
 		computeLocalMatrix(world, entity);
-		// The box the way computeWorldBounds frames it: the origin folded into
-		// the matrix, so a group's children-derived rect sits where it is drawn.
+		// Origin folded into the matrix, as computeWorldBounds frames it.
 		const bounds = aabbFromTransformedRect(
 			multiply2D(entityLocalMat(world, entity), translate2D(computed.originX[eid] ?? 0, computed.originY[eid] ?? 0)),
 			computed.width[eid] ?? 0,
@@ -190,43 +164,26 @@ export function wrapSelectionInScene(world: World): void {
 	editor.select(scene);
 }
 
-/**
- * How far the group's own timeline sits from its parent's, in frames: what
- * has to be added to a child's authored times for it to play at the same
- * moment once the group is gone. Zero for any group that was never slid
- * along the timeline.
- */
+/** Frames to add to a child's times so it plays at the same moment once the group is gone. */
 function timelineShift(world: World, group: Entity): number {
 	return (store(world, Computed).origin[group.id()] ?? 0) - getTimelineOrigin(group);
 }
 
 /**
- * Dissolves every selected container, whatever its kind: groups, sequences
- * (a sequence is a group without spatial identity of its own; see the
- * Sequential observer) and scenes. The one bake covers all of them — a
- * sequence's transform is the identity and writes nothing, a scene's is the
- * pure translation its `x`/`y` spell.
+ * One bake covers every container kind: a sequence's transform is the
+ * identity and writes nothing, a scene's is a pure translation.
  */
 export function ungroupSelection(world: World): void {
 	dissolveContainers(world, [...world.query(Selected, Or(Group, Scene))]);
 }
 
-/** Dissolves only the selected sequences, the inverse of the wrap above. */
 export function unwrapSequenceSelection(world: World): void {
 	dissolveContainers(world, [...world.query(Selected, Sequential)]);
 }
 
 /**
- * Dissolves each container: the children move out into the container's
- * parent, in front of where it stood and in the order they were in, and the
- * container goes away. Whatever transform it had is baked into each child
- * first — composed onto the child's local matrix and decomposed back into
- * `x`/`y`/`rotation`/`scale`, the way `resizeNode` spells a scaled child —
- * so the canvas shows the same picture without it. A shear the bake produces
- * (a rotated child in a non-uniformly scaled group) is written as
- * `skewX`/`skewY`, as the resize gesture writes one. A container
- * slid along the timeline hands its offset to the children's times the same
- * way. The selection moves to the released children.
+ * The container's transform is baked into each child (a shear as skewX/skewY)
+ * and its time offset into their times, so the picture stays the same.
  */
 function dissolveContainers(world: World, containers: Entity[]): void {
 	if (!containers.length) return;
@@ -239,8 +196,7 @@ function dissolveContainers(world: World, containers: Entity[]): void {
 		const parent = getParentEntity(group);
 		if (!parent) continue;
 
-		// The group's transform as drawn right now, motion included — rebuilt
-		// rather than read, since an adjustment layer composes itself into the
+		// Rebuilt rather than read: an adjustment layer composes itself into the
 		// stored matrix of the clip below it.
 		computeLocalMatrix(world, group);
 		const groupLocal = entityLocalMat(world, group);
@@ -251,9 +207,7 @@ function dissolveContainers(world: World, containers: Entity[]): void {
 			if (!editor.reparent(child, parent, group)) continue;
 			released.push(child);
 
-			// A sequence among the children can hold neither the position nor
-			// the start the bake writes; what its contents mean is written to
-			// them instead, in the same space the sequence passes through.
+			// A sequence cannot hold the position or start; its contents take the bake instead.
 			for (const leaf of spatialLeaves(world, child)) {
 				bakeContainerInto(world, editor, leaf, bake ? groupLocal : null, shift);
 			}
@@ -265,11 +219,7 @@ function dissolveContainers(world: World, containers: Entity[]): void {
 	if (released.length) editor.select(released);
 }
 
-/**
- * Writes what a dissolved container leaves behind onto one released node:
- * `containerLocal` (null for the identity) composed onto the node's local
- * matrix and spelled back as props, and `shift` added to its times.
- */
+/** `containerLocal` is null for the identity. */
 function bakeContainerInto(
 	world: World,
 	editor: DocumentEditor,
@@ -287,9 +237,8 @@ function bakeContainerInto(
 		const pivotX = anchor.x * (computed.width[cid] ?? 0);
 		const pivotY = anchor.y * (computed.height[cid] ?? 0);
 
-		// The pivot folded in before decomposing, as `resizeNode` folds
-		// it: the translation that comes out is position + pivot, clear
-		// of the (I - L)·pivot term the local matrix wraps around it.
+		// Pivot folded in before decomposing, as `resizeNode` does, to clear the
+		// (I - L)·pivot term the local matrix wraps around it.
 		const composed = multiply2D(
 			multiply2D(containerLocal, entityLocalMat(world, child)),
 			translate2D(pivotX, pivotY),
@@ -306,13 +255,10 @@ function bakeContainerInto(
 		if (rotation !== round2(computed.rotation[cid] ?? 0)) writes.push(['rotation', rotation]);
 		if (writes.length) editTransform(world, editor, child, writes);
 
-		// The decomposed scale carries the flip the local matrix folded
-		// in; divided back out, since the trait keeps holding it.
+		// The decomposed scale carries the flip; divide it out since the trait keeps holding it.
 		const scaleX = round4(decomposed.scaleX / (flip.x[cid] ?? 1));
 		const scaleY = round4(decomposed.scaleY / (flip.y[cid] ?? 1));
 		if (scaleX !== round4(computed.scaleX[cid] ?? 1) || scaleY !== round4(computed.scaleY[cid] ?? 1)) {
-			// The scale-row's spelling: one uniform `scale`, or the two axes
-			// with whichever of the two forms it replaces unset.
 			if (Math.abs(scaleX - scaleY) < EPSILON) {
 				editor.editProperty(child, 'scaleX', false);
 				editor.editProperty(child, 'scaleY', false);

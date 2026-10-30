@@ -20,17 +20,14 @@ import type { Entity, World } from 'koota';
 
 export const KILLFEED_NAME = 'Killfeed';
 
-/** Height of an entry, at unit 1. */
 const ENTRY_HEIGHT = 64;
-/** Space kept to the frame's edges and between stacked entries, at unit 1. */
 const MARGIN = 40;
 const TOP = 240;
 const STACK_GAP = 8;
 
-/** How a new entry sits with the ones already up. `bottomLeft` is the Call of Duty feed. */
+// `bottomLeft` is the Call of Duty feed.
 export type KillfeedLayout = "stacked" | "valorant" | "bottomLeft";
 
-/** How a new entry comes in and leaves. */
 export type KillfeedAnimation = "none" | "slide" | "fade";
 
 export interface KillfeedPlacement {
@@ -43,11 +40,7 @@ export const DEFAULT_PLACEMENT: KillfeedPlacement = {
 	animation: "slide",
 };
 
-/**
- * What a killfeed drag carries: the feed's entries, top to bottom, how they
- * should land, and the seconds between one coming in and the next. A drag
- * from before feeds held one entry as `spec`.
- */
+// Older drags carry a single entry as `spec`.
 export interface KillfeedDrag<T = KillfeedSpec> {
 	specs: T[];
 	placement: KillfeedPlacement;
@@ -71,32 +64,22 @@ export function parseKillfeedDrag(raw: string): KillfeedDrag {
 }
 
 export interface InsertKillfeedOptions {
-	/** The scene to put it on; the active one by default. */
 	parent?: Entity;
-	/** Where its center goes, in the scene's space; top right, under the entries already up, by default. */
 	center?: { x: number; y: number };
-	/** How it stacks and how it moves. The panel's current choice, by default. */
 	placement?: KillfeedPlacement;
-	/** Height of the placed entry at unit 1. Valorant entries are 64 tall. */
 	entryHeight?: number;
-	/** How far below the frame's top the first entry sits, at unit 1. */
 	top?: number;
-	/** How far above the frame's bottom the first entry sits, at unit 1. */
 	bottom?: number;
-	/** Entries with this name stack together. Defaults to Killfeed. */
 	stackName?: string;
-	/** Seconds from one entry coming in to the next, when several go in at once; 0 puts them up together. */
 	spacing?: number;
 }
 
-/** What a CS2 killfeed drag carries. */
 export type Cs2KillfeedDrag = KillfeedDrag<Cs2KillfeedSpec>;
 
 export function parseCs2KillfeedDrag(raw: string): Cs2KillfeedDrag {
 	return parseDrag(JSON.parse(raw) as RawDrag<Cs2KillfeedSpec>);
 }
 
-/** What a Call of Duty, PUBG or Rust killfeed drag carries: the game too. */
 export interface BarKillfeedDrag extends KillfeedDrag<BarSpec> {
 	id: string;
 }
@@ -106,21 +89,10 @@ export function parseBarKillfeedDrag(raw: string): BarKillfeedDrag {
 	return { id: data.id, ...parseDrag(data) };
 }
 
-/**
- * Draws the entry, keeps the picture in the library, and puts it on the scene
- * at the playhead for as long as one stays up in game, selected. Returns null
- * when there is no scene to put it on.
- */
 export async function insertKillfeed(world: World, spec: KillfeedSpec, options: InsertKillfeedOptions = {}): Promise<Entity | null> {
 	return (await insertKillfeeds(world, [spec], options))[0] ?? null;
 }
 
-/**
- * A feed of entries, top to bottom: each comes in `options.spacing` seconds
- * after the one before, from the playhead, stacked the way the layout stacks
- * them, all selected and taken back by one undo. Nothing when there is no
- * scene to put them on.
- */
 export async function insertKillfeeds(world: World, specs: KillfeedSpec[], options: InsertKillfeedOptions = {}): Promise<Entity[]> {
 	// Valorant's entry is drawn twice the height it is placed at.
 	const scale = (PICTURE_SCALE * ENTRY_HEIGHT) / KILLFEED_HEIGHT;
@@ -128,12 +100,10 @@ export async function insertKillfeeds(world: World, specs: KillfeedSpec[], optio
 	return commitKillfeeds(world, drawn.map((picture, index) => ({ drawn: picture, fileName: killfeedFileName(specs[index]!) })), options);
 }
 
-/** A Call of Duty, PUBG or Rust notice, at that game's size and corner. */
 export async function insertBarKillfeed(world: World, id: string, spec: BarSpec, options: InsertKillfeedOptions = {}): Promise<Entity | null> {
 	return (await insertBarKillfeeds(world, id, [spec], options))[0] ?? null;
 }
 
-/** A feed of Call of Duty, PUBG or Rust notices, as `insertKillfeeds` puts them. */
 export async function insertBarKillfeeds(world: World, id: string, specs: BarSpec[], options: InsertKillfeedOptions = {}): Promise<Entity[]> {
 	const game = barGame(id);
 	if (!game) return [];
@@ -149,12 +119,10 @@ export async function insertBarKillfeeds(world: World, id: string, specs: BarSpe
 	});
 }
 
-/** A Counter-Strike 2 notice, placed like the others but at the game's size and height. */
 export async function insertCs2Killfeed(world: World, spec: Cs2KillfeedSpec, options: InsertKillfeedOptions = {}): Promise<Entity | null> {
 	return (await insertCs2Killfeeds(world, [spec], options))[0] ?? null;
 }
 
-/** A feed of Counter-Strike 2 notices, as `insertKillfeeds` puts them. */
 export async function insertCs2Killfeeds(world: World, specs: Cs2KillfeedSpec[], options: InsertKillfeedOptions = {}): Promise<Entity[]> {
 	const drawn = await drawEvenFeed(specs, renderCs2Killfeed, USUAL_CS2_KILLFEED, PICTURE_SCALE, columnRatio(world, options, options.stackName ?? KILLFEED_NAME));
 	const pictures = drawn.map((picture, index) => ({ drawn: picture, fileName: cs2KillfeedFileName(specs[index]!) }));
@@ -167,11 +135,6 @@ export async function insertCs2Killfeeds(world: World, specs: Cs2KillfeedSpec[],
 
 type Box = { left: number; right: number; top: number; bottom: number };
 
-/**
- * How many times as wide as tall the entries of the stack already up at the
- * playhead are, so new ones come in at their size; none for a dropped feed,
- * which stacks only on itself.
- */
 function columnRatio(world: World, options: InsertKillfeedOptions, stackName: string): number | undefined {
 	if (options.center) return undefined;
 	const parent = options.parent ?? getActiveEntity(world);
@@ -180,13 +143,7 @@ function columnRatio(world: World, options: InsertKillfeedOptions, stackName: st
 	return stackColumn(world, parent, time, stackName)?.ratio || undefined;
 }
 
-/**
- * Keeps each picture in the library, then puts them all on the scene in one
- * go, so they are one step to undo. Each lands where the entry before it
- * would have sent it: under (or, in the bottom-left feed, over) the entries
- * of the same stack still up when it comes in, those already on the scene and
- * those put in just before it.
- */
+// All inserted in one go, so the whole feed is one undo step.
 async function commitKillfeeds(world: World, pictures: { drawn: HTMLCanvasElement; fileName: string }[], options: InsertKillfeedOptions): Promise<Entity[]> {
 	const parent = options.parent ?? getActiveEntity(world);
 	const library = world.get(Library);
@@ -220,8 +177,6 @@ async function commitKillfeeds(world: World, pictures: { drawn: HTMLCanvasElemen
 	const entities: Entity[] = [];
 
 	for (const [index, { drawn }] of pictures.entries()) {
-		// Every entry the same size: the pictures are drawn alike, so each is
-		// the game's height and as wide as they all are.
 		const height = Math.round((options.entryHeight ?? ENTRY_HEIGHT) * unit);
 		const width = Math.round((drawn.width * height) / drawn.height);
 		const slotWidth = width;
@@ -229,9 +184,7 @@ async function commitKillfeeds(world: World, pictures: { drawn: HTMLCanvasElemen
 		const start = first + index * spacing;
 		const end = start + KILLFEED_SECONDS;
 
-		// The entries put in just now aren't on the scene's clock yet, so
-		// those still up are added to the column by hand. A dropped feed
-		// stacks only on itself, from where its first entry landed.
+		// Entries put in just now aren't on the scene's clock yet, so the ones still up join the column by hand.
 		const dropped = options.center ? placed[0]?.box : undefined;
 		let stack: Box | null = options.center ? null : stackColumn(world, parent, start, stackName);
 		for (const entry of placed) {
@@ -245,7 +198,6 @@ async function commitKillfeeds(world: World, pictures: { drawn: HTMLCanvasElemen
 			x = options.center.x - width / 2;
 			y = options.center.y - height / 2;
 		} else if (dropped) {
-			// Lined up on the layout's edge, under (or over) the ones still up, else in the first one's place.
 			x = placement.layout === "valorant" ? (stack ?? dropped).right - width : (stack ?? dropped).left;
 			if (placement.layout === "bottomLeft") y = stack ? stack.top - height - STACK_GAP * unit : dropped.bottom - height;
 			else y = stack ? stack.bottom + STACK_GAP * unit : dropped.top;
@@ -291,7 +243,6 @@ const union = (a: Box, b: Box): Box => ({
 	bottom: Math.max(a.bottom, b.bottom),
 });
 
-/** The column of killfeeds named `stackName` showing at `time`, and how many times as wide as tall the widest of them is. */
 function stackColumn(world: World, scene: Entity, time: number, stackName: string): (Box & { ratio: number }) | null {
 	const computed = store(world, Computed);
 	const fps = world.get(FrameRate)?.value || 30;

@@ -8,11 +8,7 @@ import { getResolution, getScrollX } from '../view';
 import type { Entity, World } from 'koota';
 import type { TimelineSurfaceState } from '../surface';
 
-/**
- * The line a dragged edge has stuck to, down the full height of the rows.
- * Cleared as it is drawn: whatever is dragging says again next frame, and a
- * drag that has ended says nothing.
- */
+// Cleared as it is drawn: whatever is dragging says again next frame.
 export function renderSnapLine(world: World, scene: Entity, surface: TimelineSurfaceState): void {
 	const { ctx, canvas, snapX } = surface;
 	if (!ctx || !canvas || snapX === null) return;

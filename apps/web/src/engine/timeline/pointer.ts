@@ -188,19 +188,16 @@ export function createPointer(options: PointerOptions) {
     let pressing = hovering && position?.state == 'pressing';
     let pressed = hovering && position?.state == 'pressed';
 
-    // Track the region that was pressed down on
     if (pressed) {
       pressRegionID = lastMatch?.id ?? null;
     }
 
-    // Assign dragging state after a distance threshold has been passed
     let dragging = false;
     if (position?.state == 'pressing' && pressRegionID == regionData.id) {
       const distance = Math.sqrt(position.deltaX ** 2 + position.deltaY ** 2);
       dragging = distance >= cfg.CLICK_DISTANCE_THRESHOLD;
     }
 
-    // Only consider click if pointer hasn't moved beyond the distance threshold
     let clicked = false;
     if (position?.state == 'lifted') {
       const distance = Math.sqrt(position.deltaX ** 2 + position.deltaY ** 2);
@@ -219,13 +216,11 @@ export function createPointer(options: PointerOptions) {
 
     let intersectsMarquee = false;
     if (options.marquee) {
-      // Convert marquee selection from CSS pixels to canvas coordinates
       const marqueeMinX = options.marquee.x * window.devicePixelRatio;
       const marqueeMaxX = (options.marquee.x + options.marquee.width) * window.devicePixelRatio;
       const marqueeMinY = options.marquee.y * window.devicePixelRatio;
       const marqueeMaxY = (options.marquee.y + options.marquee.height) * window.devicePixelRatio;
 
-      // Check intersection: regions intersect if they overlap
       intersectsMarquee = !(
         regionData.maxX < marqueeMinX ||
         regionData.minX > marqueeMaxX ||
@@ -235,13 +230,13 @@ export function createPointer(options: PointerOptions) {
     }
 
     return {
-      hovering, // If the pointer is over the rect
-      clicked, // If the rect was clicked this frame
-      pressing, // If the pointer is pressing down on the rect this frame
-      pressed, // If the just started pressing down on the rect this frame
-      dragging, // If the pointer is dragging the rect this frame
-      doubleClicked, // If the rect was double clicked this frame
-      intersectsMarquee, // If the region intersects the marquee selection
+      hovering,
+      clicked,
+      pressing,
+      pressed,
+      dragging,
+      doubleClicked,
+      intersectsMarquee,
     };
   }
 
@@ -292,16 +287,13 @@ export function createPointer(options: PointerOptions) {
 }
 
 function transformRegionToCanvas(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) {
-  // Transform the region to canvas coordinates when storing it
   const transform = ctx.getTransform();
 
-  // Transform all four corners of the region to canvas coordinates
   const topLeft = transform.transformPoint(new DOMPoint(x, y));
   const topRight = transform.transformPoint(new DOMPoint(x + w, y));
   const bottomLeft = transform.transformPoint(new DOMPoint(x, y + h));
   const bottomRight = transform.transformPoint(new DOMPoint(x + w, y + h));
 
-  // Compute bounding box in canvas coordinates
   return {
     minX: Math.min(topLeft.x, topRight.x, bottomLeft.x, bottomRight.x),
     maxX: Math.max(topLeft.x, topRight.x, bottomLeft.x, bottomRight.x),

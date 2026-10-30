@@ -33,10 +33,9 @@ function kindOf(entity: Entity): string {
   }
 }
 
-// Whether the node itself puts pixels on screen. Containers don't (their
-// leaves do), adjustment layers and masks only shape what others draw, and a
-// scene's implicit background is exactly what a "black frame" looks like —
-// so none of those count as coverage.
+// Whether the node itself puts pixels on screen. Containers don't (their leaves do),
+// adjustment layers and masks only shape what others draw, and a scene's implicit
+// background is exactly what a "black frame" looks like.
 function drawsPixels(entity: Entity): boolean {
   return entity.has(Geometry)
     && !entity.has(Scene)
@@ -57,11 +56,8 @@ type WalkState = {
 };
 
 /**
- * One pass over the subtree: count, classify, surface per-node issues, and
- * collect the intervals where something actually draws. `window` is the
- * intersection of every ancestor's visible span — null once an ancestor is
- * hidden, transparent, or out of window, at which point nothing below can
- * contribute pixels (but still counts toward stats and per-node issues).
+ * `window` is the intersection of every ancestor's visible span: null once one is hidden,
+ * transparent or out of window, so nothing below adds pixels (but still counts toward stats).
  */
 function visit(entity: Entity, window: Interval | null, depth: number, state: WalkState): void {
   state.nodes += 1;
@@ -132,7 +128,6 @@ function visit(entity: Entity, window: Interval | null, depth: number, state: Wa
   for (const mask of cache?.masks ?? []) visit(mask, null, depth + 1, state);
 }
 
-/** The spans of `window` no coverage interval touches. */
 function findGaps(window: Interval, coverage: Interval[]): Interval[] {
   const sorted = [...coverage].sort((a, b) => a.start - b.start);
   const gaps: Interval[] = [];
@@ -154,9 +149,7 @@ export const check: ToolHandler<"check"> = async ({ id }, ctx) => {
 
     const computed = target.get(Computed)!;
 
-    // The span the node actually plays: its bounds, narrowed by a workarea
-    // when one is set (workarea frames count from the node's start, the way
-    // the encoder and playback read them).
+    // Workarea frames count from the node's start, the way the encoder and playback read them.
     let window: Interval = { start: computed.start, end: computed.end };
     const workarea = target.get(Workarea);
     if (workarea) {

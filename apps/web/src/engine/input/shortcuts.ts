@@ -56,7 +56,6 @@ type Shortcut = {
 	action: (world: World) => void;
 }
 
-/** The node kinds a shortcut selects, hides or seeks around. */
 const NODES = Or(Geometry, Group, AdjustmentLayer);
 
 export function undoEdit(world: World): void {
@@ -67,7 +66,6 @@ export function redoEdit(world: World): void {
 	getEditHistory(world).redo();
 }
 
-/** Deletes the caption words picked on the timeline, or else the selection. */
 export function deleteSelection(world: World): void {
 	if (removePickedCaptionWords(world)) return;
 	const selected = [...world.query(Selected)];
@@ -95,24 +93,12 @@ export function copySelection(world: World): void {
 	}
 }
 
-/**
- * Copy and delete in one, so the clipboard holds what the stage lost. Picked
- * caption words are cut as text.
- */
 export function cutSelection(world: World): void {
 	if (cutPickedCaptionWords(world)) return;
 	copySelection(world);
 	deleteSelection(world);
 }
 
-/**
- * Pastes where the selection points: into a selected container (a scene or
- * group, on top of its children), on top of a selected leaf in that leaf's
- * parent, or, with nothing selected, into the active scene (the stage when
- * there is none). The editor keeps a paste out of the sequence it was copied
- * from, and puts what was copied off the stage, such as whole scenes, back on
- * the stage beside what is in view.
- */
 export function pasteSelection(world: World): void {
 	if (pasteCaptionWords(world)) return;
 	const editor = getDocumentEditor(world);
@@ -137,14 +123,8 @@ export function pasteSelection(world: World): void {
 const NUDGE = 1;
 const NUDGE_FAST = 10;
 
-/**
- * Moves every selected node by `dx`, `dy` in its own parent's space, the same
- * `x`/`y` a drag writes, so a nudge is a drag of a known distance without the
- * snapping. Measured from where the node is drawn rather than from the prop,
- * and written to the position track as well as the prop, so nudging an
- * animated node moves it from where its keyframes put it (a drag does the
- * same; see `editTransform`).
- */
+// Reads the drawn position and writes the position track too, so an
+// animated node moves from where its keyframes put it (as `editTransform` does).
 export function nudgeSelection(world: World, dx: number, dy: number): void {
 	if (nudgeCaptionWords(world, dx, dy)) return;
 
@@ -164,28 +144,16 @@ export function nudgeSelection(world: World, dx: number, dy: number): void {
 
 const nudge = (dx: number, dy: number) => (world: World): void => nudgeSelection(world, dx, dy);
 
-/** How long space has to be held to read as a pan and not as a tap. */
 const SPACE_HAND_DELAY = 200;
 
-/**
- * The camera as it stood when space went down over the stage; null when
- * space is up, or when the press was one that cannot turn into a pan.
- */
+// Null when space is up, or when the press cannot turn into a pan.
 let spaceCamera: CameraMatrix | null = null;
 
-/**
- * The tool space borrowed the hand from, put back on release; null while
- * space does not hold the hand.
- */
 let spaceTool: ToolType | null = null;
 
-/**
- * When the space press went down, so a hold long enough to be a pan can be
- * told from a tap; null once the hand has taken over, or once space is up.
- */
+// Null once the hand has taken over, or once space is up.
 let spacePressedAt: number | null = null;
 
-/** Puts the hand in the toolbar for as long as space holds it. */
 function takeHandTool(world: World): void {
 	spacePressedAt = null;
 	if (spaceTool !== null) return;
@@ -193,7 +161,6 @@ function takeHandTool(world: World): void {
 	world.set(Tool, { value: ToolType.HAND });
 }
 
-/** Gives back whatever tool space borrowed the hand from. */
 function releaseHandTool(world: World): void {
 	spacePressedAt = null;
 	if (spaceTool === null) return;
@@ -201,11 +168,7 @@ function releaseHandTool(world: World): void {
 	spaceTool = null;
 }
 
-/**
- * Space: plays or pauses the active scene, or, with more than one scene
- * selected, all of them together. Any one of them playing pauses the lot, so
- * the next press starts them in step.
- */
+// Any selected scene playing pauses them all, so the next press starts them in step.
 function toggleActivePlayback(world: World): void {
 	const scenes = getSelection(world).filter((entity) => isScene(entity) && getParentNode(entity) === null && entity.has(Playback));
 
@@ -221,10 +184,6 @@ function toggleActivePlayback(world: World): void {
 	if (scene) togglePlayback(world, scene);
 }
 
-/**
- * J and L, the shuttle pair: each press runs the active scene faster the way
- * it is already going, or turns it around at 1x. K parks it.
- */
 const shuttle = (direction: 1 | -1) => (world: World): void => {
 	const scene = getActiveEntity(world);
 	if (scene) shuttlePlayback(world, scene, direction);
@@ -236,10 +195,8 @@ function stopActivePlayback(world: World): void {
 }
 
 function onSpacePressed(world: World): void {
-	// The hand waits out the delay wherever the pointer is; what the pointer
-	// decides is only when playback gets its toggle. Over the stage the press
-	// could still become a pan, so playback waits for a release that left the
-	// camera where it was; anywhere else it toggles here and now.
+	// Over the stage the press could still become a pan, so playback waits for a
+	// release that left the camera where it was.
 	spacePressedAt = world.get(Time)?.now ?? 0;
 
 	if (world.get(Pointer)?.over) {
@@ -259,13 +216,9 @@ function onSpaceLifted(world: World): void {
 	releaseHandTool(world);
 }
 
-/**
- * What space does by being held rather than by moving, which the tables
- * cannot express: the hand takes over once the press outlasts
- * `SPACE_HAND_DELAY`, and a hold the window loses focus mid-way through
- * never sees a release (`held` is cleared without a lift), so the borrowed
- * tool goes back on the first frame the key is no longer down.
- */
+// A hold the window loses focus during never sees a release (`held` is
+// cleared without a lift), so the borrowed tool goes back on the first frame
+// the key is no longer down.
 function updateSpaceHold(world: World, held: Set<string>): void {
 	if (!held.has(' ')) {
 		spaceCamera = null;
@@ -279,10 +232,7 @@ function updateSpaceHold(world: World, held: Set<string>): void {
 	}
 }
 
-/**
- * Picks a tool. While space holds the hand the pick is what the release
- * goes back to, so the hand keeps the stage until the key is up.
- */
+// While space holds the hand, the pick is what the release goes back to.
 const selectTool = (value: ToolType) => (world: World): void => {
 	if (value === ToolType.SCENE) setSidebarTab("templates");
 	if (spaceTool !== null) {
@@ -292,10 +242,6 @@ const selectTool = (value: ToolType) => (world: World): void => {
 	world.set(Tool, { value });
 };
 
-/**
- * Moves the active scene's playhead by `frames`, the same seek a scrub of the
- * ruler comes to. Nothing to seek without an active scene.
- */
 export function seekBy(world: World, frames: number): void {
 	const scene = getActiveEntity(world);
 	if (!scene) return;
@@ -308,15 +254,8 @@ const seekFrames = (frames: number) => (world: World): void => seekBy(world, fra
 const seekSeconds = (seconds: number) => (world: World): void =>
 	seekBy(world, Math.round(seconds * (world.get(FrameRate)?.value ?? 30)));
 
-/**
- * Parks the playhead on the selection's outer edge: the earliest frame any of
- * it starts on, or the frame just past the last of it to end. `end` is
- * exclusive everywhere else — the frame a following clip begins on, and the
- * one a cut at the boundary leaves the playhead on — so it is here too.
- *
- * The scene is the context the clips are edited in rather than a clip on it,
- * so having it selected is not an edge to jump to.
- */
+// `end` is exclusive, as everywhere else. A selected scene is the editing
+// context, not an edge to jump to.
 export function seekToSelectionEdge(world: World, edge: 'start' | 'end'): void {
 	const scene = getActiveEntity(world);
 	if (!scene) return;
@@ -332,12 +271,8 @@ export function seekToSelectionEdge(world: World, edge: 'start' | 'end'): void {
 const seekSelectionEdge = (edge: 'start' | 'end') => (world: World): void =>
 	seekToSelectionEdge(world, edge);
 
-/**
- * Parks the playhead at one end of the active scene. A work area is the
- * stretch that plays and exports, so while there is one its edges are the
- * ends: seeking past them would leave the playhead where playback cannot
- * pick up, and the next play would snap back in anyway.
- */
+// While there is a work area its edges are the ends: past them playback
+// cannot pick up and the next play would snap back in.
 export function seekToTimelineEdge(world: World, edge: 'start' | 'end'): void {
 	const scene = getActiveEntity(world);
 	if (!scene) return;
@@ -352,17 +287,12 @@ export function seekToTimelineEdge(world: World, edge: 'start' | 'end'): void {
 const seekTimelineEdge = (edge: 'start' | 'end') => (world: World): void =>
 	seekToTimelineEdge(world, edge);
 
-/** How much of the zoom a step takes, in or out. */
 const ZOOM_STEP = 1.25;
 
 const zoom = (factor: number) => (world: World): void => zoomBy(world, factor);
 
 const zoomActualSize = (world: World): void => zoomTo(world, 1);
 
-/**
- * Hides the selection, or brings it back once all of it is hidden — the same
- * property the eye in the layer list writes, one write per node.
- */
 export function toggleSelectionHidden(world: World): void {
 	const editor = getDocumentEditor(world);
 	const selected = [...world.query(Selected, NODES)];
@@ -372,13 +302,8 @@ export function toggleSelectionHidden(world: World): void {
 	for (const entity of selected) editor.editProperty(entity, 'hidden', hide);
 }
 
-/**
- * Sends the selection to the front or the back of its siblings. Which of two
- * nodes is drawn on top is which of them the file lists last, so a restack is
- * a move through the document rather than an index written to the node. A
- * selection spanning parents is restacked inside each of them, and the moved
- * nodes keep the order they had among themselves.
- */
+// Whichever node the file lists last is drawn on top, so a restack is a move
+// through the document. Moved nodes keep their order among themselves.
 export function restackSelection(world: World, target: 'front' | 'back'): void {
 	const editor = getDocumentEditor(world);
 	const selected = new Set([...world.query(Selected, NODES)]);
@@ -395,14 +320,10 @@ export function restackSelection(world: World, target: 'front' | 'back'): void {
 		const moving = siblings.filter(entity => selected.has(entity));
 
 		if (target === 'front') {
-			// Appended one after the other, each lands on top of the last, so
-			// the order they were in is the order they end up in.
 			for (const entity of moving) editor.reparent(entity, parent);
 			continue;
 		}
 
-		// All of them go before the backmost sibling that is staying put —
-		// the one node the whole block has to end up behind.
 		const anchor = siblings.find(entity => !selected.has(entity));
 		if (anchor === undefined) continue;
 		for (const entity of moving) editor.reparent(entity, parent, anchor);
@@ -413,10 +334,6 @@ const restack = (target: 'front' | 'back') => (world: World): void => restackSel
 
 const previewAt = (quality: number) => (world: World): void => setPreviewQuality(world, quality);
 
-/**
- * Selects everything the stage holds directly — the scenes and whatever else
- * sits loose on it, rather than what is inside them.
- */
 export function selectAll(world: World): void {
 	const root = world.get(Root);
 	if (!root) return;
@@ -425,11 +342,8 @@ export function selectAll(world: World): void {
 	if (entities.length) getDocumentEditor(world).select(entities);
 }
 
-/**
- * Selects what holds the selection. A sequence is a container the timeline
- * draws rather than a node the canvas selects, so the walk goes on through
- * it; a node the stage holds directly has nothing to go up to.
- */
+// A sequence is drawn by the timeline, not selected on the canvas, so the walk
+// goes on through it.
 export function selectParents(world: World): void {
 	const selected = [...world.query(Selected, NODES)];
 	if (!selected.length) return;
@@ -447,11 +361,6 @@ export function selectParents(world: World): void {
 	if (parents.size) getDocumentEditor(world).select([...parents]);
 }
 
-/**
- * Selects what the selection holds, one level down, sequences seen through
- * the same way `selectParents` sees through them. What is hidden or out of
- * range is not there to be stepped into.
- */
 export function selectChildren(world: World): void {
 	const selected = [...world.query(Selected, NODES)];
 	if (!selected.length) return;
@@ -470,7 +379,6 @@ export function selectChildren(world: World): void {
 	if (children.size) getDocumentEditor(world).select([...children]);
 }
 
-/** Drops the selection, and whatever tool was drawing with it. */
 function deselect(world: World): void {
 	getDocumentEditor(world).clearSelection();
 
@@ -540,18 +448,10 @@ const LIFTED_SHORTCUTS: readonly Shortcut[] = [
 	{ keys: [' '], action: onSpaceLifted },
 ];
 
-/**
- * Whether `moved` — the keys that went down, or up, this frame — spells the
- * shortcut: one of its keys has to be the one that moved, the rest have to
- * be held, and a '!' key has to be up. The key that moved is matched
- * against `moved` rather than `held` because a lift takes it out of `held`,
- * and a tap shorter than a frame is over before the frame runs.
- *
- * Only a non-modifier can be the trigger: ⌘Z means Z pressed under ⌘, not ⌘
- * pressed over a Z — and `held` can hold a stale letter, since macOS drops
- * the key-up of a key released while ⌘ is down, so a fresh ⌘ press must not
- * complete a shortcut on its own.
- */
+// The trigger is matched against `moved`, not `held`: a lift takes it out of
+// `held`, and a sub-frame tap is over before the frame runs. Only a
+// non-modifier can trigger, since macOS drops the key-up of a key released
+// while ⌘ is down, leaving a stale letter in `held`.
 function matches(shortcut: Shortcut, moved: Set<string>, held: Set<string>): boolean {
 	let triggered = false;
 
@@ -568,7 +468,6 @@ function matches(shortcut: Shortcut, moved: Set<string>, held: Set<string>): boo
 	return triggered;
 }
 
-/** On a frame with a fresh press or release, runs the shortcut it spells. */
 export function shortcutSystem(world: World): void {
 	const keys = world.get(Keys);
 	if (!keys) return;

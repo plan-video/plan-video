@@ -11,11 +11,8 @@ import type { Asset } from "@plan.video/assets";
 import type { ToolContext } from "../handler";
 
 /**
- * Resolves a tool target by path. With a project open, its library answers:
- * library paths look assets up, absolute paths and URLs are described in place
- * without being added (transient assets). With none open, a throwaway library
- * over a project-less FS describes absolute paths and URLs the same way — a
- * fresh one per request, so nothing is remembered between calls.
+ * Absolute paths and URLs are described without being added. With no project
+ * open, a fresh throwaway library per request, so nothing is remembered between calls.
  */
 export function resolveAsset(ctx: ToolContext, path: string): Promise<Asset> {
   const world = ctx.session()?.world;
@@ -29,7 +26,6 @@ export function resolveAsset(ctx: ToolContext, path: string): Promise<Asset> {
   return new AssetLibrary(createProjectFS("")).resolve(path);
 }
 
-/** Narrows the asset to one of `types`, or throws a `wrong-kind` error naming what was expected. */
 export function requireAssetType<T extends Asset["type"]>(
   asset: Asset,
   types: readonly T[],

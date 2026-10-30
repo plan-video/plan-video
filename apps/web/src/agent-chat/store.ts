@@ -2,11 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The chat state the UI renders, at module level so it outlives any page:
-// a Solid store fed by the host's snapshots and events through the shared
-// reducer. Deltas are batched per animation frame. Everything the host
-// owns (chats, transcripts, questions) is a view here; what is ours alone
-// is the draft per chat, which tab is up, and which chat each project shows.
+// Module-level so it outlives any page. Host-owned data (chats, transcripts, questions) is a view here;
+// only drafts, the open tab and each project's active chat are ours.
 
 import { batch, createRoot, createSignal } from "solid-js";
 import { createStore, produce } from "solid-js/store";
@@ -40,18 +37,15 @@ export type SidebarTab = "assets" | "workflows" | "text" | "transitions" | "effe
 
 export type Draft = { text: string; attachments: Attachment[] };
 
-/** The draft key for a chat that does not exist yet. */
 export const draftKey = (projectId: string, chatId: string | null): string => chatId ?? `new:${projectId}`;
 
 type State = {
   connection: ConnectionState;
   harnesses: HarnessInfo[];
-  /** Transcripts by chat id, for every chat opened this session. */
   chats: Record<string, Transcript>;
-  /** History by project id, newest first. */
+  // Newest first.
   lists: Record<string, ChatSummary[]>;
   drafts: Record<string, Draft>;
-  /** The user item shown while `turn.send` is in flight, by draft key. */
   sending: Record<string, Item | null>;
 };
 
@@ -70,8 +64,6 @@ const [state, setState] = createStore<State>({
 
 export { state as chatState };
 
-// --- settings that persist ---------------------------------------------
-
 const root = createRoot(() => {
   const [tab, setTab] = createSignal<SidebarTab>("assets");
   const [model, setModel] = createStoredSignal(settings.define<ModelRef | null>("agentChat.model", null));
@@ -79,18 +71,15 @@ const root = createRoot(() => {
   return { tab, setTab, model, setModel, active, setActive };
 });
 
-/** Which tab the left sidebar shows. Not remembered: every project opens on Assets. */
+// Not remembered: every project opens on Assets.
 export const sidebarTab = root.tab;
 export const setSidebarTab = root.setTab;
 
-/** The remembered model, whether or not its harness is currently ready. */
 export const storedModel = root.model;
 export const setStoredModel = root.setModel;
 
-/** Sentinel for "the empty draft chat" in the per-project active map. */
 const DRAFT = "";
 
-/** The chat a project's panel shows: the remembered one, else the newest, else a draft (null). */
 export function activeChatId(projectId: string): string | null {
   const remembered = root.active()[projectId];
   if (remembered === DRAFT) return null;
@@ -102,12 +91,9 @@ export function setActiveChat(projectId: string, chatId: string | null): void {
   root.setActive({ ...root.active(), [projectId]: chatId ?? DRAFT });
 }
 
-// --- connection ---------------------------------------------------------
-
 let connected = false;
 let harnessesAt = 0;
 
-/** Connects once; safe to call from anywhere the chat is about to be used. */
 export function ensureConnected(): void {
   if (connected) return;
   connected = true;
@@ -120,7 +106,6 @@ export function ensureConnected(): void {
   if (hasHost()) client.connect();
 }
 
-/** Resolves once the socket is open, or rejects after a short wait. */
 function whenOpen(): Promise<void> {
   ensureConnected();
   if (client.state === "open") return Promise.resolve();
@@ -139,7 +124,6 @@ function whenOpen(): Promise<void> {
   });
 }
 
-/** Re-runs the probes when the cached ones are older than a minute. */
 export function refreshHarnesses(): void {
   if (client.state !== "open" || Date.now() - harnessesAt < PROBE_MAX_AGE_MS) return;
   harnessesAt = Date.now();
@@ -148,13 +132,8 @@ export function refreshHarnesses(): void {
 
 export const readyHarnesses = (): HarnessInfo[] => state.harnesses.filter((harness) => harness.status === "ready");
 
-/** Families picked before anything is remembered, best first, across every ready harness. */
 const PREFERRED_MODELS = [/astra/i, /sol/i, /fable/i, /opus/i];
 
-/**
- * The model the composers send with: the remembered one if its harness is
- * ready, else the best preferred family on offer, else the first ready default.
- */
 export function currentModel(): ModelRef | null {
   const ready = readyHarnesses();
   const remembered = root.model();
@@ -174,18 +153,14 @@ export function currentModel(): ModelRef | null {
   return model ? { harness: first.id, model } : null;
 }
 
-/** The label the pickers show for a model ref. */
 export function modelLabel(ref: ModelRef | null): string {
   if (!ref) return t("No agent available");
   const harness = state.harnesses.find((entry) => entry.id === ref.harness);
   return harness?.models.find((model) => model.id === ref.model)?.label ?? ref.model;
 }
 
-// --- events -------------------------------------------------------------
-
 const queue = new Map<string, ChatEvent[]>();
 let flushScheduled = false;
-/** New chats whose optimistic item waits for the first snapshot, by chat id → draft key. */
 const awaitingSnapshot = new Map<string, string>();
 
 function flush(): void {
@@ -231,7 +206,6 @@ function upsertSummary(chat: ChatSummary): void {
 
 const subscriptions = new Map<string, () => void>();
 
-/** Subscribes to a chat (once); the transcript lands in the store and stays current. */
 export function openChat(chatId: string): void {
   ensureConnected();
   if (subscriptions.has(chatId)) return;
@@ -261,7 +235,6 @@ function applySnapshot(snapshot: ChatSnapshot): void {
   });
 }
 
-/** Fetches a project's history; the store keeps it current from then on. */
 export async function refreshChats(projectId: string): Promise<void> {
   try {
     await whenOpen();
@@ -271,8 +244,6 @@ export async function refreshChats(projectId: string): Promise<void> {
     // Offline: whatever the store holds stays.
   }
 }
-
-// --- drafts -------------------------------------------------------------
 
 export const draft = (key: string): Draft => state.drafts[key] ?? EMPTY_DRAFT;
 
@@ -288,8 +259,6 @@ export function clearDraft(key: string): void {
   setState("drafts", key, EMPTY_DRAFT);
 }
 
-// --- actions ------------------------------------------------------------
-
 export type SendOptions = {
   projectId: string;
   cwd: string;
@@ -299,7 +268,6 @@ export type SendOptions = {
   model: ModelRef;
 };
 
-/** Sends a turn; resolves with the chat id as soon as the host accepted it. */
 export async function send(options: SendOptions): Promise<string> {
   const key = draftKey(options.projectId, options.chatId);
   const optimistic: Item = {
@@ -353,16 +321,12 @@ export async function deleteChat(projectId: string, chatId: string): Promise<voi
   if (root.active()[projectId] === chatId) setActiveChat(projectId, activeChatId(projectId));
 }
 
-/** The transcript to render for a chat; empty until its snapshot lands. */
 export const transcriptOf = (chatId: string | null): Transcript => (chatId ? (state.chats[chatId] ?? emptyTranscript()) : emptyTranscript());
 
-/** The summary as the host last reported it; the list's copy until the transcript's arrives. */
 export function summaryOf(projectId: string, chatId: string | null): ChatSummary | null {
   if (!chatId) return null;
   return state.chats[chatId]?.chat ?? state.lists[projectId]?.find((entry) => entry.id === chatId) ?? null;
 }
-
-// --- home-view handoff ---------------------------------------------------
 
 export type StartChatOptions = {
   project: ProjectInfo;
@@ -371,15 +335,9 @@ export type StartChatOptions = {
   model: ModelRef;
 };
 
-/**
- * Starts a chat from the dashboard: sends the first turn and makes the new
- * chat the project's active one. On failure the text survives as the project's
- * draft and the error is a toast; home navigates either way.
- */
 export async function startChat(options: StartChatOptions): Promise<void> {
   const projectId = options.project.id;
-  // The layout provider is not mounted on the dashboard, so its stored key
-  // is written directly: the editor reads it when it mounts.
+  // The layout provider isn't mounted on the dashboard, so its stored key is written directly for the editor to read on mount.
   settings.define<boolean>("layout.uiVisible", true).value = true;
   try {
     await send({ projectId, cwd: options.project.dir, chatId: null, text: options.text, attachments: options.attachments, model: options.model });
@@ -393,17 +351,14 @@ export async function startChat(options: StartChatOptions): Promise<void> {
   }
 }
 
-/** The route a started chat lands on. */
 export const chatRoute = (project: ProjectInfo): string => projectRoute(project.id || project.name);
 
 export { attachmentPaths };
 
-/** Left sidebar width. Assets, Template and the extension market share one column. */
 export const ASSETS_SIDEBAR_WIDTH = 264;
 
 export const leftSidebarWidth = (): number => ASSETS_SIDEBAR_WIDTH;
 
-/** For the empty state: why nothing can be sent right now, or null. */
 export function blockedReason(): string | null {
   if (state.connection === "unavailable") return t("Chat isn't available in the browser.");
   if (state.connection !== "open") return t("Connecting to the agent host…");

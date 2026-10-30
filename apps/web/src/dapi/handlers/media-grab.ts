@@ -13,9 +13,8 @@ import { SheetCollector } from "../lib/sheets";
 import type { FrameQuality, TimecodedImage } from "@plan.video/dapi";
 import type { ToolHandler } from "../handler";
 
-// Named quality presets mapped to a per-frame total-pixel budget (aspect ratio
-// preserved). A budget of 0 means native resolution. `small` keeps frames small
-// enough for vision models.
+// Pixel budget per frame, aspect ratio kept. 0 means native resolution;
+// `small` stays small enough for vision models.
 const FRAME_QUALITY_BUDGETS: Record<FrameQuality, number> = {
   small: 384 * 384,
   medium: 768 * 768,
@@ -23,7 +22,6 @@ const FRAME_QUALITY_BUDGETS: Record<FrameQuality, number> = {
   fullres: 0,
 };
 
-// Default cap on frames returned by auto selection when `count` is not given.
 const AUTO_MAX_FRAMES = 30;
 
 export const mediaGrab: ToolHandler<"media_grab"> = async (args, ctx) => {
@@ -31,10 +29,6 @@ export const mediaGrab: ToolHandler<"media_grab"> = async (args, ctx) => {
   const asset = await resolveAsset(ctx, args.path);
   requireAssetType(asset, ["VIDEO"], "a video");
 
-  // `count` samples evenly across a window (default the whole clip); `auto`
-  // scans the window and keeps frames where the footage settles into a new
-  // visual state, capped at `count` (resolved once the track is open).
-  // Otherwise grab the explicit `times` (falling back to a single frame at 0).
   const from = Math.min(Math.max(start ?? 0, 0), asset.duration);
   const to = Math.min(Math.max(end ?? asset.duration, from), asset.duration);
   let requested: number[] = [];
@@ -73,7 +67,6 @@ export const mediaGrab: ToolHandler<"media_grab"> = async (args, ctx) => {
       requested = picked.map((t) => Math.max(0, t - firstTimestamp));
     }
 
-    // Downscale to fit the pixel budget while preserving aspect ratio.
     const displayWidth = await track.getDisplayWidth();
     const displayHeight = await track.getDisplayHeight();
     let sourceWidth = displayWidth;
@@ -84,13 +77,12 @@ export const mediaGrab: ToolHandler<"media_grab"> = async (args, ctx) => {
       sourceHeight = Math.max(1, Math.round(displayHeight * scale));
     }
 
-    // Lay the sheets out up front: the largest cell across them sets the
-    // decode size, so no frame is decoded bigger than it will be drawn.
+    // The largest cell across the sheets sets the decode size, so no frame is
+    // decoded bigger than it will be drawn.
     const sheets = separate ? undefined : new SheetCollector(requested.length, { width: sourceWidth, height: sourceHeight }, perSheet);
     const width = sheets ? Math.min(sourceWidth, sheets.cellWidth) : sourceWidth;
 
-    // Decode in ascending order (the sink's fast path), remember each
-    // entry's original slot so output mirrors the requested order.
+    // Decode in ascending order (the sink's fast path), then restore the requested order.
     const ordered = requested.map((time, index) => ({ time, index })).sort((a, b) => a.time - b.time);
 
     // No pool: each yielded canvas is fresh, so encoding it can't race the
@@ -113,10 +105,7 @@ export const mediaGrab: ToolHandler<"media_grab"> = async (args, ctx) => {
   }
 };
 
-/**
- * A time within the clip. A negative time is an offset back from the end:
- * -1 is one second before the end, -1f one frame before it.
- */
+/** A negative time counts back from the end: -1 is one second before it, -1f one frame. */
 function resolveTime(t: number, duration: number): number {
   if (t >= 0) {
     if (t > duration) {

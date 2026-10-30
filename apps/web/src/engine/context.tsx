@@ -17,19 +17,11 @@ export interface EngineProviderProps {
 	children?: JSX.Element;
 }
 
-/**
- * Provides the Engine instance (lifecycle: mount/resize/start/stop) and,
- * via koota-solid's WorldProvider, its koota world. Deliberately does not
- * hand out a bag of engine internals — components read world-trait state
- * with useTrait/useQuery (see ./hooks) and reach the Engine itself only for
- * lifecycle calls (useEngineContext()), keeping each consumer's dependency
- * explicit instead of importing one god object.
- */
+/** Hands out the Engine only for lifecycle calls; components read state through world traits (see ./hooks). */
 export function EngineProvider(props: EngineProviderProps): JSX.Element {
 	const engine = createEngine(props.projectId, props.options);
 	onCleanup(() => engine.dispose());
 
-	// What the engine draws itself follows the theme the page is in.
 	const { colorMode } = useColorMode();
 	createRenderEffect(() => setEditorTheme(engine.world, colorMode()));
 

@@ -9,16 +9,14 @@ import { framesToPixels, getCurrentFrame, getFrameRate, getResolution, getScroll
 import type { Entity, World } from 'koota';
 import type { TimelineSurfaceState } from '../surface';
 
-// The knob shown in place of the line while the timeline is collapsed.
 const PILL_TOP = 8;
 const PILL_HEIGHT = 19;
 const PILL_PADDING_X = 4;
 const PILL_RADIUS = 9;
 const PILL_CHAR_WIDTH = 6;
 
-// The playhead trails a motion blur while it moves, wide in proportion to how
-// fast it is going. Its width is a critically damped spring so that starting,
-// stopping and scrubbing all ease rather than snap.
+// The trail's width is a critically damped spring so starting, stopping and
+// scrubbing all ease rather than snap.
 const GRADIENT_PX_PER_VELOCITY = 25;
 const GRADIENT_RESPONSE_TIME = 0.15;
 const GRADIENT_MAX_WIDTH = 150;
@@ -46,7 +44,6 @@ export function renderPlayhead(world: World, scene: Entity, surface: TimelineSur
 		return;
 	}
 
-	// The knob, sitting in the ruler.
 	ctx.save();
 	ctx.translate(-5, 2);
 	ctx.fillStyle = surface.colors.border.ring;
@@ -76,12 +73,8 @@ export function renderPlayhead(world: World, scene: Entity, surface: TimelineSur
 	ctx.restore();
 }
 
-/**
- * The trail behind the playhead. Its width follows the playhead's *measured*
- * velocity rather than the playback speed, so a scrub trails as much as a
- * play does and a pause settles rather than cutting off; the sign says which
- * way it is going, and the trail is drawn on the side being left behind.
- */
+// Follows the playhead's measured velocity, not the playback speed, so a scrub
+// trails as much as a play does and a pause settles rather than cutting off.
 function renderMotionTrail(world: World, surface: TimelineSurfaceState, frame: number): void {
 	const { ctx, canvas } = surface;
 	if (!ctx || !canvas) return;
@@ -95,8 +88,7 @@ function renderMotionTrail(world: World, surface: TimelineSurfaceState, frame: n
 
 	const target = Math.max(-GRADIENT_MAX_WIDTH, Math.min(GRADIENT_MAX_WIDTH, GRADIENT_PX_PER_VELOCITY * velocity));
 
-	// Closed form, so any frame length is stable — a long stall cannot
-	// overshoot the way a stepped integration would.
+	// Closed form, so a long stall cannot overshoot the way a stepped integration would.
 	if (elapsed > 0) {
 		const omega = 2 / GRADIENT_RESPONSE_TIME;
 		const dt = Math.min(elapsed, 0.25);
@@ -121,7 +113,6 @@ function renderMotionTrail(world: World, surface: TimelineSurfaceState, frame: n
 	ctx.globalAlpha = 1;
 }
 
-/** Collapsed, the playhead is a stub with the frame number in it. */
 function renderCollapsedPlayhead(surface: TimelineSurfaceState, frame: number): void {
 	const ctx = surface.ctx!;
 	const label = `${Math.round(frame)}`;

@@ -16,15 +16,9 @@ import type { TimelineSurfaceState } from '../surface';
 const HANDLE_WIDTH = 5;
 const BAR_HEIGHT = 10;
 
-// Where the work area was when the drag started: every frame of the drag is
-// measured from there, so a slow drag and a fast one land in the same place.
+// Every frame of the drag is measured from here, so slow and fast drags land in the same place.
 let dragOrigin: [start: number, end: number] = [0, 0];
 
-/**
- * The work area — the stretch of the scene that plays and exports — as a bar
- * in the ruler with a handle at each end. Drag the bar to move the window,
- * a handle to move one edge, double-click to drop it altogether.
- */
 export function renderWorkarea(world: World, scene: Entity, surface: TimelineSurfaceState): void {
 	const { ctx, pointer } = surface;
 	if (!ctx || !pointer) return;
@@ -38,7 +32,6 @@ export function renderWorkarea(world: World, scene: Entity, surface: TimelineSur
 	const outPx = framesToPixels(workarea.end, resolution);
 	const y = RULER_HEIGHT - BAR_HEIGHT;
 
-	/** The delta of the drag in flight, in frames. */
 	const draggedFrames = (): number => {
 		assert(pointer.position, 'Pointer position must be set');
 		assert(pointer.position.state !== 'idle', 'Pointer must be pressing');
@@ -48,7 +41,6 @@ export function renderWorkarea(world: World, scene: Entity, surface: TimelineSur
 	ctx.save();
 	ctx.translate(-(scrollX * resolution), 0);
 
-	// The bar itself: drag to move the window, double-click to remove it.
 	{
 		const { dragging, pressed, doubleClicked } = pointer
 			.scope('workarea')
@@ -67,8 +59,7 @@ export function renderWorkarea(world: World, scene: Entity, surface: TimelineSur
 			return;
 		}
 
-		// Difference rather than a fill: the bar reads over the ruler's ticks
-		// and over the playhead alike, whatever is behind it.
+		// Difference rather than a fill, so the bar reads over the ticks and the playhead alike.
 		ctx.globalCompositeOperation = 'difference';
 		ctx.fillStyle = 'rgba(100, 100, 100, 1)';
 		ctx.fillRect(inPx, y, outPx - inPx, BAR_HEIGHT);
@@ -79,7 +70,7 @@ export function renderWorkarea(world: World, scene: Entity, surface: TimelineSur
 	ctx.fillStyle = surface.colors.border.ring;
 	ctx.strokeStyle = surface.colors.border.darker;
 
-	// The in handle, drawn from its own origin so the path needs no offset.
+	// Drawn from its own origin so the path needs no offset.
 	{
 		ctx.translate(inPx - HANDLE_WIDTH, y);
 		ctx.stroke(IN_POINT_PATH);
@@ -91,7 +82,7 @@ export function renderWorkarea(world: World, scene: Entity, surface: TimelineSur
 		if (dragging) editWorkarea(world, scene, [dragOrigin[0] + draggedFrames(), dragOrigin[1]]);
 	}
 
-	// The out handle, relative to the in handle the context is now at.
+	// Relative to the in handle the context is now at.
 	{
 		ctx.translate(outPx - inPx + HANDLE_WIDTH, 0);
 		ctx.stroke(OUT_POINT_PATH);

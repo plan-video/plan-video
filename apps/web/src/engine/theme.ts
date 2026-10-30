@@ -10,24 +10,18 @@ import { TimelineSurface } from './timeline/surface';
 
 import type { World } from 'koota';
 
-/** The canvas behind a stage left on the default background: `--canvas` for each theme. */
+/** Must match `--canvas` in each theme. */
 const CANVAS_BACKGROUND: Record<EditorThemeMode, number> = {
 	dark: 0x060606,
 	light: 0xf3f3f3,
 };
 
-/** What a node in generation pulses between, on the canvas and in the timeline. */
 const GENERATING_PULSE: Record<EditorThemeMode, { from: number; to: number }> = {
 	dark: DEFAULT_GENERATING_PULSE,
 	light: { from: 0xebebeb, to: 0xdcdcdc },
 };
 
-/**
- * Points everything the editor draws on its own canvases at `mode`: the
- * stage's default background, the HUD over it, the pulse of a node in
- * generation and the timeline. The DOM follows the theme through the CSS
- * tokens; these read colors, not tokens.
- */
+/** The DOM follows the theme through CSS tokens; the editor's own canvases read these colours instead. */
 export function setEditorTheme(world: World, mode: EditorThemeMode): void {
 	world.set(EditorTheme, { mode });
 	world.set(DefaultBackground, { value: CANVAS_BACKGROUND[mode] });

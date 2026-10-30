@@ -2,12 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/**
- * Reading a project back as workflow steps: the settings its scene was given
- * (size, stream layout, grade, auto zoom, captions and what is on their
- * words, progress bar, the post it was set up for), each found the way the
- * editor's own panels find it. Nothing of the footage or the words is kept.
- */
+// Captured steps keep settings only, never the footage or the caption words.
 
 import { authoredElement } from '@plan.video/reconciler';
 import {
@@ -43,7 +38,6 @@ import type { GradeValues, Rect } from '@plan.video/runtime';
 import type { WorkflowSteps } from '@/lib/workflows';
 import type { Entity, World } from 'koota';
 
-/** The scene a workflow is saved from or run on: the active one, else the first. */
 export function workflowScene(world: World): Entity | null {
 	const active = getActiveEntity(world);
 	if (active) {
@@ -54,7 +48,6 @@ export function workflowScene(world: World): Entity | null {
 	return root ? (getEntityChildren(world, root).find(isScene) ?? null) : null;
 }
 
-/** What `scene` was set up with, as workflow steps. */
 export async function readSceneSteps(world: World, scene: Entity): Promise<WorkflowSteps> {
 	const steps: WorkflowSteps = {};
 	const computed = store(world, Computed);
@@ -62,7 +55,6 @@ export async function readSceneSteps(world: World, scene: Entity): Promise<Workf
 	const height = Math.round(computed.height[scene.id()] ?? 0);
 	if (width > 0 && height > 0) steps.size = { width, height };
 
-	// A layout counts while the scene still has the layout's size.
 	const layout = world.get(ProjectConfig)?.layoutOf(scene);
 	if (layout && width === LAYOUT_WIDTH && height === LAYOUT_HEIGHT) steps.layout = layout;
 
@@ -111,7 +103,6 @@ async function captionWords(world: World, caption: Entity) {
 	}
 }
 
-/** The colour most of the coloured words wear: the keyword highlight, when there is one. */
 function commonColor(words: Awaited<ReturnType<typeof captionWords>>): number | undefined {
 	const counts = new Map<number, number>();
 	for (const segment of words ?? []) {
@@ -148,10 +139,6 @@ function progressBarOf(world: World, scene: Entity, width: number, height: numbe
 	return { position: Number(props.y) <= 0 ? 'top' : 'bottom', thickness, color: fill, track: !!named(PROGRESS_TRACK_NAME) };
 }
 
-/**
- * A small still of `scene` at the playhead for the workflow's card, as a
- * WebP data URL, or undefined when the canvas can't give one.
- */
 export async function sceneStill(world: World, snapshot: (rect?: Rect) => Promise<Blob | null>): Promise<string | undefined> {
 	const rect = coverRect(world) ?? undefined;
 	const viewport = getViewport(world);

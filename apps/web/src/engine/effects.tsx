@@ -3,21 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 /**
- * The Effects tab's effects, each put on at the playhead as something the
- * timeline shows and the inspector edits:
- *
- * - a zoom, a slow zoom, a shake or a blur is an `<adjustmentLayer>` in a row
- *   of its own over the clip, keyframed. Layers stack, so a clip can take
- *   several, and the footage is never touched;
- * - a flash or cinematic bars draw over the whole scene, so they are shapes
- *   on top of it;
- * - slow motion is the clip's own speed: four keys on its `playbackRate`
- *   track, slowing down and back up.
- *
- * An effect keeps no settings of its own: `effectOf` reads them back from
- * what it drew, and `updateEffect` draws it again in the same place with new
- * ones. Each add or change is one synchronous burst of edits, so it undoes
- * in one step.
+ * An effect keeps no settings of its own: `effectOf` reads them back from what
+ * it drew. Each add or change must be one synchronous burst so it undoes in one step.
  */
 
 import { createStore } from 'solid-js/store';
@@ -89,13 +76,9 @@ export const DEFAULT_EFFECTS: EffectOptions = {
 	bars: { size: 'medium', length: 'scene' },
 };
 
-/**
- * The settings the next effect of each kind is added with: the last ones
- * picked, kept across tab switches.
- */
 export const [effectDefaults, setEffectDefaults] = createStore<EffectOptions>(structuredClone(DEFAULT_EFFECTS));
 
-/** What each effect is called on the timeline, which is how `effectOf` knows it again. */
+/** `effectOf` recognises effects by these timeline names. */
 export const EFFECT_NAMES: Record<Exclude<EffectKind, 'slowMotion'>, string> = {
 	zoomIn: 'Zoom in',
 	slowZoom: 'Slow zoom',
@@ -108,9 +91,9 @@ export const EFFECT_NAMES: Record<Exclude<EffectKind, 'slowMotion'>, string> = {
 
 const ZOOM_SCALES: Record<Strength, number> = { subtle: 1.12, medium: 1.25, strong: 1.45 };
 const SLOW_ZOOM_SCALES: Record<Strength, number> = { subtle: 1.06, medium: 1.12, strong: 1.2 };
-/** Auto zoom's own scales, from engine/auto-zoom. */
+/** Must match engine/auto-zoom's scales. */
 const AUTO_ZOOM_SCALES: Record<ZoomStrength, number> = { subtle: 1.1, medium: 1.2, strong: 1.35 };
-/** Shake: how far it throws (share of the short side), how far it turns, and the zoom that hides the edges. */
+/** `move` is a share of the short side; `scale` zooms in enough to hide the edges. */
 const SHAKES: Record<Strength, { move: number; turn: number; scale: number }> = {
 	subtle: { move: 0.008, turn: 0.4, scale: 1.04 },
 	medium: { move: 0.016, turn: 0.8, scale: 1.07 },
@@ -121,28 +104,21 @@ const BLURS: Record<Strength, number> = { subtle: 8, medium: 18, strong: 36 };
 /** Each bar's height, as a share of the frame's. */
 const BARS: Record<Strength, number> = { subtle: 0.07, medium: 0.1, strong: 0.13 };
 export const SLOW_SPEEDS = [0.25, 0.5, 0.75];
-/** How long a smooth zoom or the bars take to come in or go out. */
 const RAMP = 0.35;
 const BAR_RAMP = 0.5;
-/** How long smooth slow motion takes to slow down or speed back up, in seconds of footage. */
+/** In seconds of footage. */
 const SPEED_RAMP = 0.3;
 
 export type EffectFailure = 'no-clip' | 'no-scene' | 'no-video' | 'too-short';
 export type EffectResult = { ok: true; entity: Entity } | { ok: false; reason: EffectFailure };
 
-/** An effect on the timeline, with the settings it was drawn with. */
 export type FoundEffect = {
 	[K in EffectKind]: { kind: K; entity: Entity; options: EffectOptions[K] };
 }[EffectKind];
 
-/** Where an effect is drawn again: the frame it starts on and the sibling it sits under. */
 type Place = { start: number; anchor: Entity | undefined };
 
-/**
- * Puts `kind` on at the playhead with the settings it was last given, and
- * selects it, so its settings open in the inspector. Auto zoom listens to
- * the clip first, so it has its own `addAutoZoom`.
- */
+/** Auto zoom listens to the clip first, so it has its own `addAutoZoom`. */
 export function addEffect(world: World, kind: Exclude<EffectKind, 'autoZoom'>): EffectResult {
 	const options = { ...effectDefaults[kind] };
 	switch (kind) {
@@ -160,11 +136,7 @@ export function addEffect(world: World, kind: Exclude<EffectKind, 'autoZoom'>): 
 	}
 }
 
-/**
- * Draws `found` again with `options`, where it was: the same start and the
- * same place among its siblings, selected. Its settings become the next
- * one's too. Auto zoom listens again, so it is `addAutoZoom` once more.
- */
+/** Auto zoom listens again, so it goes through `addAutoZoom` instead. */
 export function updateEffect<K extends Exclude<EffectKind, 'autoZoom'>>(world: World, found: FoundEffect & { kind: K }, options: EffectOptions[K]): EffectResult {
 	setEffectDefaults(found.kind, { ...options } as never);
 	const entity = found.entity;
@@ -191,7 +163,6 @@ export function updateEffect<K extends Exclude<EffectKind, 'autoZoom'>>(world: W
 	return drawLayer(world, found.kind as LayerKind, options as never, slotOf(clip), place);
 }
 
-/** Takes an effect off: the element, or for slow motion, its keys on the clip's speed. */
 export function removeEffect(world: World, found: FoundEffect): void {
 	const editor = getDocumentEditor(world);
 	if (found.kind !== 'slowMotion') return void editor.remove(found.entity);
@@ -199,8 +170,6 @@ export function removeEffect(world: World, found: FoundEffect): void {
 	const stretch = slowStretch(world, found.entity);
 	if (stretch) writeSlowMotion(world, found.entity, null, stretch);
 }
-
-/* Layers over the clip */
 
 type LayerKind = 'zoomIn' | 'slowZoom' | 'shake' | 'blur';
 
@@ -290,25 +259,18 @@ function drawLayer<K extends LayerKind>(world: World, kind: K, options: EffectOp
 	);
 	if (!layer) return { ok: false, reason: 'no-clip' };
 
-	// Open, so the keyframes show on the timeline.
+	// Expanded so the keyframes show on the timeline.
 	if (!(kind === 'zoomIn' && (options as EffectOptions['zoomIn']).motion === 'snap')) editor.editProperty(layer, 'expanded', true);
 	editor.select(layer);
 	return { ok: true, entity: layer };
 }
 
-/**
- * Where a new layer goes: on top of the layers already over the clip, so it
- * gets a row of its own above them.
- */
 function layerAnchor(slot: Entity): Entity | undefined {
 	const siblings = getParentNode(slot)?.get(Cache)?.children ?? [];
 	return siblings[siblings.indexOf(slot) + layersOver(slot).length + 1];
 }
 
-/**
- * Shake offsets every other frame or so, thrown hard at first and settling,
- * from a fixed seed so the same shake comes out each time.
- */
+/** Fixed seed so the same shake comes out each time. */
 function shakeKeys(seconds: number, fps: number, move: number, turn: number) {
 	const step = Math.max(1, Math.round(fps / 15)) / fps;
 	const random = seeded(7);
@@ -317,7 +279,6 @@ function shakeKeys(seconds: number, fps: number, move: number, turn: number) {
 	const rotation: TrackKey[] = [];
 	for (let time = 0; time < seconds; time += step) {
 		const progress = time / seconds;
-		// Full strength over the first fifth, then dying away.
 		const envelope = progress < 0.2 ? 1 : Math.pow(1 - (progress - 0.2) / 0.8, 1.5);
 		x.push([time, Math.round((random() * 2 - 1) * move * envelope * 10) / 10, 'easeInOut']);
 		y.push([time, Math.round((random() * 2 - 1) * move * envelope * 10) / 10, 'easeInOut']);
@@ -337,8 +298,6 @@ function seeded(seed: number) {
 	};
 }
 
-/* Over the whole scene */
-
 function drawFlash(world: World, options: EffectOptions['flash'], place?: Place): EffectResult {
 	const scene = activeScene(world);
 	if (!scene) return { ok: false, reason: 'no-scene' };
@@ -347,7 +306,6 @@ function drawFlash(world: World, options: EffectOptions['flash'], place?: Place)
 	const { width, height } = sceneSize(world, scene);
 	const start = place?.start ?? playheadOf(world);
 	const seconds = options.length;
-	// It hits within two frames and fades out from there.
 	const peak = Math.min(2 / fps, seconds / 4);
 
 	const editor = getDocumentEditor(world);
@@ -393,7 +351,6 @@ function drawBars(world: World, options: EffectOptions['bars'], place?: Place): 
 	const seconds = (end - start) / fps;
 	const bar = Math.round(height * BARS[options.size]);
 	const ramp = Math.min(BAR_RAMP, seconds / 3);
-	// Bars kept to the end stay on; otherwise they slide back out.
 	const grow: TrackKey[] = toEnd
 		? [[0, 0, 'easeInOut'], [ramp, bar]]
 		: [[0, 0, 'easeInOut'], [ramp, bar], [seconds - ramp, bar, 'easeInOut'], [seconds, 0]];
@@ -421,9 +378,7 @@ function drawBars(world: World, options: EffectOptions['bars'], place?: Place): 
 	return { ok: true, entity: group };
 }
 
-/* The clip's own speed */
-
-/** One slow-down on a clip's speed track: its four keys, in source frames. */
+/** Keys in source frames. */
 type Stretch = { before: number; from: number; to: number; after: number };
 
 function addSlowMotion(world: World, options: EffectOptions['slowMotion']): EffectResult {
@@ -440,11 +395,9 @@ function addSlowMotion(world: World, options: EffectOptions['slowMotion']): Effe
 }
 
 /**
- * Writes the clip's speed track again with one slow-down put on (from
- * `from`, or where `replacing` began) or, with no options, taken off. Other
- * slow-downs on it stay. A clip that authors its end is lengthened or
- * shortened by as much as the change adds or saves, so the footage after it
- * still plays to the same last frame.
+ * Other slow-downs on the track stay. A clip that authors its end is resized
+ * by as much as the change adds or saves, so the footage after it still plays
+ * to the same last frame.
  */
 function writeSlowMotion(world: World, clip: Entity, options: EffectOptions['slowMotion'] | null, replacing: Stretch | null, from = replacing?.from ?? 0): EffectResult {
 	const fps = fpsOf(world);
@@ -453,7 +406,6 @@ function writeSlowMotion(world: World, clip: Entity, options: EffectOptions['slo
 	const curve = readSpeedCurve(clip);
 	const sourceEnd = getSourceFrameAt(clip, clipEnd);
 
-	// The keys the clip keeps: all of them, but the slow-down being redrawn.
 	let keys = curve.keys.filter((key) => !replacing || key.time < replacing.before - 0.5 || key.time > replacing.after + 0.5);
 	const kept: SpeedCurve = { base: curve.base, keys };
 
@@ -497,11 +449,7 @@ function writeSlowMotion(world: World, clip: Entity, options: EffectOptions['slo
 	return { ok: true, entity: clip };
 }
 
-/**
- * The slow-down on the clip's speed track nearest the playhead: two keys
- * holding a speed below the keys either side of them, as `writeSlowMotion`
- * puts on. Null when the clip has none.
- */
+/** `effectOf` relies on this shape: two equal keys below the keys either side, as `writeSlowMotion` writes. */
 function slowStretch(world: World, clip: Entity): Stretch | null {
 	const keys = readSpeedCurve(clip).keys;
 	const stretches: Stretch[] = [];
@@ -517,13 +465,7 @@ function slowStretch(world: World, clip: Entity): Stretch | null {
 	return stretches.reduce((best, stretch) => (distance(stretch) < distance(best) ? stretch : best));
 }
 
-/* Reading an effect back */
-
-/**
- * The effect `entity` is, with the settings it was drawn with, or null when
- * it is none. Each kind is known by its name and its shape; a clip counts as
- * slow motion while its speed track holds a slow-down.
- */
+/** Each kind is known by its name and its shape; a clip counts as slow motion while its speed track holds a slow-down. */
 export function effectOf(world: World, entity: Entity | undefined): FoundEffect | null {
 	if (!entity || !entity.isAlive()) return null;
 	const name = authoredElement(entity)?.props.name;
@@ -630,16 +572,13 @@ function trackKeyframes(world: World, holder: Entity, property: AnimatableProper
 const trackValues = (world: World, holder: Entity, property: AnimatableProperty) => trackKeyframes(world, holder, property).map((key) => key.value);
 const trackTimes = (world: World, holder: Entity, property: AnimatableProperty) => trackKeyframes(world, holder, property).map((key) => key.time);
 
-/** The setting whose value is closest to `value`. */
 function nearest<K extends string>(table: Record<K, number>, value: number): K {
 	return (Object.keys(table) as K[]).reduce((best, key) => (Math.abs(table[key] - value) < Math.abs(table[best] - value) ? key : best));
 }
 
-/* Shared */
-
 type TrackKey = [time: number, value: number, easing?: Easing];
 
-/** A keyframe track from `[seconds, value, easing]` triples. */
+/** `[seconds, value, easing]` triples. */
 function Track(props: { property: 'scale' | 'x' | 'y' | 'rotation' | 'value' | 'opacity' | 'height'; keys: TrackKey[] }) {
 	return (
 		<KeyframeTrack property={props.property}>
@@ -648,11 +587,7 @@ function Track(props: { property: 'scale' | 'x' | 'y' | 'rotation' | 'value' | '
 	);
 }
 
-/**
- * The effect's window: from `at` while it is on the clip, else from the
- * clip's start, and cut off where the clip ends. One that would not fit
- * after `at` ends with the clip instead.
- */
+/** One that would not fit after `at` ends with the clip instead. */
 function windowAt(at: number, clipStart: number, clipEnd: number, length: number, toEnd: boolean): [number, number] {
 	const start = at >= clipStart && at < clipEnd ? at : clipStart;
 	if (toEnd) return [start, clipEnd];
@@ -670,7 +605,7 @@ function activeScene(world: World): Entity | null {
 	return scene && isScene(scene) ? scene : null;
 }
 
-/** The active scene's playhead, in its frames. */
+/** In the scene's frames. */
 function playheadOf(world: World): number {
 	const scene = getActiveEntity(world);
 	return scene ? Math.round(store(world, Computed).localTime[scene.id()] ?? 0) : 0;

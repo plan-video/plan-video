@@ -2,10 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The prompt box, docked at the bottom of the panel in every state. Looks
-// like the dashboard composer, sized to the chat sidebar, and never moves:
-// no centred start, no animated height, a static placeholder.
-
 import { For, Show, createEffect } from "solid-js";
 
 import { Icon } from "@/components/ui/icon";
@@ -23,11 +19,8 @@ type ComposerProps = {
   attachments: Attachment[];
   onText(text: string): void;
   onAttachments(attachments: Attachment[]): void;
-  /** Whether a turn runs or waits: the send button becomes Stop. */
   running: boolean;
-  /** A question is pending: sending is disabled, Stop still works. */
   waiting: boolean;
-  /** Why nothing can be sent, or null. Shown as the placeholder while the box is disabled. */
   blocked: string | null;
   model: ModelRef | null;
   onModel(ref: ModelRef): void;
@@ -42,7 +35,6 @@ export function Composer(props: ComposerProps) {
 
   const canSend = () => !props.running && !props.blocked && props.model !== null && (props.text.trim().length > 0 || props.attachments.length > 0);
 
-  // Grows with its content, instantly, up to the cap; then it scrolls.
   const resize = () => {
     if (!textarea) return;
     textarea.style.height = "auto";
@@ -53,9 +45,7 @@ export function Composer(props: ComposerProps) {
     resize();
   });
 
-  // Enter sends, shift+enter breaks the line — and the editor's shortcuts
-  // have no business reading what is typed here. While a turn runs Enter
-  // does nothing: there is no queue.
+  // The editor's shortcuts must not read what is typed here. While a turn runs Enter does nothing: there is no queue.
   const handleKeyDown = (event: KeyboardEvent) => {
     event.stopPropagation();
     if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
@@ -74,9 +64,7 @@ export function Composer(props: ComposerProps) {
       onDrop={drop.onDrop}
     >
       <Show when={props.attachments.length > 0}>
-        {/* The remove buttons overhang the tiles' corners, and a scrolling
-            row clips at its edge — so the row pads for them and pulls itself
-            back up by the same amount. */}
+        {/* The remove buttons overhang the tiles' corners and a scrolling row clips at its edge, so the row pads and pulls back up. */}
         <div class="-mt-2.5 flex w-full items-start gap-1.5 overflow-x-auto pt-2.5 pr-2.5">
           <For each={props.attachments}>
             {(entry) => (

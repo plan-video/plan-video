@@ -32,11 +32,7 @@ type WordGesture = {
 
 let gesture: WordGesture | null = null;
 
-/**
- * The caption's words as their own clips on its one row. Returns false when
- * the transcript has no words yet, so the caller can still draw the pending
- * bar.
- */
+// Returns false when the transcript has no words yet, so the caller can draw the pending bar.
 export function renderCaptionWords(
 	world: World,
 	surface: TimelineSurfaceState,
@@ -134,7 +130,6 @@ export function renderCaptionWords(
 	return true;
 }
 
-/** Writes a word drag once the pointer is released. */
 export function settleCaptionWordEdits(world: World): void {
 	const pending = gesture;
 	if (!pending) return;

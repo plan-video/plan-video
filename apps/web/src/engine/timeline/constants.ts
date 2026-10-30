@@ -59,8 +59,6 @@ export const RULER_INTERVALS = [
   },
 ];
 
-// window.getComputedStyle(document.body).getPropertyValue('--background')
-
 export type TimelineColors = {
   background: { default: string; muted: string; accent: string };
   border: { darker: string; input: string; ring: string; scrubber: string };
@@ -69,17 +67,11 @@ export type TimelineColors = {
   clip: Record<'group' | 'video' | 'audio' | 'caption' | 'image' | 'text' | 'shape' | 'scene' | 'mask' | 'adjustment' | 'html' | 'failed', {
     background: string;
     foreground: string;
-    /** The hairline just inside the clip's edge, in its own colour. */
     border: string;
     primary?: string;
   }> & Record<'group' | 'video' | 'audio' | 'caption' | 'scene', { primary: string }>;
 };
 
-/**
- * The dark theme's timeline: each clip a quiet tint of its colour over the
- * panel, edged in a stronger line of it, with the label and the waveform in
- * a light shade of the same hue. Selection is the one blue ring.
- */
 export const COLORS = {
   background: {
     default: '#0B0B0B',
@@ -90,7 +82,7 @@ export const COLORS = {
     darker: '#0B0B0B',
     input: '#2E2E2E',
     ring: '#2f6ff0',
-    scrubber: '#F43535', // ambient red
+    scrubber: '#F43535',
   },
   ruler: {
     tick: 'rgba(255, 255, 255, 0.1)',
@@ -166,11 +158,6 @@ export const COLORS = {
   },
 } satisfies TimelineColors;
 
-/**
- * The light theme's timeline: clips in a pale wash of their colour, edged
- * a step darker, with the label and waveform in its full strength, on white
- * rows.
- */
 export const LIGHT_COLORS = {
   background: {
     default: '#FFFFFF',

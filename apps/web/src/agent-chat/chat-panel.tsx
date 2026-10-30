@@ -2,10 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The chat for the open project: header (tabs and actions), transcript,
-// the question card when one is pending, and the composer at the bottom.
-// The panel is a view over the module-level store; it can be unmounted
-// (tab switch, page change) without touching a running turn.
+// A view over the module-level store: it can unmount (tab switch, page change) without touching a running turn.
 
 import { Show, createEffect, createMemo, createSignal } from "solid-js";
 import { toast } from "somoto";
@@ -71,8 +68,6 @@ export function ChatPanel() {
   const waiting = () => transcript().pending !== null;
   const empty = () => items().length === 0;
 
-  // The composer's model: in a chat, one of that chat's harness; in a draft,
-  // whatever is remembered and ready.
   const model = createMemo<ModelRef | null>(() => {
     const chat = summary();
     const remembered = storedModel();
@@ -85,8 +80,7 @@ export function ChatPanel() {
   const handleModel = (ref: ModelRef) => {
     setStoredModel(ref);
     const chat = summary();
-    // A chat keeps its harness: another harness means a new draft, with the
-    // typed text carried over.
+    // A chat keeps its harness: another harness means a new draft, with the typed text carried over.
     if (chat && chat.harness !== ref.harness && !empty()) {
       const carried = current();
       setActiveChat(project.id(), null);
@@ -112,7 +106,6 @@ export function ChatPanel() {
       attachments: attachmentPaths(attachments),
       model: ref,
     }).catch((error: Error) => {
-      // Nothing typed is lost: the draft comes back with the error.
       setDraftText(sendKey, text);
       setDraftAttachments(sendKey, attachments);
       toast.error(t("Could not send"), { description: error.message });

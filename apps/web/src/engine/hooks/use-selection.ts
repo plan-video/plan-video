@@ -6,11 +6,7 @@ import { AdjustmentLayer, Geometry, Group, Keyframe, Selected } from '@plan.vide
 import { useQuery } from '@plan.video/koota-solid';
 import { createMemo } from 'solid-js';
 
-/**
- * Reactive read of the Selected trait, split into the two kinds the editor
- * selects. Write it via `useEditor().select/deselect/clearSelection`, which
- * report the change to the source; never by touching the trait.
- */
+/** Write via `useEditor().select/deselect/clearSelection`, which report to the source; never touch the trait. */
 export function useSelection() {
 	const selected = useQuery(Selected);
 

@@ -15,17 +15,11 @@ export type SheetFrame = {
 };
 
 /**
- * Lays `total` frames out over contact sheets and composes each sheet as
- * soon as its last frame arrives, so a long run never holds every frame at
- * once. Frames may arrive in any order; sheets come out in order.
- *
- * Plans are made up front from the frames' source size so the caller can
- * decode or render no larger than a cell will be drawn (see `cellWidth`,
- * `cellHeight`).
+ * Composes each sheet as soon as its last frame arrives (in any order), so a long run never holds
+ * every frame. Plans come up front so the caller can decode no larger than a cell.
  */
 export class SheetCollector {
   readonly plans: SheetPlan[];
-  /** The largest cell across sheets: nothing needs to be bigger than this. */
   readonly cellWidth: number;
   readonly cellHeight: number;
 
@@ -51,11 +45,7 @@ export class SheetCollector {
     this.sheets = new Array(sizes.length);
   }
 
-  /**
-   * Adds the frame at `index` (its position in the requested order). When it
-   * completes a sheet, that sheet is composed and its images released:
-   * ImageBitmaps are closed, and every frame image is dropped from memory.
-   */
+  /** Completing a sheet closes its ImageBitmaps and drops its frames. */
   async add(index: number, frame: SheetFrame): Promise<void> {
     this.frames[index] = frame;
     const sheet = this.sheetOf[index]!;
@@ -77,7 +67,7 @@ export class SheetCollector {
     this.frames.fill(undefined, from, to);
   }
 
-  /** Every sheet, in order. Only complete once every frame has been added. */
+  /** Only complete once every frame has been added. */
   result(): TimecodedImage[] {
     return this.sheets.map((sheet, i) => {
       if (!sheet) throw new Error(`Contact sheet ${i} is missing frames`);

@@ -2,26 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/**
- * The pictures the timeline draws inside clips, in the two kinds the two
- * kinds of clip need.
- *
- * A still — an image, or a frames directory shown by its first frame — is one
- * picture tiled along the clip, so it is decoded once per asset at whatever
- * size the row is currently drawn at, and kept until the row changes size.
- *
- * A video is a strip of its own frames, which is a decode per tile, so it
- * comes in two layers like the peaks do. The asset layer decodes a handful of
- * frames spread across the whole file, which is what any clip of it falls
- * back on; the clip layer decodes the tiles the clip actually shows, for the
- * stretch of it on screen, and re-decodes them when the zoom changes what a
- * tile is worth. Nothing here blocks a frame: a draw pass asks for what it
- * wants and draws the nearest picture that has arrived.
- *
- * Keyed by asset where two clips of the same footage would show the same
- * picture, and by clip where they would not.
- */
-
 import { CanvasSink } from 'mediabunny';
 import { getAssetFile, getVideoTrack, secondsToFrames } from '@plan.video/runtime';
 
@@ -30,7 +10,6 @@ import { MAX_CLIP_HEIGHT } from './config';
 import type { InputVideoTrack } from 'mediabunny';
 import type { Asset, VideoAsset } from '@plan.video/assets';
 
-/** One decoded picture, and where in the source it came from (source frames). */
 export type Frame = {
 	timestamp: number;
 	canvas: OffscreenCanvas | HTMLCanvasElement;
@@ -38,7 +17,6 @@ export type Frame = {
 	stale?: boolean;
 };
 
-/** A still, decoded at the size the row it is drawn in asked for. */
 export type Still = {
 	canvas: OffscreenCanvas;
 	width: number;
@@ -46,17 +24,15 @@ export type Still = {
 	hash: string;
 };
 
-/** What a video clip needs this frame: the tiles of the stretch on screen. */
 export type FrameRequest = {
-	/** The entity id of the clip asking. */
 	clip: number;
 	asset: VideoAsset;
-	/** How much source one tile covers, in source frames. May be fractional. */
+	/** Source frames per tile; may be fractional. */
 	interval: number;
 	/** Tile size in CSS pixels. */
 	width: number;
 	height: number;
-	/** The visible stretch of the source, in source frames. */
+	/** In source frames. */
 	firstFrame: number;
 	lastFrame: number;
 	fps: number;
@@ -65,14 +41,14 @@ export type FrameRequest = {
 type AssetFrames = {
 	frames: Frame[];
 	decoding: boolean;
-	/** True once the spread has been decoded, whatever came of it. */
+	/** Set even when decoding failed. */
 	decoded: boolean;
 };
 
 type ClipFrames = {
 	assetId: string;
 	frames: Frame[];
-	/** The stretch `frames` covers, in source frames. */
+	/** In source frames. */
 	start: number;
 	end: number;
 	request: FrameRequest | null;
@@ -80,33 +56,20 @@ type ClipFrames = {
 	decoding: boolean;
 };
 
-/** How many frames of a video the fallback spread is made of. */
 const SPREAD_COUNT = 7;
 const LONG_SPREAD_COUNT = 10;
 
-/** Over this many seconds, a file gets the longer spread. */
 const LONG_DURATION = 60 * 10;
 
-/** How many tiles either side of the visible stretch are decoded ahead. */
 const TILE_MARGIN = 1;
 
 const stills = new Map<string, Still>();
 const stillsDecoding = new Set<string>();
-/** Assets whose file will not decode, so the draw pass stops asking. */
 const stillsFailed = new Set<string>();
 const assetFrames = new Map<string, AssetFrames>();
 const clipFrames = new Map<number, ClipFrames>();
 
-// ---------------------------------------------------------------------------
-// Stills
-
-/**
- * The picture an image or sequence clip is tiled with, at the size a row
- * `width` wide draws it, or null until it has decoded (the decode is started
- * here). Re-decoded when the row changes to a different tile size, which is
- * one of three (see `../render/thumbnails`), so a drag of the row height
- * costs at most two decodes.
- */
+/** Tile sizes come in three steps (see `../render/thumbnails`), so a row-height drag costs at most two decodes. */
 export function resolveStill(asset: Asset, width: number): Still | null {
 	const hash = `${width}@${window.devicePixelRatio}`;
 	const existing = stills.get(asset.id);
@@ -114,8 +77,6 @@ export function resolveStill(asset: Asset, width: number): Still | null {
 
 	if (!stillsFailed.has(asset.id)) void decodeStill(asset, width, hash);
 
-	// Whatever is there at the wrong size still beats nothing at all: it is
-	// the same picture, and it is replaced the moment the right one lands.
 	return existing ?? null;
 }
 
@@ -127,8 +88,6 @@ async function decodeStill(asset: Asset, width: number, hash: string): Promise<v
 		const bitmap = await createImageBitmap(await getAssetFile(asset));
 
 		try {
-			// Big enough for the widest tile and the tallest row it could be
-			// drawn in, and never larger than the picture itself.
 			const dpr = window.devicePixelRatio;
 			const scale = Math.min(1, Math.max((width * dpr) / bitmap.width, (MAX_CLIP_HEIGHT * dpr) / bitmap.height));
 			const canvasWidth = Math.max(1, Math.round(bitmap.width * scale));
@@ -149,14 +108,6 @@ async function decodeStill(asset: Asset, width: number, hash: string): Promise<v
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Video frames
-
-/**
- * Asks for the tiles a video clip needs. Decodes the file's fallback spread
- * the first time it is asked about, and re-decodes the clip's own tiles
- * whenever the stretch on screen or the size of a tile has changed.
- */
 export function requestFrames(request: FrameRequest): void {
 	const record = assetFrames.get(request.asset.id);
 
@@ -169,11 +120,6 @@ export function requestFrames(request: FrameRequest): void {
 	}
 }
 
-/**
- * The picture to draw for `timestamp` (source frames): the clip's own tile
- * where its strip reaches that far, else the nearest of the file's fallback
- * spread. Null while neither has decoded anything yet.
- */
 export function pickFrame(clip: number, assetId: string, timestamp: number, interval: number): Frame | null {
 	const cached = clipFrames.get(clip);
 	const covered = cached !== undefined
@@ -186,11 +132,7 @@ export function pickFrame(clip: number, assetId: string, timestamp: number, inte
 	return index < 0 ? null : frames[index]!;
 }
 
-/**
- * Gives a clip's strip to the half that was cut off it, so the copy is drawn
- * from the frames the original had rather than decoding them again. The
- * canvases are shared; only the records saying what is on screen are copied.
- */
+/** The canvases are shared with the original; only the records are copied. */
 export function cloneFramesForSplit(clip: number, copy: number): void {
 	const source = clipFrames.get(clip);
 	if (!source) return;
@@ -203,13 +145,11 @@ export function cloneFramesForSplit(clip: number, copy: number): void {
 	});
 }
 
-/** Forgets one clip's strip, or every clip's. */
 export function clearClipFrames(clip?: number): void {
 	if (clip === undefined) clipFrames.clear();
 	else clipFrames.delete(clip);
 }
 
-/** Forgets everything: the clips' strips, the spreads and the stills. */
 export function clearMedia(): void {
 	clipFrames.clear();
 	assetFrames.clear();
@@ -217,9 +157,6 @@ export function clearMedia(): void {
 	stillsFailed.clear();
 }
 
-/**
- * Forgets one asset's pictures, for a file that is no longer the one it was.
- */
 export function forgetAssetMedia(assetId: string): void {
 	stills.delete(assetId);
 	stillsFailed.delete(assetId);
@@ -229,12 +166,6 @@ export function forgetAssetMedia(assetId: string): void {
 	}
 }
 
-/**
- * A handful of frames from across the whole file. Coarse — they are a tenth
- * of a long video apart — but they are what a clip shows the moment it lands
- * on the timeline, and what it keeps showing wherever its own strip has not
- * reached.
- */
 async function decodeSpread(request: FrameRequest): Promise<void> {
 	const { asset } = request;
 
@@ -263,7 +194,7 @@ async function decodeSpread(request: FrameRequest): Promise<void> {
 					canvas: wrapped.canvas,
 				});
 			} catch {
-				// One frame that will not decode is not the file's whole spread.
+				// One bad frame should not lose the whole spread.
 			}
 		}
 	} catch (error) {
@@ -274,15 +205,7 @@ async function decodeSpread(request: FrameRequest): Promise<void> {
 	}
 }
 
-/**
- * Decodes the tiles the clip is showing. Only what is missing: scrolling into
- * new footage extends the strip at the end it moved towards, while a change
- * of zoom or tile size invalidates it and decodes the visible stretch afresh.
- *
- * One decode runs at a time per clip, and a request that arrives while one is
- * running replaces whatever was queued behind it — the work that finally runs
- * is for where the timeline ended up, not everywhere it passed through.
- */
+/** One decode runs at a time per clip; a newer request replaces whatever was queued. */
 async function updateClip(request: FrameRequest): Promise<void> {
 	const cached = clipFrames.get(request.clip) ?? {
 		assetId: request.asset.id,
@@ -314,8 +237,6 @@ async function updateClip(request: FrameRequest): Promise<void> {
 		let to = 0;
 
 		if (rescaled || resized || !overlaps) {
-			// Nothing on screen is worth keeping: every tile is the wrong size
-			// or covers the wrong stretch, so the whole range is decoded again.
 			from = wanted.firstIndex;
 			to = wanted.lastIndex;
 			for (const frame of cached.frames) frame.stale = true;
@@ -333,7 +254,6 @@ async function updateClip(request: FrameRequest): Promise<void> {
 
 		const count = to - from;
 
-		// The strip already reaches across everything on screen.
 		if (count <= 0) {
 			cached.frames = keep(cached.frames);
 			cached.start = wanted.start;
@@ -352,16 +272,14 @@ async function updateClip(request: FrameRequest): Promise<void> {
 				const wrapped = await sink.getCanvas(((from + i) * request.interval) / request.fps);
 				if (!wrapped) continue;
 
-				// The decoder may snap to the nearest keyframe, so the frame is
-				// filed under the timestamp it actually came back with.
+				// The decoder may snap to a keyframe, so file it under the timestamp it returned.
 				const timestamp = secondsToFrames(wrapped.timestamp, request.fps);
 
-				// The frames it replaces are dropped only now, so the strip is
-				// never blank while the new ones are on their way.
+				// Drop superseded frames only now so the strip is never blank.
 				cached.frames = keep(cached.frames, timestamp);
 				cached.frames.push({ timestamp, canvas: wrapped.canvas, stale: false });
 			} catch {
-				// One tile that will not decode is not the whole strip.
+				// One bad tile should not lose the whole strip.
 			}
 		}
 
@@ -382,10 +300,6 @@ async function updateClip(request: FrameRequest): Promise<void> {
 	}
 }
 
-/**
- * The tiles to have decoded: the ones the visible stretch falls on, one
- * either side, and never past the ends of the file.
- */
 function tileRange(request: FrameRequest) {
 	const { firstFrame, lastFrame, interval, asset } = request;
 
@@ -401,7 +315,6 @@ function createSink(track: InputVideoTrack, request: FrameRequest): CanvasSink {
 	return new CanvasSink(track, { width: request.width * dpr, height: request.height * dpr, fit: 'cover' });
 }
 
-/** The strip without what has been superseded, in the order it is drawn. */
 function keep(frames: Frame[], upTo?: number): Frame[] {
 	return frames
 		.filter((frame) => !frame.stale || (upTo !== undefined && frame.timestamp > upTo))
@@ -418,7 +331,6 @@ function sizeHash(request: FrameRequest | null): string {
 	return `${request.width}x${request.height}@${window.devicePixelRatio}`;
 }
 
-/** The frame nearest `timestamp`, or -1 when there are none. */
 function closestFrame(frames: Frame[], timestamp: number): number {
 	if (frames.length === 0) return -1;
 

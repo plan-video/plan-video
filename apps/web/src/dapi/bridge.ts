@@ -7,15 +7,9 @@ import { DAPI_WIRE, isDapiError } from "@plan.video/dapi";
 import type { DapiCall, DapiCancel, DapiReply } from "@plan.video/dapi";
 import type { Handlers, ServedToolName, ToolContext } from "./handler";
 
-/** Builds the per-call context; the bridge supplies the abort signal. */
 export type ContextFactory = (signal: AbortSignal) => ToolContext;
 
-/**
- * Answers renderer tools for the MCP server in main. Main validated the
- * arguments against the catalog before sending them; this side runs the
- * handler and replies, honouring cancels. Calls that arrive before the
- * handlers register (page bootstrap) are held and answered on registration.
- */
+/** Main validated the args against the catalog; calls arriving before the handlers register are held. */
 class ToolBridge {
   private handlers: Handlers | null = null;
   private context: ContextFactory | null = null;
@@ -23,8 +17,7 @@ class ToolBridge {
   private readonly inFlight = new Map<string, AbortController>();
 
   constructor() {
-    // Bind eagerly so calls during page bootstrap are caught rather than
-    // silently dropped before the handlers register.
+    // Bind eagerly so calls during page bootstrap are held, not dropped.
     window.desktop?.on(DAPI_WIRE.CALL, (payload) => void this.dispatch(payload as DapiCall));
     window.desktop?.on(DAPI_WIRE.CANCEL, (payload) => this.inFlight.get((payload as DapiCancel).id)?.abort());
   }
@@ -56,8 +49,7 @@ class ToolBridge {
     try {
       const handler = this.handlers[call.tool as ServedToolName];
       if (!handler) throw new Error(`The app has no handler for "${call.tool}"`);
-      // Every handler takes its own parsed args; the map's union type cannot
-      // express that pairing, so the call site widens.
+      // The map's union type cannot pair each handler with its args, so the call site widens.
       const run = handler as (args: unknown, ctx: ToolContext) => Promise<unknown>;
       reply = { id: call.id, ok: true, data: await run(call.args, this.context(controller.signal)) };
     } catch (error) {

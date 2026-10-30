@@ -14,26 +14,20 @@ import type { Asset } from '@plan.video/assets';
 import type { Entity, World } from 'koota';
 
 export interface InsertAssetOptions {
-	/** The scene (or group) to insert into; the active scene by default. */
+	/** Defaults to the active scene. */
 	parent?: Entity;
-	/** Top-left corner in the parent's space; centered by default. */
+	/** In the parent's space; centred by default. */
 	x?: number;
 	y?: number;
-	/** The element's size; the asset's own by default. */
+	/** Defaults to the asset's own size. */
 	width?: number;
 	height?: number;
-	/** Where on the timeline the clip starts, in seconds; the playhead by default. */
+	/** In seconds; defaults to the playhead. */
 	start?: number;
 }
 
-/** The box an audio clip gets on the canvas: it has no size of its own. */
 export const AUDIO_SIZE = { width: 500, height: 150 } as const;
 
-/**
- * Inserts `asset` into the project as the element of its type and returns
- * the entity, or null when there is nothing to insert into (no project is
- * mounted, or the target has no source to be written under).
- */
 export function insertAsset(world: World, asset: Asset, options: InsertAssetOptions = {}): Entity | null {
 	const parent = options.parent ?? getActiveEntity(world) ?? world.get(Root)!;
 	if (!parent.get(Source)?.value) return null;
@@ -48,7 +42,6 @@ export function insertAsset(world: World, asset: Asset, options: InsertAssetOpti
 		? { width: Math.round(options.width), height: Math.round(options.height) }
 		: own;
 	const position = size ? placement(world, parent, size, options) : {};
-	// A picture has no length of its own, so it is given one; footage and sound play out.
 	const timing = asset.type === 'IMAGE' ? stillTiming(world, parent, start) : start > 0 ? { start } : {};
 
 	const [entity] = editor.insertElement(parent, () => {
@@ -79,16 +72,9 @@ export function insertAsset(world: World, asset: Asset, options: InsertAssetOpti
 	return entity ?? null;
 }
 
-/** How long a still lasts when nothing in its scene plays on past where it starts. */
 export const STILL_SECONDS = 5;
 
-/**
- * When a still (text, a shape, a picture) added to `parent` shows: from
- * `start`, the playhead by default, to the end of what the scene already
- * plays, so adding one never makes the video longer. With less than a second
- * of the scene left, or nothing in it yet, it lasts STILL_SECONDS. Outside a
- * scene there is no timeline, and only the start is given.
- */
+/** Ends where the scene already ends, so adding a still never makes the video longer. */
 export function stillTiming(world: World, parent: Entity, start?: number): { start?: number; end?: number } {
 	const computed = store(world, Computed);
 	const from = Math.max(0, start ?? computed.localTimeInSeconds[parent.id()] ?? 0);
@@ -101,11 +87,7 @@ export function stillTiming(world: World, parent: Entity, start?: number): { sta
 
 const seconds = (value: number) => Math.round(value * 1000) / 1000;
 
-/**
- * The size `asset` goes into `parent` at when none is asked for: its own,
- * except a killfeed picture, drawn bigger than it is shown so it stays sharp,
- * which comes in at the size its panel puts it.
- */
+/** A killfeed picture is drawn bigger than shown so it stays sharp, so it comes in at its panel's size. */
 export function assetSize(world: World, parent: Entity, asset: Asset): { width: number; height: number } | undefined {
 	if (asset.type === 'IMAGE' && isKillfeedPicture(asset)) {
 		const computed = store(world, Computed);
@@ -123,7 +105,6 @@ export function assetSize(world: World, parent: Entity, asset: Asset): { width: 
 	}
 }
 
-/** Where a new element of `size` goes: as asked, or centered in its parent. */
 function placement(
 	world: World,
 	parent: Entity,

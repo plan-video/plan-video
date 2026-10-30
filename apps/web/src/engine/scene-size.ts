@@ -27,15 +27,11 @@ import type { Entity, World } from 'koota';
 type Box = { x: number; y: number; width: number; height: number };
 type Frame = { width: number; height: number };
 
-/** A part of the scene as it sat before the resize. */
 type Placed = { entity: Entity; box: Box; media: boolean; stretches: boolean };
 
 /**
- * Sets a scene's size to `width`×`height`. The aspect lock is cleared first:
- * with it on, writing one side rewrites the other from the old ratio, so a
- * 16:9 scene never becomes 9:16. A keyframe track is updated too, or the
- * next frame puts the old size back. What the scene holds is reframed to the
- * new size (see `reframe`).
+ * The aspect lock is cleared first, or writing one side rewrites the other from the old ratio.
+ * A keyframe track is updated too, or the next frame puts the old size back.
  */
 export function resizeScene(world: World, scene: Entity, width: number, height: number): void {
 	const editor = getDocumentEditor(world);
@@ -60,15 +56,9 @@ export function resizeScene(world: World, scene: Entity, width: number, height: 
 	for (const item of placed) place(world, editor, item.entity, reframe(item, frame, next));
 }
 
-/** A scene and the size it would take to match a clip in it. */
 export type SceneFit = { scene: Entity; width: number; height: number };
 
-/**
- * The size `clip`'s scene would take to match the clip's footage, or null
- * when it already does or the clip is not footage laid out in a scene's own
- * frame (sequences looked through, as `placedIn` does). A turned clip is
- * left out: filling the frame with it would leave corners empty.
- */
+/** A turned clip is left out: filling the frame with it would leave corners empty. */
 export function sceneFitFor(world: World, clip: Entity): SceneFit | null {
 	const asset = findGeometryAsset(world, clip);
 	if (!asset || (asset.type !== 'VIDEO' && asset.type !== 'SEQUENCE')) return null;
@@ -85,13 +75,7 @@ export function sceneFitFor(world: World, clip: Entity): SceneFit | null {
 	return { scene, width, height };
 }
 
-/**
- * Resizes `clip`'s scene to the clip's footage and has the clip fill it at
- * its own size. Everything else in the scene is reframed as for any resize.
- * The scene grows or shrinks about its centre, so it stays where it was being
- * looked at, and an undo puts it back where it was seen. Returns the scene's
- * new box on the stage, or null when there was nothing to do.
- */
+/** Resizes about the centre, so the scene stays where it was being looked at and undo puts it back. */
 export function fitSceneToClip(world: World, clip: Entity): (SceneFit & Box) | null {
 	const fit = sceneFitFor(world, clip);
 	if (!fit) return null;
@@ -110,11 +94,7 @@ export function fitSceneToClip(world: World, clip: Entity): (SceneFit & Box) | n
 	return { ...fit, x, y };
 }
 
-/**
- * The scene's parts that sit in its frame, sequences looked through: a
- * sequence takes its scene's frame. Parts with constraints are left to them,
- * and captions place themselves.
- */
+/** Sequences take their scene's frame; parts with constraints are left to them, and captions place themselves. */
 function placedIn(world: World, parent: Entity): Placed[] {
 	const placed: Placed[] = [];
 	for (const child of getEntityChildren(world, parent)) {
@@ -139,12 +119,8 @@ function placedIn(world: World, parent: Entity): Placed[] {
 }
 
 /**
- * Where a part goes when its scene goes from `from` to `to`. Footage that
- * filled the frame fills the new one, cropped at the centre. Other footage
- * keeps its size against the frame: one that fitted the frame fits the new
- * one, and a picture-in-picture at a third of it stays a third. A shape
- * across the frame stretches across the new one. Each keeps its place
- * relative to the frame, and stays inside it.
+ * Footage that filled the frame fills the new one, cropped at the centre; other footage keeps its
+ * size against the frame; a shape across the frame stretches. Each stays inside the frame.
  */
 export function reframe(item: Omit<Placed, 'entity'>, from: Frame, to: Frame): Box {
 	const { box } = item;
@@ -157,7 +133,6 @@ export function reframe(item: Omit<Placed, 'entity'>, from: Frame, to: Frame): B
 		return centred(box.width * scale, box.height * scale, to);
 	}
 
-	// How much bigger the footage is shown when fitted to each frame.
 	const fit = (frame: Frame) => Math.min(frame.width / box.width, frame.height / box.height);
 	const scale = item.media ? fit(to) / fit(from) : 1;
 	const width = item.stretches && acrossX ? to.width : box.width * scale;
@@ -181,7 +156,6 @@ function centred(width: number, height: number, frame: Frame): Box {
 	};
 }
 
-/** `start` moved so `length` stays within `room`; centred when it can't fit. */
 function inside(start: number, length: number, room: number): number {
 	if (length >= room) return (room - length) / 2;
 	return Math.min(Math.max(start, 0), room - length);

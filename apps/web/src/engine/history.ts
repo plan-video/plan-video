@@ -2,25 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/**
- * Undo and redo for the mounted project. The history is a listener on the
- * one funnel every mutation already goes through: it keeps the edits the
- * `DocumentEditor` reports as invertible pairs, and an undo replays the
- * inverses through the same editor commands the edit was made with — so the
- * canvas changes the way any edit changes it, and the file hears about it
- * through the same writer. Nothing here knows about a disk, or a second way
- * to change anything.
- *
- * Everything is addressed by `Source` stamp, never by entity: entities die
- * on remount, stamps survive it. When an undo has to put an element back
- * (or a redo insert one again), the reinsert mints fresh pending sources —
- * the history pairs them with the ones it recorded and rewrites itself, the
- * same rename it hears from `restamp` when a write answers with real names.
- *
- * The history is cleared whenever a bundle is (re)mounted: a mount comes
- * from the file, and edits recorded against a document that is gone cannot
- * be replayed against the one that replaced it.
- */
+// Steps address elements by `Source` stamp, never by entity: entities die on remount, stamps survive it.
+// Cleared on every mount: edits recorded against the old document can't replay against the new one.
 
 import type { Transcript } from '@plan.video/assets';
 import { Source, getEntityChildren } from '@plan.video/runtime';
@@ -34,31 +17,14 @@ import type { InspectValue, PropValue } from '@plan.video/jsx';
 import type { Entity, World } from 'koota';
 import type { CapturedNode, DocumentEditor, EntityEdit } from './editor';
 
-/**
- * Props that are pointing and viewing rather than composition: undoing them
- * is not what anyone means by undo, so they pass through to the file without
- * entering the history.
- */
+// Pointing and viewing, not composition: passes to the file without entering the history.
 const EXCLUDED_PROPS: ReadonlySet<string> = new Set(['selected', 'active', 'camera', 'expanded', 'clipHeight', 'timeline', 'playhead']);
 
-/**
- * How long after one step a same-shaped step still merges into it. Edits
- * that arrive through the DOM rather than a canvas gesture — an inspector
- * slider, repeated nudges — come as bursts of tiny transactions; within
- * this window a repeat of the same props reads as one continuing adjustment.
- */
+// Inspector sliders and repeated nudges arrive as bursts of tiny transactions; repeats within this window merge.
 const COALESCE_WINDOW = 600;
 
-/** How many steps back the history keeps; beyond it, the oldest fall off. */
 const MAX_TRANSACTIONS = 100;
 
-/**
- * One recorded edit with what it takes to play it in either direction. An
- * insert's and a remove's `node` is the element as captured at the moment it
- * existed (see `CapturedNode`); `parent`/`before` are its place. A move's
- * two ends are both spelled out. All sources, everywhere, are rewritten as
- * renames come in.
- */
 interface PropOp {
 	kind: 'prop';
 	source: string;
@@ -97,11 +63,7 @@ interface MoveOp {
 	toBefore?: string;
 }
 
-/**
- * An `@inspect` variable, set. Addressed by file and variable name — no
- * source, no entity, so renames never touch it and it replays against
- * whatever the current mount declared under that name.
- */
+// Addressed by file and variable name, so renames never touch it.
 interface VariableOp {
 	kind: 'variable';
 	file: string;
@@ -110,7 +72,6 @@ interface VariableOp {
 	after: InspectValue;
 }
 
-/** One rewrite of a caption transcript file. The words live in that file, not on the element. */
 interface TranscriptOp {
 	kind: 'transcript';
 	assetId: string;
@@ -124,16 +85,10 @@ type CaptionTranscriptApplier = (world: World, assetId: string, transcript: Tran
 
 let applyCaptionTranscript: CaptionTranscriptApplier | null = null;
 
-/** How an undone caption edit is written back. Set by the caption saver. */
 export function setCaptionTranscriptApplier(applier: CaptionTranscriptApplier): void {
 	applyCaptionTranscript = applier;
 }
 
-/**
- * The identity a sliding op coalesces on: the same prop of the same element,
- * or the same variable, adjusted again is one continuing adjustment, and so
- * is typing on into the same text.
- */
 const slidingKey = (op: HistoryOp): string | undefined => {
 	if (op.kind === 'prop') return `prop ${op.source} ${op.name}`;
 	if (op.kind === 'text') return `text ${op.source}`;
@@ -142,12 +97,7 @@ const slidingKey = (op: HistoryOp): string | undefined => {
 	return undefined;
 };
 
-/**
- * One undo step: the ops of one gesture, or of one synchronous burst of
- * edits (a shortcut, a compound command, an inspector change). `broken`
- * marks a step holding an edit that could not be captured whole — replaying
- * around it would lie, so committing it clears the history instead.
- */
+// `broken`: holds an edit that couldn't be captured whole; replaying around it would lie, so committing clears the history.
 interface Transaction {
 	ops: HistoryOp[];
 	gesture: boolean;
@@ -161,15 +111,13 @@ export class EditHistory {
 
 	private undos: Transaction[] = [];
 	private redos: Transaction[] = [];
-	/** The transaction edits are landing in right now, not yet a step. */
 	private open: Transaction | null = null;
-	/** The transaction being replayed right now: renames reach it too. */
+	// Renames must reach the step being replayed too.
 	private replaying: Transaction | null = null;
 	private gesture = false;
 	private scheduled = false;
 	private applying = false;
 
-	/** Bumped on every change, so the menu's disabled states stay honest. */
 	private readonly changed: () => void;
 	private readonly version: () => number;
 
@@ -184,22 +132,16 @@ export class EditHistory {
 		this.changed = () => setVersion((current) => current + 1);
 	}
 
-	/** Whether there is a step to undo. Reactive under a Solid computation. */
 	public canUndo(): boolean {
 		this.version();
 		return this.undos.length > 0 || (this.open?.ops.length ?? 0) > 0;
 	}
 
-	/** Whether there is a step to redo. Reactive under a Solid computation. */
 	public canRedo(): boolean {
 		this.version();
 		return this.redos.length > 0;
 	}
 
-	/**
-	 * Starts over, for a fresh mount: what was recorded against the previous
-	 * document cannot be replayed against this one.
-	 */
 	public reset(): void {
 		this.undos = [];
 		this.redos = [];
@@ -208,11 +150,6 @@ export class EditHistory {
 		this.changed();
 	}
 
-	/**
-	 * Brackets a pointer hold: every edit from press to release — however
-	 * many frames a drag writes — is one step. A press while a burst is
-	 * still open commits it first, so the gesture starts on its own step.
-	 */
 	public beginGesture(): void {
 		if (this.open) this.commit();
 		this.gesture = true;
@@ -224,10 +161,6 @@ export class EditHistory {
 		if (this.open) this.commit();
 	}
 
-	/**
-	 * Records a caption transcript rewrite. `before` is what undo writes
-	 * back. A burst of edits to the same file, such as typing, stays one step.
-	 */
 	public recordTranscript(assetId: string, before: Transcript, after: Transcript): void {
 		if (this.applying || !assetId) return;
 		const previous = cloneTranscript(before);
@@ -245,7 +178,6 @@ export class EditHistory {
 		transaction.ops.push({ kind: 'transcript', assetId, before: previous, after: next });
 	}
 
-	/** Takes back the last step, and hands it to redo. */
 	public undo(): void {
 		if (this.open) this.commit();
 		const transaction = this.undos.pop();
@@ -256,7 +188,6 @@ export class EditHistory {
 		this.changed();
 	}
 
-	/** Plays the last undone step again, and hands it back to undo. */
 	public redo(): void {
 		if (this.open) this.commit();
 		const transaction = this.redos.pop();
@@ -267,13 +198,8 @@ export class EditHistory {
 		this.changed();
 	}
 
-	/**
-	 * Runs one direction of a step through the editor. `applying` keeps the
-	 * recorder from hearing the replay as new edits; the writer hears it like
-	 * any other change, which is the point. The transaction is held where
-	 * renames can reach it: a reinsert in the middle of it renames sources
-	 * its own later ops refer to.
-	 */
+	// `applying` keeps the recorder from hearing the replay as new edits. A reinsert mid-replay
+	// renames sources the step's later ops refer to, hence `replaying`.
 	private replay(transaction: Transaction, ops: HistoryOp[], step: (op: HistoryOp) => void): void {
 		this.applying = true;
 		this.replaying = transaction;
@@ -285,24 +211,19 @@ export class EditHistory {
 		}
 	}
 
-	/** ---- Recording ---- */
-
 	private record(edit: EntityEdit): void {
 		if (this.applying) return;
 
 		switch (edit.kind) {
-			// An unroll renders exactly what the loop rendered: nothing to
-			// invert. The edits that follow it address the settled copies.
+			// An unroll renders exactly what the loop rendered: nothing to invert.
 			case 'unroll':
 				return;
 
 			case 'prop': {
 				if (EXCLUDED_PROPS.has(edit.name)) return;
-				// No inverse reported (see `reportEdit`): not undoable, and a
-				// step pretending otherwise would restore the wrong value.
+				// No inverse reported: not undoable, and a step would restore the wrong value.
 				if (!('previous' in edit)) return;
 				const transaction = this.ensureOpen();
-				// A drag writes the same prop every frame; one op, sliding.
 				const existing = transaction.ops.find(
 					(op): op is PropOp => op.kind === 'prop' && op.source === edit.source && op.name === edit.name,
 				);
@@ -329,7 +250,6 @@ export class EditHistory {
 
 			case 'variable': {
 				const transaction = this.ensureOpen();
-				// A slider writes the same variable every frame; one op, sliding.
 				const existing = transaction.ops.find(
 					(op): op is VariableOp => op.kind === 'variable' && op.file === edit.file && op.name === edit.name,
 				);
@@ -343,10 +263,8 @@ export class EditHistory {
 
 			case 'insert': {
 				const transaction = this.ensureOpen();
-				// The element as it stands, live values included, rather than
-				// the wire form the edit carries: a redo re-renders it the way
-				// `duplicate` renders a copy. Children arrive as inserts of
-				// their own (parents first), so the node holds none.
+				// Live values rather than the edit's wire form, so a redo renders it like `duplicate`.
+				// Children arrive as inserts of their own (parents first), so the node holds none.
 				const entity = this.resolve(edit.source);
 				const element = entity ? authoredElement(entity) : undefined;
 				transaction.ops.push({
@@ -380,8 +298,7 @@ export class EditHistory {
 			case 'remove': {
 				const transaction = this.ensureOpen();
 				if (!edit.parent || !edit.node) {
-					// Gone without a capture: nothing can put it back, and any
-					// older step referring into it would replay wrong.
+					// Gone without a capture: nothing can put it back, and older steps referring into it would replay wrong.
 					transaction.broken = true;
 					return;
 				}
@@ -396,12 +313,7 @@ export class EditHistory {
 		}
 	}
 
-	/**
-	 * The transaction edits are landing in, opened on the first of them. A
-	 * burst outside a gesture commits on the microtask, so everything one
-	 * event handler did — a shortcut over a whole selection, a compound
-	 * command — is one step.
-	 */
+	// Outside a gesture a burst commits on the microtask, so everything one event handler did is one step.
 	private ensureOpen(): Transaction {
 		if (!this.open) {
 			this.open = { ops: [], gesture: this.gesture, committedAt: 0 };
@@ -411,7 +323,6 @@ export class EditHistory {
 			this.scheduled = true;
 			queueMicrotask(() => {
 				this.scheduled = false;
-				// A gesture that began meanwhile owns the step now.
 				if (!this.gesture && this.open) this.commit();
 			});
 		}
@@ -424,7 +335,6 @@ export class EditHistory {
 		if (!transaction) return;
 
 		if (transaction.broken) {
-			// Better no history than a history that lies.
 			this.undos = [];
 			this.redos = [];
 			this.changed();
@@ -453,11 +363,7 @@ export class EditHistory {
 		this.changed();
 	}
 
-	/**
-	 * Whether `next` is `last` still going: both bursts of sliding ops only —
-	 * props or variables, never gestures (two drags are two steps) — over the
-	 * same keys, close enough in time. A slider writes this shape.
-	 */
+	// Two gestures never merge: two drags are two steps.
 	private coalesces(last: Transaction, next: Transaction): boolean {
 		if (last.gesture || next.gesture) return false;
 		if (next.committedAt - last.committedAt > COALESCE_WINDOW) return false;
@@ -476,8 +382,6 @@ export class EditHistory {
 		if (!lastKeys || !nextKeys) return false;
 		return lastKeys.size === nextKeys.size && [...nextKeys].every((entry) => lastKeys.has(entry));
 	}
-
-	/** ---- Replaying ---- */
 
 	private revert(op: HistoryOp): void {
 		switch (op.kind) {
@@ -560,15 +464,8 @@ export class EditHistory {
 		}
 	}
 
-	/**
-	 * Puts a captured element back where it was. The reinsert renders it the
-	 * way a paste renders a copy, so the entities are real and the writer
-	 * hears an insert like any other — under fresh pending sources, which
-	 * the history immediately pairs with the recorded ones and renames
-	 * itself by, so every other step naming the old sources now names the
-	 * reborn element. An anchor that is not there anymore means last, the
-	 * same answer the writer gives.
-	 */
+	// The reinsert mints fresh pending sources; renaming the recorded ones to them keeps every other step
+	// pointing at the reborn element. A missing anchor means last, as the writer does.
 	private reinsert(op: InsertOp | RemoveOp): void {
 		const parent = this.resolve(op.parent);
 		if (!parent) return;
@@ -582,11 +479,7 @@ export class EditHistory {
 		this.rename(ids);
 	}
 
-	/**
-	 * Pairs a captured subtree with the entities its reinsert produced, in
-	 * authored order — the render is the capture replayed, so the shapes
-	 * match position for position.
-	 */
+	// The render is the capture replayed, so the shapes match position for position.
 	private pair(node: CapturedNode, entity: Entity, ids: Record<string, string>): void {
 		const source = entity.get(Source)?.value;
 		if (source && source !== node.source) ids[node.source] = source;
@@ -598,12 +491,6 @@ export class EditHistory {
 		});
 	}
 
-	/**
-	 * Rewrites every source the history holds, wherever it appears — both
-	 * stacks, the open transaction, and the step being replayed right now.
-	 * Fed by `restamp` (a write answered with real names) and by `reinsert`
-	 * (a reborn element got new ones).
-	 */
 	private rename(ids: Record<string, string>): void {
 		if (Object.keys(ids).length === 0) return;
 		const next = (source: string): string => ids[source] ?? source;
@@ -639,7 +526,6 @@ export class EditHistory {
 		}
 	}
 
-	/** The living entity stamped with `source`, or undefined for none. */
 	private resolve(source: string): Entity | undefined {
 		for (const entity of this.world.query(Source)) {
 			if (entity.isAlive() && entity.get(Source)!.value === source) return entity;
@@ -648,7 +534,6 @@ export class EditHistory {
 	}
 }
 
-/** A captured node as `renderAuthored` takes it. */
 function toAuthored(node: CapturedNode): AuthoredTree {
 	return {
 		tag: node.tag,
@@ -669,7 +554,7 @@ function cloneTranscript(transcript: Transcript): Transcript {
 
 const histories = new WeakMap<World, EditHistory>();
 
-/** The history for `world`, created on first use. Outlives mounts, like the editor; `reset` it per mount. */
+// Outlives mounts, like the editor; `reset` it per mount.
 export function getEditHistory(world: World): EditHistory {
 	let history = histories.get(world);
 	if (!history) {

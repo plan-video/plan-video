@@ -24,18 +24,13 @@ export const SCROLL_X_SENSITIVITY = 2;
 /** How near, in pixels, a dragged edge has to be to snap to something. */
 export const SNAP_DISTANCE = 10;
 
-/** How wide a clip's trim handle is, at most. */
 export const TRIM_HANDLE_WIDTH = 10;
 
 export const CLICK_DISTANCE_THRESHOLD = 5;
 export const DOUBLE_CLICK_THRESHOLD = 500;
 
 export const RULER_HEIGHT = 36;
-/**
- * The strip along the bottom kept for the sideways scrollbar, as the ruler
- * keeps the top: the rows are cut off above it and can always be scrolled
- * clear of it, so the bar never covers a clip.
- */
+/** Kept clear for the scrollbar: rows are cut off above it, so the bar never covers a clip. */
 export const SCROLLBAR_LANE = 12;
 export const RULER_TICK_HEIGHT_MAJOR = 9;
 export const RULER_TICK_HEIGHT_MINOR = 3;

@@ -2,15 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/**
- * What a transform gesture needs to remember. A drag is measured against the
- * world as it stood when the pointer went down, not against the frame before
- * it: the nodes move while it runs, so reading them again would compound. All
- * of it is snapshotted once at dragstart and read back per frame.
- *
- * There is one gesture at a time, so this state is module-level, as the
- * pointer's own is.
- */
+// A drag is measured against the world as it stood at dragstart, not the frame
+// before: the nodes move while it runs, so rereading them would compound. One
+// gesture at a time, so this state is module-level.
 
 import { Not, Or } from 'koota';
 import {
@@ -35,11 +29,8 @@ export type NodeSnapshot = {
 
 const transforms = new Map<Entity, NodeSnapshot>();
 
-/**
- * Records the local and parent transforms of everything the gesture will
- * move. Groups have no Size of their own, so their direct children come along:
- * those are the entities a group resize actually transforms.
- */
+// Groups have no Size of their own, so their direct children are recorded too:
+// those are what a group resize actually transforms.
 export function snapshotSelectionTransforms(world: World): void {
 	transforms.clear();
 	const computed = store(world, Computed);
@@ -91,11 +82,7 @@ export type SnapCandidates = { x: SnapAxisCandidate[]; y: SnapAxisCandidate[] };
 
 const candidates: SnapCandidates = { x: [], y: [] };
 
-/**
- * The edges and centers a gesture can snap to: the selection's siblings, plus
- * its parent. Taken once at dragstart, so a node cannot snap to where it has
- * just been dragged.
- */
+// Taken once at dragstart, so a node cannot snap to where it has just been dragged.
 export function snapshotSnapCandidates(world: World): void {
 	candidates.x.length = 0;
 	candidates.y.length = 0;
@@ -126,8 +113,7 @@ export function snapshotSnapCandidates(world: World): void {
 		}
 	};
 
-	// A single node snaps within its own frame; a multi-selection spans
-	// frames, so the stage is the only frame they share.
+	// A multi-selection spans frames, so the stage is the only frame they share.
 	const only = selection.size === 1 ? [...selection][0]! : null;
 	const parent = (only === null ? null : getParentEntity(only)) ?? world.get(Root)!;
 
@@ -163,11 +149,7 @@ export type SnapTarget = {
 	targetPoint: Point;
 };
 
-/**
- * The nearest candidate within `threshold` on one axis, ties broken by the
- * shorter guide: of two equally close snaps, the one whose line is shorter is
- * the one the user meant.
- */
+// Ties go to the shorter guide: of two equally close snaps, that is the one meant.
 export function findSnapTarget(
 	source: SnapAxisCandidate[],
 	targets: SnapAxisCandidate[],
@@ -196,7 +178,6 @@ export function findSnapTarget(
 	return best;
 }
 
-/** The marquee rectangle in device pixels, or null when no marquee is running. */
 export function getMarqueeQuad(world: World): Quad | null {
 	if (world.get(Hud)?.mode !== 'marquee') return null;
 

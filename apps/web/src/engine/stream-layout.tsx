@@ -2,15 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/**
- * A stream layout being set up: the video it is cut from, which layout, and
- * where its crops sit on the source (as fractions, so they survive a frame
- * the decoder has scaled). The canvas edits the crops, the inspector shows
- * the result, and applying writes it into the scene: one clip per slot,
- * sized to the slot, with the crop of the footage that fills it. A video in
- * a sequence takes the whole sequence with it: every clip in it is laid out,
- * and each slot gets a copy of the sequence, cuts and all.
- */
+// Crops are stored as fractions of the source so they survive a frame the decoder has scaled.
 
 import { createSignal } from 'solid-js';
 import { Effect as EffectElement, Rect } from '@plan.video/reconciler';
@@ -72,7 +64,6 @@ export type PreviewPlatform = 'tiktok' | 'shorts' | 'reels' | 'none';
 type LayoutTarget = {
 	scene: Entity;
 	video: Entity;
-	/** The sequence `video` plays in, laid out as one. */
 	sequence: Entity | null;
 	assetId: string;
 	source: { width: number; height: number };
@@ -84,10 +75,9 @@ const [crops, setCrops] = createSignal<Crops>({});
 const [styles, setStyles] = createSignal<CropStyles>({});
 const [platform, setPlatform] = createSignal<PreviewPlatform>('tiktok');
 
-/** Crops last used on each asset, so reopening a layout starts where it was left. */
 const remembered = new Map<string, { crops: Crops; styles: CropStyles }>();
 
-/** The last layout written into a scene, so whoever opened the setup can tell it was applied rather than cancelled. */
+/** Lets whoever opened the setup tell an applied layout from a cancelled one. */
 const [lastApplied, setLastApplied] = createSignal<{ scene: Entity; layout: WorkflowLayout } | null>(null);
 export { lastApplied as lastAppliedLayout };
 
@@ -102,7 +92,6 @@ export {
 
 export const activeLayout = () => getStreamLayout(layoutId());
 
-/** Crops in source pixels. */
 export const layoutCropsPx = (): Crops => {
 	const current = target();
 	return current ? toPixels(crops(), current.source.width, current.source.height) : {};
@@ -110,11 +99,6 @@ export const layoutCropsPx = (): Crops => {
 
 export const layoutSlots = (): Slot[] => styleSlots(activeLayout().slots(layoutCropsPx()), styles());
 
-/**
- * Start setting up `id` on the active scene's video, or switch to it when
- * one is already being set up. Crops the new layout shares with the old one
- * stay where they were.
- */
 export function openStreamLayout(world: World, id: string): void {
 	let current = target();
 	if (!current || !current.scene.isAlive() || !current.video.isAlive()) {
@@ -137,10 +121,6 @@ export function openStreamLayout(world: World, id: string): void {
 	setCrops(next);
 }
 
-/**
- * Puts saved crops (fractions of the footage) and their shapes on the layout
- * being set up. Crops the layout has but `crops` lacks keep where they were.
- */
 export function setLayoutSetup(saved: { crops?: Crops; styles?: CropStyles }): void {
 	setCrops((current) => ({ ...current, ...saved.crops }));
 	setStyles((current) => ({ ...current, ...saved.styles }));
@@ -150,7 +130,6 @@ export function setLayoutCrop(id: CropId, box: Box): void {
 	setCrops((current) => ({ ...current, [id]: box }));
 }
 
-/** Hold a crop to `shape`, reshaping it about its centre to fit. */
 export function setLayoutCropShape(id: CropId, shape: CropShape): void {
 	const current = target();
 	const crop = crops()[id];
@@ -158,7 +137,6 @@ export function setLayoutCropShape(id: CropId, shape: CropShape): void {
 	if (current && crop && aspect) {
 		setLayoutCrop(id, reshapeCrop(crop, aspect, current.source.width / current.source.height));
 	}
-	// A crop leaving a circle (its own or the layout's) for a plain shape loses the rounding with it.
 	const round = layoutSlots().find((slot) => slot.crop === id && !slot.blur);
 	const wasCircle = !!round && slotRounding(round) >= 99.5;
 	setStyles((all) => {
@@ -168,7 +146,7 @@ export function setLayoutCropShape(id: CropId, shape: CropShape): void {
 	});
 }
 
-/** Round a crop's corners, 0–100%. A circle given less becomes a square. */
+/** 0–100%. A circle given less becomes a square. */
 export function setLayoutCropRounding(id: CropId, rounding: number): void {
 	setStyles((all) => {
 		const style = cropStyle(all, id);
@@ -177,7 +155,6 @@ export function setLayoutCropRounding(id: CropId, rounding: number): void {
 	});
 }
 
-/** Take a crop out of the layout. Choosing the layout again brings it back. */
 export function deleteLayoutCrop(id: CropId): void {
 	setCrops(({ [id]: _, ...rest }) => rest);
 	setStyles(({ [id]: _, ...rest }) => rest);
@@ -189,7 +166,6 @@ export function closeStreamLayout(): void {
 	setTarget(null);
 }
 
-/** The frame the video (or the clip of its sequence the playhead is over) shows, or null when it shows none. */
 export function getLayoutFrame(world: World): (HTMLCanvasElement | OffscreenCanvas) | null {
 	const current = target();
 	if (!current || !current.video.isAlive()) return null;
@@ -201,7 +177,6 @@ export function getLayoutFrame(world: World): (HTMLCanvasElement | OffscreenCanv
 	return frame;
 }
 
-/** Write the layout into the scene and end the setup. */
 export function applyStreamLayout(world: World): void {
 	const current = target();
 	if (!current) return;
@@ -215,14 +190,12 @@ export function applyStreamLayout(world: World): void {
 	const slots = layoutSlots().filter((slot) => crops()[slot.crop]);
 	if (!slots.length) return;
 
-	// What gets laid out: the video, or the whole sequence it plays in.
 	const unit = sequence?.isAlive() && getParentEntity(video) === sequence ? sequence : video;
 	if (getParentEntity(unit) !== scene && !editor.reparent(unit, scene)) {
 		toast(t('Move the video into the scene first'));
 		return;
 	}
 
-	// Copies a previous layout made from this footage go, so layouts don't pile up.
 	const old = layoutCopies(world, scene, unit);
 	if (old.length) editor.remove(old);
 
@@ -263,14 +236,13 @@ export function applyStreamLayout(world: World): void {
 		editor.editProperty(placed, 'name', getNextName(world, slot.blur ? t('Background') : t(CROP_LABELS[slot.crop])));
 	});
 
-	// Slots are listed back to front, and the scene draws its children in
-	// order: they go where the original stood, under whatever was above it.
+	// Slots are listed back to front and the scene draws children in order, so they go where the original stood.
 	const placedSet = new Set(units);
 	const siblings = getEntityChildren(world, scene);
 	const anchor = siblings.slice(siblings.indexOf(unit) + 1).find((sibling) => !placedSet.has(sibling));
 	for (const placed of units) editor.reparent(placed, scene, anchor);
 
-	// Remembered with the project, so a workflow saved from it takes the same crops.
+	// Saved with the project so a workflow saved from it takes the same crops.
 	const used = new Set(activeLayout().crops.map((spec) => spec.id));
 	const kept = <T,>(all: Partial<Record<CropId, T>>) =>
 		Object.fromEntries(Object.entries(all).filter(([id]) => used.has(id as CropId))) as Partial<Record<CropId, T>>;
@@ -283,12 +255,7 @@ export function applyStreamLayout(world: World): void {
 	zoomToFitWhenSettled(world);
 }
 
-/**
- * The clip is the slot. The paint's crop is the part of the footage that
- * fills it, so the layer's size, the selection box, and the picture are the
- * same rectangle. A mask is only there to round the corners, and then it
- * covers the clip.
- */
+/** The clip is the slot and the crop fills it, so layer, selection box and picture match; a mask only rounds corners. */
 function placeSlot(world: World, clip: Entity, slot: Slot, crop: Box, source: { width: number; height: number }): void {
 	const editor = getDocumentEditor(world);
 	const { box } = slot;
@@ -355,16 +322,11 @@ function isLayoutCopy(world: World, entity: Entity): boolean {
 	return paint?.has(MediaCrop) ?? false;
 }
 
-/** The footage a layout places: the clip itself, or a sequence's video clips. */
 function unitClips(world: World, unit: Entity): Entity[] {
 	if (!isSequence(unit)) return [unit];
 	return getEntityChildren(world, unit).filter((child) => isVideoClip(world, child));
 }
 
-/**
- * What an earlier layout copied from `unit`: muted, cropped clips of the
- * same footage, and sequences holding nothing else.
- */
 function layoutCopies(world: World, scene: Entity, unit: Entity): Entity[] {
 	const own = new Set(unitClips(world, unit));
 	const assets = new Set([...own].map((clip) => findGeometryAsset(world, clip)?.id).filter(Boolean));
@@ -379,7 +341,6 @@ function layoutCopies(world: World, scene: Entity, unit: Entity): Entity[] {
 	return [...copies];
 }
 
-/** Those of `clips` the playhead is over. */
 function atPlayhead(scene: Entity, clips: Entity[]): Entity[] {
 	const frame = scene.get(Computed)?.localTime ?? 0;
 	return clips.filter((clip) => {
@@ -441,7 +402,6 @@ function videoClips(world: World, scene: Entity): Entity[] {
 	const visit = (parent: Entity) => {
 		for (const child of getEntityChildren(world, parent)) {
 			if (isMask(child) || isScene(child)) continue;
-			// A sequence is a track in the scene's own frame and time, and where footage usually sits.
 			if (isSequence(child)) {
 				visit(child);
 				continue;

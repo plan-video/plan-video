@@ -27,10 +27,6 @@ export const SIDEBAR_TABS: { id: SidebarTab; label: string; icon: Component<Rail
   { id: "workflows", label: msg("Workflows"), icon: RailWorkflowsIcon },
 ];
 
-/**
- * The open panel's name, at the top of the left sidebar. The editor's rail
- * (see `EditorRail`) is what switches between them.
- */
 export function SidebarTabs() {
   const label = () => SIDEBAR_TABS.find((tab) => tab.id === sidebarTab())?.label ?? "";
   return <h2 class="truncate text-[13px] font-medium text-foreground">{t(label())}</h2>;

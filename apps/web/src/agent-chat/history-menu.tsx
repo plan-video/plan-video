@@ -2,10 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// This project's chats, newest first: title, relative time, a spinner while
-// one runs, a dot and "Needs you" while one waits, a check on the active one.
-// Hovering a row shows a remove button that deletes without confirmation.
-
 import { For, Show } from "solid-js";
 import { toast } from "somoto";
 
@@ -31,7 +27,6 @@ type HistoryMenuProps = {
   onOpen(chatId: string): void;
 };
 
-/** "just now", "5m", "3h", "2d", else a short date. */
 export function relativeTime(timestamp: number, now = Date.now()): string {
   const seconds = Math.max(0, Math.round((now - timestamp) / 1000));
   if (seconds < 60) return t("just now");

@@ -15,7 +15,6 @@ export const mediaListen: ToolHandler<"media_listen"> = async ({ path, prompt, s
   requireAssetType(asset, ["AUDIO", "VIDEO"], "a video or audio asset");
 
   const hasWindow = start !== undefined || end !== undefined;
-  // A video is stripped to its audio track: the model listens, it does not watch.
   const audioOnly = asset.type === "VIDEO";
   const contentType = "audio/ogg";
 

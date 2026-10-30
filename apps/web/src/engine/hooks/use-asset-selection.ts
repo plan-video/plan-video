@@ -10,12 +10,7 @@ import { useLibrary } from '../library';
 
 import type { Asset, PartialAsset } from '@plan.video/assets';
 
-/**
- * Reactive read and write of the AssetSelection trait: the one library entry
- * the assets panel has picked and the inspector describes — an asset, or the
- * partial document of a generation without bytes. Shared between the two
- * sidebars, so it lives on the world rather than in either panel.
- */
+/** Lives on the world because both sidebars share it. */
 export function useAssetSelection() {
 	const world = useWorld();
 	const library = useLibrary();
@@ -23,8 +18,7 @@ export function useAssetSelection() {
 
 	const id = () => selection()?.id ?? null;
 
-	// `list()` is the library's signal, so a removed or relinked asset drops
-	// out here without the panel having to watch for it.
+	// `list()` is the library's signal, so a removed or relinked asset drops out on its own.
 	const asset = createMemo(() => {
 		const lib = library();
 		const current = id();
@@ -32,7 +26,7 @@ export function useAssetSelection() {
 		return lib.list().find((entry) => entry.id === current);
 	});
 
-	/** The picked partial document, when the pick is one; drops out as its bytes land. */
+	/** Drops out as its bytes land. */
 	const partial = createMemo(() => {
 		const lib = library();
 		const current = id();

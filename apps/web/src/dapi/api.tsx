@@ -22,11 +22,6 @@ type EditorApiContextValue = {
 
 const EditorApiContext = createContext<EditorApiContextValue>();
 
-/**
- * Publishes the editor session for the tool handlers while the project is
- * open (on the website, to the Claude connector), and provides the editor UI's own view of the app shell (fullscreen
- * state, desktop-ness). Mounted per project page.
- */
 export function EditorApiProvider(props: { children: JSX.Element }) {
   const project = useProject();
   const isFullscreen = useFullscreenState();

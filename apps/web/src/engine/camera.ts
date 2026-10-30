@@ -2,11 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/**
- * What a menu item, a key or the zoom control does to the view. The camera is
- * the project's — the file says where it stands — so every move of it is
- * reported to the document, the same way a pan is (see `CameraController`).
- */
+/** The camera is the project's, so every move is reported to the document, as a pan is. */
 
 import {
 	Position,
@@ -30,10 +26,7 @@ import { getDocumentEditor } from './editor';
 import type { Rect } from '@plan.video/runtime';
 import type { Entity, World } from 'koota';
 
-/**
- * The rect the empty-canvas placeholder stands in for. Zoom to fit frames it
- * until a scene exists; the placeholder clears it when it goes away.
- */
+/** Zoom to fit frames this rect until a scene exists. */
 let emptyFrame: Rect | null = null;
 
 export function setEmptyFrame(rect: Rect | null): void {
@@ -44,33 +37,27 @@ function reportCamera(world: World): void {
 	getDocumentEditor(world).reportEdit(world.get(Root)!, 'camera', getCameraMatrix(world));
 }
 
-/** Zooms around the center of the viewport: above 1 in, below 1 out. */
 export function zoomBy(world: World, factor: number): void {
 	zoomCameraBy(world, factor);
 	reportCamera(world);
 }
 
-/** Zooms to an absolute scale, 1 being 100%. */
+/** 1 is 100%. */
 export function zoomTo(world: World, scale: number): void {
 	setCameraZoom(world, scale);
 	reportCamera(world);
 }
 
-/** Frames everything on the stage, or the empty-canvas placeholder when the stage has nothing on it. */
 export function zoomToFit(world: World): void {
 	if (emptyFrame) focusRect(world, emptyFrame);
 	else focusContent(world);
 	reportCamera(world);
 }
 
-/** Frames that the canvas has to hold its size for before it counts as settled. */
 const SETTLED_FRAMES = 6;
 const SETTLE_TIMEOUT_MS = 1000;
 
-/**
- * Zoom to fit now, and again each time the canvas changes size until it
- * holds still: a panel opening or closing next to it animates its width.
- */
+/** Refits until the canvas holds still: a panel opening next to it animates its width. */
 export function zoomToFitWhenSettled(world: World): void {
 	zoomToFit(world);
 	let last = getViewport(world);
@@ -90,10 +77,7 @@ export function zoomToFitWhenSettled(world: World): void {
 	requestAnimationFrame(tick);
 }
 
-/**
- * Frames `rect`, in stage space, when any of it is off screen; a box already
- * in view is left where it is. The box may not be laid out yet.
- */
+/** A box already in view is left where it is. The box may not be laid out yet. */
 export function bringRectIntoView(world: World, rect: Rect): void {
 	const viewport = getViewport(world);
 	const { a, d, e, f } = getCamera(world);
@@ -108,7 +92,6 @@ export function bringRectIntoView(world: World, rect: Rect): void {
 	reportCamera(world);
 }
 
-/** Frames the selection, wherever on the stage it sits. */
 export function zoomToSelection(world: World): void {
 	const selected = getSelection(world);
 	if (!selected.length) return;
@@ -124,7 +107,6 @@ function entityRect(entity: Entity): Rect | null {
 	return { x: position.x, y: position.y, width: size.width, height: size.height };
 }
 
-/** The box every scene on the stage occupies, from where each one was placed. */
 export function stageContentRect(world: World): Rect | null {
 	const root = world.get(Root);
 	if (!root) return null;
@@ -145,10 +127,6 @@ export function stageContentRect(world: World): Rect | null {
 	return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }
 
-/**
- * The picture a project card should show: the scene the timeline is on, or
- * the whole stage when none is.
- */
 export function coverRect(world: World): Rect | null {
 	const active = getActiveEntity(world);
 	if (active) {
@@ -161,16 +139,9 @@ export function coverRect(world: World): Rect | null {
 let openingRun = 0;
 
 /**
- * Frames every scene on the stage, as zoom to fit does, and again each time
- * the canvas changes size until it holds still. Not just the scene the
- * timeline is on: with many scenes that zoomed into one of them, which read
- * as a random pick. A saved camera is an offset for the window it
- * was taken in, and the camera a world is born with frames a scene whose
- * corner is the origin — a scene made here is centered on the origin, so
- * that view leaves it up and to the left. Neither is reused.
- *
- * The move is not reported. Opening a project should not rewrite its file,
- * and the next open frames the stage for whatever size the window is then.
+ * A saved camera is an offset for the window it was taken in, and a new world's
+ * camera frames a scene cornered at the origin, so neither is reused. Not
+ * reported: opening a project should not rewrite its file.
  */
 export function settleOpeningView(world: World, alive: () => boolean = () => true): void {
 	const run = ++openingRun;
@@ -187,8 +158,8 @@ export function settleOpeningView(world: World, alive: () => boolean = () => tru
 		}
 		const rect = stageContentRect(world);
 		if (!rect) {
-			// A scene can land a frame after the mount. An empty project never
-			// does: its placeholder frames itself.
+			// A scene can land a frame after the mount. An empty project never does:
+			// its placeholder frames itself.
 			const root = world.get(Root);
 			const hasScene = !!root && getEntityChildren(world, root).length > 0;
 			if (hasScene && performance.now() - started < SETTLE_TIMEOUT_MS) requestAnimationFrame(step);

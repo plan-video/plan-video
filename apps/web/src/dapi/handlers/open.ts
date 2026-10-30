@@ -7,9 +7,8 @@ import { DapiError } from "@plan.video/dapi";
 
 import type { ToolHandler } from "../handler";
 
-// The app has no working directory a relative path could mean anything
-// against (the CLI resolves one before calling), so it is refused here
-// rather than surfacing as an ENOENT from mkdir.
+// Relative paths are refused: the app has no working directory (the CLI
+// resolves one first), and it would otherwise surface as an ENOENT from mkdir.
 export const open: ToolHandler<"open"> = ({ dir }, ctx) => {
   if (!isAbsoluteSource(dir)) {
     throw new DapiError("invalid-input", `The project folder must be an absolute path (got "${dir}").`);

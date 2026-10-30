@@ -7,13 +7,9 @@ import { createMemo, untrack, type Accessor } from 'solid-js';
 import { useEngineContext } from '../context';
 
 /**
- * Reactive read of state the systems write without events (the Computed
- * store, anything else written through `store()`), which `useTrait` cannot
- * follow. `read` is sampled once per engine tick (`Engine.frame`, one
- * signal shared by every caller), after the systems ran, and the accessor
- * notifies only when the sample differs from the last one (`===` unless
- * `equals` says otherwise, so return primitives or pass a comparator).
- * Signals `read` touches are not tracked; the tick is the only trigger.
+ * For state systems write without events (the Computed store, `store()`), which `useTrait`
+ * can't follow. `read` is sampled once per engine tick after the systems run and notifies
+ * only on change (`===` unless `equals`, so return primitives). Signals inside it aren't tracked.
  */
 export function useDerived<T>(read: () => T, equals?: (prev: T, next: T) => boolean): Accessor<T> {
 	const { frame } = useEngineContext();

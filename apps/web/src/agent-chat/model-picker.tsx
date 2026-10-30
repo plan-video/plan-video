@@ -2,9 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// One dropdown for harness and model: Claude Code's models, then Codex's,
-// fed by the host's probes. A harness that is not ready is one disabled row
-// that says why, never hidden, so the picker also says what this works with.
+// A harness that is not ready stays as a disabled row saying why, never hidden.
 
 import { For, Show } from "solid-js";
 
@@ -25,7 +23,6 @@ import type { HarnessId, HarnessInfo, ModelRef } from "@plan.video/agent-chat";
 
 import { chatState, ensureConnected, modelLabel, refreshHarnesses } from "./store";
 
-/** The icons `lib/agents.ts` used, by harness. */
 export const harnessIcon = (harness: HarnessId | null | undefined): string =>
   harness === "claude" ? "claude-code" : harness === "codex" ? "codex" : "fx";
 
@@ -85,7 +82,6 @@ export function ModelPicker(props: ModelPickerProps) {
                 <DropdownMenuGroup>
                   <DropdownMenuGroupLabel>{harness.label}</DropdownMenuGroupLabel>
                   <Show when={harness.status === "ready" && harness.detail}>
-                    {/* "Update Claude Code": the harness works, but is older than we test against. */}
                     <p class="px-2 pb-1 text-[10px] leading-3.5 text-muted-foreground">{harness.detail}</p>
                   </Show>
                   <Show

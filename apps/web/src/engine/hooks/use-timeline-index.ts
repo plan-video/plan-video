@@ -10,13 +10,8 @@ import { useDerived } from './use-derived';
 import type { TimelineIndexValue, TimelineNode } from '@plan.video/runtime';
 import type { Accessor } from 'solid-js';
 
-/**
- * The rows of the scene on show, for the DOM column that labels them. The
- * canvas builds its own copy as it draws; this one is sampled once per engine
- * tick and only reported when the shape of the tree actually changed, since
- * every rebuild is a fresh set of objects and re-rendering the column on
- * every frame would be the whole cost of having one.
- */
+// Reported only when the tree's shape changed: every rebuild is fresh objects,
+// and re-rendering the column each frame would be the whole cost of having one.
 export function useTimelineIndex(): Accessor<TimelineIndexValue> {
 	const world = useWorld();
 
@@ -29,11 +24,7 @@ export function useTimelineIndex(): Accessor<TimelineIndexValue> {
 	);
 }
 
-/**
- * Whether two builds describe the same rows. Compared field by field rather
- * than by a serialized key: no allocation, and it stops at the first row that
- * differs, which is what usually happens when anything changed at all.
- */
+// Field by field rather than a serialized key: no allocation, and it stops at the first difference.
 function sameLayers(a: TimelineNode[], b: TimelineNode[]): boolean {
 	if (a.length !== b.length) return false;
 

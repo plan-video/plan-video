@@ -5,11 +5,7 @@
 import { onMount, type JSX } from 'solid-js';
 import { useEngineContext } from './context';
 
-/**
- * Mounts the engine onto a canvas sized to fill its container, and starts
- * the tick loop. Must render under an EngineProvider. Camera gestures are a
- * separate concern: render a CameraController alongside it.
- */
+/** Must render under an EngineProvider; camera gestures need a CameraController alongside it. */
 export function EngineCanvas(): JSX.Element {
 	const engine = useEngineContext();
 	let canvasRef!: HTMLCanvasElement;

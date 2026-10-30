@@ -29,20 +29,12 @@ import type { TimelineSurfaceState } from '../surface';
 
 const SIZE = 8;
 const HALF = SIZE / 2;
-// A diamond is a small target, so what can be grabbed is a little larger than
-// what is drawn.
+// A diamond is a small target, so the grab area is larger than what is drawn.
 const HITBOX = SIZE + 4;
 const HITBOX_HALF = HITBOX / 2;
 
-/**
- * One track's keyframes, as diamonds along its row. A keyframe is drawn
- * hollow at either end of the track and solid in between, so the stretch that
- * is actually animated reads at a glance.
- *
- * The times are the clip's own, which is what makes them travel with it and
- * run at its speed; the clip's origin is what puts them on the scene's
- * timeline.
- */
+// Times are the clip's own, so keyframes travel with it and run at its speed;
+// the clip's origin puts them on the scene's timeline.
 export function renderKeyframeTrack(
 	world: World,
 	scene: Entity,
@@ -104,8 +96,6 @@ export function renderKeyframeTrack(
 		diamond(ctx, x, centerY);
 		ctx.stroke();
 
-		// The ends of a track are half-filled, on the side facing the frames
-		// that hold: before the first and after the last, nothing changes.
 		const isFirst = time === first;
 		const isLast = time === last;
 
@@ -124,11 +114,6 @@ export function renderKeyframeTrack(
 	ctx.restore();
 }
 
-/**
- * Selecting and moving one keyframe. A keyframe's time is a prop of its
- * element, so a drag of it is an edit like any other; the drag is measured
- * from where it started, in the clip's own time.
- */
 function handleKeyframe(
 	world: World,
 	surface: TimelineSurfaceState,
@@ -169,8 +154,8 @@ function handleKeyframe(
 	const position = pointer.position;
 	if (!origin || !position || position.state === 'idle') return;
 
-	// The pointer moves in scene frames; the keyframe lives in the clip's
-	// source time, which runs `rate` times as fast (or along the speed curve).
+	// The pointer moves in scene frames; the keyframe lives in the clip's source
+	// time, which runs `rate` times as fast (or along the speed curve).
 	const moved = pixelsToFrames(position.deltaX, resolution);
 	const next = curve.keys.length > 0
 		? sourceFrameAtOffset(curve, timelineOffsetAtSource(curve, origin.time) + moved)

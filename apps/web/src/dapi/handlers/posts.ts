@@ -55,10 +55,9 @@ const CAPTION_NOTE =
   "One caption is stored for every platform on a post. If it is over a platform's limit, shorten it or leave that platform off.";
 
 const PUBLISHES = new Set<string>(PUBLISHING_PLATFORMS);
-/** Platforms that need a file to post: YouTube a video, TikTok and Instagram a video or pictures. The others also post the words alone. */
+// YouTube needs a video, TikTok and Instagram a video or pictures; the others can post words alone.
 const NEEDS_FILE = new Set<string>(["tiktok", "youtube", "instagram"]);
 
-/** A login is stored for the account, so publish_post can send from it, not just a name. */
 const hasLogin = (account: ReturnType<typeof socialConnections>[number]) =>
   !!(account.tiktok || account.youtube || account.bluesky || account.linkedin || account.x || account.instagram || account.facebook || account.threads);
 
@@ -86,10 +85,6 @@ type TikTokInput = {
   inbox?: boolean;
 };
 
-/**
- * A thread as an agent passed it, each wait rounded to the nearest New post
- * offers. Throws when a follow-up is over the limit of a network it goes to.
- */
 function threadOf(input: readonly { text: string; delayMinutes?: number }[] | undefined, platforms: readonly PlatformId[]): ThreadReply[] | undefined {
   if (input === undefined) return undefined;
   const thread = input
@@ -104,7 +99,7 @@ function threadOf(input: readonly { text: string; delayMinutes?: number }[] | un
   return thread;
 }
 
-/** The fields that were passed, so they don't wipe the ones they'd sit over. */
+// Only the fields that were passed, so they don't wipe the ones they'd sit over.
 function definedOnly<T extends object>(value: T | undefined): Partial<T> {
   return Object.fromEntries(Object.entries(value ?? {}).filter(([, item]) => item !== undefined)) as Partial<T>;
 }
@@ -150,17 +145,13 @@ function accountsForPost(platforms: readonly PlatformId[], requested: readonly s
   return result.choices;
 }
 
-/** Ids on this platform that are still connected. A disconnected id is not a choice. */
 function connectedIds(platform: PlatformId, ids: readonly string[]): string[] {
   return ids.filter((id) => socialConnections().some((account) => account.id === id && account.platform === platform));
 }
 
-/**
- * Keeps accounts the post already named. A platform with none is chosen only
- * when it has exactly one account; several means the caller has to pass an id.
- * A platform whose accounts were all disconnected keeps naming them, so the
- * post goes out from none there until an id is passed, not from another account.
- */
+// A platform with no account named is chosen only when it has exactly one.
+// One whose accounts were all disconnected keeps naming them, so the post goes
+// out from none there rather than from another account.
 function mergeAccounts(platforms: readonly PlatformId[], requested: readonly string[] | undefined, existing: AccountChoices | undefined): AccountChoices {
   if (requested && requested.length > 0) return accountsForPost(platforms, requested);
   const previous = readChoices(existing);
@@ -182,7 +173,6 @@ function mergeAccounts(platforms: readonly PlatformId[], requested: readonly str
   return { ...kept, ...added, ...removed };
 }
 
-/** A warning for each platform whose accounts were all disconnected. */
 function removedAccounts(platforms: readonly PlatformId[], choices: AccountChoices): string[] {
   return platforms
     .filter((platform) => (choices[platform]?.length ?? 0) > 0 && connectedIds(platform, choices[platform] ?? []).length === 0)
@@ -274,16 +264,12 @@ function requireTikTok(platforms: readonly PlatformId[], tiktok: TikTokPostSetti
   );
 }
 
-/** The post goes to the TikTok profile, where TikTok wants the person's yes first. The inbox is finished in TikTok. */
+// TikTok wants the person's yes before posting to the profile; the inbox is finished in TikTok.
 const toProfile = (platforms: readonly string[], tiktok: TikTokPostSettings | undefined): tiktok is TikTokPostSettings =>
   platforms.includes("tiktok") && !!tiktok && !tiktok.inbox;
 
-/**
- * Refuses a post to the TikTok profile the person hasn't accepted TikTok's
- * terms for. Where the tab can ask them (ctx.confirm), the caller's word
- * doesn't count: their yes in the tab is the one taken, so this passes here
- * and askPerson waits for it.
- */
+// Where the tab can ask (ctx.confirm) the caller's word doesn't count: this
+// passes and askPerson waits for the person's own yes.
 function requireAgreed(ctx: ToolContext, tiktok: TikTokPostSettings, agreed: boolean | undefined, field: string) {
   if (ctx.confirm || agreed === true) return;
   throw new DapiError(
@@ -292,7 +278,6 @@ function requireAgreed(ctx: ToolContext, tiktok: TikTokPostSettings, agreed: boo
   );
 }
 
-/** The accounts a post goes out from, as the person is shown them. */
 function channelsOf(platforms: readonly string[], choices: AccountChoices | undefined): ConfirmRequest["channels"] {
   const chosen = readChoices(choices);
   return platforms.flatMap((platform) => {
@@ -302,21 +287,20 @@ function channelsOf(platforms: readonly string[], choices: AccountChoices | unde
   });
 }
 
-/** Waits for the person's yes when the call needs one and the tab can ask. A no stops the call before anything changes. */
+// A no stops the call before anything changes.
 async function askPerson(ctx: ToolContext, request: ConfirmRequest & { scheduled?: boolean; at?: Date | null; tiktokYes?: boolean }) {
   const { scheduled, at, tiktokYes, ...shown } = request;
   if (!ctx.confirm || !needsConfirm({ tool: request.tool, scheduled, at, tiktokYes, every: ctx.confirmEvery })) return;
   if (!(await ctx.confirm(shown))) throw new DapiError("canceled", NOT_CONFIRMED);
 }
 
-/** Everything else a post goes out with, as the person is shown it before their yes. `elsewhere` counts files this browser doesn't have. */
+// `elsewhere` counts files this browser doesn't have.
 function detailsOf(post: {
   platforms: readonly string[];
   link?: string | null;
   files: readonly File[];
   elsewhere?: number;
   recurrence?: string | null;
-  /** The repeat's last day, resolved. */
   end?: string | null;
   youtube?: YouTubePostSettings;
   tiktok?: TikTokPostSettings;
@@ -333,18 +317,14 @@ function detailsOf(post: {
     youtube: youtube ? { title: youtube.title, privacy: youtube.privacy, madeForKids: youtube.madeForKids, tags: [...youtube.tags] } : null,
     tiktokPrivacy: tiktok && !tiktok.inbox ? tiktok.privacy : null,
     captions: Object.entries(post.captions ?? {}).flatMap(([platform, text]) => (post.platforms.includes(platform) && text?.trim() ? [{ platform, text }] : [])),
-    // Only networks that post a thread send the follow-ups.
     thread: threadPlatforms(post.platforms as PlatformId[]).length ? (post.thread ?? []).map((reply) => ({ text: reply.text, delay: reply.delay, files: reply.files?.length ?? 0 })) : [],
   };
 }
 
-/** How many files a post names; older posts that name none count as none here. */
 const keptFiles = (post: StoredEvent) => new Set([...(post.files ?? []), ...Object.values(post.ownFiles ?? {}).flatMap((ids) => ids ?? [])]).size;
 
-/** The files of `attached` and of each network's own. */
 const filesOf = (shared: Attached | null, own: Partial<Record<string, Attached>>) => [...(shared?.files ?? []), ...Object.values(own).flatMap((item) => item?.files ?? [])];
 
-/** What TikTok says the account may post now. A refusal, such as too many posts today, stops the post. */
 async function creatorOf(account: SocialConnection & { tiktok: NonNullable<SocialConnection["tiktok"]> }): Promise<TikTokCreator> {
   try {
     return await loadTikTokCreator(account.id);
@@ -353,12 +333,6 @@ async function creatorOf(account: SocialConnection & { tiktok: NonNullable<Socia
   }
 }
 
-/**
- * Asks TikTok about each account the post goes out from, as the post screen
- * does before Post or Schedule: who it may show the post to, what it has
- * turned off, and how long a video it takes. A name saved without a login has
- * nothing to ask, and can't send either.
- */
 async function checkCreators(choices: AccountChoices | undefined, tiktok: TikTokPostSettings, media: MediaSummary | null) {
   let settings = tiktok;
   const warnings: string[] = [];
@@ -373,14 +347,13 @@ async function checkCreators(choices: AccountChoices | undefined, tiktok: TikTok
   return { tiktok: settings, warnings };
 }
 
-/** `own` is the words networks keep of their own, which they're checked by instead of the caption. */
+// Networks with words of their own (`own`) are checked by those instead of the caption.
 function assertFits(input: {
   kind: PostKind;
   platforms: readonly PlatformId[];
   caption: string;
   own?: Partial<Record<string, string>>;
   title: string;
-  /** What goes to each platform: the shared files, or its own. */
   media: (platform: PlatformId) => MediaSummary | null;
 }): string[] {
   // The checks also speak to people in the app's language; the agent reads them in English.
@@ -439,10 +412,9 @@ async function summarize(file: File, strict: boolean): Promise<{ kind: PostKind;
   throw new DapiError("wrong-kind", "Attach a video (mp4, mov) or a picture (png, jpg, webp, gif).");
 }
 
-/** What a post carries: one video, or pictures, and what the checks need to know of them. */
 type Attached = { files: File[]; kind: PostKind; media: MediaSummary };
 
-/** Files as one post carries them. `strict` turns down a file that can't be read, instead of guessing. */
+// `strict` turns down a file that can't be read instead of guessing.
 async function attach(files: readonly File[], strict: boolean): Promise<Attached | null> {
   const read = await Promise.all(files.map((file) => summarize(file, strict)));
   const first = read[0];
@@ -457,7 +429,6 @@ async function attach(files: readonly File[], strict: boolean): Promise<Attached
   return { files: [...files], kind: "image", media: { kind: "images", count: files.length, width, height, mixedShapes } };
 }
 
-/** The files `media` names: one, or a list of pictures for a carousel. */
 async function loadMedia(ctx: ToolContext, media: string | readonly string[]): Promise<Attached> {
   const paths = typeof media === "string" ? [media] : media;
   const files: File[] = [];
@@ -475,7 +446,6 @@ async function loadMedia(ctx: ToolContext, media: string | readonly string[]): P
   return attached;
 }
 
-/** What a saved post carries, as this browser has it: the shared files, and those of networks with their own. */
 async function savedMedia(post: StoredEvent) {
   const own: Partial<Record<string, Attached>> = {};
   for (const platform of Object.keys(post.ownFiles ?? {})) {
@@ -485,16 +455,13 @@ async function savedMedia(post: StoredEvent) {
   return { shared: await attach(await postFiles(post), false), own };
 }
 
-/** What each platform goes out with: its own files, else the shared ones. */
 const mediaOn = (shared: Attached | null, own: Partial<Record<string, Attached>>) => (platform: PlatformId) => (own[platform] ?? shared)?.media ?? null;
 
-/** The kind of post files make, shared or a network's own. */
 const kindOf = (shared: Attached | null, own: Partial<Record<string, Attached>>): PostKind => {
   const all = [shared, ...Object.values(own)].filter((item): item is Attached => !!item);
   return all.some((item) => item.kind === "video") ? "video" : all.length ? "image" : "text";
 };
 
-/** The name of the first file, for a title when there's no caption to make one from. */
 const fileTitle = (attached: Attached | null) => attached?.files[0]?.name.replace(/\.[^.]+$/, "");
 
 function postView(post: StoredEvent, warnings: string[] = []) {
@@ -622,7 +589,6 @@ export const schedulePost: ToolHandler<"schedule_post"> = async (args, ctx) => {
   return savePost(args, args.media ? await loadMedia(ctx, args.media) : null, {}, ctx);
 };
 
-/** Saves a new post: `attached` is what every network shares, `own` what networks with their own get. */
 async function savePost(
   args: Omit<ToolArgs<"schedule_post">, "media">,
   attached: Attached | null,
@@ -709,11 +675,7 @@ async function savePost(
   return postView(readBack(id), warnings);
 }
 
-/**
- * A new post made from another, posted or not, the way Post again starts one:
- * the original's words, accounts, file and settings, saved through
- * schedule_post so the copy is checked like any new post.
- */
+// Saved through schedule_post so the copy is checked like any new post.
 export const copyPost: ToolHandler<"copy_post"> = async (args, ctx) => {
   await ready(ctx);
   const original = allPosts().find((post) => post.id === args.id);
@@ -721,11 +683,9 @@ export const copyPost: ToolHandler<"copy_post"> = async (args, ctx) => {
 
   const platforms = sortPlatforms(args.platforms ?? original.platforms.filter(isPlatform));
   if (platforms.length === 0) throw new DapiError("invalid-input", "The original has no platform. Pass platforms for the copy.");
-  // The original's accounts on the platforms the copy keeps, while they're still connected.
   const kept = Object.entries(readChoices(original.accounts)).flatMap(([platform, ids]) =>
     (platforms as string[]).includes(platform) ? connectedIds(platform as PlatformId, ids ?? []) : [],
   );
-  // Its files, shared and per network, fetched from cloud storage when this browser doesn't have them.
   const files = await loadPostFiles(original).catch((cause) => {
     throw new DapiError("unsupported", (cause as Error).message, { cause });
   });
@@ -735,7 +695,7 @@ export const copyPost: ToolHandler<"copy_post"> = async (args, ctx) => {
     if (attached) own[platform] = attached;
   }
   const youtube = original.youtube;
-  // The original's TikTok answers stand, under any the caller changed. Its yes to TikTok's terms was for that post.
+  // The original's TikTok answers stand under any the caller changed; its yes to TikTok's terms was for that post.
   const tiktok = original.tiktok;
   const promotion: TikTokPromotion | undefined = tiktok
     ? tiktok.yourBrand && tiktok.brandedContent
@@ -803,10 +763,9 @@ export const updatePost: ToolHandler<"update_post"> = async (args, ctx) => {
   const platforms = args.platforms ? sortPlatforms(args.platforms) : sortPlatforms(existing.platforms.filter(isPlatform));
   if (platforms.length === 0) throw new DapiError("invalid-input", "Pick at least one platform.");
   const choices = mergeAccounts(platforms, args.accounts, existing.accounts);
-  // New media takes the place of every file the post had, shared or a network's own.
   const saved = args.media ? { shared: await loadMedia(ctx, args.media), own: {} } : await savedMedia(existing);
   const caption = args.caption ?? existing.description ?? "";
-  // The caption is for every platform on the post: a new one takes the place of words a network had of its own.
+  // A new caption replaces words a network had of its own.
   const own = caption.trim() === (existing.description ?? "").trim() ? ownCaptions(existing) : {};
   const day = args.day ?? existing.day;
   if (!isDateKey(day)) throw new DapiError("invalid-input", "Day is YYYY-MM-DD.");
@@ -845,7 +804,6 @@ export const updatePost: ToolHandler<"update_post"> = async (args, ctx) => {
     warnings.push(...checked.warnings);
   }
   const at = time ? atLocal(day, time) : null;
-  // The repeat it ends up with: a new one, none, or the one it had.
   const built = args.repeat ? repeatOf(args.repeat, day) : null;
   const recurrence = args.repeat === null ? null : built ? built.repeat : existing.recurrence;
   const end = args.repeat === null ? null : built ? resolveRepeatEnd(built.repeatEnd || undefined, built.repeat, day) : (existing.recurrenceEnd ?? null);
@@ -969,7 +927,6 @@ export const publishPost: ToolHandler<"publish_post"> = async ({ id, agreed }, c
   // YouTube needs a video, TikTok a video or pictures. Bluesky, LinkedIn and X also take pictures, or the words alone.
   for (const platform of post.platforms.filter((item) => NEEDS_FILE.has(item))) {
     const files = await postFiles(post, platform);
-    // Files kept in another browser go from cloud storage.
     const elsewhere = !!post.files && files.length < postFileIds(post, platform).length;
     if (!files.length && !elsewhere) {
       throw new DapiError("invalid-input", platform === "youtube" ? "Attach a video before publishing." : "Attach a video or pictures before publishing.");
@@ -1013,8 +970,8 @@ export const publishPost: ToolHandler<"publish_post"> = async ({ id, agreed }, c
     if (changed) throw mapped(changed);
   }
 
-  // A future post moves to now so the calendar shows where it went out, same as
-  // Post now in the app. A miss puts that time back. A repeat stays on its days.
+  // A future post moves to now so the calendar shows where it went out, as Post
+  // now does in the app. A miss puts that time back. A repeat stays on its days.
   const at = atLocal(post.day, post.allDay ? "00:00" : post.start);
   const shift = !post.recurrence && !hasFailed(post) && !!at && at.getTime() > Date.now();
   if (shift) {

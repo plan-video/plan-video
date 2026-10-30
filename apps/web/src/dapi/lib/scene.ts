@@ -9,13 +9,9 @@ import { resolveNode } from "./nodes";
 import type { Entity, World } from "koota";
 
 /**
- * The scene an id names. A scene is the unit an export renders, and capture's
- * promise is that its frames are an export's frames, so both take scenes only:
- * framing an arbitrary node would need its bounds measured across the
- * requested positions first, and that pre-roll runs the project's code ahead
- * of the frames being drawn, which is exactly what an export never does.
- *
- * `verb` names the caller in the error ("capture", "export").
+ * Scenes only: capture's frames must be an export's frames, and framing an
+ * arbitrary node would run the project's code ahead of the frames being drawn,
+ * which an export never does.
  */
 export function requireScene(world: World, id: string, verb: string): Entity {
   const node = resolveNode(world, id);

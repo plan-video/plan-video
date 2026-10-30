@@ -18,7 +18,6 @@ const STRIPE = 6;
 
 const stripes = new Map<string, CanvasPattern | null>();
 
-/** Thin diagonal lines in `color`, the texture of a transition's window. */
 function stripePattern(ctx: CanvasRenderingContext2D, color: string): CanvasPattern | null {
 	if (stripes.has(color)) return stripes.get(color)!;
 	const tile = document.createElement('canvas');
@@ -42,13 +41,7 @@ function stripePattern(ctx: CanvasRenderingContext2D, color: string): CanvasPatt
 	return pattern;
 }
 
-/**
- * The cuts of one sequence's row. A cut whose clip plays a transition shows
- * its window as faint stripes over the two clips and a marker on the seam,
- * which selects the clip when clicked. Every cut is noted on the surface in
- * canvas pixels, so a transition dragged in from the panel can find the one
- * under the pointer (see `findTransitionDrop`).
- */
+/** Every cut is noted on the surface in canvas pixels, so a dragged transition can find it (see `findTransitionDrop`). */
 export function renderTransitionMarkers(
 	world: World,
 	scene: Entity,
@@ -68,7 +61,6 @@ export function renderTransitionMarkers(
 	for (const join of sequenceJoins(world, sequence)) {
 		const x = framesToPixels(join.frame, resolution);
 
-		// Where the seam is on the canvas, for a drop to aim at.
 		const top = matrix.transformPoint(new DOMPoint(x, 0));
 		surface.joins.push({ clip: join.left, edge: 'out', x: top.x / dpr, top: top.y / dpr, bottom: (top.y + row.height * matrix.d) / dpr });
 
@@ -110,7 +102,6 @@ export function renderTransitionMarkers(
 			ctx.stroke();
 		}
 
-		// Two triangles meeting at the seam: one clip giving way to the next.
 		const glyph = size * 0.3;
 		ctx.beginPath();
 		ctx.moveTo(x - glyph, mid - glyph * 0.85);
@@ -127,12 +118,6 @@ export function renderTransitionMarkers(
 	}
 }
 
-/**
- * The ends of `clips` that are not cuts: where each plays in or out on its
- * own. One that plays shows its window as faint stripes inside the clip and
- * a marker at the clip's edge; every one is noted on the surface for a
- * dragged transition to find, as the cuts are.
- */
 export function renderEdgeMarkers(
 	world: World,
 	scene: Entity,
@@ -180,13 +165,11 @@ export function renderEdgeMarkers(
 				}
 			}
 
-			// Inside the clip by its edge, clear of the trim handle.
 			if (end - start < size + 8) continue;
 			const left = edge === 'in' ? start + 4 : end - 4 - size;
 			const active = dropping || clip.has(Selected);
 			const centre = left + size / 2;
 			const glyph = size * 0.3;
-			// One triangle: pointing into the clip coming in, out of it going out.
 			const tip = edge === 'in' ? 1 : -1;
 
 			ctx.save();
@@ -211,14 +194,10 @@ export function renderEdgeMarkers(
 	}
 }
 
-/** How far from a clip end, in canvas pixels, a dropped transition still lands on it. */
+/** Canvas pixels. */
 const DROP_REACH = 24;
 
-/**
- * The clip end a transition dropped at `x`, `y` (canvas pixels) lands on: the
- * nearest one in the row under the pointer, or failing that the nearest one
- * across the rows, within reach. Read from the last frame's ends.
- */
+/** Read from the last frame's ends. */
 export function findTransitionDrop(surface: TimelineSurfaceState, x: number, y: number): TransitionDrop | null {
 	let best: { drop: TransitionDrop; distance: number; inRow: boolean } | null = null;
 	for (const mark of surface.joins) {

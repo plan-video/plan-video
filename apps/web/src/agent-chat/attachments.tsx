@@ -2,10 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Dropping files and folders onto a composer. Nothing is read, copied or
-// uploaded: an attachment is a path the agent reads where it is, so drops
-// only work where the shell can say where a file lives (the desktop app).
-// Shared by the home view and the chat composer.
+// Nothing is read or uploaded: an attachment is a path the agent reads where it
+// is, so drops only work where the shell can say where a file lives (desktop).
 
 import { Show, createSignal } from "solid-js";
 
@@ -14,12 +12,7 @@ import { RemoveButton } from "@/components/ui/remove-button";
 import { cx } from "@/lib/cva";
 import { t } from "@/lib/i18n";
 
-/**
- * A file or folder dropped onto a composer. Only what the tile and the
- * handoff need: the name to label it, the kind and extension to draw it, and
- * the path to send — null off the desktop, where the browser will not say
- * where a dropped file lives.
- */
+// `path` is null off the desktop, where the browser won't say where a dropped file lives.
 export type Attachment = {
   key: string;
   name: string;
@@ -27,22 +20,16 @@ export type Attachment = {
   path: string | null;
 };
 
-/** The paths worth sending: attachments the shell could locate. */
 export const attachmentPaths = (attachments: Attachment[]): string[] =>
   attachments.flatMap((entry) => (entry.path ? [entry.path] : []));
 
-/** An attachment rebuilt from a path, for a draft restored after a failed send. */
 export function attachmentFromPath(path: string): Attachment {
   const name = path.replace(/[/\\]+$/, "").split(/[/\\]/).pop() || path;
   return { key: path, name, kind: /\.[A-Za-z0-9]{1,8}$/.test(name) ? "file" : "folder", path };
 }
 
-/**
- * The files and folders in a drop, in the order they were dragged. Folders
- * are told apart through the entry API, the only thing a drop says about a
- * directory; the path comes from the desktop shell, which is the only one
- * that knows it. Nothing is opened or read.
- */
+// Folders are told apart through the entry API, the only thing a drop says
+// about a directory.
 export function droppedAttachments(event: DragEvent): Attachment[] {
   const items = Array.from(event.dataTransfer?.items ?? []);
   const result: Attachment[] = [];
@@ -66,18 +53,13 @@ export function droppedAttachments(event: DragEvent): Attachment[] {
   return result;
 }
 
-/** The same file dropped twice is one attachment, not two tiles. */
 export function mergeAttachments(current: Attachment[], dropped: Attachment[]): Attachment[] {
   const known = new Set(current.map((entry) => entry.key));
   return [...current, ...dropped.filter((entry) => !known.has(entry.key))];
 }
 
-/**
- * The drag handlers a drop target needs, and whether something is being
- * dragged over it. Drag events fire on every child the pointer crosses, so
- * the overlay is held up by a count of nested enters rather than the last
- * event seen.
- */
+// Drag events fire on every child the pointer crosses, so the overlay is held
+// up by a count of nested enters rather than the last event seen.
 export function createDropZone(onDrop: (dropped: Attachment[]) => void) {
   let counter = 0;
   const [dragging, setDragging] = createSignal(false);
@@ -113,7 +95,6 @@ export function createDropZone(onDrop: (dropped: Attachment[]) => void) {
   return { dragging, onDragOver, onDragEnter, onDragLeave, onDrop: handleDrop };
 }
 
-/** The static overlay a composer shows while something is dragged over it. */
 export function DropOverlay(props: { radius?: string }) {
   const radius = () => props.radius ?? "rounded-[20px]";
   return (
@@ -148,12 +129,6 @@ type AttachmentTileProps = {
   onRemove(): void;
 };
 
-/**
- * One dropped file or folder: a grey square with a folder mark, or the file's
- * type in the middle. There is no thumbnail to show — nothing is loaded — so
- * the name is in the tooltip and the remove button appears on hover, as it
- * does on the generation composer's reference images.
- */
 export function AttachmentTile(props: AttachmentTileProps) {
   return (
     <div
@@ -181,7 +156,6 @@ export function AttachmentTile(props: AttachmentTileProps) {
   );
 }
 
-/** A small chip for a path in a sent message: icon plus name. */
 export function AttachmentChip(props: { path: string }) {
   const attachment = () => attachmentFromPath(props.path);
   return (
@@ -192,7 +166,6 @@ export function AttachmentChip(props: { path: string }) {
   );
 }
 
-/** `MP4` for `clip.mp4`, `FILE` for a name with no extension to speak of. */
 export function fileType(name: string): string {
   const dot = name.lastIndexOf(".");
   const ext = dot > 0 ? name.slice(dot + 1) : "";

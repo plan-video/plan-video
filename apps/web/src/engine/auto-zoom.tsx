@@ -2,14 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/**
- * Auto zoom: punch-ins on the moments a clip's voice lands, written as one
- * `<adjustmentLayer>` right above the clip with a keyframed `scale`. The
- * footage is never touched, so the zooms can be retimed on the timeline,
- * edited keyframe by keyframe, or deleted in one go; adding again replaces
- * the layer.
- */
-
 import { AdjustmentLayer, Keyframe, KeyframeTrack, authoredElement } from '@plan.video/reconciler';
 import {
 	AssetId,
@@ -62,19 +54,14 @@ export interface AutoZoomOptions {
 export const DEFAULT_AUTO_ZOOM: AutoZoomOptions = { strength: 'medium', frequency: 'normal', motion: 'snap' };
 
 const SCALES: Record<ZoomStrength, number> = { subtle: 1.1, medium: 1.2, strong: 1.35 };
-/** The least time between two punch-ins, in seconds. */
+/** Seconds. */
 const GAPS: Record<ZoomFrequency, number> = { fewer: 6, normal: 3.5, more: 2 };
-/** How long a smooth zoom takes to go in or come out. */
 const SMOOTH_RAMP = 0.35;
 
 export type AutoZoomResult =
 	| { ok: true; layer: Entity; count: number; followedVoice: boolean }
 	| { ok: false; reason: 'no-clip' | 'nothing-found' };
 
-/**
- * The clip auto zoom works on: the selected one (or the one under a selected
- * auto zoom), else the topmost clip under the playhead in the active scene.
- */
 export function autoZoomTarget(world: World): Entity | null {
 	for (const entity of world.query(Selected)) {
 		if (isScene(entity)) continue;
@@ -102,18 +89,13 @@ export function autoZoomTarget(world: World): Entity | null {
 	return null;
 }
 
-/**
- * Listens to the clip's audio for where to punch in, and writes the zooms as
- * an adjustment layer over it. With no voice to follow, the zooms keep a
- * steady beat instead.
- */
+/** With no voice to follow, the zooms keep a steady beat instead. */
 export async function addAutoZoom(world: World, target: Entity, options: AutoZoomOptions): Promise<AutoZoomResult> {
 	const slot = slotOf(target);
 	const parent = getParentNode(slot);
 	if (!parent) return { ok: false, reason: 'no-clip' };
 
-	// Layers stack over the clip, each acting on it; an auto zoom among them
-	// is the one adding again replaces.
+	// Adding again replaces an existing auto zoom layer over the clip.
 	const replacing = layersOver(slot).find((layer) => authoredElement(layer)?.props.name === AUTO_ZOOM_NAME);
 
 	const fps = world.get(FrameRate)?.value || 30;
@@ -157,16 +139,11 @@ export async function addAutoZoom(world: World, target: Entity, options: AutoZoo
 	);
 	if (!layer) return { ok: false, reason: 'no-clip' };
 
-	// Open, so the punch-ins show as keyframes on the timeline.
 	editor.editProperty(layer, 'expanded', true);
 	editor.select(layer);
 	return { ok: true, layer, count: punches.length, followedVoice: heard !== null };
 }
 
-/**
- * The scale keyframes for `punches`, in the layer's own seconds. A snap jumps
- * in one frame, the way a punch-in cut looks; a smooth zoom eases in and out.
- */
 function zoomKeyframes(punches: PunchIn[], scale: number, motion: ZoomMotion, ramp: number, fps: number) {
 	const easing: Easing = motion === 'snap' ? 'linear' : 'easeInOut';
 	const keys: { time: number; value: number; easing: Easing }[] = [];
@@ -191,11 +168,8 @@ function zoomKeyframes(punches: PunchIn[], scale: number, motion: ZoomMotion, ra
 }
 
 /**
- * Punch-ins from the voice heard under `slot` between absolute frames
- * `start` and `end`, in seconds from `start`. The slot's own clips are heard
- * first; a slot with no sound of its own (b-roll over a voiceover) follows
- * the audio clips playing alongside it. Null when nothing has a voice to
- * follow.
+ * Seconds from `start`. A slot with no sound of its own (b-roll over a
+ * voiceover) follows the audio clips playing alongside it.
  */
 async function voicePunchIns(world: World, slot: Entity, start: number, end: number, gap: number): Promise<PunchIn[] | null> {
 	const scene = sceneOf(slot);
@@ -228,8 +202,6 @@ async function voicePunchIns(world: World, slot: Entity, start: number, end: num
 			const origin = computed.origin[clip.id()] ?? 0;
 			const rate = computed.playbackRate[clip.id()] || 1;
 			const curve = readSpeedCurve(clip);
-			// Envelope seconds onto the slot's own seconds, through the clip's
-			// place on the timeline and its speed.
 			const local = (seconds: number) => {
 				const media = (speech.mediaStart + seconds) * fps;
 				const frame = origin + (curve.keys.length > 0 ? timelineOffsetAtSource(curve, media) : media / rate);
@@ -250,27 +222,24 @@ async function voicePunchIns(world: World, slot: Entity, start: number, end: num
 	return heardAny ? found : null;
 }
 
-/** The clips under `root` that can be heard: their own audio, unmuted and shown. */
 function audibleClips(world: World, root: Entity): Entity[] {
 	const clips = new Set<Entity>();
 	for (const entity of getEntityTree(world, root)) {
 		if (entity.has(Hidden) || entity.has(Muted) || !entity.has(AssetId)) continue;
 		if (!entity.has(Audio) && entity.get(Paint)?.value !== PaintType.VIDEO) continue;
-		// A video paint keeps the 16s a new entity starts with; the clip it
-		// fills is what sits on the timeline.
+		// A video paint keeps the 16s a new entity starts with; the clip it fills
+		// is what sits on the timeline.
 		const clip = isPaintEntity(entity) ? getParentNode(entity) ?? entity : entity;
 		if (!clip.has(Hidden) && !clip.has(Muted)) clips.add(clip);
 	}
 	return [...clips];
 }
 
-/** Whichever of the clip and its paints holds the asset. */
 function assetOf(clip: Entity): Entity | undefined {
 	if (clip.has(AssetId)) return clip;
 	return (clip.get(Cache)?.fills ?? []).find((fill) => fill.has(AssetId));
 }
 
-/** Whether anything under `entity` draws footage or a picture. */
 function hasPicture(world: World, entity: Entity): boolean {
 	return getEntityTree(world, entity).some((child) => {
 		const paint = child.get(Paint)?.value;
@@ -278,10 +247,7 @@ function hasPicture(world: World, entity: Entity): boolean {
 	});
 }
 
-/**
- * Where the layer has to sit: a clip inside a sequence is one of a row, and
- * an adjustment layer acts on what is below the whole row.
- */
+/** An adjustment layer acts on everything below the whole row, so a clip in a sequence places it over the sequence. */
 export function slotOf(entity: Entity): Entity {
 	let slot = entity;
 	let parent = getParentNode(slot);
@@ -292,7 +258,6 @@ export function slotOf(entity: Entity): Entity {
 	return slot;
 }
 
-/** The clip an adjustment layer acts on: the one under it and any layers stacked below it. */
 export function siblingBefore(entity: Entity): Entity | null {
 	const slot = slotOf(entity);
 	const siblings = getParentNode(slot)?.get(Cache)?.children ?? [];
@@ -302,7 +267,6 @@ export function siblingBefore(entity: Entity): Entity | null {
 	return below && (below.has(Geometry) || below.has(Group)) ? below : null;
 }
 
-/** The adjustment layers stacked right over `slot`, bottom first: all of them act on it. */
 export function layersOver(slot: Entity): Entity[] {
 	const siblings = getParentNode(slot)?.get(Cache)?.children ?? [];
 	const layers: Entity[] = [];
@@ -318,11 +282,7 @@ function sceneOf(entity: Entity): Entity | null {
 	return current;
 }
 
-/**
- * The layer's box. It is never drawn; its middle is where the zoom pivots,
- * so it is sized to put that middle on the middle of the clip: a full-frame
- * clip gets the frame's own size.
- */
+/** Never drawn; its middle is the zoom pivot, so it is sized to centre on the clip. */
 export function pivotOf(world: World, slot: Entity, parent: Entity): { width: number; height: number } {
 	const computed = store(world, Computed);
 	const id = slot.id();

@@ -17,7 +17,6 @@ export type PreviewQualityOption = {
 	shortcut?: string;
 };
 
-/** The resolutions the preview can draw at, sharpest first. */
 export const PREVIEW_QUALITIES: readonly PreviewQualityOption[] = [
 	{ value: 1, label: msg('Full'), shortcut: '⌘J' },
 	{ value: 0.75, label: '75%' },
@@ -27,13 +26,11 @@ export const PREVIEW_QUALITIES: readonly PreviewQualityOption[] = [
 
 const saved = store.define<number>('preview.quality', 1);
 
-/** The quality the preview was last left at, for a new editor to open with. */
 export function getSavedPreviewQuality(): number {
 	const value = saved.value;
 	return PREVIEW_QUALITIES.some((option) => option.value === value) ? value : 1;
 }
 
-/** Draw the preview at `value` of full resolution, and keep it for next time. */
 export function setPreviewQuality(world: World, value: number): void {
 	world.set(PreviewQuality, { value });
 	saved.value = value;
@@ -43,7 +40,6 @@ export function getPreviewQualityOption(value: number): PreviewQualityOption {
 	return PREVIEW_QUALITIES.find((option) => option.value === value) ?? PREVIEW_QUALITIES[0]!;
 }
 
-/** Reactive preview quality, 1 for full resolution. */
 export function usePreviewQuality(): Accessor<number> {
 	const world = useWorld();
 	const quality = useTrait(world, PreviewQuality);
