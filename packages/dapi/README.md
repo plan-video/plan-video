@@ -1,15 +1,12 @@
 # @plan.video/dapi
 
-The tool catalog behind `dapi`: one entry per tool with its name, description, and zod input and output schemas. The app registers the catalog with its MCP server, the renderer validates incoming calls against it, and the CLI derives its commands and help text from it, so the API is described exactly once.
+The tools agents use to plan and publish posts: one entry per tool with its name, description, and zod input and output schemas. The dashboard's Assistant validates its calls against them, and `services/mcp` and `services/agent` build their tool lists from `src/tools`, so each tool is described once.
 
 ```ts
-import { catalog, toolByName, Time } from "@plan.video/dapi";
-import type { ToolArgs, ToolResult } from "@plan.video/dapi";
+import { toolByName } from "@plan.video/dapi";
+import type { ToolArgs } from "@plan.video/dapi";
 
-const grab = toolByName("media_grab");
-const args: ToolArgs<"media_grab"> = grab.input.parse({ path: "/clip.mp4", times: ["45f", "1:10"] });
+const args: ToolArgs<"list_posts"> = toolByName("list_posts").input.parse({});
 ```
 
-The package is free of Node built-ins so the renderer can import it. The MCP URL the app serves on (`MCP_URL`) is exported too, for the CLI and the docs the app writes.
-
-Design: [docs/mcp-server.md](../../docs/mcp-server.md).
+The package is free of Node built-ins so the browser can import it.

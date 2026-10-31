@@ -1,9 +1,6 @@
 /* Multi-stage generation: text-to-image keyframes, image-to-video motion,
  * a text-to-speech voiceover, generated ambience, and captions on top.
  *
- *   cp examples/02-genai.tsx ~/Projects/genai/index.tsx
- *   planvideo open ~/Projects/genai
- *
  * `generate.*` declarations are pure values; nothing generates until commit.
  * Refs form a dependency graph (keyframe -> matching second keyframe -> two
  * motion clips) that generates in topological order, blocking the command
@@ -11,8 +8,7 @@
  * generation, so caption timing matches the voiceover. Consumes credits;
  * results are cached in the project's library, so re-mounting unchanged
  * specs is free.
- * Discover models and voices with `planvideo models <type>` and `planvideo voices`;
- * omitted here, so each stage uses the default model.
+ * No model is named, so each stage uses the default model.
  */
 
 import { generate } from "@plan.video/jsx";

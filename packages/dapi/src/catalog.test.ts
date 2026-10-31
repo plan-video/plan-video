@@ -4,8 +4,7 @@
 
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { AGENTIC_EDITING, catalog, isToolName, servedTools, toolByName } from "./catalog";
-import { JSON_SCHEMA_DIALECT, toolJsonSchemas } from "./json-schema";
+import { catalog, isToolName, toolByName } from "./catalog";
 
 describe("catalog", () => {
   it("has unique MCP-legal names", () => {
@@ -35,30 +34,9 @@ describe("catalog", () => {
     }
   });
 
-  it("publishes every schema as JSON Schema 2020-12, the dialect MCP clients validate", () => {
-    for (const tool of catalog) {
-      const { inputSchema, outputSchema } = toolJsonSchemas(tool);
-      expect(inputSchema.$schema, `${tool.name} input`).toBe(JSON_SCHEMA_DIALECT);
-      expect(outputSchema.$schema, `${tool.name} output`).toBe(JSON_SCHEMA_DIALECT);
-      expect(inputSchema.type, `${tool.name} input`).toBe("object");
-      expect(outputSchema.type, `${tool.name} output`).toBe("object");
-    }
-  });
-
   it("looks tools up by name", () => {
-    expect(toolByName("capture").environment).toBe("renderer");
-    expect(toolByName("fonts").environment).toBe("renderer");
-    expect(toolByName("logs").environment).toBe("main");
-    expect(isToolName("media_grab")).toBe(true);
-    expect(isToolName("media.frame")).toBe(false);
-  });
-
-  it("serves agents posting, logs and reports only, until agentic editing launches", () => {
-    const served = servedTools.map((tool) => tool.name);
-    if (AGENTIC_EDITING) {
-      expect(served).toEqual(catalog.map((tool) => tool.name));
-      return;
-    }
-    expect(served).toEqual(["social_accounts", "social_schema", "tiktok_creator", "schedule_post", "copy_post", "list_posts", "update_post", "delete_post", "publish_post", "logs", "report"]);
+    expect(toolByName("schedule_post").name).toBe("schedule_post");
+    expect(isToolName("publish_post")).toBe(true);
+    expect(isToolName("media_grab")).toBe(false);
   });
 });

@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Not in the catalog: the desktop app attaches files by path, and the dashboard agent is handed media ids in each message.
+// Not in the catalog: the dashboard agent is handed media ids in each message.
 
 import { z } from "zod";
 import { defineTool } from "../tool";
@@ -33,5 +33,4 @@ export const listMedia = defineTool({
       }),
     ),
   }),
-  environment: "renderer",
 });

@@ -58,5 +58,4 @@ export const analytics = defineTool({
     ),
     note: z.string().optional().describe("Why there is little or nothing to go on."),
   }),
-  environment: "renderer",
 });

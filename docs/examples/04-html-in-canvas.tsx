@@ -1,8 +1,5 @@
 /* An AI prompt box as real HTML, centered in the frame.
  *
- *   cp examples/04-html-in-canvas.tsx ~/Projects/html-in-canvas/index.tsx
- *   planvideo open ~/Projects/html-in-canvas
- *
  * Requires Chromium's html-in-canvas API (chrome://flags/#canvas-draw-element);
  * without it the mount fails with an explicit error. The <html> children are
  * real DOM: the browser lays them out at the box size and the result is drawn

@@ -1,8 +1,5 @@
 /* Three.js owning a <surface>: a glTF helmet spun by the playhead.
  *
- *   cp examples/06-three.tsx ~/Projects/three/index.tsx
- *   planvideo open ~/Projects/three
- *
  * `ref={surfaceRef}` assigns the surface's node, whose `element` is its
  * detached canvas; onMount three.js takes it over and renders into it;
  * the engine samples that bitmap into the node's box every frame, so a WebGL

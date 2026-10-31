@@ -1,8 +1,5 @@
 /* WebGPU owning a <surface>: a triangle whose colors cycle with the playhead.
  *
- *   cp examples/07-webgpu.tsx ~/Projects/webgpu/index.tsx
- *   planvideo open ~/Projects/webgpu
- *
  * `ref={surfaceRef}` assigns the surface's node, whose `element` is its
  * detached canvas; onMount a WebGPU context takes it over, and the engine
  * samples the bitmap into the node's box every frame. Device setup is async,

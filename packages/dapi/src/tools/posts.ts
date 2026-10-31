@@ -127,7 +127,6 @@ export const socialAccounts = defineTool({
       ready: z.boolean().describe("A TikTok, YouTube, Bluesky, LinkedIn or X login is stored, so publish_post can send. False for a name saved without that login, and false for every other platform."),
     })),
   }),
-  environment: "renderer",
 });
 
 export const socialSchema = defineTool({
@@ -153,7 +152,6 @@ export const socialSchema = defineTool({
       notes: z.string(),
     })),
   }),
-  environment: "renderer",
 });
 
 export const tiktokCreator = defineTool({
@@ -176,7 +174,6 @@ export const tiktokCreator = defineTool({
     consent: z.string().describe("Show the user this before the post is scheduled or published, word for word with its link."),
     brandedConsent: z.string().describe("Show this instead when the post is branded content."),
   }),
-  environment: "renderer",
 });
 
 export const schedulePost = defineTool({
@@ -186,7 +183,6 @@ export const schedulePost = defineTool({
     "Save a post on the Plan Video calendar. This does not publish. Pass platforms and a caption, then either a future day and time or draft true. Call social_accounts first, and pass account ids when a platform has more than one account. Attach one local video, or pictures for a carousel, with media. TikTok, YouTube, Bluesky, LinkedIn and X are sent only by publish_post, and only while Plan Video is open. Other platforms are stored on the calendar and are not sent.",
   input: z.object(postFields),
   output: ScheduledPost,
-  environment: "renderer",
 });
 
 export const copyPost = defineTool({
@@ -208,7 +204,6 @@ export const copyPost = defineTool({
     ),
   }),
   output: ScheduledPost,
-  environment: "renderer",
 });
 
 export const listPosts = defineTool({
@@ -229,7 +224,6 @@ export const listPosts = defineTool({
     total: z.int().describe("How many matched before the limit."),
     posts: z.array(ScheduledPost),
   }),
-  environment: "renderer",
 });
 
 export const updatePost = defineTool({
@@ -246,7 +240,6 @@ export const updatePost = defineTool({
     thread: Thread.optional().describe("Follow-ups in place of the post's own. Omit to leave them, or pass [] for none."),
   }),
   output: ScheduledPost,
-  environment: "renderer",
 });
 
 export const deletePost = defineTool({
@@ -260,7 +253,6 @@ export const deletePost = defineTool({
     id: z.string(),
     deleted: z.literal(true),
   }),
-  environment: "renderer",
 });
 
 export const publishPost = defineTool({
@@ -278,5 +270,4 @@ export const publishPost = defineTool({
       ),
   }),
   output: ScheduledPost,
-  environment: "renderer",
 });

@@ -1,7 +1,7 @@
 {
   "name": "@plan.video/dapi",
   "version": "0.1.0",
-  "description": "The dapi tool catalog: every tool the plan.video app exposes to agents and the CLI, as a name, a description, and zod input/output schemas. The one definition the app serves, the CLI derives its commands from, and the renderer validates against. Depends on zod and the Time parser only.",
+  "description": "The tools agents use to plan and publish posts: one name, description and zod input/output schema per tool, shared by the Assistant and the MCP server. Depends on zod only.",
   "license": "MPL-2.0",
   "type": "module",
   "sideEffects": false,
@@ -18,7 +18,6 @@
     "zod"
   ],
   "dependencies": {
-    "@plan.video/jsx": "*",
     "zod": "^4.4.3"
   },
   "devDependencies": {

@@ -2,13 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/** The MCP server maps every code to an `isError` result and the CLI to an exit code; the message is the part written for people. */
+/** Every code reaches the agent as an error result; the message is the part written for people. */
 export type DapiErrorCode =
-  | "no-project"
   /** No node, asset, or file matches the given id or path. */
   | "not-found"
-  /** The id matches several nodes; the caller must disambiguate. */
-  | "ambiguous"
   /** The target exists but is the wrong kind, e.g. a clip where a scene is required. */
   | "wrong-kind"
   /** The input failed validation beyond what the schema expresses. */
@@ -16,7 +13,7 @@ export type DapiErrorCode =
   /** A single-slot resource (the export renderer) is in use. */
   | "busy"
   | "sign-in-required"
-  /** The platform or an external binary (gh, osascript) cannot do it. */
+  /** The network or this browser cannot do it. */
   | "unsupported"
   | "canceled";
 

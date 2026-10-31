@@ -14,16 +14,16 @@ export default function Project() {
 }
 ```
 
-The component receives no props. [`open`](../tools/open.md) opens the folder — creating it, and an `index.tsx` holding an empty stage, if it is not a project yet.
+The component receives no props. A new project starts as an `index.tsx` holding an empty stage.
 
 ## The folder
 
-`open` writes as little as it takes to make a folder a project, and the rest of the scaffold appears lazily. What ends up there:
+The rest of the scaffold appears as it is needed. What ends up there:
 
 | Path | What it is |
 | ---- | ---------- |
 | `index.tsx` | The entry. Its default export renders the composition. |
-| `package.json` | The project record: `projectId` (its identity, kept across renames), `displayName`, `main`, and the planvideo commands as scripts. |
+| `package.json` | The project record: `projectId` (its identity, kept across renames), `displayName` and `main`. |
 | `tsconfig.json` | Types for the composition tags, through `jsxImportSource`. |
 | `assets.yml` | The asset library (see [media.md](./media.md#the-library)). |
 | `assets/` | The library's files: symlinks to media brought in from elsewhere, plus what the app produced itself, generations under `assets/generated/`. Media imported through the app is linked where it lies, never copied. |
@@ -40,7 +40,7 @@ Every composition element carries an `id`, and the app stamps one onto every ele
 <rect id="k3f9x1" x={40} y={40} width={640} height={360} fill="#FF0055" />
 ```
 
-An id is what makes an element addressable: it is how an entity is traced back to the JSX that produced it, so a change made on the canvas can be written to the element it came from, and it is what [`capture`](../tools/capture.md) takes to render one node. It is also how elements point at each other within a render — [`syncTo`](./audio-sync.md) names the id of the clip it aligns against.
+An id is what makes an element addressable: it is how an entity is traced back to the JSX that produced it, so a change made on the canvas can be written to the element it came from, and it is also how elements point at each other within a render — [`syncTo`](./audio-sync.md) names the id of the clip it aligns against.
 
 **Ids are yours to write.** Any string is valid, and `id="hero"` is worth more to read than anything minted. The stamp only fills in elements that have none, so renaming one by hand is safe. Ids are stripped at compile time and never reach the runtime as a prop; what survives is the stamp that carries them.
 

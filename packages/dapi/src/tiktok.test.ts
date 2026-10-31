@@ -76,6 +76,5 @@ describe("TikTok posting tools", () => {
     expect(Object.keys(tiktok)).toEqual(expect.arrayContaining(["privacy", "promotion", "agreed"]));
     expect("tiktok" in toolByName("copy_post").input.shape).toBe(true);
     expect("agreed" in toolByName("publish_post").input.shape).toBe(true);
-    expect(toolByName("tiktok_creator").environment).toBe("renderer");
   });
 });

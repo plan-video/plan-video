@@ -11,7 +11,7 @@ import type { Asset } from "@plan.video/assets";
 /** Described without being added: a fresh throwaway library per request, so nothing is remembered between calls. */
 export function resolveAsset(path: string): Promise<Asset> {
   if (!isAbsoluteSource(path) && !isUrlSource(path)) {
-    throw new DapiError("no-project", `Could not resolve "${path}": only absolute paths and URLs resolve.`);
+    throw new DapiError("invalid-input", `Could not resolve "${path}": only absolute paths and URLs resolve.`);
   }
   return new AssetLibrary(createBrowserProjectFS("")).resolve(path);
 }

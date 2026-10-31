@@ -1,9 +1,6 @@
 /* Declarative animation: useTicker exposes the playhead as reactive
  * accessors, createMemo derives values from it, and props consume the memos.
  *
- *   cp examples/03-ticker.tsx ~/Projects/ticker/index.tsx
- *   planvideo open ~/Projects/ticker
- *
  * No timers, no imperative draw loop: each memo recomputes once per tick and
  * every consumer below reads the cached value. Press play; scrubbing works
  * too, and because the playhead is the only clock, exports and captures

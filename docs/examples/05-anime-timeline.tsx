@@ -1,8 +1,5 @@
 /* Anime.js timeline scrubbed by the playhead: one clock, two render worlds.
  *
- *   cp examples/05-anime-timeline.tsx ~/Projects/anime-timeline/index.tsx
- *   planvideo open ~/Projects/anime-timeline
- *
  * Needs the html-in-canvas API (see 04-html-in-canvas.tsx). A paused anime.js
  * timeline tweens plain-object targets; a createEffect seeks it to the
  * scene playhead (looping over the timeline length) and mirrors the values

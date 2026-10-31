@@ -1,9 +1,6 @@
 /* The everyday composition: sequenced A-roll, an image overlay, data-driven
  * titles via <For>, and a music bed under everything.
  *
- *   cp examples/01-basics.tsx ~/Projects/basics/index.tsx
- *   planvideo open ~/Projects/basics
- *
  * Sources are remote URLs so the example mounts anywhere; `src` equally takes
  * local paths ("/Movies/clip.mp4"), library paths ("b-roll/drone.mp4") and
  * asset ids.

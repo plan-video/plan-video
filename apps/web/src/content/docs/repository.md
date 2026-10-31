@@ -8,7 +8,7 @@ plan.video/
   supabase/    the database's migrations, email templates and tests
   scripts/     tools for installing, translating and releasing
   patches/     fixes applied to node_modules on install
-  docs/        skills and references AI agents read
+  docs/        the JSX reference, examples, and brand and design notes
 ```
 
 ## Apps

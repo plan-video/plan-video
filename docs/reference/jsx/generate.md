@@ -34,11 +34,9 @@ export default function Project() {
 
 Declarations are **pure**: calling `generate.*` validates its options and returns a ref; nothing is requested until an element carrying it mounts. A ref that is never used by a mounted element (directly or as an input to another asset) is never generated. Declarations may live at module scope or inside components.
 
-Generation is **asynchronous and non-blocking**: the element is on the canvas immediately, showing a generating state, and its paint attaches when the asset lands. [`context`](../tools/context.md) reports where each one stands — generating, failed with the reason, or done with the library path it landed as — and a declaration that fails leaves its element carrying the reason, recorded in the library (see [errors.md](./errors.md#failed-sources)).
+Generation is **asynchronous and non-blocking**: the element is on the canvas immediately, showing a generating state, and its paint attaches when the asset lands. A declaration that fails leaves its element carrying the reason, recorded in the library (see [errors.md](./errors.md#failed-sources)).
 
 ## Declaration options
-
-[`models`](../tools/models.md) lists valid `model` ids and per-model constraints; [`voices`](../tools/voices.md) lists voices.
 
 ```ts
 type AssetInput = string | AssetRef;   // path, URL, asset id, or another declaration
