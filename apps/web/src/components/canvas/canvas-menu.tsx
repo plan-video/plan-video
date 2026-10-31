@@ -16,6 +16,7 @@ import {
   ContextMenuSubContent,
   ContextMenuSubTrigger,
   ContextMenuTrigger,
+  openContextMenu,
 } from "@/components/ui/context-menu";
 import { deleteSelection, duplicateSelection } from "@/engine";
 import { getAlignableSelection, stackSelection } from "@/engine/align";
@@ -28,23 +29,30 @@ export function CanvasSelectionMenu(props: { children: JSX.Element }) {
 
   const [count, setCount] = createSignal(0);
 
+  let trigger: HTMLDivElement | undefined;
+
   const handleContextMenu = (event: MouseEvent) => {
     const canvas = world.get(RenderSurface)?.canvas;
     const mask = getSelectionMask(world);
-    if (!(canvas instanceof HTMLCanvasElement) || !mask) return setCount(0);
+    if (!(canvas instanceof HTMLCanvasElement) || !mask || !trigger) return;
 
     const rect = canvas.getBoundingClientRect();
     const resolution = world.get(RenderSurface)?.resolution ?? 1;
     const local = transformPoint(invert2D(mask.mat), (event.clientX - rect.left) * resolution, (event.clientY - rect.top) * resolution);
     const inside = local.x >= 0 && local.x <= mask.width && local.y >= 0 && local.y <= mask.height;
-    setCount(inside ? getAlignableSelection(world).length : 0);
+    const selected = inside ? getAlignableSelection(world).length : 0;
+    if (selected === 0) return;
+
+    setCount(selected);
+    openContextMenu(trigger, event);
   };
 
   return (
     <ContextMenu>
-      <ContextMenuTrigger as="div" class="absolute inset-0" disabled={count() === 0} onContextMenu={handleContextMenu}>
+      <div class="absolute inset-0" onContextMenu={handleContextMenu}>
         {props.children}
-      </ContextMenuTrigger>
+      </div>
+      <ContextMenuTrigger ref={trigger} class="hidden" />
       <ContextMenuPortal>
         <ContextMenuContent class="w-[220px]">
           <ContextMenuSub>

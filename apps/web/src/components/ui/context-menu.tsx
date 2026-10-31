@@ -34,6 +34,16 @@ export const ContextMenuTrigger = <T extends ValidComponent = "div">(
   )
 }
 
+// Kobalte never dismisses a menu on a press inside its trigger, so a trigger wrapping a whole
+// panel kept the menu open on every click there. Such panels open a hidden trigger with this.
+export const openContextMenu = (trigger: HTMLElement, event: MouseEvent) => {
+  event.preventDefault()
+  event.stopPropagation()
+  trigger.dispatchEvent(
+    new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: event.clientX, clientY: event.clientY }),
+  )
+}
+
 export type ContextMenuGroupProps<T extends ValidComponent = "div"> =
   ComponentProps<typeof ContextMenuPrimitive.Group<T>>
 
@@ -125,7 +135,7 @@ export const ContextMenuSubContent = <T extends ValidComponent = "div">(
     <ContextMenuPrimitive.SubContent
       data-slot="context-menu-sub-content"
       class={cx(
-        "bg-popover text-popover-foreground data-[expanded]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[expanded]:fade-in-0 data-[closed]:zoom-out-95 data-[expanded]:zoom-in-95 z-[10000] min-w-[8rem] origin-(--kb-menu-content-transform-origin) overflow-x-hidden overflow-y-auto flex flex-col gap-2 rounded-xl border border-border p-2 shadow-[0px_0px_1px_2px_rgba(0,0,0,0.12),0px_4px_12px_8px_rgba(0,0,0,0.12),0px_12px_16px_0px_rgba(0,0,0,0.16)] outline-none max-h-[var(--kb-popper-content-available-height)]",
+        "bg-popover text-popover-foreground data-[expanded]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[expanded]:fade-in-0 data-[closed]:zoom-out-95 data-[expanded]:zoom-in-95 z-[10000] min-w-[8rem] origin-(--kb-menu-content-transform-origin) overflow-x-hidden overflow-y-auto flex flex-col gap-2 rounded-xl border border-border p-2 outline-none max-h-[var(--kb-popper-content-available-height)]",
         "[[data-popper-positioner][style*='--kb-popper-content-transform-origin:_top']>[data-slot=context-menu-sub-content]]:slide-in-from-top-1 [[data-popper-positioner][style*='--kb-popper-content-transform-origin:_bottom']>[data-slot=context-menu-sub-content]]:slide-in-from-bottom-1 [[data-popper-positioner][style*='--kb-popper-content-transform-origin:_left']>[data-slot=context-menu-sub-content]]:slide-in-from-left-1 [[data-popper-positioner][style*='--kb-popper-content-transform-origin:_right']>[data-slot=context-menu-sub-content]]:slide-in-from-right-1",
         props.class,
       )}
@@ -154,7 +164,7 @@ export const ContextMenuContent = <T extends ValidComponent = "div">(
       <ContextMenuPrimitive.Content
         data-slot="context-menu-content"
         class={cx(
-          "bg-popover text-popover-foreground data-[expanded]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[expanded]:fade-in-0 data-[closed]:zoom-out-95 data-[expanded]:zoom-in-95 z-[10000] min-w-[8rem] origin-(--kb-menu-content-transform-origin) overflow-x-hidden overflow-y-auto flex flex-col gap-2 rounded-xl border border-border p-2 shadow-[0px_0px_1px_2px_rgba(0,0,0,0.12),0px_4px_12px_8px_rgba(0,0,0,0.12),0px_12px_16px_0px_rgba(0,0,0,0.16)] outline-none max-h-[var(--kb-popper-content-available-height)]",
+          "bg-popover text-popover-foreground data-[expanded]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[expanded]:fade-in-0 data-[closed]:zoom-out-95 data-[expanded]:zoom-in-95 z-[10000] min-w-[8rem] origin-(--kb-menu-content-transform-origin) overflow-x-hidden overflow-y-auto flex flex-col gap-2 rounded-xl border border-border p-2 outline-none max-h-[var(--kb-popper-content-available-height)]",
           "[[data-popper-positioner][style*='--kb-popper-content-transform-origin:_top']>[data-slot=context-menu-content]]:slide-in-from-top-1 [[data-popper-positioner][style*='--kb-popper-content-transform-origin:_bottom']>[data-slot=context-menu-content]]:slide-in-from-bottom-1 [[data-popper-positioner][style*='--kb-popper-content-transform-origin:_left']>[data-slot=context-menu-content]]:slide-in-from-left-1 [[data-popper-positioner][style*='--kb-popper-content-transform-origin:_right']>[data-slot=context-menu-content]]:slide-in-from-right-1",
           local.class,
         )}

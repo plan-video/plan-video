@@ -17,6 +17,7 @@ import {
   ContextMenuSubContent,
   ContextMenuSubTrigger,
   ContextMenuTrigger,
+  openContextMenu,
 } from '@/components/ui/context-menu';
 import { pickAndImport } from '@/engine/asset-actions';
 import { getDocumentEditor } from '@/engine/editor';
@@ -40,19 +41,18 @@ export function TimelineClipMenu(props: { children: JSX.Element }) {
   const [clips, setClips] = createSignal<Entity[]>([]);
   const [mediaClips, setMediaClips] = createSignal<Entity[]>([]);
 
+  let trigger: HTMLDivElement | undefined;
+
   const handleContextMenu = (event: MouseEvent) => {
     const surface = world.get(TimelineSurface);
     const rect = surface?.canvas?.getBoundingClientRect();
     const clip = surface && rect ? findClipAt(surface, event.clientX - rect.left, event.clientY - rect.top) : null;
-
-    if (!clip) {
-      setClips([]);
-      return;
-    }
+    if (!clip || !trigger) return;
 
     if (!clip.has(Selected)) getDocumentEditor(world).select(clip);
     setClips([...world.query(Selected)]);
     setMediaClips(selectedMediaClips(world));
+    openContextMenu(trigger, event);
   };
 
   const candidates = createMemo((): Asset[] => {
@@ -78,15 +78,10 @@ export function TimelineClipMenu(props: { children: JSX.Element }) {
 
   return (
     <ContextMenu>
-      <ContextMenuTrigger
-        as="div"
-        class="relative size-full"
-        data-tour="timeline"
-        disabled={clips().length === 0}
-        onContextMenu={handleContextMenu}
-      >
+      <div class="relative size-full" data-tour="timeline" onContextMenu={handleContextMenu}>
         {props.children}
-      </ContextMenuTrigger>
+      </div>
+      <ContextMenuTrigger ref={trigger} class="hidden" />
       <ContextMenuPortal>
         <ContextMenuContent class="w-[200px]">
           <ContextMenuSub>
