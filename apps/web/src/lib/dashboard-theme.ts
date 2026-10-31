@@ -19,8 +19,18 @@ function storedTheme(): DashboardTheme | null {
 
 const [choice, setChoice] = createSignal<DashboardTheme | null>(storedTheme());
 
-/** Shared by the dashboard, the editor and the site; light until one is picked. */
-export const dashboardTheme = (): DashboardTheme => choice() ?? "light";
+export type ThemeSurface = "site" | "app";
+
+/** Tested as index.html tests it before the first paint; EditorColorMode (app.tsx) keeps it right as the address changes. */
+const atSite = () => typeof window !== "undefined" && !window.desktop && !/^\/(dashboard|try|projects)(\/|$)/.test(location.pathname) && !/^\/(p|connect)\/[^/]+\/?$/.test(location.pathname);
+const [surface, setSurface] = createSignal<ThemeSurface>(atSite() ? "site" : "app");
+
+export function setThemeSurface(next: ThemeSurface) {
+  setSurface(next);
+}
+
+/** Shared by the dashboard, the editor and the site; until one is picked, light on the site and dark in the app. */
+export const dashboardTheme = (): DashboardTheme => choice() ?? (surface() === "site" ? "light" : "dark");
 
 export function setDashboardTheme(next: DashboardTheme) {
   setChoice(next);

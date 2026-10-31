@@ -16,7 +16,7 @@ import { useColorMode } from "@kobalte/core";
 import { mainBridge } from "@/lib/ipc";
 import { signedInUserId } from '@/lib/guest';
 import { MAIN_CHANNELS } from "@desktop/main-channels";
-import { dashboardTheme } from "@/lib/dashboard-theme";
+import { dashboardTheme, setThemeSurface } from "@/lib/dashboard-theme";
 import { AnalyticsConsent } from '@/components/analytics-consent';
 import { ScreenTooSmall } from '@/components/screen-too-small';
 import { UnsupportedBrowser } from '@/components/unsupported-browser';
@@ -214,13 +214,14 @@ function TitleBarColorMode() {
   return null;
 }
 
-/** `site-light` on <html> turns the site's own colours (index.css), as index.html does before the first paint. */
+/** `site-light` on <html> turns the site's own colours (index.css), as index.html does before the first paint. Until a theme is picked, the site is light and the app dark. */
 function EditorColorMode() {
   const location = useLocation();
   const { setColorMode } = useColorMode();
 
   createRenderEffect(() => {
     const site = isSitePath(location.pathname) || sitePagesInApp() > 0;
+    setThemeSurface(site ? 'site' : 'app');
     setColorMode(site || isEditorPath(location.pathname) ? dashboardTheme() : 'dark');
     document.documentElement.classList.toggle('site-light', site && dashboardTheme() === 'light');
   });

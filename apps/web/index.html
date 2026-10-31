@@ -24,8 +24,9 @@
           else localStorage.setItem("kb-color-mode", apply("dark"));
 
           // The theme, as src/lib/dashboard-theme.ts resolves it: the one
-          // picked in the dashboard or the site's footer, else light. The
-          // site's pages take it from the first paint (EditorColorMode in app.tsx keeps it after
+          // picked in the dashboard or the site's footer, else light on the
+          // site's pages and dark in the app. The site's pages take it from
+          // the first paint (EditorColorMode in app.tsx keeps it after
           // that). A shared post (/p/<id>, src/pages/post-preview.tsx) and a
           // client connect link (/connect/<link>, src/pages/connect.tsx) are
           // drawn in the dashboard's own palette, as the dashboard draws it
@@ -35,7 +36,7 @@
           if (/^\/(p|connect)\/[^/]+\/?$/.test(location.pathname)) {
             apply("dark");
             document.documentElement.classList.add("dashboard-theme");
-            document.documentElement.dataset.dashboardTheme = picked || "light";
+            document.documentElement.dataset.dashboardTheme = picked || "dark";
           } else if (!window.desktop && !/^\/(dashboard|try|projects)(\/|$)/.test(location.pathname)) {
             var site = picked || "light";
             apply(site);
@@ -79,8 +80,8 @@
           }
         } catch (e) {}
         if (window.desktop ? window.desktop.platform === "darwin" : /^\/try\/?$/.test(location.pathname) || (signedIn && /^\/dashboard\/?$/.test(location.pathname))) {
-          // The app's theme, as above: the one picked, else light.
-          var theme = "light";
+          // The app's theme, as above: the one picked, else dark.
+          var theme = "dark";
           try {
             var choice = localStorage.getItem("plan.dashboard-theme");
             if (choice === "light" || choice === "dark") theme = choice;
