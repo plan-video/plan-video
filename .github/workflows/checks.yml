@@ -1,0 +1,72 @@
+# Types, lint, tests and a build for every pull request and push to main.
+name: Checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  app:
+    name: App
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Types
+        run: npm run check --workspaces --if-present
+      - name: Lint
+        run: npm run lint -w @plan.video/web
+      - name: Translations
+        run: node scripts/i18n.mjs check
+      # The desktop app isn't shipped, and its file-watching tests depend on the OS.
+      - name: Tests
+        run: npm test -w @plan.video/web -w @plan.video/agent-chat -w @plan.video/dapi -w @plan.video/runtime
+      - name: Build
+        run: npm run build
+
+  services:
+    name: Services
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: services/*/package-lock.json
+      - name: Install
+        run: for lock in services/*/package-lock.json; do (cd "$(dirname "$lock")" && npm ci --no-audit --no-fund); done
+      - name: Tests
+        run: |
+          for dir in services/*/; do
+            if ls "$dir"*.test.mjs >/dev/null 2>&1; then
+              echo "::group::$dir"
+              (cd "$dir" && node --test) || failed="$failed $dir"
+              echo "::endgroup::"
+            fi
+          done
+          if [ -n "$failed" ]; then echo "Failed:$failed"; exit 1; fi
+
+  dependencies:
+    name: Dependencies
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
