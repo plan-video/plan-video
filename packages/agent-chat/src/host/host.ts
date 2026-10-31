@@ -510,5 +510,7 @@ function validateModel(value: unknown): ModelRef {
 }
 
 function baseName(path: string): string {
-  return path.replace(/[/\\]+$/, "").split(/[/\\]/).pop() || path;
+  let end = path.length;
+  while (end > 0 && (path[end - 1] === "/" || path[end - 1] === "\\")) end--;
+  return path.slice(0, end).split(/[/\\]/).pop() || path;
 }
