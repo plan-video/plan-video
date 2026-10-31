@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { captionOf } from "./text.mjs";
+import { captionOf, graphemes } from "./text.mjs";
 
 test("a network's own words go out over the shared caption", () => {
   const post = { title: "launch-cut", description: "Shared words", captions: { x: "Words for X" } };
@@ -17,4 +17,8 @@ test("a post with no caption goes out with none, never its title or file name", 
   assert.equal(captionOf({ title: "IMG_2041", description: null }, "tiktok"), "");
   assert.equal(captionOf({ title: "IMG_2041", description: "" }, "bluesky"), "");
   assert.equal(captionOf({ title: "IMG_2041", description: "", captions: {} }, "linkedin"), "");
+});
+
+test("an emoji counts as one character, as Bluesky counts its limit", () => {
+  assert.equal(graphemes("👍🏽👨‍👩‍👧é"), 3);
 });

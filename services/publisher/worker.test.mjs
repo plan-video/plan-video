@@ -89,6 +89,13 @@ test("a due post goes out once to each network, however many ticks run", async (
   assert.deepEqual(db.tables.post_deliveries.map((row) => row.state), ["sent", "sent"]);
 });
 
+test("two publishers looking at the same moment send a due post once", async () => {
+  const { db, worker, restart, calls } = setup({ posts: [scheduled()] });
+  await Promise.all([worker.tick(), restart().tick()]);
+  assert.deepEqual(calls.map((call) => call.name).sort(), ["tiktok", "youtube"]);
+  assert.deepEqual(db.tables.post_deliveries.map((row) => row.state), ["sent", "sent"]);
+});
+
 test("each workspace's posts go out from its own accounts", async () => {
   const theirs = { ...scheduled({ id: "p0", title: "Theirs", platforms: ["bluesky"] }), workspace_id: "w0", connections: [{ id: "bs0", platform: "bluesky" }] };
   const { worker, calls } = setup({ posts: [theirs, scheduled()] });
