@@ -72,6 +72,7 @@ docs: explain PUBLIC_URL in Self-hosting
 - **Scopes:** `web` (the dashboard), `editor`, `publisher`, `mcp`, `billing`, `storage`, a network (`tiktok`, `youtube`, `x`, …), `db` (Supabase), `i18n`, `docs`.
 - **The subject:** lowercase, no full stop, under about 72 characters, saying what changes for the people using plan.video when it's something they'd notice.
 - **The body**, if any: the problem in a sentence or two, then the fix. No back-story, and nothing private: this repository is public.
+- Changes to sending, scheduling, database migrations, sign-in, permissions or billing land through a pull request, so the checks and review run first. Commit those on a branch and offer the pull request; everything else can go straight to `main`.
 - Never open a pull request unless the developer asks. Pull requests are squash-merged, so the title follows the same format. Changes people can see need before/after images; motion needs a short video.
 
 ## Keep out of the repository
