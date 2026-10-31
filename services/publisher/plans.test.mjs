@@ -9,6 +9,9 @@ import { OVER_SCHEDULED, createPlanLimits, isWaiting, startOf, uploadsPerDay } f
 import { youtube as realYouTube } from "./networks/youtube.mjs";
 import { createWorker } from "./worker.mjs";
 
+/** One turn of the event loop, so the promises already settled run first. */
+const nextTurn = () => new Promise((resolve) => setImmediate(resolve));
+
 const T0 = Date.parse("2026-10-12T16:00:00Z");
 const HOUR = 60 * 60_000;
 const VIDEO = { key: "posts/u1/v", size: 10, type: "video/mp4", kind: "video" };
@@ -375,7 +378,7 @@ test("two connects at once can't both take the last place", async () => {
   const vault = {
     list: async () => kept.map((connectionId) => ({ connectionId })),
     put: async (connectionId) => {
-      await new Promise((resolve) => setTimeout(resolve, 5));
+      await nextTurn();
       kept.push(connectionId);
     },
   };

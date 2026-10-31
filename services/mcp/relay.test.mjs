@@ -90,19 +90,25 @@ test("closing the tab fails its calls at once", async () => {
   assert.equal(relay.hasTab("alice"), false);
 });
 
-test("a tab that doesn't answer times out", async () => {
+test("a tab that doesn't answer times out", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
   const relay = new Relay({ timeoutMs: 10 });
   relay.attach("alice", socket());
-  await assert.rejects(relay.call("alice", "undo", {}), /didn't answer/);
+  const calling = relay.call("alice", "undo", {});
+  t.mock.timers.tick(10);
+  await assert.rejects(calling, /didn't answer/);
 });
 
-test("publishing is given longer than other calls", async () => {
+test("publishing is given longer than other calls", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
   const relay = new Relay({ timeoutMs: 10, slowTimeoutMs: 10, publishTimeoutMs: 200 });
   const alice = socket();
   const tab = relay.attach("alice", alice);
-  await assert.rejects(relay.call("alice", "schedule_post", {}), /didn't answer within/);
+  const scheduling = relay.call("alice", "schedule_post", {});
+  t.mock.timers.tick(10);
+  await assert.rejects(scheduling, /didn't answer within/);
   const pending = relay.call("alice", "publish_post", { id: "p1" });
-  await new Promise((done) => setTimeout(done, 40));
+  t.mock.timers.tick(199);
   relay.receive(tab, { id: alice.sent[1].id, ok: true, text: "{}" });
   assert.deepEqual(await pending, { text: "{}", images: [] });
 });

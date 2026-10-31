@@ -4,6 +4,9 @@ import test from "node:test";
 import { without } from "./db.mjs";
 import { createMemoryGate, createPool, laneOf } from "./pool.mjs";
 
+/** One turn of the event loop, so the promises already settled run first. */
+const nextTurn = () => new Promise((resolve) => setImmediate(resolve));
+
 function gate() {
   let open;
   const promise = new Promise((resolve) => (open = resolve));
@@ -96,7 +99,7 @@ test("idle waits for what the sends going set off, too", async () => {
   let more = null;
   pool.take("t", row("a", "u1", "x"), async () => {
     order.push("a");
-    more = new Promise((resolve) => setTimeout(resolve, 20)).then(() => {
+    more = nextTurn().then(() => {
       pool.take("t", row("b", "u1", "x"), () => order.push("b"));
       more = null;
     });
@@ -113,7 +116,7 @@ test("the memory gate holds at most its budget, first come first served", async 
   const order = [];
   const second = memory.hold(60).then((release) => (order.push("second"), release));
   const third = memory.hold(10).then((release) => (order.push("third"), release));
-  await new Promise((resolve) => setTimeout(resolve, 5));
+  await nextTurn();
   assert.deepEqual(order, []);
   first();
   const releaseSecond = await second;
@@ -132,14 +135,14 @@ test("one over the memory budget goes alone, once nothing else is held", async (
   const small = await memory.hold(10);
   let big = null;
   const waiting = memory.hold(500).then((release) => (big = release));
-  await new Promise((resolve) => setTimeout(resolve, 5));
+  await nextTurn();
   assert.equal(big, null);
   small();
   await waiting;
   assert.equal(memory.held, 100);
   let after = null;
   const next = memory.hold(1).then((release) => (after = release));
-  await new Promise((resolve) => setTimeout(resolve, 5));
+  await nextTurn();
   assert.equal(after, null);
   big();
   await next;

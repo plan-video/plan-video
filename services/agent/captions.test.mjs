@@ -9,9 +9,9 @@ const SUPABASE = "https://db.test";
 const tokenFor = (id) => `h.${Buffer.from(JSON.stringify({ sub: id })).toString("base64url")}.s`;
 const idOf = (token) => JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString("utf8")).sub;
 
-/** Each call takes `delay` ms and costs `inputTokens`. */
-function fakes({ delay = 100, inputTokens = 50_000, fail = false } = {}) {
-  const state = { calls: 0 };
+/** Each call costs `inputTokens`, and waits for `state.hold` when the test sets one. */
+function fakes({ inputTokens = 50_000, fail = false } = {}) {
+  const state = { calls: 0, hold: null, onCall: () => {} };
   const real = globalThis.fetch;
   globalThis.fetch = async (input, init = {}) => {
     const url = String(input instanceof Request ? input.url : input);
@@ -21,7 +21,8 @@ function fakes({ delay = 100, inputTokens = 50_000, fail = false } = {}) {
     if (url.startsWith(`${SUPABASE}/rest/v1/user_data?`)) return Response.json([{ access_level: 2 }]);
     if (url.startsWith("https://api.anthropic.com/v1/messages")) {
       state.calls += 1;
-      await new Promise((resolve) => setTimeout(resolve, delay));
+      state.onCall();
+      await state.hold;
       if (fail) return Response.json({ type: "error", error: { type: "invalid_request_error", message: "No." } }, { status: 400 });
       return Response.json({
         id: `msg_${state.calls}`,
@@ -105,7 +106,13 @@ test("a burst of caption requests sent at once can't each pass on the same old t
   const run = await setup({}, { captionsBudget: 300_000 });
   try {
     const token = tokenFor("burst");
-    const statuses = await Promise.all(Array.from({ length: 10 }, () => send(run.url, token)));
+    // The calls that get through wait until every request has either reached Anthropic or been answered.
+    let open;
+    run.fake.hold = new Promise((resolve) => (open = resolve));
+    let answered = 0;
+    const everyone = () => run.fake.calls + answered === 10 && open();
+    run.fake.onCall = everyone;
+    const statuses = await Promise.all(Array.from({ length: 10 }, () => send(run.url, token).then((status) => (answered++, everyone(), status))));
     assert.equal(run.fake.calls, 3, JSON.stringify(statuses));
     assert.equal(statuses.filter((status) => status === 429).length, 7);
     // Held amounts were swapped for 3 × 50k: room is left for more, one burst at a time.

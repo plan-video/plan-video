@@ -30,7 +30,10 @@ const HOUR = 60 * 60 * 1000;
 
 /** key → { size, at } */
 const bucket = new Map();
-const pause = () => new Promise((resolve) => setTimeout(resolve, Math.random() * 5));
+let random = 1;
+const pause = async () => {
+  for (let hops = (random = (random * 16807) % 2147483647) % 5; hops > 0; hops--) await new Promise((resolve) => setImmediate(resolve));
+};
 const missing = () => Object.assign(new Error("NotFound"), { $metadata: { httpStatusCode: 404 } });
 
 s3.send = async (command) => {

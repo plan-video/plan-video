@@ -297,10 +297,9 @@ test("the hourly look runs beside a pass without undoing it, so a post over the 
   const sweeping = context.worker.sweep();
   await new Promise((resolve) => setImmediate(resolve));
   context.posts.push(post("eleventh", 30));
-  const planning = context.worker.pass();
-  await new Promise((resolve) => setTimeout(resolve, 50));
+  await context.worker.pass();
   release();
-  await Promise.all([sweeping, planning]);
+  await sweeping;
   await context.worker.tick();
   for (let hour = 5; hour <= 30; hour++) {
     context.setClock(T0 + hour * HOUR);

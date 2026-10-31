@@ -68,6 +68,9 @@ class Slots {
 const server = new Slots(SERVER_SLOTS);
 const people = new Map();
 
+/** Clips waiting in a person's line, or with no one named, in the server's. */
+export const queued = (userId) => (userId === undefined ? server.waiting.length : (people.get(userId)?.waiting.length ?? 0));
+
 async function inTurn(userId, work) {
   let mine = people.get(userId);
   if (!mine) {

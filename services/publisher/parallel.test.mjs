@@ -10,10 +10,13 @@ import { createWorker, lookAgainIn } from "./worker.mjs";
 const T0 = Date.parse("2026-10-12T16:00:00Z");
 const VIDEO = { key: "posts/u1/p1", size: 80, type: "video/mp4", kind: "video" };
 
+/** One turn of the event loop, so the promises already settled run first. */
+const nextTurn = () => new Promise((resolve) => setImmediate(resolve));
+
 async function until(done, tries = 500) {
   for (let i = 0; i < tries; i++) {
     if (done()) return true;
-    await new Promise((resolve) => setImmediate(resolve));
+    await nextTurn();
   }
   return done();
 }
@@ -146,7 +149,7 @@ test("two posts to one account go one after the other, never at once", async () 
   const w = world({
     posts: [post("u1", "a", [["tiktok", "tt1"]]), post("u1", "b", [["tiktok", "tt1"]]), post("u1", "c", [["tiktok", "tt1"]])],
     behave: async (name) => {
-      await new Promise((resolve) => setTimeout(resolve, 5));
+      await nextTurn();
       return { state: "sent", publishId: `${name}-id` };
     },
   });
@@ -167,7 +170,7 @@ test("a person's YouTube channels upload one at a time, so their daily share is 
     planLimits,
     behave: async (name, kind, ctx) => {
       await ctx.progress?.("upload:1");
-      await new Promise((resolve) => setTimeout(resolve, 5));
+      await nextTurn();
       return { state: "sent", publishId: "v" };
     },
   });
@@ -203,12 +206,14 @@ test("a person has at most their share of the sends going, and others go beside 
 
 test("never more sends going than the pool has lanes, however many are due", async () => {
   const posts = Array.from({ length: 30 }, (_, index) => post(`u${index}`, `p${index}`, [["x", `x${index}`], ["bluesky", `bs${index}`]]));
+  let random = 1;
+  const next = () => ((random = (random * 16807) % 2147483647) / 2147483647);
   const w = world({
     sendsAtOnce: 5,
     perUser: 2,
     posts,
     behave: async (name) => {
-      await new Promise((resolve) => setTimeout(resolve, Math.random() * 4));
+      for (let hops = Math.floor(next() * 4); hops > 0; hops--) await nextTurn();
       return { state: "sent", publishId: `${name}-id` };
     },
   });
@@ -424,7 +429,8 @@ test("a stop starts nothing more, and waits for the sends going", async () => {
   await w.worker.pass();
   assert.ok(await until(() => w.going.all === 1));
   const stopping = w.worker.stop(5_000);
-  setTimeout(upload.open, 20);
+  await nextTurn();
+  upload.open();
   assert.equal(await stopping, true);
   await w.worker.dispatch();
   await w.worker.pass();
@@ -432,14 +438,15 @@ test("a stop starts nothing more, and waits for the sends going", async () => {
   assert.equal(w.rows().find((row) => row.platform === "x").state, "queued");
 });
 
-test("a stop gives up waiting after its time, and says the sends didn't finish", async () => {
+test("a stop gives up waiting after its time, and says the sends didn't finish", async (t) => {
   const never = gate();
   const w = world({ posts: [post("u1", "a", [["x", "x1"]])], behave: () => never.promise });
   await w.worker.pass();
   assert.ok(await until(() => w.going.all === 1));
-  const started = Date.now();
-  assert.equal(await w.worker.stop(30), false);
-  assert.ok(Date.now() - started < 1_000);
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const stopping = w.worker.stop(30);
+  t.mock.timers.tick(30);
+  assert.equal(await stopping, false);
   never.open({ state: "sent", publishId: "late" });
 });
 
@@ -546,7 +553,7 @@ test("plugs run in their account's lane too", async () => {
     forAccount: () => [{ kind: "comment" }],
     run: async () => {
       most = Math.max(most, ++going);
-      await new Promise((resolve) => setTimeout(resolve, 3));
+      await nextTurn();
       going--;
       return ["comment"];
     },

@@ -5,7 +5,7 @@ import { mkdtemp, readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { handleTranscribe, json, Refused, wavSeconds } from "./handler.mjs";
+import { handleTranscribe, json, queued, Refused, wavSeconds } from "./handler.mjs";
 
 const SUPABASE = "https://db.test";
 const RATE = 16000;
@@ -33,10 +33,10 @@ const tokenFor = (id) => `h.${Buffer.from(JSON.stringify({ sub: id })).toString(
 const idOf = (token) => JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString("utf8")).sub;
 
 // The usage count adds and answers in one step, as add_caption_seconds does. ElevenLabs reads
-// the whole upload as a stream, takes `delay` ms, and answers `status`.
-function fakes({ level = 1, delay = 30, status = () => 200 } = {}) {
+// the whole upload as a stream, waits for `state.hold` when a test sets one, and answers `status`.
+function fakes({ level = 1, status = () => 200 } = {}) {
   const usage = new Map();
-  const state = { usage, heard: 0, running: 0, mostRunning: 0, uploaded: [] };
+  const state = { usage, heard: 0, running: 0, mostRunning: 0, uploaded: [], hold: null };
   const real = globalThis.fetch;
   globalThis.fetch = async (input, init = {}) => {
     const url = String(input);
@@ -61,7 +61,7 @@ function fakes({ level = 1, delay = 30, status = () => 200 } = {}) {
         let size = 0;
         for await (const chunk of new Request(url, { method: "POST", body: init.body }).body) size += chunk.length;
         state.uploaded.push(size);
-        await new Promise((resolve) => setTimeout(resolve, delay));
+        await state.hold;
         state.heard += 1;
         const code = status(state.heard);
         if (code !== 200) return Response.json({ detail: "No." }, { status: code });
@@ -79,16 +79,21 @@ function fakes({ level = 1, delay = 30, status = () => 200 } = {}) {
 }
 
 async function serve(env) {
+  const handling = new Set();
   const server = createServer((req, res) => {
-    handleTranscribe(req, res, env).catch((error) => {
+    const done = handleTranscribe(req, res, env).catch((error) => {
       if (error instanceof Refused) json(res, error.status, { error: error.message });
       else json(res, 500, { error: String(error?.message ?? error) });
     });
+    handling.add(done);
+    done.finally(() => handling.delete(done));
   });
   server.requestTimeout = 360_000;
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   return {
     url: `http://127.0.0.1:${server.address().port}/api/transcribe`,
+    /** Every request handled to its end, past the answer: the temp folder is cleared after it. */
+    handled: () => Promise.all(handling),
     close: () => {
       server.closeAllConnections();
       return new Promise((resolve) => server.close(resolve));
@@ -132,14 +137,20 @@ function send(url, token, seconds) {
   });
 }
 
-/** The temp folder, once the handler has had a moment to clear it after answering. */
-async function leftOnDisk(dir) {
-  for (let i = 0; i < 40; i++) {
-    const files = await readdir(dir);
-    if (files.length === 0) return files;
-    await new Promise((resolve) => setTimeout(resolve, 25));
-  }
-  return readdir(dir);
+/** Resolves once `done()` holds, looked at each turn of the event loop while uploads go on. */
+async function until(done) {
+  while (!done()) await new Promise((resolve) => setImmediate(resolve));
+}
+
+/** Sends the clips at once, holding ElevenLabs' answers until `ready(answered)` holds. */
+async function heldBurst(run, clips, ready) {
+  let open;
+  run.fake.hold = new Promise((resolve) => (open = resolve));
+  let answered = 0;
+  const results = Promise.all(clips.map(([token, seconds]) => send(run.url, token, seconds).then((result) => (answered++, result))));
+  await until(() => ready(answered));
+  open();
+  return results;
 }
 
 async function setup(options) {
@@ -151,6 +162,7 @@ async function setup(options) {
     fake,
     tmpDir,
     url: app.url,
+    handled: app.handled,
     async close() {
       agent.destroy();
       await app.close();
@@ -167,11 +179,11 @@ test("wavSeconds measures from the header and the file's whole length", () => {
 });
 
 test("a burst of clips sent at once can't each pass on the same old total", async () => {
-  const run = await setup({ delay: 200 });
+  const run = await setup();
   try {
     const token = tokenFor("burst");
-    // Free has 15 minutes.
-    const results = await Promise.all(Array.from({ length: 10 }, () => send(run.url, token, 600)));
+    // Free has 15 minutes. Every clip is either at ElevenLabs or answered before any is heard.
+    const results = await heldBurst(run, Array.from({ length: 10 }, () => [token, 600]), (answered) => run.fake.running + answered === 10);
     const heard = results.filter((result) => result.status === 200).length;
     assert.equal(heard, 1, JSON.stringify(results.map((result) => result.status)));
     assert.equal(run.fake.heard, 1);
@@ -219,10 +231,10 @@ test("a clip longer than what's left is refused whole, says what's left, and cou
 });
 
 test("one person runs three at a time, and the rest wait their turn", async () => {
-  const run = await setup({ level: 4, delay: 150 });
+  const run = await setup({ level: 4 });
   try {
     const token = tokenFor("queue");
-    const results = await Promise.all(Array.from({ length: 7 }, () => send(run.url, token, 5)));
+    const results = await heldBurst(run, Array.from({ length: 7 }, () => [token, 5]), () => run.fake.running === 3 && queued("queue") === 4);
     assert.deepEqual(results.map((result) => result.status), [200, 200, 200, 200, 200, 200, 200]);
     assert.equal(run.fake.mostRunning, 3);
     assert.equal(run.fake.usage.get("queue"), 35);
@@ -232,10 +244,10 @@ test("one person runs three at a time, and the rest wait their turn", async () =
 });
 
 test("past the line the server can hold, a clip is told to come back, and nothing is counted", async () => {
-  const run = await setup({ level: 4, delay: 400 });
+  const run = await setup({ level: 4 });
   try {
     // 60 people at once: 12 are heard, 40 wait their turn, 8 are told to retry.
-    const results = await Promise.all(Array.from({ length: 60 }, (_, i) => send(run.url, tokenFor(`crowd-${i}`), 1)));
+    const results = await heldBurst(run, Array.from({ length: 60 }, (_, i) => [tokenFor(`crowd-${i}`), 1]), (answered) => run.fake.running === 12 && queued() === 40 && answered === 8);
     const busy = results.filter((result) => result.status === 503);
     assert.equal(results.filter((result) => result.status === 200).length, 52);
     assert.equal(busy.length, 8);
@@ -264,7 +276,8 @@ test("the audio waits on disk, never whole in memory, and is deleted after", asy
     assert.equal(result.status, 200);
     assert.equal(run.fake.uploaded.at(-1) > 96_000_000, true);
     assert.ok(peak < 40 * 1024 * 1024, `held ${Math.round(peak / 1024 / 1024)} MB at once`);
-    assert.deepEqual(await leftOnDisk(run.tmpDir), []);
+    await run.handled();
+    assert.deepEqual(await readdir(run.tmpDir), []);
   } finally {
     await run.close();
   }
@@ -277,7 +290,8 @@ test("audio past 100 MB is refused, counted for nothing and not left on disk", a
     assert.notEqual(result.status, 200);
     assert.equal(run.fake.heard, 0);
     assert.equal(run.fake.usage.get("huge"), undefined);
-    assert.deepEqual(await leftOnDisk(run.tmpDir), []);
+    await run.handled();
+    assert.deepEqual(await readdir(run.tmpDir), []);
   } finally {
     await run.close();
   }
