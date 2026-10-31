@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: en-US
+reviews:
+  profile: chill
+  poem: false
+  request_changes_workflow: false
+  high_level_summary: true
+  auto_review:
+    enabled: true
+    drafts: false
+  path_filters:
+    - "!**/package-lock.json"
+    - "!apps/web/src/locales/**"
+  path_instructions:
+    - path: "services/{publisher,tiktok,youtube,x,linkedin}/**"
+      instructions: >-
+        Posts must go out on time and exactly once. Look hard for missed or doubled
+        sends, unsafe retries, races between workers, and network tokens that could
+        reach a browser or a log.
+    - path: "supabase/migrations/**"
+      instructions: >-
+        Check row-level security and grants: anon must not gain access, and a
+        workspace's rows must stay invisible to other workspaces.
+    - path: "apps/web/src/**/*.tsx"
+      instructions: >-
+        Text people read must go through t(), msg() or rich(). Flag animations that
+        keep repainting while nothing changes.
+chat:
+  auto_reply: true
