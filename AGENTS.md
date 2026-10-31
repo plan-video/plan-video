@@ -46,8 +46,11 @@ The most common bug here is a change that works where it was tried and is missin
 ## Checking your work
 
 - Run the checks for what you changed, not the whole repo: `npm run check -w @plan.video/web` for types, `npx vitest run <files>` in `apps/web`, and `node --test` in the service you touched.
+- Test what can break: sending and scheduling, retries, races, limits, permission checks, saved data, and reading what networks send back. Leave out what the types already guarantee, trivial logic, wording, "it runs" checks, and tests that only check a fake was called.
+- Add a case to an existing test before writing a new one, and test once, at the lowest layer that shows the bug.
 - A logic, data or sending bug gets a failing test first, then the fix. A purely visual fix gets before/after screenshots instead of a test.
-- Never wait on sleeps or timers in a test. Wait for the event or result itself.
+- A test has to be able to fail: break the code it guards and see it go red.
+- Never wait on sleeps or timers in a test. Wait for the event or result itself: Node's fake timers (`t.mock.timers`) for code that runs on a timer, a promise the test resolves to hold work in flight. A flaky test gets fixed, not retried.
 - A change people can see gets one pass in a real browser before it's called done.
 
 ## Comments
