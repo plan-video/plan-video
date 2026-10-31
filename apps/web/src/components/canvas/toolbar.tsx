@@ -20,7 +20,7 @@ import { ActionBar } from "../genai/action-bar";
 import { For, Show, createEffect, createSignal, onCleanup } from "solid-js";
 import { Tool, ToolType } from "@plan.video/runtime";
 import { useWorld } from "@plan.video/koota-solid";
-import { useTool } from "@/engine";
+import { getEditHistory, useTool } from "@/engine";
 import { setSidebarTab } from "@/agent-chat";
 import { usePromptInput } from "@/context/prompt-input";
 import { TOOLBAR_SLOTS, useLayout } from "@/context/layout";
@@ -32,6 +32,8 @@ import HandIcon from "lucide-solid/icons/hand";
 import FrameIcon from "lucide-solid/icons/frame";
 import SquareIcon from "lucide-solid/icons/square";
 import TypeIcon from "lucide-solid/icons/type";
+import Undo2Icon from "lucide-solid/icons/undo-2";
+import Redo2Icon from "lucide-solid/icons/redo-2";
 
 import type { ToolbarSlot } from "@/context/layout";
 
@@ -180,11 +182,50 @@ export function Toolbar() {
         onPointerDown={handlePointerDown}
         onDragStart={(event) => event.preventDefault()}
       >
+        <HistoryButtons />
+        <Separator orientation="vertical" class="min-h-4 mx-1.5" />
         <CanvasTools placement={top() ? "bottom-start" : "top-start"} />
         <Separator orientation="vertical" class="min-h-4 mx-1.5" />
         <ZoomMenu placement={top() ? "bottom-end" : "top-end"} />
       </div>
     </>
+  );
+}
+
+function HistoryButtons() {
+  const history = getEditHistory(useWorld());
+
+  return (
+    <div class="flex items-center gap-0.5">
+      <Tooltip>
+        <TooltipTrigger
+          as={Button}
+          size="icon-square"
+          variant="ghost"
+          aria-label={t("Undo")}
+          class="text-muted-foreground hover:text-foreground"
+          disabled={!history.canUndo()}
+          onClick={() => history.undo()}
+        >
+          <Undo2Icon class="size-4" stroke-width={2} />
+        </TooltipTrigger>
+        <TooltipContent shortcut="⌘Z">{t("Undo")}</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger
+          as={Button}
+          size="icon-square"
+          variant="ghost"
+          aria-label={t("Redo")}
+          class="text-muted-foreground hover:text-foreground"
+          disabled={!history.canRedo()}
+          onClick={() => history.redo()}
+        >
+          <Redo2Icon class="size-4" stroke-width={2} />
+        </TooltipTrigger>
+        <TooltipContent shortcut="⇧⌘Z">{t("Redo")}</TooltipContent>
+      </Tooltip>
+    </div>
   );
 }
 
