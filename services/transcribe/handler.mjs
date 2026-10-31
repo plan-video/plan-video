@@ -345,8 +345,11 @@ async function transcribe(req, res, env, user) {
       giveBack(user, amount);
       console.error(`transcribe: ElevenLabs answered ${scribe.status}: ${errorOf(payload) ?? "no detail"}`);
       // 401 from ElevenLabs is our key, not the user's sign-in.
-      const status = scribe.status === 401 || scribe.status === 403 ? 502 : scribe.status;
-      json(res, status, { error: errorOf(payload) || `The transcription service refused the audio (${scribe.status}).` });
+      if (scribe.status === 401 || scribe.status === 403) {
+        json(res, 502, { error: "Captions aren't available right now. Try again in a moment." });
+        return;
+      }
+      json(res, scribe.status, { error: errorOf(payload) || `The transcription service refused the audio (${scribe.status}).` });
       return;
     }
 

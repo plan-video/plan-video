@@ -213,6 +213,17 @@ test("seconds ElevenLabs never transcribed go back to the person", async () => {
   }
 });
 
+test("ElevenLabs refusing plan.video's key is a 502 that doesn't repeat what ElevenLabs said", async () => {
+  const run = await setup({ status: (n) => (n === 1 ? 401 : 200) });
+  try {
+    const refused = await send(run.url, tokenFor("key"), 60);
+    assert.equal(refused.status, 502);
+    assert.doesNotMatch(refused.body.error, /No\./);
+  } finally {
+    await run.close();
+  }
+});
+
 test("a clip longer than what's left is refused whole, says what's left, and counts nothing", async () => {
   const run = await setup();
   try {
