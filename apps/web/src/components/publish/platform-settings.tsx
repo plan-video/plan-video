@@ -427,10 +427,7 @@ export function PlatformSettingsFields(props: {
             </Field>
           )}
         </Show>
-        <FieldGroup
-          label={t("Privacy status")}
-          hint={t("Until Google finishes reviewing plan.video, YouTube keeps the upload private.")}
-        >
+        <FieldGroup label={t("Privacy status")}>
           <Segmented options={YOUTUBE_PRIVACY} value={props.settings.youtube.privacy} onChange={(privacy) => set("youtube", "privacy", privacy)} />
         </FieldGroup>
         <SwitchRow
