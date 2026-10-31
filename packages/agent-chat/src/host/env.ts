@@ -174,8 +174,23 @@ export function needsShell(path: string): boolean {
 
 /** Quotes an argument for `shell: true` on Windows. Ours are constant; this keeps them so. */
 export function quoteArg(arg: string): string {
-  if (!IS_WINDOWS) return arg;
-  return /^[\w./:=@\\-]+$/.test(arg) ? arg : `"${arg.replace(/"/g, '\\"')}"`;
+  return IS_WINDOWS ? quoteWindowsArg(arg) : arg;
+}
+
+/** Backslashes are literal except before a quote or the closing quote, where CommandLineToArgvW halves them. */
+export function quoteWindowsArg(arg: string): string {
+  if (/^[\w./:=@\\-]+$/.test(arg)) return arg;
+  let quoted = '"';
+  let slashes = 0;
+  for (const char of arg) {
+    if (char === "\\") {
+      slashes++;
+      continue;
+    }
+    quoted += "\\".repeat(char === '"' ? slashes * 2 + 1 : slashes) + char;
+    slashes = 0;
+  }
+  return `${quoted}${"\\".repeat(slashes * 2)}"`;
 }
 
 /**
