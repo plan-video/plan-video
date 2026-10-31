@@ -10,9 +10,12 @@ import { createSignal, For, onCleanup, Show, type JSX } from 'solid-js';
 import { DevAuthCodeInput } from '@/components/dev-auth-code-input';
 import { useAuth } from '@/context/auth';
 import { useFullscreenState } from '@/hooks/use-fullscreen-state';
+import { TRY_PATH } from '@/hooks/use-project-route';
 import { msg, rich, t } from '@/lib/i18n';
 import { mainBridge } from '@/lib/ipc';
 import { site } from '@/lib/site';
+import { REPO_PUBLIC, REPO_URL } from '@/lib/site-links';
+import { supabase } from '@/lib/supabase';
 import { INVITE_ONLY, isEmail } from '@/lib/waitlist';
 
 void site?.LoginPanel.preload();
@@ -229,6 +232,27 @@ function Sent(props: {
   );
 }
 
+const SIGN_IN_DOCS = `${REPO_URL}/blob/main/apps/web/src/content/docs/local-development.md#sign-in`;
+
+/** Without a Supabase project (lib/supabase.ts) there are no accounts to sign in to. */
+function SignInOff() {
+  return (
+    <div class="flex flex-col">
+      <Heading title={t("Sign-in isn't set up yet")}>
+        {t('This copy of plan.video has no accounts yet. You can still try the dashboard and the editor with sample posts.')}
+      </Heading>
+      <A href={TRY_PATH} class={`${LIGHT} mt-10`}>
+        {t('Try the demo')}
+      </A>
+      <Show when={REPO_PUBLIC || import.meta.env.DEV}>
+        <a href={SIGN_IN_DOCS} target="_blank" rel="noopener noreferrer" class={`${TEXT_BUTTON} mt-2 inline-flex items-center justify-center`}>
+          {t('How to set up sign-in')}
+        </a>
+      </Show>
+    </div>
+  );
+}
+
 /** Signing in creates the account either way; `signup` only changes the words and the link. */
 export function LoginPage(props: { mode?: 'login' | 'signup' }) {
   const auth = useAuth();
@@ -307,59 +331,90 @@ export function LoginPage(props: { mode?: 'login' | 'signup' }) {
         </Show>
 
         <main class="mx-auto flex w-full max-w-[380px] flex-1 flex-col justify-center py-24">
-          <Show
-            when={sentTo()}
-            fallback={
-              <div class="flex flex-col">
-                <Heading
-                  title={INVITE_ONLY && !reviewer() ? t('Sign in') : reviewer() ? t('Welcome to plan.video') : signup() ? t('Create your plan.video account') : t('Welcome back to plan.video')}
-                >
-                  <Show
-                    when={!reviewer()}
-                    fallback={t('Sign in with the account you were given.')}
+          <Show when={supabase} fallback={<SignInOff />}>
+            <Show
+              when={sentTo()}
+              fallback={
+                <div class="flex flex-col">
+                  <Heading
+                    title={INVITE_ONLY && !reviewer() ? t('Sign in') : reviewer() ? t('Welcome to plan.video') : signup() ? t('Create your plan.video account') : t('Welcome back to plan.video')}
                   >
                     <Show
-                      when={INVITE_ONLY}
-                      fallback={
-                        <>
-                          {signup() ? t('Already have an account?') : t("Don't have an account?")}{' '}
-                          <A href={signup() ? '/login' : '/signup'} class={LINE_LINK}>
-                            {signup() ? t('Log in') : t('Sign up')}
-                          </A>
-                        </>
-                      }
+                      when={!reviewer()}
+                      fallback={t('Sign in with the account you were given.')}
                     >
-                      {t('Invited emails only. No invite yet?')}{' '}
-                      <A href="/#waitlist" class={`whitespace-nowrap ${LINE_LINK}`}>
-                        {t('Join the waitlist')}
-                      </A>
+                      <Show
+                        when={INVITE_ONLY}
+                        fallback={
+                          <>
+                            {signup() ? t('Already have an account?') : t("Don't have an account?")}{' '}
+                            <A href={signup() ? '/login' : '/signup'} class={LINE_LINK}>
+                              {signup() ? t('Log in') : t('Sign up')}
+                            </A>
+                          </>
+                        }
+                      >
+                        {t('Invited emails only. No invite yet?')}{' '}
+                        <A href="/#waitlist" class={`whitespace-nowrap ${LINE_LINK}`}>
+                          {t('Join the waitlist')}
+                        </A>
+                      </Show>
                     </Show>
+                  </Heading>
+
+                  <Show when={!reviewer() && !INVITE_ONLY}>
+                    <button type="button" class={`${DARK} mt-10`} onClick={() => void auth.signInWithOAuth('google')}>
+                      <GoogleMark />
+                      {t('Continue with Google')}
+                    </button>
+
+                    <Or />
                   </Show>
-                </Heading>
 
-                <Show when={!reviewer() && !INVITE_ONLY}>
-                  <button type="button" class={`${DARK} mt-10`} onClick={() => void auth.signInWithOAuth('google')}>
-                    <GoogleMark />
-                    {t('Continue with Google')}
-                  </button>
-
-                  <Or />
-                </Show>
-
-                <Show
-                  when={reviewer()}
-                  fallback={
-                    <form class={`flex flex-col ${INVITE_ONLY ? "mt-10" : ""}`} onSubmit={(event) => void submit(event)} novalidate>
-                      <label for="login-email" class="sr-only">
-                        {t('Email')}
-                      </label>
+                  <Show
+                    when={reviewer()}
+                    fallback={
+                      <form class={`flex flex-col ${INVITE_ONLY ? "mt-10" : ""}`} onSubmit={(event) => void submit(event)} novalidate>
+                        <label for="login-email" class="sr-only">
+                          {t('Email')}
+                        </label>
+                        <input
+                          id="login-email"
+                          type="email"
+                          autocomplete="email"
+                          placeholder={t('Your email address')}
+                          aria-invalid={!!error()}
+                          aria-describedby={error() ? 'login-email-error' : undefined}
+                          class={FIELD}
+                          classList={ring(!!error())}
+                          value={email()}
+                          onInput={(event) => {
+                            setEmail(event.currentTarget.value);
+                            setError(null);
+                          }}
+                          onKeyDown={(event) => event.stopPropagation()}
+                          onKeyUp={(event) => event.stopPropagation()}
+                        />
+                        <Show when={error()}>
+                          <p id="login-email-error" class="mt-1.5 text-[13px] leading-5 text-red-300">
+                            {error()}
+                          </p>
+                        </Show>
+                        <button type="submit" class={`${LIGHT} mt-2`} disabled={sending()}>
+                          {sending() ? t('Sending link…') : t('Send sign-in link')}
+                        </button>
+                      </form>
+                    }
+                  >
+                    <form class="mt-10 flex flex-col gap-2" onSubmit={(event) => void submitPassword(event)} novalidate>
                       <input
-                        id="login-email"
+                        id="reviewer-email"
                         type="email"
-                        autocomplete="email"
-                        placeholder={t('Your email address')}
+                        autocomplete="username"
+                        aria-label={t('Email')}
+                        placeholder="reviewer@plan.video"
                         aria-invalid={!!error()}
-                        aria-describedby={error() ? 'login-email-error' : undefined}
+                        aria-describedby={error() ? 'reviewer-error' : undefined}
                         class={FIELD}
                         classList={ring(!!error())}
                         value={email()}
@@ -370,84 +425,55 @@ export function LoginPage(props: { mode?: 'login' | 'signup' }) {
                         onKeyDown={(event) => event.stopPropagation()}
                         onKeyUp={(event) => event.stopPropagation()}
                       />
+                      <input
+                        id="reviewer-password"
+                        type="password"
+                        autocomplete="current-password"
+                        aria-label={t('Password')}
+                        placeholder={t('Password')}
+                        class={FIELD}
+                        classList={ring(false)}
+                        value={password()}
+                        onInput={(event) => {
+                          setPassword(event.currentTarget.value);
+                          setError(null);
+                        }}
+                        onKeyDown={(event) => event.stopPropagation()}
+                        onKeyUp={(event) => event.stopPropagation()}
+                      />
                       <Show when={error()}>
-                        <p id="login-email-error" class="mt-1.5 text-[13px] leading-5 text-red-300">
+                        <p id="reviewer-error" class="text-[13px] leading-5 text-red-300">
                           {error()}
                         </p>
                       </Show>
-                      <button type="submit" class={`${LIGHT} mt-2`} disabled={sending()}>
-                        {sending() ? t('Sending link…') : t('Send sign-in link')}
+                      <button type="submit" class={LIGHT} disabled={sending()}>
+                        {sending() ? t('Signing in…') : t('Sign in')}
+                      </button>
+                      <button type="button" class={TEXT_BUTTON} onClick={leaveReviewer}>
+                        {t('Use an email link instead')}
                       </button>
                     </form>
-                  }
-                >
-                  <form class="mt-10 flex flex-col gap-2" onSubmit={(event) => void submitPassword(event)} novalidate>
-                    <input
-                      id="reviewer-email"
-                      type="email"
-                      autocomplete="username"
-                      aria-label={t('Email')}
-                      placeholder="reviewer@plan.video"
-                      aria-invalid={!!error()}
-                      aria-describedby={error() ? 'reviewer-error' : undefined}
-                      class={FIELD}
-                      classList={ring(!!error())}
-                      value={email()}
-                      onInput={(event) => {
-                        setEmail(event.currentTarget.value);
-                        setError(null);
-                      }}
-                      onKeyDown={(event) => event.stopPropagation()}
-                      onKeyUp={(event) => event.stopPropagation()}
-                    />
-                    <input
-                      id="reviewer-password"
-                      type="password"
-                      autocomplete="current-password"
-                      aria-label={t('Password')}
-                      placeholder={t('Password')}
-                      class={FIELD}
-                      classList={ring(false)}
-                      value={password()}
-                      onInput={(event) => {
-                        setPassword(event.currentTarget.value);
-                        setError(null);
-                      }}
-                      onKeyDown={(event) => event.stopPropagation()}
-                      onKeyUp={(event) => event.stopPropagation()}
-                    />
-                    <Show when={error()}>
-                      <p id="reviewer-error" class="text-[13px] leading-5 text-red-300">
-                        {error()}
-                      </p>
-                    </Show>
-                    <button type="submit" class={LIGHT} disabled={sending()}>
-                      {sending() ? t('Signing in…') : t('Sign in')}
-                    </button>
-                    <button type="button" class={TEXT_BUTTON} onClick={leaveReviewer}>
-                      {t('Use an email link instead')}
-                    </button>
-                  </form>
-                </Show>
+                  </Show>
 
-                <div class="mt-6 empty:hidden">
-                  <DevAuthCodeInput />
+                  <div class="mt-6 empty:hidden">
+                    <DevAuthCodeInput />
+                  </div>
                 </div>
-              </div>
-            }
-          >
-            {(address) => (
-              <Sent
-                email={address()}
-                onResend={() => sendLink(address())}
-                onBack={() => setSentTo(null)}
-                onCode={
-                  import.meta.env.DEV
-                    ? async (token) => (await auth.signInWithEmailCode(address(), token)).error
-                    : undefined
-                }
-              />
-            )}
+              }
+            >
+              {(address) => (
+                <Sent
+                  email={address()}
+                  onResend={() => sendLink(address())}
+                  onBack={() => setSentTo(null)}
+                  onCode={
+                    import.meta.env.DEV
+                      ? async (token) => (await auth.signInWithEmailCode(address(), token)).error
+                      : undefined
+                  }
+                />
+              )}
+            </Show>
           </Show>
         </main>
 
