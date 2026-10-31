@@ -14,6 +14,7 @@ create table if not exists private.service_keys (
   name text primary key,
   hash bytea not null
 );
+alter table private.service_keys enable row level security;
 revoke all on table private.service_keys from public, anon, authenticated;
 
 create or replace function private.check_billing_key(key text) returns void
