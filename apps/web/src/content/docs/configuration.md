@@ -19,7 +19,7 @@ The website takes its settings when it's built. Each service reads its files fro
 
 Keys with the `VITE_` prefix are built into the browser bundle, so `apps/web/.env` holds nothing else: the dev server and the build stop if it does.
 
-The secrets the dev server needs to stand in for the services go in `apps/web/server.env`, from `apps/web/server.env.example`: the networks' keys, `ELEVENLABS_API_KEY`, `ANTHROPIC_API_KEY`, and Stripe's keys with `SUPABASE_SERVICE_ROLE_KEY`. Vite never reads that file, git ignores it, and a build fails if any of its values turns up in what it wrote.
+The secrets the dev server needs to stand in for the services go in `apps/web/server.env`, from `apps/web/server.env.example`: the networks' keys, `ELEVENLABS_API_KEY`, `ANTHROPIC_API_KEY`, and Stripe's keys with `BILLING_DB_KEY`. Vite never reads that file, git ignores it, and a build fails if any of its values turns up in what it wrote.
 
 <Warning>
 Set `VITE_APP_URL` for every build you put up. Without it, the website takes itself for plan.video: connecting TikTok, YouTube, LinkedIn, X, Instagram, Facebook or Threads asks people to open plan.video, and "Sign in with Bluesky" is off.
@@ -96,7 +96,7 @@ The network's service and the publisher both read these.
 | --- | --- | --- |
 | `STRIPE_SECRET_KEY` | Required | Your Stripe secret key |
 | `STRIPE_WEBHOOK_SECRET` | Required | The signing secret of the webhook `setup-stripe.mjs` makes |
-| `SUPABASE_SERVICE_ROLE_KEY` | Required | To write each person's plan |
+| `BILLING_DB_KEY` | Required | Lets billing write each person's plan and nothing else. Make it as below. |
 | `PUBLIC_URL` | | Where Stripe sends people back. Default `https://plan.video`. |
 | `STRIPE_AUTOMATIC_TAX` | | `true` turns on Stripe Tax in Checkout |
 
@@ -107,6 +107,12 @@ STRIPE_SECRET_KEY=sk_... PUBLIC_URL=https://your-domain.com node services/billin
 ```
 
 It's safe to run again, and prints the webhook's secret the first time.
+
+Make `BILLING_DB_KEY` with `services/billing/scripts/db-key.mjs`. It prints the line for `billing.env`, and SQL for your project's SQL editor that stores only the key's hash:
+
+```bash
+node services/billing/scripts/db-key.mjs
+```
 
 ## mcp.env
 

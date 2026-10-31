@@ -34,12 +34,12 @@ const env = {
   automaticTax: own.STRIPE_AUTOMATIC_TAX === "true",
   supabaseUrl: own.SUPABASE_URL || shared.SUPABASE_URL || "",
   supabaseAnonKey: own.SUPABASE_ANON_KEY || shared.SUPABASE_ANON_KEY || "",
-  serviceKey: own.SUPABASE_SERVICE_ROLE_KEY || "",
+  databaseKey: own.BILLING_DB_KEY || "",
   publicUrl: (own.PUBLIC_URL || "https://plan.video").replace(/\/$/, ""),
 };
 
-if (!env.stripeKey || !env.webhookSecret || !env.serviceKey || !env.supabaseUrl) {
-  console.error("billing: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, SUPABASE_SERVICE_ROLE_KEY and SUPABASE_URL are needed");
+if (!env.stripeKey || !env.webhookSecret || !env.databaseKey || !env.supabaseUrl || !env.supabaseAnonKey) {
+  console.error("billing: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, BILLING_DB_KEY, SUPABASE_URL and SUPABASE_ANON_KEY are needed");
 }
 
 const server = createServer((req, res) => {

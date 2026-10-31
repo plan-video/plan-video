@@ -90,7 +90,8 @@ test("end, for a deleted account, expires open checkouts and cancels every subsc
     const method = init.method ?? "GET";
     calls.push(`${method} ${pathname}`);
     if (pathname === "/auth/v1/user") return Response.json({ id: "user-1", email: "a@b.test" });
-    if (pathname === "/rest/v1/user_data") return Response.json(method === "GET" ? [{ stripe_customer_id: "cus_1", access_level: 3 }] : [{ id: "user-1" }]);
+    if (pathname === "/rest/v1/rpc/billing_user") return Response.json([{ stripe_customer_id: "cus_1", access_level: 3 }]);
+    if (pathname === "/rest/v1/rpc/billing_set_plan") return Response.json(true);
     if (pathname === "/v1/customers/cus_1") return Response.json({ id: "cus_1" });
     if (pathname === "/v1/checkout/sessions" && method === "GET") {
       assert.equal(searchParams.get("status"), "open");
@@ -111,7 +112,7 @@ test("end, for a deleted account, expires open checkouts and cancels every subsc
   let status = 0;
   let answer = "";
   const res = { writableEnded: false, writeHead: (code) => (status = code), end: (text) => (answer = text) };
-  await handleBilling(req, res, "/api/billing/end", { stripeKey: "sk", webhookSecret: "wh", supabaseUrl: "https://db.test", supabaseAnonKey: "anon", serviceKey: "service" });
+  await handleBilling(req, res, "/api/billing/end", { stripeKey: "sk", webhookSecret: "wh", supabaseUrl: "https://db.test", supabaseAnonKey: "anon", databaseKey: "billing" });
 
   assert.equal(status, 200);
   assert.deepEqual(JSON.parse(answer), { ended: 3 });

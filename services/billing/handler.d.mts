@@ -15,7 +15,7 @@ export function handleBilling(
     automaticTax: boolean;
     supabaseUrl: string;
     supabaseAnonKey: string;
-    serviceKey: string;
+    databaseKey: string;
     publicUrl: string;
   },
 ): Promise<void>;

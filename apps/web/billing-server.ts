@@ -8,7 +8,7 @@ import type { Plugin } from "vite";
 import { fail, handleBilling } from "../../services/billing/handler.mjs";
 import { serverEnv } from "./server-env";
 
-// The Stripe key and service role stay in apps/web/server.env, out of the browser bundle.
+// The Stripe key and billing's database key stay in apps/web/server.env, out of the browser bundle.
 // Use a test-mode key, and `stripe listen --forward-to localhost:5173/api/billing/webhook` for webhooks.
 export function billingDevPlugin(envDir: string, mode: string): Plugin {
   return {
@@ -27,7 +27,7 @@ export function billingDevPlugin(envDir: string, mode: string): Plugin {
           automaticTax: envFile.STRIPE_AUTOMATIC_TAX === "true",
           supabaseUrl: envFile.VITE_SUPABASE_URL?.trim() ?? "",
           supabaseAnonKey: envFile.VITE_SUPABASE_ANON_KEY?.trim() ?? "",
-          serviceKey: envFile.SUPABASE_SERVICE_ROLE_KEY?.trim() ?? "",
+          databaseKey: envFile.BILLING_DB_KEY?.trim() ?? "",
           publicUrl: `http://${req.headers.host ?? "localhost:5173"}`,
         };
         void handleBilling(req as IncomingMessage, res as ServerResponse, path, env).catch((error: unknown) =>
