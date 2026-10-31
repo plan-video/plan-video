@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+/// <reference types="wicg-file-system-access" />
+
 // Nothing here talks to the user: a failure is thrown or returned for the host to report.
 
 import { assetName } from './types';
