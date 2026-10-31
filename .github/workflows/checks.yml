@@ -55,7 +55,7 @@ jobs:
           for dir in services/*/; do
             if ls "$dir"*.test.mjs >/dev/null 2>&1; then
               echo "::group::$dir"
-              (cd "$dir" && node --test) || failed="$failed $dir"
+              (cd "$dir" && node --test --test-timeout=60000) || failed="$failed $dir"
               echo "::endgroup::"
             fi
           done
