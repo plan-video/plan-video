@@ -135,19 +135,14 @@ async function stripe(env, method, path, params = {}) {
   return payload;
 }
 
-/** user_data can only be written with the service role, from here. */
-async function db(env, method, path, body, prefer = "") {
+/** user_data is written only through billing's own functions, which its key unlocks (supabase/migrations/*_billing_key.sql). */
+async function rpc(env, name, args) {
   let response;
   try {
-    response = await fetch(`${env.supabaseUrl}/rest/v1/${path}`, {
-      method,
-      headers: {
-        apikey: env.serviceKey,
-        Authorization: `Bearer ${env.serviceKey}`,
-        "Content-Type": "application/json",
-        Prefer: ["return=representation", prefer].filter(Boolean).join(","),
-      },
-      body: body === undefined ? undefined : JSON.stringify(body),
+    response = await fetch(`${env.supabaseUrl}/rest/v1/rpc/${name}`, {
+      method: "POST",
+      headers: { apikey: env.supabaseAnonKey, Authorization: `Bearer ${env.supabaseAnonKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ key: env.databaseKey, ...args }),
       signal: AbortSignal.timeout(10_000),
     });
   } catch {
@@ -155,10 +150,10 @@ async function db(env, method, path, body, prefer = "") {
   }
   const text = await response.text();
   if (!response.ok) {
-    console.error(`billing: database ${method} ${path.split("?")[0]} answered ${response.status}: ${text.slice(0, 300)}`);
+    console.error(`billing: database ${name} answered ${response.status}: ${text.slice(0, 300)}`);
     throw new Refused(502, "The database didn't answer. Try again in a moment.");
   }
-  return text ? JSON.parse(text) : [];
+  return text ? JSON.parse(text) : null;
 }
 
 // OAuth-client tokens (Claude's connector, say) carry `client_id` and only work at /mcp.
@@ -199,8 +194,8 @@ async function userFor(req, env) {
 }
 
 async function rowOf(env, userId) {
-  const rows = await db(env, "GET", `user_data?select=stripe_customer_id,access_level&id=eq.${encodeURIComponent(userId)}`);
-  return rows[0] ?? null;
+  const rows = await rpc(env, "billing_user", { person: userId });
+  return rows?.[0] ?? null;
 }
 
 async function existingCustomer(env, userId) {
@@ -231,12 +226,8 @@ async function customerFor(env, user) {
     metadata: { user_id: user.id },
   });
   // Two requests at once (two tabs) each make a customer; the one written first is kept.
-  // A missing row is made empty first, so both go through the same guarded write.
-  if (!row) await db(env, "POST", "user_data?on_conflict=id", { id: user.id }, "resolution=ignore-duplicates");
-  const previous = row?.stripe_customer_id;
-  const filter = previous ? `stripe_customer_id=eq.${encodeURIComponent(previous)}` : "stripe_customer_id=is.null";
-  const updated = await db(env, "PATCH", `user_data?id=eq.${encodeURIComponent(user.id)}&${filter}`, { stripe_customer_id: customer.id });
-  if (updated.length) return customer.id;
+  const linked = await rpc(env, "billing_link_customer", { person: user.id, previous: row?.stripe_customer_id ?? null, customer: customer.id });
+  if (linked === true) return customer.id;
   await stripe(env, "DELETE", `/customers/${customer.id}`).catch(() => undefined);
   const kept = (await rowOf(env, user.id))?.stripe_customer_id;
   if (!kept) throw new Refused(409, "Try again in a moment.");
@@ -357,11 +348,8 @@ export async function syncCustomer(env, customer, knownUserId) {
   const best = bestSubscription(await subscriptionsOf(env, customer));
   const level = best?.level ?? 1;
 
-  const updated = await db(env, "PATCH", `user_data?stripe_customer_id=eq.${encodeURIComponent(customer)}`, { access_level: level });
-  if (updated.length) {
-    await writeExtras(env, `stripe_customer_id=eq.${encodeURIComponent(customer)}`, best?.extraAccounts ?? 0);
-    return level;
-  }
+  const plan = { customer, level, extras: best?.extraAccounts ?? 0 };
+  if ((await rpc(env, "billing_set_plan", plan)) === true) return level;
 
   let userId = knownUserId;
   if (!userId) {
@@ -373,16 +361,8 @@ export async function syncCustomer(env, customer, knownUserId) {
     return level;
   }
   // Only a paying customer takes over the link; a lapsed one leaves the current one alone.
-  if (best) {
-    await db(env, "PATCH", `user_data?id=eq.${encodeURIComponent(userId)}`, { access_level: level, stripe_customer_id: customer });
-    await writeExtras(env, `id=eq.${encodeURIComponent(userId)}`, best.extraAccounts);
-  }
+  if (best) await rpc(env, "billing_set_plan", { ...plan, person: userId });
   return level;
-}
-
-/** Separate from the plan, so the plan is still written before the extra_accounts column exists. */
-async function writeExtras(env, filter, extras) {
-  await db(env, "PATCH", `user_data?${filter}`, { extra_accounts: extras }).catch(() => undefined);
 }
 
 async function liveSubscription(env, customer) {
@@ -677,7 +657,7 @@ async function webhook(req, res, env) {
 }
 
 export async function handleBilling(req, res, path, env) {
-  if (!env.stripeKey || !env.supabaseUrl || !env.serviceKey) throw new Refused(503, "Payments aren't set up yet.");
+  if (!env.stripeKey || !env.supabaseUrl || !env.supabaseAnonKey || !env.databaseKey) throw new Refused(503, "Payments aren't set up yet.");
 
   if (path === "/api/billing/webhook" && req.method === "POST") return webhook(req, res, env);
 

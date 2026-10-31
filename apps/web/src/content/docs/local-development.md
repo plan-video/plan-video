@@ -63,7 +63,7 @@ cp apps/web/server.env.example apps/web/server.env
 | --- | --- |
 | The Assistant and caption tools | `ANTHROPIC_API_KEY` |
 | Auto-captions | `ELEVENLABS_API_KEY` |
-| Paying for plans | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `SUPABASE_SERVICE_ROLE_KEY` |
+| Paying for plans | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `BILLING_DB_KEY` ([how to make it](/docs/configuration#billingenv)) |
 | Connecting a network | Its keys, as in [Network apps](/docs/network-apps) |
 
 These keys never reach the browser: Vite doesn't read `server.env`, and a build fails if one of them turns up in it.
