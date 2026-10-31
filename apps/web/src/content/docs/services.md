@@ -56,23 +56,30 @@ The units expect each service in `/opt/plan-video-<name>`, each run by a user of
     ```
     Every service but `mcp` also reads `r2.env`, so its unit adds `planvideo-r2`. The publisher refreshes logins with each network's keys, so it's in those groups too.
   </Step>
-  <Step title="Copy the code">
-    Copy `services/<name>` to `/opt/plan-video-<name>`. `agent`, `mcp`, `publisher` and `storage` have packages to install; the others have none.
-    ```bash
-    cd /opt/plan-video-storage && npm ci --omit=dev
-    ```
-  </Step>
   <Step title="Write its settings">
     Put its keys in `/etc/plan-video/<name>.env`. Its section in [Environment variables](/docs/configuration) says which.
   </Step>
-  <Step title="Start it">
+  <Step title="Install it">
+    Clone the repository on the server once, then let `services/deploy.sh` install each service:
     ```bash
-    install -m 644 services/storage/plan-video-storage.service /etc/systemd/system/
-    systemctl daemon-reload
-    systemctl enable --now plan-video-storage
+    git clone https://github.com/plan-video/plan-video.git /opt/plan-video-src
+    cd /opt/plan-video-src
+    services/deploy.sh storage
     ```
+    It copies `services/<name>` to `/opt/plan-video-<name>`, installs its packages, installs and enables its systemd unit, starts it and checks it came up.
   </Step>
 </Steps>
+
+## Update
+
+```bash
+cd /opt/plan-video-src
+git pull --ff-only
+services/deploy.sh status
+services/deploy.sh all
+```
+
+`status` shows the commit each service runs and how many of its files differ from the checkout. `all` updates every service that differs, the publisher last, and restarts only those. Each is backed up to `/var/backups/plan-video` first. One whose code doesn't parse, or that doesn't come up healthy, is put back as it was. `--dry-run` lists what would change without changing it.
 
 ## The publisher
 
@@ -87,15 +94,7 @@ The publisher imports the network services' code, so it's laid out as the reposi
   x/           services/x
 ```
 
-It runs on the official Node.js 22 build from [nodejs.org](https://nodejs.org), unpacked to `/opt/node-v22.22.1`, the path its unit names. [Bluesky](/docs/bluesky-app#nodejs) says why. Install the unit with its drop-in:
-
-```bash
-install -m 644 services/publisher/plan-video-publisher.service /etc/systemd/system/
-install -D -m 644 services/publisher/plan-video-publisher.service.d/node.conf \
-  /etc/systemd/system/plan-video-publisher.service.d/node.conf
-systemctl daemon-reload
-systemctl enable --now plan-video-publisher
-```
+It runs on the official Node.js 22 build from [nodejs.org](https://nodejs.org), unpacked to `/opt/node-v22.22.1`, the path its unit names. [Bluesky](/docs/bluesky-app#nodejs) says why. `services/deploy.sh publisher` lays it out this way and installs the unit with its drop-in. It only comes up healthy once it has its keys, below: make them, then `systemctl restart plan-video-publisher`.
 
 It reads `publisher.env`, `r2.env`, and each network's file. It sends each post the moment it's due, up to 16 at once, and looks for anything else due every 5 seconds. A restart lets the sends going finish first, for up to 30 seconds. It retries a failed send after 2, 10 and 30 minutes, and never sends one run twice.
 
@@ -143,8 +142,7 @@ It pings `HC_PING_URL` from `/etc/plan-video/monitor.env` when all is well, and 
 
 To set it up:
 
-1. Copy the script to `/opt/plan-video-monitor/watchdog.sh`, and put `PUBLIC_URL=https://your-domain.com` in `/etc/plan-video/monitor.env`, beside `HC_PING_URL`.
-2. Install `plan-video-monitor.service` and `plan-video-monitor.timer`.
-3. Run `systemctl enable --now plan-video-monitor.timer`.
+1. Put `PUBLIC_URL=https://your-domain.com` in `/etc/plan-video/monitor.env`, beside `HC_PING_URL`.
+2. Run `services/deploy.sh monitor`. It copies the script to `/opt/plan-video-monitor` and installs and starts the timer.
 
 When you add a service, add its `name:port` to `PORTS` in the script.
