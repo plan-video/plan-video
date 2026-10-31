@@ -4,7 +4,6 @@
 
 import { For, Show, type JSX } from "solid-js";
 import { useNavigate } from "@solidjs/router";
-import { PlaneButton } from "@/components/dashboard/plane-button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,7 +17,6 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { PlaneIcon, type PlaneIconName } from "@/components/dashboard/plane-icons";
 import { useAuth } from "@/context/auth";
-import { APP_ORIGIN } from "@/lib/app-url";
 import { CHANGELOG_URL, DOCS_URL, ROADMAP_URL } from "@/lib/site-links";
 import { changelogUnread, markChangelogSeen, watchChangelog } from "@/lib/changelog-seen";
 import { dashboardTheme, setDashboardTheme, type DashboardTheme } from "@/lib/dashboard-theme";
@@ -26,8 +24,6 @@ import { AvatarPhoto, useAvatar } from "@/hooks/use-avatar";
 import { cx } from "@/lib/cva";
 import { msg, t } from "@/lib/i18n";
 import { planOfLevel } from "@/lib/plans";
-import { MAIN_CHANNELS } from "@desktop/main-channels";
-import { mainBridge } from "@/lib/ipc";
 import { site } from "@/lib/site";
 
 type DashboardSidebarItemProps = {
@@ -72,7 +68,7 @@ export function DashboardIconRailItem(props: {
         aria-label={showLabel() ? undefined : props.label}
         aria-current={props.active ? "page" : undefined}
         onClick={props.onClick}
-        class="group flex flex-col items-center justify-center gap-0.5 rounded-md outline-none press focus-ring [-webkit-app-region:no-drag]"
+        class="group flex flex-col items-center justify-center gap-0.5 rounded-md outline-none press focus-ring"
       >
       <span
         class={cx(
@@ -142,10 +138,8 @@ function SitePageItems() {
   );
 }
 
-/** The desktop app opens these in the browser, which needs the site's full address. */
 function openExternal(url: string) {
-  if (window.desktop) void mainBridge.call(MAIN_CHANNELS.APP_OPEN_EXTERNAL, { url: new URL(url, APP_ORIGIN).href });
-  else window.open(url, "_blank", "noopener,noreferrer");
+  window.open(url, "_blank", "noopener,noreferrer");
 }
 
 export function DashboardHelpMenu(props: { onHelp(): void }) {
@@ -160,7 +154,7 @@ export function DashboardHelpMenu(props: { onHelp(): void }) {
               as="button"
               type="button"
               aria-label={t("Help and docs")}
-              class="relative flex size-8 items-center justify-center rounded-md text-(--plane-text-tertiary) outline-none press hover:bg-(--plane-layer-transparent-hover) hover:text-(--plane-text-primary) focus-ring data-expanded:bg-(--plane-layer-transparent-active) data-expanded:text-(--plane-text-primary) [-webkit-app-region:no-drag]"
+              class="relative flex size-8 items-center justify-center rounded-md text-(--plane-text-tertiary) outline-none press hover:bg-(--plane-layer-transparent-hover) hover:text-(--plane-text-primary) focus-ring data-expanded:bg-(--plane-layer-transparent-active) data-expanded:text-(--plane-text-primary)"
             >
               <PlaneIcon name="help" class="size-5" />
               <Show when={changelogUnread()}>
@@ -244,26 +238,6 @@ export function DashboardSidebarNav(props: DashboardSidebarNavProps) {
   );
 }
 
-type DashboardSidebarConnectCardProps = {
-  onInstall: () => void;
-};
-
-export function DashboardSidebarConnectCard(props: DashboardSidebarConnectCardProps) {
-  return (
-    <div class="mb-3 flex w-full shrink-0 flex-col gap-3 rounded-md border border-(--plane-border-subtle) bg-(--plane-layer-1) p-3">
-      <div class="flex flex-col gap-1">
-        <p class="truncate text-sm leading-5 font-medium text-(--plane-text-primary)">{t("Connect your agent")}</p>
-        <p class="text-sm leading-5 text-(--plane-text-tertiary)">
-          {t("Schedule posts from agents like Claude Code, Codex, or Cursor.")}
-        </p>
-      </div>
-      <PlaneButton variant="secondary" size="lg" class="w-full" onClick={props.onInstall}>
-        {t("Install agent tools")}
-      </PlaneButton>
-    </div>
-  );
-}
-
 type DashboardSidebarSectionProps = {
   title?: string;
   action?: JSX.Element;
@@ -314,7 +288,7 @@ export function DashboardSidebarUser(props: DashboardSidebarUserProps) {
         as="button"
         type="button"
         aria-label={t("{name}, {plan}, account menu", { name: displayName(), plan: planLabel() })}
-        class="flex size-8 items-center justify-center rounded-md outline-none press hover:bg-(--plane-layer-transparent-hover) focus-ring data-expanded:bg-(--plane-layer-transparent-active) [-webkit-app-region:no-drag]"
+        class="flex size-8 items-center justify-center rounded-md outline-none press hover:bg-(--plane-layer-transparent-hover) focus-ring data-expanded:bg-(--plane-layer-transparent-active)"
       >
         <AvatarPhoto
           url={avatarUrl()}

@@ -7,7 +7,6 @@ import { createSignal } from "solid-js";
 import { ownCaptions, postFileStates } from "@/components/calendar/store";
 import type { PostStatus, StoredEvent } from "@/components/calendar/types";
 import { platformName } from "@/components/calendar/utils";
-import { APP_ORIGIN } from "@/lib/app-url";
 import { t } from "@/lib/i18n";
 import { accountsFor } from "@/lib/social-connections";
 import { supabase } from "@/lib/supabase";
@@ -64,7 +63,7 @@ export const PREVIEW_PATH = "/p/";
 
 /** The desktop app shares the website's address. */
 export function previewLink(id: string): string {
-  const origin = window.desktop ? APP_ORIGIN : window.location.origin;
+  const origin = window.location.origin;
   return `${origin}${PREVIEW_PATH}${id}`;
 }
 

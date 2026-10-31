@@ -14,7 +14,7 @@ const RETRY_MAX_MS = 60_000;
 export const AGENTIC_EDITING = false;
 
 export const connectorEnabled =
-  (import.meta.env.PROD || import.meta.env.VITE_CONNECTOR_DEV === "true") && !window.desktop && supabase !== null;
+  (import.meta.env.PROD || import.meta.env.VITE_CONNECTOR_DEV === "true") && supabase !== null;
 
 export type ConnectorOutput = {
   text: string;

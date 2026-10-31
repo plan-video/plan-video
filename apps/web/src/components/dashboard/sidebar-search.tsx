@@ -8,7 +8,6 @@ import { Portal } from "solid-js/web";
 import { Icon } from "@/components/dashboard/dashboard-icon";
 import { PlaneIcon } from "@/components/dashboard/plane-icons";
 import { Kbd } from "@/components/ui/kbd";
-import { desktopAppPlatform } from "@/lib/desktop-app";
 import { msg, t } from "@/lib/i18n";
 import {
   Command,
@@ -18,10 +17,11 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { Command as CommandPrimitive } from "cmdk-solid";
-import { isDesktop } from "@/projects";
 import { isInputTarget } from "@/utils";
 
 import type { DashboardView } from "./types";
+
+const MAC = /Mac|iPhone|iPad/.test(navigator.platform);
 
 type SearchPage = {
   view: DashboardView;
@@ -55,7 +55,6 @@ const PAGES: SearchPage[] = [
   { view: "connections", name: msg("Connections"), section: msg("Settings"), icon: "link" },
   { view: "settings", name: msg("General"), section: msg("Settings"), icon: "settings" },
   { view: "storage", name: msg("Storage"), section: msg("Settings"), icon: "cloud" },
-  { view: "mcp", name: msg("MCP & CLI"), section: msg("Settings"), icon: "ai-mcp-cli" },
   { view: "billing", name: msg("Billing"), section: msg("Settings"), icon: "billing" },
   { view: "help", name: msg("Help"), section: msg("Settings"), icon: "help" },
 ];
@@ -75,10 +74,9 @@ type DashboardSidebarSearchProps = {
 export function DashboardSidebarSearch(props: DashboardSidebarSearchProps) {
   const [open, setOpen] = createSignal(false);
 
-  const pages = () => PAGES.filter((page) => page.view !== "mcp" || isDesktop());
   const sections = () => {
     const groups: { label: string; items: SearchPage[] }[] = [];
-    for (const page of pages()) {
+    for (const page of PAGES) {
       const group = groups.find((entry) => entry.label === page.section);
       if (group) group.items.push(page);
       else groups.push({ label: page.section, items: [page] });
@@ -123,14 +121,14 @@ export function DashboardSidebarSearch(props: DashboardSidebarSearchProps) {
         type="button"
         aria-label={t("Search")}
         aria-keyshortcuts="Meta+K"
-        class="flex h-7 w-[364px] max-w-[36vw] items-center rounded-md border border-(--plane-border-subtle-1) bg-(--plane-layer-2) p-2 text-left outline-none transition-colors duration-200 hover:bg-(--plane-layer-2-hover) focus-ring [-webkit-app-region:no-drag]"
+        class="flex h-7 w-[364px] max-w-[36vw] items-center rounded-md border border-(--plane-border-subtle-1) bg-(--plane-layer-2) p-2 text-left outline-none transition-colors duration-200 hover:bg-(--plane-layer-2-hover) focus-ring"
         onClick={() => setOpen(true)}
       >
         <PlaneIcon name="search" class="mr-2 size-3.5 text-(--plane-text-placeholder)" />
         <span class="min-w-0 flex-1 truncate text-sm text-(--plane-text-placeholder)">{props.placeholder ?? t("Search")}</span>
         {/* Each key on its own, so the ⌘ glyph does not run into the letter. */}
         <Kbd class="h-5 shrink-0 gap-[3px] rounded-md border border-(--plane-border-subtle-1) bg-(--plane-layer-1) px-1.5 text-xxs font-medium text-(--plane-text-tertiary)">
-          <Show when={desktopAppPlatform() === "macos"} fallback={<span>Ctrl</span>}>
+          <Show when={MAC} fallback={<span>Ctrl</span>}>
             <span class="text-xs leading-none">⌘</span>
           </Show>
           <span class="leading-none">K</span>

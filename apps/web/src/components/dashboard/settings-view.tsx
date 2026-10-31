@@ -21,7 +21,6 @@ import {
   type DashboardTheme,
 } from "@/lib/dashboard-theme";
 import { chosenZone, timeZone, zonedFormat } from "@/lib/time-zone";
-import { pickProjectsRoot, projectsRoot } from "@/projects";
 import { usePermissionState, type PermissionState } from "@/hooks/use-permission";
 
 import {
@@ -111,31 +110,6 @@ function DashboardAppearanceSection() {
           <SwitchThumb variant="compact" />
         </SwitchControl>
       </Toggle>
-    </DashboardSurfaceSection>
-  );
-}
-
-function DashboardProjectsFolderSection() {
-  const handleChange = async () => {
-    try {
-      await pickProjectsRoot();
-    } catch (e) {
-      toast.error(t("Failed to choose projects folder"), { description: (e as Error).message });
-    }
-  };
-
-  return (
-    <DashboardSurfaceSection title={t("Projects folder")}>
-      <DashboardInfoActionRow
-        title={t("Save projects to")}
-        leading={<Icon name="navigation.folder" class="text-foreground" />}
-        description={projectsRoot() ?? t("No folder selected")}
-        action={
-          <Button variant="secondary" onClick={handleChange}>
-            {t("Change...")}
-          </Button>
-        }
-      />
     </DashboardSurfaceSection>
   );
 }
@@ -340,7 +314,6 @@ export function DashboardSettingsView() {
       <DashboardTimeZoneSection />
       <DashboardCalendarSection />
       <DashboardQueueSection />
-      <DashboardProjectsFolderSection />
       <DashboardPermissionsSection />
     </DashboardScrollView>
   );

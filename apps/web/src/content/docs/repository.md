@@ -2,7 +2,7 @@ plan.video is one repository: an npm workspace with the apps and packages, plus 
 
 ```text
 plan.video/
-  apps/        the website, and the desktop app and CLI
+  apps/        the website
   packages/    the editor's engine and shared code
   services/    the server's services, one folder each
   supabase/    the database's migrations, email templates and tests
@@ -16,8 +16,6 @@ plan.video/
 | Folder | What it is |
 | --- | --- |
 | `apps/web` | The website, dashboard and editor. SolidJS, Vite and Tailwind CSS. |
-| `apps/desktop` | An Electron app around the website, which plan.video doesn't ship |
-| `apps/cli` | The `planvideo` command-line tool, which talks to the desktop app |
 
 Most of the work happens in `apps/web/src`:
 
@@ -38,9 +36,9 @@ Most of the work happens in `apps/web/src`:
 | `jsx` | The types and functions a project is written with |
 | `encoder` | Exports video, audio and pictures in the browser |
 | `assets` | A project's files: the library, hashing and reading media details |
-| `dapi` | The tools AI agents use, with their names, descriptions and schemas, shared by the Assistant, the MCP server and the CLI |
+| `dapi` | The tools AI agents use, with their names, descriptions and schemas, shared by the Assistant and the MCP server |
 | `koota-solid` | Solid bindings for koota, the store the runtime is built on |
-| `agent-chat` | Runs Claude Code or Codex on the desktop and streams them to the app |
+| `agent-chat` | Runs Claude Code or Codex on your computer and streams them to the app |
 | `api-contract` | Types for an older backend API |
 
 ## Services

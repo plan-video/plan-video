@@ -7,8 +7,6 @@
  * to main. Pageviews are auto-tracked; call `track` only for custom events.
  */
 
-import { MAIN_CHANNELS } from "@desktop/main-channels";
-import { mainBridge } from "@/lib/ipc";
 import { capturePostHog, identifyPostHog, resetPostHog } from "@/lib/posthog";
 
 type UmamiEventData = Record<string, string | number | boolean | undefined>;
@@ -61,12 +59,6 @@ function clean(data?: UmamiEventData): UmamiEventData | undefined {
 
 export function track(event: string, data?: UmamiEventData): void {
   const payload = clean(data);
-  if (window.desktop) {
-    mainBridge
-      .call(MAIN_CHANNELS.ANALYTICS_TRACK, { event, data: payload as Record<string, string | number | boolean> | undefined })
-      .catch(() => {});
-    return;
-  }
   if (payload) {
     window.umami?.track(event, payload);
   } else {

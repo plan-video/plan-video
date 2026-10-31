@@ -38,7 +38,7 @@ import type { ToolbarSlot } from "@/context/layout";
 const DRAG_THRESHOLD = 4;
 
 export function Toolbar() {
-  const { promptInputOpen, promptInputConfig, openPromptInput } = usePromptInput();
+  const { promptInputOpen, promptInputConfig } = usePromptInput();
   const { toolbarSlot, setToolbarSlot } = useLayout();
 
   let toolbar!: HTMLDivElement;
@@ -146,7 +146,7 @@ export function Toolbar() {
         <PromptInput initialConfig={promptInputConfig()} />
       </Show>
       <Show when={!promptInputOpen()}>
-        <ActionBar openPromptInput={openPromptInput} />
+        <ActionBar />
       </Show>
       <Show when={dragging()}>
         <For each={TOOLBAR_SLOTS}>

@@ -439,7 +439,7 @@ async function loadMedia(ctx: ToolContext, media: string | readonly string[]): P
       continue;
     }
     if (isUrlSource(path)) throw new DapiError("invalid-input", "Pass a file on this machine. Remote URLs are not attached to posts.");
-    files.push(await getAssetFile(await resolveAsset(ctx, path)));
+    files.push(await getAssetFile(await resolveAsset(path)));
   }
   const attached = await attach(files, true);
   if (!attached) throw new DapiError("invalid-input", "Pass a video, or one or more pictures.");

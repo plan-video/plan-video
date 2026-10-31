@@ -14,7 +14,7 @@ import { supabase } from "@/lib/supabase";
 import type { TeamScope } from "@/lib/workspaces";
 
 /** The desktop app keeps projects on disk, and dev has no signer behind it. */
-export const cloudEnabled = import.meta.env.PROD && !window.desktop && supabase !== null;
+export const cloudEnabled = import.meta.env.PROD && supabase !== null;
 
 export type CloudCopy = { key: string; at: string };
 

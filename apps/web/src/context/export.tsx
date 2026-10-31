@@ -93,7 +93,7 @@ export function ExportProvider(props: { children: JSX.Element }) {
     }
 
     try {
-      const result = await renderScene(engine, { scene, target, config, dir: project.dir(), source: "ui" });
+      const result = await renderScene(engine, { scene, target, config, source: "ui" });
 
       if (result.type === "error") {
         console.error("Export failed:", result.error);

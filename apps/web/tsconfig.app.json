@@ -26,15 +26,11 @@
       ],
       "@site/*": [
         "./site/src/*"
-      ],
-      "@desktop/*": [
-        "../desktop/src/*"
       ]
     }
   },
   "include": [
     "src",
-    "site/src",
-    "../desktop/src/ipc-channels.ts"
+    "site/src"
   ]
 }

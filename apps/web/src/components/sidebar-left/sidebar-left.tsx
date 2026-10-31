@@ -11,7 +11,6 @@ import { EffectsPanel } from "./effects-panel";
 import { WorkflowsPanel } from "@/components/workflows/workflows-panel";
 import { sidebarTab } from "@/agent-chat";
 import { useLayout } from "@/context/layout";
-import { useEditorApi } from "@/dapi";
 import { createSignal, Show } from "solid-js";
 import { toast } from "somoto";
 import { Button } from "../ui/button";
@@ -20,7 +19,6 @@ import { ProjectMenu } from "./project-menu";
 import { useProject } from "@/context/project";
 import { cx } from "@/lib/cva";
 import { t } from "@/lib/i18n";
-import { WindowsTitleBar } from "../ui/windows-title-bar";
 import { Wordmark } from "../brand/logo";
 
 export function SidebarLeft() {
@@ -49,52 +47,6 @@ export function SidebarLeft() {
       </Show>
     </div>
   );
-}
-
-function LayoutToggles() {
-  const { toggleTimeline, toggleUI } = useLayout();
-
-  return (
-    <div class="flex items-center gap-1 relative z-30" style="-webkit-app-region: no-drag;">
-      <Button variant="ghost" size="icon" class="text-muted-foreground" onClick={toggleTimeline}>
-        <Icon name="sidebar-timeline" />
-      </Button>
-      <Button variant="ghost" size="icon" class="text-muted-foreground" onClick={toggleUI}>
-        <Icon name="sidebar" />
-      </Button>
-    </div>
-  )
-}
-
-type EditorTitleBarProps = {
-  leftWidth: number;
-  controlsWidth: number;
-}
-
-export function EditorTitleBar(props: EditorTitleBarProps) {
-  return (
-    <WindowsTitleBar
-      leftWidth={props.leftWidth}
-      controlsWidth={props.controlsWidth}
-      class="bg-background"
-      left={
-        <>
-          <div class="flex shrink-0 items-center" style="-webkit-app-region: no-drag;">
-            <ProjectMenu />
-          </div>
-          <Wordmark class="min-w-0 flex-1 truncate text-xs" />
-          <LayoutToggles />
-        </>
-      }
-    >
-      <div
-        class="absolute left-1/2 top-1/2 flex max-w-[30%] -translate-x-1/2 -translate-y-1/2"
-        style="-webkit-app-region: no-drag;"
-      >
-        <ProjectNameInput class="ml-0 w-auto min-w-8 max-w-full field-sizing-content text-center" />
-      </div>
-    </WindowsTitleBar>
-  )
 }
 
 type ProjectNameInputProps = {
@@ -157,11 +109,10 @@ export function ProjectNameInput(props: ProjectNameInputProps) {
 }
 
 export function FloatingProjectHeader() {
-  const { isDesktop } = useEditorApi();
   const { toggleUI } = useLayout();
 
   return (
-    <div data-desktop={isDesktop} class="h-10 rounded-lg border border-border shrink-0 flex items-center px-2 gap-1 fixed top-4 data-[desktop=true]:top-10 left-4 z-30 bg-background shadow-lg">
+    <div class="h-10 rounded-lg border border-border shrink-0 flex items-center px-2 gap-1 fixed top-4 left-4 z-30 bg-background shadow-lg">
       <ProjectMenu />
       <Wordmark class="text-xs" />
       <Button variant="ghost" size="icon" class="text-muted-foreground ml-2" onClick={toggleUI}>

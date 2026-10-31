@@ -76,8 +76,8 @@ type RunDescription = Omit<ReserveOptions, "key" | "folder"> & { title: string }
 /** Already told to the user; passed up the dependency graph as is, so it isn't reported twice. */
 class ReportedError extends Error {}
 
-export function attachAi(world: World, library: AssetLibrary, dir?: string): EditorGenAi {
-  const ai = new EditorGenAi(library, world.get(Project)?.id ?? "project", dir);
+export function attachAi(world: World, library: AssetLibrary): EditorGenAi {
+  const ai = new EditorGenAi(library, world.get(Project)?.id ?? "project");
   world.set(Ai, ai);
   return ai;
 }
@@ -86,7 +86,6 @@ export class EditorGenAi extends GenAi {
   private readonly library: AssetLibrary;
   /** Prefixes upload keys, so referenced assets land project-unique in the bucket. */
   private readonly projectId: string;
-  private readonly dir?: string;
 
   /**
    * Keyed by ref identity, so a ref used by several elements resolves once. A failed one is
@@ -95,11 +94,10 @@ export class EditorGenAi extends GenAi {
   private readonly memo = new Map<AssetRef, Promise<Asset>>();
   private readonly inflight = new Map<string, Promise<Asset>>();
 
-  public constructor(library: AssetLibrary, projectId: string, dir?: string) {
+  public constructor(library: AssetLibrary, projectId: string) {
     super();
     this.library = library;
     this.projectId = projectId;
-    this.dir = dir;
   }
 
   /** Identical concurrent declarations collapse to one request. */
@@ -324,7 +322,7 @@ export class EditorGenAi extends GenAi {
 
   /** For clips whose audio track can't be read. Word times follow the resampled render, so they're less exact. */
   private async transcribeSceneMix(world: World, scene: Entity) {
-    const capture = await createCapture(world, scene, { mode: "offline-audio", dir: this.dir });
+    const capture = await createCapture(world, scene, { mode: "offline-audio" });
     let result: ExportResult;
     try {
       const encoder = await createEncoder(capture.world, {

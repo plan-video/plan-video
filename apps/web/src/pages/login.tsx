@@ -4,15 +4,11 @@
 
 import { A, useLocation, useNavigate } from '@solidjs/router';
 import ChevronLeft from 'lucide-solid/icons/chevron-left';
-import { MAIN_CHANNELS } from '@desktop/main-channels';
 import { createSignal, For, onCleanup, Show, type JSX } from 'solid-js';
 
-import { DevAuthCodeInput } from '@/components/dev-auth-code-input';
 import { useAuth } from '@/context/auth';
-import { useFullscreenState } from '@/hooks/use-fullscreen-state';
 import { TRY_PATH } from '@/hooks/use-project-route';
 import { msg, rich, t } from '@/lib/i18n';
-import { mainBridge } from '@/lib/ipc';
 import { site } from '@/lib/site';
 import { REPO_PUBLIC, REPO_URL } from '@/lib/site-links';
 import { supabase } from '@/lib/supabase';
@@ -92,12 +88,6 @@ function inboxesFor(email: string): Inbox[] {
     label: inbox.label,
     href: inbox.label === 'Open Gmail' ? 'https://mail.google.com/mail/u/0/#inbox' : inbox.href(email),
   }));
-}
-
-function openInbox(href: string, event: MouseEvent) {
-  if (!window.desktop) return;
-  event.preventDefault();
-  void mainBridge.call(MAIN_CHANNELS.APP_OPEN_EXTERNAL, { url: href });
 }
 
 function GoogleMark() {
@@ -182,7 +172,6 @@ function Sent(props: {
               target="_blank"
               rel="noopener noreferrer"
               class={links.length === 1 ? LIGHT : DARK}
-              onClick={(event) => openInbox(inbox.href, event)}
             >
               {t(inbox.label)}
             </a>
@@ -257,7 +246,6 @@ function SignInOff() {
 export function LoginPage(props: { mode?: 'login' | 'signup' }) {
   const auth = useAuth();
   const signup = () => props.mode === 'signup';
-  const isFullscreen = useFullscreenState();
   const location = useLocation();
   const navigate = useNavigate();
   const [email, setEmail] = createSignal('');
@@ -314,13 +302,9 @@ export function LoginPage(props: { mode?: 'login' | 'signup' }) {
 
   return (
     <div class="fixed inset-0 z-999 flex bg-(--site-page) text-white">
-      <Show when={!!window.desktop && !isFullscreen()}>
-        <div class="absolute inset-x-0 top-0 z-20 h-10" style="-webkit-app-region: drag;" />
-      </Show>
-
       <div class="relative flex min-w-0 flex-1 flex-col overflow-y-auto px-6">
-        {/* The desktop app, and a build without the site (lib/site.ts), have nowhere to go back to. */}
-        <Show when={!window.desktop && site}>
+        {/* A build without the site (lib/site.ts) has nowhere to go back to. */}
+        <Show when={site}>
           <A
             href="/"
             class="press absolute top-6 left-6 inline-flex h-9 items-center gap-1 rounded-[8px] bg-white/[0.07] pr-3.5 pl-2.5 text-[15px] text-white hover:bg-white/[0.12] focus-ring"
@@ -455,9 +439,6 @@ export function LoginPage(props: { mode?: 'login' | 'signup' }) {
                     </form>
                   </Show>
 
-                  <div class="mt-6 empty:hidden">
-                    <DevAuthCodeInput />
-                  </div>
                 </div>
               }
             >

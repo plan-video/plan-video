@@ -54,7 +54,7 @@ export function ExportButton() {
           ref={trigger}
           variant="secondary"
           class="gap-1.5 pl-2 pr-2.5"
-          style="-webkit-app-region: no-drag;"
+         
           disabled={exporting() || !index().root}
           onClick={toggle}
           data-tour="export-button"

@@ -19,7 +19,7 @@ type HeaderActionsProps = {
 
 export function HeaderActions(props: HeaderActionsProps) {
   return (
-    <div class="ml-auto flex items-center gap-1 relative z-30" style="-webkit-app-region: no-drag;">
+    <div class="ml-auto flex items-center gap-1 relative z-30">
       <HistoryMenu projectId={props.projectId} chatId={props.chatId} onOpen={props.onOpenChat} />
       <Tooltip placement="bottom">
         <TooltipTrigger

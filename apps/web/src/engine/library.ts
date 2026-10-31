@@ -9,7 +9,7 @@ import { authoredElement } from '@plan.video/reconciler';
 import { isAssetRef, mapAssetInputs } from '@plan.video/jsx';
 import type { Accessor } from 'solid-js';
 
-import { createProjectFS } from '@/projects/fs';
+import { createBrowserProjectFS } from '@/projects/browser';
 import { getDocumentEditor } from './editor';
 
 import type { Asset } from '@plan.video/assets';
@@ -17,7 +17,7 @@ import type { AssetInput } from '@plan.video/jsx';
 import type { World } from 'koota';
 
 export function attachLibrary(world: World, dir: string) {
-	const library = new AssetLibrary(createProjectFS(dir), {
+	const library = new AssetLibrary(createBrowserProjectFS(dir), {
 		onRename: (asset, from) => followRename(world, asset, from),
 		onRelink: (asset, from) => followRelink(world, asset, from),
 	});

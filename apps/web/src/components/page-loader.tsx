@@ -74,7 +74,6 @@ let releaseBoot = html.dataset.boot ? holdPageLoader() : undefined;
 
 /** Must pick the same pages as index.html. Signed out, /dashboard is the sign-in page. */
 function opensDashboard(path: string, signedIn: boolean): boolean {
-  if (window.desktop) return !isEditorPath(path);
   return /^\/try\/?$/.test(path) || (signedIn && /^\/(dashboard\/?)?$/.test(path));
 }
 
@@ -99,7 +98,6 @@ export function LoadingScreen() {
   const auth = useAuth();
   let to = "";
   const headsIntoDashboard = () => {
-    if (window.desktop) return false;
     const from = untrack(() => location.pathname);
     const signedIn = untrack(auth.isAuthenticated);
     return opensDashboard(to, signedIn) && !opensDashboard(from, signedIn) && !isEditorPath(from);

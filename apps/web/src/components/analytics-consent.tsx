@@ -15,7 +15,7 @@ const choice =
 
 export function AnalyticsConsent() {
   return (
-    <Show when={site && !window.desktop && analyticsConsent() === null}>
+    <Show when={site && analyticsConsent() === null}>
       <div
         role="region"
         aria-label={t("Analytics cookies")}

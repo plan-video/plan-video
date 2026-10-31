@@ -5,7 +5,7 @@
 import { onMount } from "solid-js";
 import { useLocation } from "@solidjs/router";
 
-import { DASHBOARD_PATH, appRoute } from "@/hooks/use-project-route";
+import { appRoute } from "@/hooks/use-project-route";
 import { site } from "@/lib/site";
 import { t } from "@/lib/i18n";
 
@@ -36,11 +36,8 @@ export function reloadOnceAfterModuleError(target?: string): boolean {
     return false;
   }
   reloading = true;
-  const here = window.desktop ? window.location.hash.replace(/^#/, "") : window.location.pathname + window.location.search;
+  const here = window.location.pathname + window.location.search;
   if (!target || target === here) {
-    window.location.reload();
-  } else if (window.desktop) {
-    window.location.hash = target;
     window.location.reload();
   } else {
     window.location.assign(target);
@@ -70,8 +67,7 @@ export function RouteError(props: { error: unknown; reset(): void }) {
 
   const backToDashboard = () => {
     // A full load: whatever broke may still hold state the router would keep.
-    window.location.assign(window.desktop ? `#${DASHBOARD_PATH}` : appRoute());
-    if (window.desktop) window.location.reload();
+    window.location.assign(appRoute());
   };
 
   return (

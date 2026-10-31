@@ -26,7 +26,7 @@ import { connectionsFor, loadSocialConnections } from "@/lib/social-connections"
 import { formatBytes } from "@/lib/social-media";
 import { planOfLevel } from "@/lib/plans";
 import { activeScope } from "@/lib/workspaces";
-import { isDesktop, listTrashedProjects, projectsRevision } from "@/projects";
+import { listTrashedProjects, projectsRevision } from "@/projects";
 
 import { formatTrashRemaining } from "./utils";
 import type { DashboardView } from "./types";
@@ -173,7 +173,6 @@ export function createNotifications(open: (view: DashboardView) => void) {
   const [trashed, setTrashed] = createSignal<ProjectRecord[]>([]);
   createEffect(
     on(projectsRevision, () => {
-      if (isDesktop()) return;
       let current = true;
       void listTrashedProjects().then((list) => current && setTrashed(list), () => undefined);
       onCleanup(() => (current = false));
@@ -399,9 +398,7 @@ export function createNotifications(open: (view: DashboardView) => void) {
     if (share < STORAGE_LOW) return [];
     const full = share >= STORAGE_FULL;
     const sizes = { used: formatBytes(usage), quota: formatBytes(quota) };
-    const room = isDesktop()
-      ? t("{used} of the {quota} plan.video can use is in use.", sizes)
-      : t("{used} of the {quota} this browser gives plan.video is in use.", sizes);
+    const room = t("{used} of the {quota} this browser gives plan.video is in use.", sizes);
     return [
       {
         // One notice per further 5%, so clearing one still warns as it fills.
@@ -414,7 +411,7 @@ export function createNotifications(open: (view: DashboardView) => void) {
         }`,
         actions: [
           { label: t("Open Media"), run: () => open("media") },
-          ...(isDesktop() ? [] : [{ label: t("Open Trash"), run: () => open("trash") }]),
+          { label: t("Open Trash"), run: () => open("trash") },
         ],
       },
     ];

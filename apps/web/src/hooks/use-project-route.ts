@@ -27,7 +27,7 @@ export const isConnectLinkPath = (path: string): boolean => /^\/connect\/[^/]+\/
 
 /** The desktop app opens straight into the dashboard, so it has none. */
 export const isSitePath = (path: string): boolean =>
-  !window.desktop && !isEditorPath(path) && !under(path, DASHBOARD_PATH) && !under(path, TRY_PATH) && !isPostPreviewPath(path) && !isConnectLinkPath(path);
+  !isEditorPath(path) && !under(path, DASHBOARD_PATH) && !under(path, TRY_PATH) && !isPostPreviewPath(path) && !isConnectLinkPath(path);
 
 /** Links from the site go here, guest mode or not. */
 export function dashboardRoute(view?: string): string {

@@ -42,13 +42,12 @@ export type RenderSceneOptions = {
   scene: Entity;
   target: NonNullable<EncoderConfig["target"]>;
   config?: Partial<EncoderConfig>;
-  dir?: string;
   source: "ui" | "agent";
 };
 
 export async function renderScene(
   engine: Engine,
-  { scene, target, config, dir, source }: RenderSceneOptions,
+  { scene, target, config, source }: RenderSceneOptions,
 ): Promise<ExportResult> {
   const world = engine.world;
 
@@ -102,7 +101,6 @@ export async function renderScene(
   let capture: Capture | undefined;
   try {
     capture = await createCapture(world, scene, {
-      dir,
       frameRate: config?.video?.fps,
       mode: config?.video?.enabled === false || config?.format === "ogg" ? "offline-audio" : "offline-video",
     });

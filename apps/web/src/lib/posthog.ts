@@ -17,7 +17,7 @@ let starting: Promise<void> | null = null;
 let allowed = false;
 
 function enabled() {
-  return !window.desktop && HOSTS.has(location.hostname);
+  return HOSTS.has(location.hostname);
 }
 
 export function startPostHog() {

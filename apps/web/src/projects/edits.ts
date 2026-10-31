@@ -17,7 +17,6 @@ import type { World } from 'koota';
 const DEBOUNCE = 120;
 
 class EditWriter {
-	private readonly dir: string;
 	private readonly world: World;
 
 	// Write order matters: unrolls first (later edits address their copies), inserts in creation order, moves,
@@ -36,8 +35,7 @@ class EditWriter {
 	private timer: ReturnType<typeof setTimeout> | undefined;
 	private disposed = false;
 
-	public constructor(dir: string, world: World) {
-		this.dir = dir;
+	public constructor(world: World) {
 		this.world = world;
 	}
 
@@ -203,7 +201,7 @@ class EditWriter {
 		this.texts = heldTexts;
 		this.removes = heldRemoves;
 
-		writeProject(this.dir, edits)
+		writeProject(edits)
 			.then((result) => this.report(result))
 			.catch((error: unknown) => {
 				toast.error(t('Could not write to the project'), { description: message(error) });
@@ -328,8 +326,8 @@ const pendingsOf = (unroll: UnrollEdit): string[] => {
  * `world` is read only after a write, to re-stamp entities whose elements just got an `id`; otherwise the next
  * edit would address them by a position the write may have invalidated.
  */
-export function createEditWriter(dir: string, world: World): EditWriter {
-	return new EditWriter(dir, world);
+export function createEditWriter(world: World): EditWriter {
+	return new EditWriter(world);
 }
 
 export type { EditWriter };

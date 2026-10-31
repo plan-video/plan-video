@@ -132,7 +132,6 @@ let claiming: Promise<void> = Promise.resolve();
  * one nobody backed up stays put. Listing, opening and syncing wait for it.
  */
 export function claimSharedProjects(): Promise<void> {
-  if (window.desktop) return Promise.resolve();
   const root = browserProjectsRoot();
   let claim = claims.get(root);
   if (!claim) {

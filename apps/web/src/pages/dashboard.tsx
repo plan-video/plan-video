@@ -3,8 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { useNavigate, useSearchParams } from "@solidjs/router";
-import { useColorMode } from "@kobalte/core";
-import { MAIN_CHANNELS } from "@desktop/main-channels";
 import { For, Match, Show, Suspense, Switch, createEffect, createRenderEffect, createSignal, lazy, on, onCleanup, onMount } from "solid-js";
 import { toast } from "somoto";
 import { DashboardSectionView } from "@/components/dashboard/section-view";
@@ -39,7 +37,6 @@ import { createNotifications, needsAttention } from "@/components/dashboard/noti
 import {
   DashboardHelpMenu,
   DashboardIconRailItem,
-  DashboardSidebarConnectCard,
   DashboardSidebarItem,
   DashboardSidebarNav,
   DashboardSidebarProjectItem,
@@ -61,7 +58,6 @@ import { useDeliveries } from "@/components/publish/deliveries";
 import { hasFailed, isGoingOut } from "@/components/publish/publisher";
 import { WorkspaceSwitcher } from "@/components/dashboard/workspace-switcher";
 import { useAuth } from "@/context/auth";
-import { connectedAgents, fetchMcpStatus } from "@/lib/mcp";
 import { refreshTeam, showInvite, teamInvites } from "@/lib/team";
 import { beginSyncing } from "@/lib/sync-start";
 import { activeWorkspaceId, firstNameFrom, loadWorkspaces, setWorkspaceOwnerName, sharedWorkspaces, switchWorkspace } from "@/lib/workspaces";
@@ -70,20 +66,18 @@ import { fillMissingAvatars } from "@/lib/account-avatars";
 import { loadSocialConnections, socialConnections } from "@/lib/social-connections";
 import { dashboardRailLabels, dashboardTheme } from "@/lib/dashboard-theme";
 import { analyticsSectionOf } from "@/components/dashboard/analytics-state";
-import { mainBridge } from "@/lib/ipc";
 import { parseTimestamp } from "@/components/dashboard/utils";
-import { DashboardProjectThumbnail, openProjectFromList, createNewProject } from "@/components/dashboard/shared";
+import { DashboardProjectThumbnail, createNewProject } from "@/components/dashboard/shared";
 import { CALENDAR_COLOR_PRESETS, colorHex } from "@/components/calendar/utils";
 import { projectRoute, useReturnHere } from "@/hooks/use-project-route";
 import { track } from "@/lib/analytics";
 import { DashboardCrumbsProvider, DashboardPageHeader, type DashboardCrumb } from "@/components/dashboard/page-header";
 import { PlaneButton } from "@/components/dashboard/plane-button";
 import { PlaneIcon, type PlaneIconName } from "@/components/dashboard/plane-icons";
-import { isDesktop, listProjects, openProjectFolder, pickProjectFolder, projectKey, projectsRevision, type ProjectInfo } from "@/projects";
+import { listProjects, projectKey, projectsRevision, type ProjectInfo } from "@/projects";
 import { cx } from "@/lib/cva";
 import { intlLocale, msg, t } from "@/lib/i18n";
 import { planOfLevel } from "@/lib/plans";
-import { isInputTarget } from "@/utils";
 
 import type { DashboardView, PostsTab } from "@/components/dashboard/types";
 
@@ -294,31 +288,6 @@ export function DashboardPage() {
     fillMissingAvatars(userId, socialConnections());
   });
 
-  let picking = false;
-  const handleShortcut = async (event: KeyboardEvent) => {
-    if (!(event.metaKey || event.ctrlKey) || event.shiftKey || event.altKey) return;
-    if (event.key.toLowerCase() !== "i" || isInputTarget(event)) return;
-
-    event.preventDefault();
-    if (picking || !isDesktop()) return;
-    picking = true;
-
-    try {
-      const dir = await pickProjectFolder();
-      if (!dir) return;
-      await openProjectFolder(dir);
-    } catch (e) {
-      toast.error(t("Failed to add project"), { description: (e as Error).message });
-    } finally {
-      picking = false;
-    }
-  };
-
-  onMount(() => {
-    window.addEventListener("keydown", handleShortcut);
-    onCleanup(() => window.removeEventListener("keydown", handleShortcut));
-  });
-
   onMount(() => {
     const previous = document.title;
     document.title = "plan.video";
@@ -348,9 +317,6 @@ export function DashboardPage() {
   });
 
   const openProfile = () => setView("account");
-  const openAgentSetup = () => setView("mcp");
-
-  onMount(() => fetchMcpStatus().catch(() => { }));
 
   onMount(() => void hydrateCalendar());
 
@@ -396,8 +362,6 @@ export function DashboardPage() {
 
   const workspaceSwitcher = () => <WorkspaceSwitcher onSettings={() => setView("workspace")} />;
 
-  const showConnectCard = () => isDesktop() && connectedAgents() === 0;
-
   const rail = () => railFor(view());
   const openRail = (next: DashboardRail) => {
     if (next === "settings" && isSettingsView(view())) return;
@@ -423,16 +387,6 @@ export function DashboardPage() {
     delete root.dataset.dashboardTheme;
   });
 
-  // On Windows the native window buttons follow the dashboard's theme, and go back to the app's when it closes.
-  const { colorMode } = useColorMode();
-  const isWindowsDesktop = () => window.desktop?.platform === "win32";
-  createEffect(() => {
-    if (isWindowsDesktop()) void mainBridge.call(MAIN_CHANNELS.WINDOW_SET_COLOR_MODE, { mode: dashboardTheme() });
-  });
-  onCleanup(() => {
-    if (isWindowsDesktop()) void mainBridge.call(MAIN_CHANNELS.WINDOW_SET_COLOR_MODE, { mode: colorMode() });
-  });
-
   const navigate = useNavigate();
   const returnHere = useReturnHere();
   // A signal, not a resource: a refetching resource here would hold the router's transition to the editor,
@@ -456,11 +410,9 @@ export function DashboardPage() {
       .slice(0, 6);
 
   let creatingProject = false;
-  const openListedProject = async (project: ProjectInfo) => {
-    const found = await openProjectFromList(project);
-    if (!found) return;
+  const openListedProject = (project: ProjectInfo) => {
     track("project_opened");
-    navigate(projectRoute(projectKey(found)), { state: returnHere() });
+    navigate(projectRoute(projectKey(project)), { state: returnHere() });
   };
   const createFromSidebar = async () => {
     if (creatingProject) return;
@@ -493,11 +445,10 @@ export function DashboardPage() {
       // Wide enough that the longest name ("Analytics") keeps room on both sides.
       style={{ "--rail-width": dashboardRailLabels() ? "4.75rem" : "3rem" }}
     >
-      <header class="relative z-[27] flex min-h-10 w-full shrink-0 items-center bg-(--plane-canvas) px-3.5 [-webkit-app-region:drag] [[data-platform=darwin]:not([data-fullscreen=true])_&]:pl-20 [[data-platform=win32]_&]:pr-[calc(0.875rem+var(--titlebar-controls-width))]">
+      <header class="relative z-[27] flex min-h-10 w-full shrink-0 items-center bg-(--plane-canvas) px-3.5">
         <div class="flex min-w-0 flex-1 shrink-0">
-          {/* On the rail's centre line: half the rail, less the header's 14px, the switcher's 4px and half the 28px badge.
-              Not on a Mac window, where the traffic lights hold that corner. */}
-          <div class="ml-[calc(var(--rail-width)/2-2rem)] flex min-w-0 [[data-platform=darwin]:not([data-fullscreen=true])_&]:ml-0">
+          {/* On the rail's centre line: half the rail, less the header's 14px, the switcher's 4px and half the 28px badge. */}
+          <div class="ml-[calc(var(--rail-width)/2-2rem)] flex min-w-0">
             {workspaceSwitcher()}
           </div>
         </div>
@@ -599,9 +550,6 @@ export function DashboardPage() {
               <DashboardSidebarNav
                 footer={
                   <>
-                    <Show when={rail() === "work" && showConnectCard()}>
-                      <DashboardSidebarConnectCard onInstall={openAgentSetup} />
-                    </Show>
                     <Show when={rail() === "library"}>
                       <LibraryStorageMeter onOpen={() => setView("storage")} />
                     </Show>
@@ -680,9 +628,6 @@ export function DashboardPage() {
                   <DashboardSidebarSection title={t("Workspace")}>
                     <PageLink view="workspace" />
                     <PageLink view="storage" />
-                    <Show when={isDesktop()}>
-                      <PageLink view="mcp" />
-                    </Show>
                     <Show when={!auth.isGuest()}>
                       <PageLink view="billing" />
                     </Show>

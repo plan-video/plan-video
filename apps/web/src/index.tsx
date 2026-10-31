@@ -11,7 +11,6 @@ import { initAnalytics } from './lib/analytics'
 import { initGoogleAnalytics } from './lib/google-analytics'
 import { fadeInImages } from './lib/motion'
 import { loadStartingLanguage } from './lib/i18n'
-import { restoreLastRoute } from './lib/persist-route'
 import { isReloadingAfterModuleError } from './components/route-error'
 
 // Sentry starts after load so the first paint doesn't wait; earlier errors are kept and sent then.
@@ -46,21 +45,6 @@ if (import.meta.env.PROD && sentryDsn) {
 // On `window`, not `document`: Solid delegates `contextmenu` to `document`, and
 // Kobalte's context menus ignore events that are already default-prevented.
 window.addEventListener('contextmenu', (e) => e.preventDefault())
-
-if (window.desktop) {
-  document.documentElement.dataset.platform = window.desktop.platform;
-
-  const origRequest = FileSystemHandle.prototype.requestPermission;
-  FileSystemHandle.prototype.queryPermission = async function (desc) {
-    try {
-      return await origRequest.call(this, desc);
-    } catch {
-      return 'prompt';
-    }
-  };
-
-  restoreLastRoute();
-}
 
 initAnalytics()
 initGoogleAnalytics()

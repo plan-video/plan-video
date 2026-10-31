@@ -215,7 +215,7 @@ export function WorkspaceSwitcher(props: { onSettings(): void }) {
           as="button"
           type="button"
           aria-label={t("Workspace: {name}", { name: shownWorkspaceName(activeWorkspace().name) })}
-          class="group relative z-30 flex min-w-0 max-w-48 items-center justify-between gap-1 truncate rounded-md p-1 text-left outline-none press hover:bg-(--plane-layer-transparent-hover) focus-ring data-[expanded]:bg-(--plane-layer-transparent-active) [-webkit-app-region:no-drag]"
+          class="group relative z-30 flex min-w-0 max-w-48 items-center justify-between gap-1 truncate rounded-md p-1 text-left outline-none press hover:bg-(--plane-layer-transparent-hover) focus-ring data-[expanded]:bg-(--plane-layer-transparent-active)"
         >
           <span class="flex min-w-0 flex-grow items-center gap-2 truncate">
             <WorkspaceBadge workspace={activeWorkspace()} class="size-7 rounded-md text-sm font-medium ring-(--plane-border-subtle)" />

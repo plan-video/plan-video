@@ -30,7 +30,7 @@ export function ResumeConsent() {
   const navigate = useNavigate();
 
   createEffect(() => {
-    if (window.desktop || auth.isLoading() || !auth.isAuthenticated()) return;
+    if (auth.isLoading() || !auth.isAuthenticated()) return;
     if (window.location.pathname === '/oauth/consent' || SIGN_IN_PAGES.has(window.location.pathname)) return;
     const path = takeConsent();
     if (path) navigate(path, { replace: true });

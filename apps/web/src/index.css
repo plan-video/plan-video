@@ -343,38 +343,10 @@
   --caption-accent: rgba(207, 63, 149, 0.24);
 }
 
-/* Chromium's titlebar-area variables: the width the native controls overlay at any DPI, 0 with no overlay. */
 :root {
-  --titlebar-controls-width: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw));
-  --titlebar-height: 0px;
   --button-raised-shadow: 0 0 #0000;
   --button-secondary-shadow: 0 0 #0000;
   --button-outline-shadow: 0 0 #0000;
-}
-
-/* Must match `WINDOWS_OVERLAY_HEIGHT` in the main process. */
-[data-platform="win32"] {
-  --titlebar-height: 40px;
-}
-
-/* macOS native vibrancy: the page stays transparent so the blur shows. */
-[data-platform="darwin"],
-[data-platform="darwin"] body {
-  background: transparent;
-}
-
-[data-platform="darwin"]:not([data-fullscreen="true"]) {
-  --sidebar: hsla(0, 0%, 0%, 0);
-}
-
-/* The native blur is tinted dark, so the light theme stays opaque over it. */
-[data-platform="darwin"][data-kb-theme="light"],
-[data-platform="darwin"][data-kb-theme="light"] body {
-  background: var(--background);
-}
-
-[data-platform="darwin"][data-kb-theme="light"]:not([data-fullscreen="true"]) {
-  --sidebar: var(--background);
 }
 
 @layer base {

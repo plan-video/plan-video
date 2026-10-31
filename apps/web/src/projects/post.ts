@@ -7,14 +7,14 @@ import { AssetLibrary } from "@plan.video/assets";
 import { importFiles } from "@/engine/asset-actions";
 import { generateProjectName } from "@/lib/db";
 import { t } from "@/lib/i18n";
-import { POST_CAMERA, buildPost, postSource, type PostClip, type PostNode } from "@/lib/post-builder";
+import { POST_CAMERA, buildPost, type PostClip, type PostNode } from "@/lib/post-builder";
 
 import { writeBrowserComposition, type SavedNode } from "./composition";
-import { createProjectFS } from "./fs";
-import { createProject, ensureProjectsRoot, isDesktop } from "./host";
+import { createBrowserProjectFS } from "./browser";
+import { createProject, ensureProjectsRoot } from "./host";
 
 import type { CaptionPreset } from "@plan.video/jsx";
-import type { ProjectInfo } from "@desktop/main-channels";
+import type { ProjectInfo } from "./types";
 
 export type PostOptions = {
   layoutId: string;
@@ -39,7 +39,7 @@ export async function createPostProject(files: ReadonlyArray<File>, options: Pos
   const name = generateProjectName();
   const project = await createProject(name);
 
-  const library = new AssetLibrary(createProjectFS(project.dir));
+  const library = new AssetLibrary(createBrowserProjectFS(project.dir));
   const clips: PostClip[] = [];
   try {
     await library.load();
@@ -55,15 +55,11 @@ export async function createPostProject(files: ReadonlyArray<File>, options: Pos
 
   const scene = buildPost({ name, clips, layoutId: options.layoutId, captions: options.captions });
 
-  if (isDesktop()) {
-    await library.fs.write(project.entry, new Blob([postSource(scene)], { type: "text/plain" }));
-  } else {
-    let stamp = 0;
-    await writeBrowserComposition(project.dir, {
-      version: 1,
-      camera: [...POST_CAMERA],
-      children: [toSaved(scene, () => `index.tsx:s${++stamp}`)],
-    });
-  }
+  let stamp = 0;
+  await writeBrowserComposition(project.dir, {
+    version: 1,
+    camera: [...POST_CAMERA],
+    children: [toSaved(scene, () => `index.tsx:s${++stamp}`)],
+  });
   return project;
 }

@@ -28,8 +28,6 @@ import { checkAccess, INVITE_ONLY, isInvited } from '@/lib/waitlist';
 import { identify, resetIdentity, track } from '@/lib/analytics';
 import { t } from '@/lib/i18n';
 import { FREE_SCHEDULED_PER_ACCOUNT, accountLimit, setAccountsLimit, setScheduledLimit } from '@/lib/plans';
-import { mainBridge } from '@/lib/ipc';
-import { MAIN_CHANNELS } from '@desktop/main-channels';
 import { assert } from '@/utils';
 
 type OAuthProvider = 'google' | 'apple' | 'github';
@@ -87,8 +85,6 @@ type UserDataSubset = Pick<
   | 'marketing_announcements_enabled'
 >;
 
-const APP_URL = import.meta.env.VITE_APP_URL || window.location.origin;
-const ELECTRON_AUTH_REDIRECT = `${APP_URL}/auth/electron-callback.html`;
 const USER_DATA_QUERY = "lifetime_credit_balance,monthly_credit_balance,monthly_credit_quota,access_level,stripe_customer_id,last_credit_reset_at,product_updates_enabled,marketing_announcements_enabled" as const;
 
 /** So the return says how it went. */
@@ -117,7 +113,7 @@ export function AuthProvider(props: { children: JSX.Element }) {
 
     // Supabase finishes a Google sign-in returning to / on load; if it ends without a session, say so
     // and drop the spent parameters from the address.
-    const returned = !window.desktop && window.location.pathname === '/' ? readOAuthReturn() : null;
+    const returned = window.location.pathname === '/' ? readOAuthReturn() : null;
     let linking: string | null = null;
     try {
       linking = sessionStorage.getItem(LINKING_KEY);
@@ -125,7 +121,7 @@ export function AuthProvider(props: { children: JSX.Element }) {
     } catch {
       // Storage blocked: the return is finished without a message.
     }
-    const linked = !window.desktop && linking && window.location.pathname === '/dashboard' ? readOAuthReturn() : null;
+    const linked = linking && window.location.pathname === '/dashboard' ? readOAuthReturn() : null;
 
     void supabase.auth.getSession().then(async ({ data }) => {
       setSession(data.session);
@@ -246,39 +242,6 @@ export function AuthProvider(props: { children: JSX.Element }) {
     ),
   );
 
-  onMount(() => {
-    if (!window.desktop) return;
-    // Must live in AuthProvider: ElectronProvider mounts only after sign-in, but the OAuth deep link arrives before.
-    const handleAuthCallbackUrl = async (url: string | null) => {
-      if (!supabase || !url) return;
-
-      let code: string | null = null;
-      try {
-        const parsed = new URL(url);
-        code = parsed.searchParams.get('code') ?? new URLSearchParams(parsed.hash.replace(/^#/, '')).get('code');
-      } catch {
-        return;
-      }
-
-      if (!code) return;
-
-      const { error } = await supabase.auth.exchangeCodeForSession(code);
-      if (error) {
-        toast.error(error.message);
-      }
-    };
-
-    void mainBridge
-      .call(MAIN_CHANNELS.AUTH_GET_PENDING_CALLBACK, undefined)
-      .then(handleAuthCallbackUrl);
-
-    const unsubscribe = mainBridge.handle(MAIN_CHANNELS.AUTH_CALLBACK, ({ url }) => {
-      handleAuthCallbackUrl(url);
-    });
-
-    onCleanup(unsubscribe);
-  });
-
   createEffect(() => {
     const userId = sessionUserId();
     if (!userId || !supabase) return;
@@ -323,26 +286,6 @@ export function AuthProvider(props: { children: JSX.Element }) {
 
     track('sign_in_attempt', { method: 'oauth', provider });
 
-    if (window.desktop) {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo: ELECTRON_AUTH_REDIRECT,
-          skipBrowserRedirect: true,
-        },
-      });
-
-      if (error) {
-        toast.error(error.message);
-        return;
-      }
-
-      if (data.url) {
-        await mainBridge.call(MAIN_CHANNELS.APP_OPEN_EXTERNAL, { url: data.url });
-      }
-      return;
-    }
-
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
@@ -357,19 +300,6 @@ export function AuthProvider(props: { children: JSX.Element }) {
 
   const linkOAuth = async (provider: OAuthProvider) => {
     if (!supabase) return;
-
-    if (window.desktop) {
-      const { data, error } = await supabase.auth.linkIdentity({
-        provider,
-        options: { redirectTo: ELECTRON_AUTH_REDIRECT, skipBrowserRedirect: true },
-      });
-      if (error) {
-        toast.error(error.message);
-        return;
-      }
-      if (data.url) await mainBridge.call(MAIN_CHANNELS.APP_OPEN_EXTERNAL, { url: data.url });
-      return;
-    }
 
     try {
       sessionStorage.setItem(LINKING_KEY, provider);
@@ -399,10 +329,9 @@ export function AuthProvider(props: { children: JSX.Element }) {
 
     track('sign_in_attempt', { method: 'otp' });
 
-    const emailRedirectTo = window.desktop ? ELECTRON_AUTH_REDIRECT : window.location.origin;
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo },
+      options: { emailRedirectTo: window.location.origin },
     });
 
     if (error) {

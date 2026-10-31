@@ -16,7 +16,6 @@ import {
 } from '@plan.video/runtime';
 
 import { loadProjectBundle } from '@/lib/db';
-import { compileProject, isDesktop } from '@/projects';
 import { liveCompositionBundle } from '@/projects/composition';
 
 import type { RuntimeMode } from '@plan.video/runtime';
@@ -26,25 +25,11 @@ export interface CaptureOptions {
 	/** Defaults to the source world's frame rate. */
 	frameRate?: number;
 	mode?: RuntimeMode;
-	/** Compile from this folder; otherwise use the remembered bundle. */
-	dir?: string;
 }
 
-/**
- * Compile fresh when the folder is known: the editor's own writes skip the watcher, so the
- * remembered bundle may predate an inserted element and the encode would come up empty.
- */
-async function bundleFor(source: World, dir?: string): Promise<string> {
-	if (dir && isDesktop()) {
-		const result = await compileProject(dir);
-		if (!result.ok) throw new Error(result.error);
-		return result.code;
-	}
-
-	if (!isDesktop()) {
-		const live = liveCompositionBundle(source);
-		if (live) return live;
-	}
+async function bundleFor(source: World): Promise<string> {
+	const live = liveCompositionBundle(source);
+	if (live) return live;
 
 	const code = await loadProjectBundle(source.get(Project)?.id ?? '');
 	if (!code) throw new Error('There is no project to render');
@@ -60,7 +45,7 @@ export interface Capture {
 }
 
 export async function createCapture(source: World, node: Entity, options: CaptureOptions = {}): Promise<Capture> {
-	const code = await bundleFor(source, options.dir);
+	const code = await bundleFor(source);
 
 	// The stamp, not the entity: the two worlds hand out their own ids.
 	const stamp = node.get(Source)?.value;

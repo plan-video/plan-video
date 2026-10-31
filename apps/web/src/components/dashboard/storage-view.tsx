@@ -10,7 +10,6 @@ import { Icon } from "@/components/dashboard/dashboard-icon";
 import { cloudEnabled, cloudUsage, type CloudUsage } from "@/lib/cloud-storage";
 import { intlLocale, msg, rich, t } from "@/lib/i18n";
 import { formatBytes } from "@/lib/social-media";
-import { isDesktop } from "@/projects";
 
 import { DashboardScrollView, DashboardSurfaceSection } from "./shared";
 
@@ -131,9 +130,7 @@ function CloudStorageSection() {
       <Switch>
         <Match when={!cloudEnabled}>
           <p class="text-xs text-muted-foreground">
-            {isDesktop()
-              ? t("The desktop app keeps your projects on this computer, so nothing is stored in the cloud.")
-              : t("Cloud storage is only on plan.video. It's off in local development.")}
+            {t("Cloud storage is only on plan.video. It's off in local development.")}
           </p>
         </Match>
         <Match when={usage.error}>

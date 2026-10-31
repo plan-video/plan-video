@@ -7,12 +7,11 @@ import { Canvas } from "@/components/canvas";
 import { ASSETS_SIDEBAR_WIDTH, leftSidebarWidth, setSidebarTab } from "@/agent-chat";
 import { Timeline, Layers } from "@/components/timeline";
 import { Soundboard, Inspector } from "@/components/sidebar-right";
-import { EditorTitleBar, FloatingProjectHeader, SidebarLeft } from "@/components/sidebar-left";
+import { FloatingProjectHeader, SidebarLeft } from "@/components/sidebar-left";
 import { ProjectBar } from "@/components/editor/project-bar";
 import { EDITOR_RAIL_WIDTH, EditorRail } from "@/components/editor/editor-rail";
 import { EditorTour } from "@/components/tour/editor-tour";
 import { useLayout, MIN_TIMELINE_HEIGHT } from "@/context/layout";
-import { useEditorApi } from "@/dapi";
 import { RULER_HEIGHT } from "@/engine/timeline";
 import { createEffect, onCleanup, untrack } from 'solid-js';
 import { toast } from 'somoto';
@@ -25,11 +24,11 @@ import { setInspectEntries } from '@/engine/inspect';
 import { attachLibrary, isLibraryFile } from '@/engine/library';
 import { attachAi } from '@/utils/gen-ai';
 import { attachProjectConfig, isProjectConfigFile } from '@/engine/project-config';
-import { loadProjectBundle, rememberProjectBundle } from '@/lib/db';
+import { rememberProjectBundle } from '@/lib/db';
 import { isCacheFile } from '@plan.video/assets';
 import { createEditWriter } from '@/projects/edits';
 import { browserCompositionText, changesComposition, holdBrowserComposition } from '@/projects/composition';
-import { compileProject, isWindowsDesktop, refreshProject, watchProject } from '@/projects/host';
+import { compileProject, refreshProject, watchProject } from '@/projects/host';
 import { captureProjectCover } from '@/projects/cover';
 import { coverRect, settleOpeningView } from '@/engine/camera';
 import { closeStreamLayout, layoutTarget } from '@/engine/stream-layout';
@@ -58,7 +57,6 @@ const sidebarWidth = () => leftSidebarWidth();
 
 export function EditorPage() {
   const { uiVisible, timelineMinimized, timelineHeight, setTimelineHeight } = useLayout();
-  const { isDesktop, isFullscreen } = useEditorApi();
   const [resizing, setResizing] = createSignal(false);
   const project = useProject();
   const world = useWorld();
@@ -76,12 +74,12 @@ export function EditorPage() {
     let disposed = false;
     let generation = 0;
     // A save never overwrites a newer one from another tab or device (see `holdBrowserComposition`).
-    const composition = isDesktop ? undefined : holdBrowserComposition(dir);
+    const composition = holdBrowserComposition(dir);
     let compositionDirty = false;
     let compositionTimer: ReturnType<typeof setTimeout> | undefined;
 
     const saveComposition = (): void => {
-      if (!composition || mountedCode === undefined) return;
+      if (mountedCode === undefined) return;
       clearTimeout(compositionTimer);
       compositionTimer = undefined;
       compositionDirty = false;
@@ -99,7 +97,6 @@ export function EditorPage() {
     };
 
     const scheduleCompositionSave = (): void => {
-      if (!composition) return;
       compositionDirty = true;
       clearTimeout(compositionTimer);
       compositionTimer = setTimeout(saveComposition, 200);
@@ -108,11 +105,11 @@ export function EditorPage() {
     const onPageHide = (): void => {
       if (compositionDirty) saveComposition();
     };
-    if (!isDesktop) window.addEventListener('pagehide', onPageHide);
+    window.addEventListener('pagehide', onPageHide);
 
     // The library first: a mounted project's `src` values name its assets.
     const library = attachLibrary(world, dir);
-    attachAi(world, library, dir);
+    attachAi(world, library);
     const config = attachProjectConfig(world, dir);
 
     const unmount = (): void => {
@@ -129,16 +126,16 @@ export function EditorPage() {
     };
 
     const applyBundle = (code: string, text?: string | null): void => {
-      if (composition && text !== undefined ? composition.holds(text) : code === mountedCode) return;
+      if (text !== undefined ? composition.holds(text) : code === mountedCode) return;
       // Unwritten edits belong to the outgoing stage; save them before its entities go.
       if (compositionDirty) saveComposition();
       // The old render goes first: there is only one stage per world.
       unmount();
       mounted = mount(code, world);
       mountedCode = code;
-      if (composition && text !== undefined) composition.adopt(text);
+      if (text !== undefined) composition.adopt(text);
       setInspectEntries(world, mounted.inspect);
-      writer = createEditWriter(dir, world);
+      writer = createEditWriter(world);
       const editor = getDocumentEditor(world);
       unlisten = editor.onEdit((edit) => {
         writer?.push(edit);
@@ -162,30 +159,8 @@ export function EditorPage() {
 
     const loadProject = async (): Promise<void> => {
       const current = ++generation;
-      const compiling: Promise<{ result: CompileResult; text?: string | null }> = composition
-        ? composition.read(() => compileProject(dir))
-        : compileProject(dir).then((result) => ({ result }));
+      const compiling: Promise<{ result: CompileResult; text?: string | null }> = composition.read(() => compileProject(dir));
       const loading = library.load();
-
-      // Desktop first open only: mount the cached bundle while the compile runs, unless the compile wins the race.
-      // Not in the browser: its compile is a quick file read, and mounting first would let an edit land on a
-      // stage the compile then replaces.
-      if (current === 1 && isDesktop) {
-        // Neither arm may reject: the loser would be an unhandled rejection.
-        const cached = await Promise.race([
-          Promise.all([loadProjectBundle(untrack(project.id)), loading])
-            .then(([code]) => code, () => null),
-          compiling.then(() => null, () => null),
-        ]);
-        if (disposed || current !== generation) return;
-        if (cached && mountedCode === undefined) {
-          try {
-            applyBundle(cached);
-          } catch {
-            // The compile lands next, with a toast of its own if it must.
-          }
-        }
-      }
 
       const [{ result, text }] = await Promise.all([compiling, loading]);
       if (disposed || current !== generation) return;
@@ -276,7 +251,7 @@ export function EditorPage() {
     return {
       'grid-template-columns': `${EDITOR_RAIL_WIDTH + PANEL_GAP}px ${sidebarWidth()}px minmax(0, 1fr) ${inspectorWidth()}px`,
       'grid-template-rows': `minmax(0, 1fr) ${bottomHeight()}px`,
-      padding: `calc(var(--titlebar-height) + ${PANEL_GAP}px) ${PANEL_GAP}px ${PANEL_GAP}px 0`,
+      padding: `${PANEL_GAP}px ${PANEL_GAP}px ${PANEL_GAP}px 0`,
       ...(animateColumns() ? { transition: 'grid-template-columns 200ms ease-out' } : {}),
     };
   });
@@ -321,19 +296,13 @@ export function EditorPage() {
   return (
     <div
       class={cx("bg-canvas w-full overflow-hidden grid", inGuestMode() ? "h-full" : "h-screen")}
-      classList={{ 'grid-cols-[1fr] grid-rows-[1fr] pt-(--titlebar-height)': !uiVisible() }}
+      classList={{ 'grid-cols-[1fr] grid-rows-[1fr]': !uiVisible() }}
       style={rootStyles()}
     >
-      <EditorTitleBar leftWidth={EDITOR_RAIL_WIDTH + sidebarWidth() + PANEL_GAP} controlsWidth={inspectorWidth() + PANEL_GAP * 2} />
-      <Show when={isDesktop && !isWindowsDesktop() && !isFullscreen()}>
-        <div class="fixed top-0 left-0 right-0 h-10 z-20" style="-webkit-app-region: drag;" />
-      </Show>
       <Show when={uiVisible()}>
         <EditorRail style={{ 'grid-column': '1', 'grid-row': '1 / span 2', 'padding-right': `${PANEL_GAP}px` }} />
         <div class={`${PANEL_SURFACE} flex flex-col rounded-tl-lg border-l border-t border-r`} style={{ 'grid-column': '2', 'grid-row': '1' }}>
-          <Show when={!isWindowsDesktop()}>
-            <ProjectBar />
-          </Show>
+          <ProjectBar />
           <div class="flex min-h-0 flex-1 flex-col">
             <SidebarLeft />
           </div>
@@ -382,7 +351,7 @@ export function EditorPage() {
           </div>
         </div>
       </Show>
-      <Show when={!uiVisible() && !isWindowsDesktop()}>
+      <Show when={!uiVisible()}>
         <FloatingProjectHeader />
       </Show>
       <EditorTour />

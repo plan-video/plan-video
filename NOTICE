@@ -30,9 +30,7 @@ imported on 2026-09-29:
   License:  Mozilla Public License 2.0
 
 Upstream's desktop brand assets are not part of the MPL grant, and their
-copyright stays with Diffusion Studio Inc. They were not copied: the
-folder apps/desktop/assets (icons, disk-image artwork, install spinner
-and the Windows manifest) holds original files instead.
+copyright stays with Diffusion Studio Inc. They were not copied.
 
 The Diffusion Studio name and logos are not licensed as this product's
 brand. This project is plan.video.

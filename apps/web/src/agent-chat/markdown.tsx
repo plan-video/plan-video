@@ -6,8 +6,6 @@ import DOMPurify from "dompurify";
 import { marked } from "marked";
 import { createMemo } from "solid-js";
 
-import { MAIN_CHANNELS } from "@desktop/main-channels";
-import { mainBridge } from "@/lib/ipc";
 
 marked.setOptions({ gfm: true, breaks: true, async: false });
 
@@ -32,13 +30,6 @@ function render(text: string, local: boolean): string {
   return DOMPurify.sanitize(html, { USE_PROFILES: { html: true }, ...(local ? NO_REMOTE : {}) });
 }
 
-const handleClick = (event: MouseEvent) => {
-  const anchor = (event.target as HTMLElement).closest("a");
-  if (!anchor || !window.desktop) return;
-  event.preventDefault();
-  void mainBridge.call(MAIN_CHANNELS.APP_OPEN_EXTERNAL, { url: anchor.href });
-};
-
 const MARKDOWN_CLASS = [
   "text-[12px] leading-5 text-foreground break-words min-w-0 max-w-full",
   "[&_p]:my-1.5 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0",
@@ -57,5 +48,5 @@ const MARKDOWN_CLASS = [
 /** `local` keeps the reply from loading anything from elsewhere, for text written from what an agent read. */
 export function Markdown(props: { text: string; local?: boolean }) {
   const html = createMemo(() => render(props.text, !!props.local));
-  return <div class={MARKDOWN_CLASS} innerHTML={html()} onClick={handleClick} />;
+  return <div class={MARKDOWN_CLASS} innerHTML={html()} />;
 }

@@ -11,8 +11,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { agentChat, newAgentChat, openAgentChat, setAssistantPage } from "@/lib/agent-chat";
 import { cx } from "@/lib/cva";
-import { desktopAppPlatform } from "@/lib/desktop-app";
 import { t } from "@/lib/i18n";
+
+const MAC = /Mac|iPhone|iPad/.test(navigator.platform);
 
 const HEADER_BUTTON =
   "grid size-7 place-items-center rounded-md text-(--plane-text-tertiary) outline-none press hover:bg-(--plane-layer-transparent-hover) hover:text-(--plane-text-primary) focus-ring disabled:pointer-events-none disabled:opacity-40 data-expanded:bg-(--plane-layer-transparent-active) data-expanded:text-(--plane-text-primary)";
@@ -199,7 +200,7 @@ export function AssistantLauncher(props: {
             )}
           </Show>
         </TooltipTrigger>
-        <TooltipContent shortcut={desktopAppPlatform() === "macos" ? "⌘J" : "Ctrl J"}>{t("Assistant")}</TooltipContent>
+        <TooltipContent shortcut={MAC ? "⌘J" : "Ctrl J"}>{t("Assistant")}</TooltipContent>
       </Tooltip>
     </Show>
   );

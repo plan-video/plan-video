@@ -150,18 +150,8 @@ export default defineConfig(async ({ mode, command }): Promise<UserConfig> => {
   if (!site) {
     // The waitlist is plan.video's own: an app built without the site lets everyone in unless told otherwise.
     if (env.VITE_INVITE_ONLY === undefined) process.env.VITE_INVITE_ONLY = 'false'
-    if (command === 'build' && mode !== 'desktop' && /^https:\/\/(www\.)?plan\.video\/?$/.test(env.VITE_APP_URL ?? '')) {
+    if (command === 'build' && /^https:\/\/(www\.)?plan\.video\/?$/.test(env.VITE_APP_URL ?? '')) {
       throw new Error('apps/web/site is missing: plan.video is built with its website. Clone it into apps/web/site, or set VITE_APP_URL to your own address.')
-    }
-  }
-
-  // The desktop app bundles this build; missing client env would silently ship with auth disabled.
-  if (mode === 'desktop') {
-    const env = loadEnv(mode, __dirname, '')
-    for (const key of ['VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY']) {
-      if (!env[key]) {
-        throw new Error(`${key} is not set. Copy apps/web/.env.example to apps/web/.env before building the desktop app.`)
-      }
     }
   }
 
@@ -179,8 +169,8 @@ export default defineConfig(async ({ mode, command }): Promise<UserConfig> => {
       billingDevPlugin(__dirname, mode),
       // Invite-only unless VITE_INVITE_ONLY=false, as in lib/waitlist.ts.
       ...(site ? site.sitePlugins({ root: __dirname, dev, mode, inviteOnly: env.VITE_INVITE_ONLY !== 'false' }) : []),
-      // Not in dev, whose client injects scripts of its own, nor in the desktop app.
-      mode === 'desktop' || dev ? null : contentSecurityPolicyPlugin(env),
+      // Not in dev, whose client injects scripts of its own.
+      dev ? null : contentSecurityPolicyPlugin(env),
       solid(),
       tailwindcss(),
       solidSvg({ defaultAsComponent: true }),
@@ -236,7 +226,6 @@ export default defineConfig(async ({ mode, command }): Promise<UserConfig> => {
       alias: [
         { find: '@site', replacement: resolve(__dirname, './site/src') },
         { find: '@', replacement: resolve(__dirname, './src') },
-        { find: '@desktop', replacement: resolve(__dirname, '../desktop/src') },
         ...(dev ? compiledDepAliases() : []),
       ],
     },
@@ -272,17 +261,12 @@ export default defineConfig(async ({ mode, command }): Promise<UserConfig> => {
             '@kobalte/core/switch',
           ]
         : [],
-      // Desktop tool handlers stay out of the dep scan: the website never loads them.
       esbuildOptions: {
         ...(dev ? { define: { __WORKSPACE_STAMP__: JSON.stringify(workspaceStamp()) } } : {}),
         plugins: [
           {
             name: 'plan-studio-skip-editor-scan',
             setup(build) {
-              build.onResolve({ filter: /^@\/dapi\/tools$/ }, (args) => ({
-                path: args.path,
-                external: true,
-              }))
               // The prebundle moves this file, so the worker URL must point at the source Vite still serves.
               build.onLoad({ filter: /[\\/]packages[\\/]assets[\\/]src[\\/]derive[\\/]waveform\.ts$/ }, (args) => {
                 const contents = readFileSync(args.path, 'utf8').replace(

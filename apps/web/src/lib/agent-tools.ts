@@ -109,18 +109,11 @@ async function listMedia(args: { kind?: "video" | "image"; search?: string; limi
 
 function context(user: () => User | null, signal: AbortSignal, confirm: ToolContext["confirm"], confirmEvery: boolean): ToolContext {
   return {
-    session: () => null,
-    requireSession() {
-      throw new DapiError("no-project", "The agent works on posts, not on an open project.");
-    },
     signal,
     media: libraryFile,
     confirm,
     confirmEvery,
     app: {
-      openProject() {
-        throw new DapiError("unsupported", "The agent can't open projects.");
-      },
       requireUser(reason) {
         const current = user();
         if (!current) throw new DapiError("sign-in-required", reason ?? "Sign in to use the agent.");

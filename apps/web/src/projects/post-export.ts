@@ -35,7 +35,7 @@ import type { AssetLibrary } from "@plan.video/assets";
 import type { Entity, World } from "koota";
 
 import type { Capture } from "@/engine/capture";
-import type { ProjectInfo } from "@desktop/main-channels";
+import type { ProjectInfo } from "@/projects/types";
 
 export type PostExportOptions = {
   onProgress?(percent: number): void;
@@ -57,7 +57,7 @@ export async function exportProjectVideo(project: ProjectInfo, options: PostExpo
   const dir = project.dir;
   const world = createRuntimeWorld(project.id || project.name);
   const library = attachLibrary(world, dir);
-  attachAi(world, library, dir);
+  attachAi(world, library);
 
   let mounted: { dispose(): void } | undefined;
   let capture: Capture | undefined;
@@ -72,7 +72,7 @@ export async function exportProjectVideo(project: ProjectInfo, options: PostExpo
     if (!scene) throw new Error(t("The project is empty. Add a clip to it in the editor, and it exports from there."));
 
     const template = getDefaultExportTemplate();
-    capture = await createCapture(world, scene, { dir, frameRate: template.video?.fps, mode: "offline-video" });
+    capture = await createCapture(world, scene, { frameRate: template.video?.fps, mode: "offline-video" });
     if (signal?.aborted) throw canceled();
 
     const encoder = await createEncoder(capture.world, {

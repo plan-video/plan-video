@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Pushing the tag triggers the Release workflow, so that stays a manual step.
+// Bumps the version, then commits and tags it; pushing stays a manual step.
 // Usage: npm run release <patch|minor|major|x.y.z>
 
 import { execFileSync } from "node:child_process";
@@ -14,8 +14,6 @@ import { npm } from "./lib/npm.mjs";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const PKGS = [
   "package.json",
-  "apps/desktop/package.json",
-  "apps/cli/package.json",
   "apps/web/package.json",
 ];
 

@@ -2,20 +2,17 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { Router, HashRouter, Navigate, Route, useLocation, useNavigate } from '@solidjs/router';
+import { Router, Navigate, Route, useLocation, useNavigate } from '@solidjs/router';
 import { ColorModeProvider } from '@kobalte/core';
-import { ErrorBoundary, Match, Show, Suspense, Switch, createEffect, createRenderEffect, createResource, createSignal, onCleanup, onMount, type Component, type JSX } from 'solid-js';
+import { ErrorBoundary, Match, Show, Suspense, Switch, createEffect, createRenderEffect, createResource, createSignal, onCleanup, type JSX } from 'solid-js';
 import { Toaster } from "@/components/ui/sonner";
 import { RouteError, clearModuleReloadMark, reloadOnceAfterModuleError } from "@/components/route-error";
 import { LoadingScreen, PageLoader } from "@/components/page-loader";
 
 import { AuthProvider, useAuth } from '@/context/auth';
 import { connectorEnabled } from '@/ai-editor/connector';
-import { PersistRoute } from '@/lib/persist-route';
 import { useColorMode } from "@kobalte/core";
-import { mainBridge } from "@/lib/ipc";
 import { signedInUserId } from '@/lib/guest';
-import { MAIN_CHANNELS } from "@desktop/main-channels";
 import { dashboardTheme, setThemeSurface } from "@/lib/dashboard-theme";
 import { AnalyticsConsent } from '@/components/analytics-consent';
 import { ScreenTooSmall } from '@/components/screen-too-small';
@@ -50,28 +47,6 @@ const PurchaseSuccess = page(() => import('@/components/purchase-success'), (mod
 const GuestAccountDialog = page(() => import('@/components/guest-account-dialog'), (module) => module.GuestAccountDialog);
 const AgentConfirmDialog = page(() => import('@/components/agent-confirm'), (module) => module.AgentConfirmDialog);
 const GuestFrame = page(() => import('@/components/guest-frame'), (module) => module.GuestFrame);
-
-/**
- * The website never calls these (the bridge only listens on `window.desktop`), so the
- * web dev server must not compile the export/capture/engine graph at startup.
- */
-function DeferredEditorApi() {
-  const [ToolHost, setToolHost] = createSignal<Component | undefined>();
-
-  onMount(() => {
-    if (!window.desktop) return;
-    void import('@/dapi/tools').then((module) => setToolHost(() => module.EditorApi));
-  });
-
-  return (
-    <Show when={ToolHost()}>
-      {(host) => {
-        const Host = host();
-        return <Host />;
-      }}
-    </Show>
-  );
-}
 
 /** Site pages on screen where the app would be, as the sign-in is at /dashboard when signed out. */
 const [sitePagesInApp, setSitePagesInApp] = createSignal(0);
@@ -116,7 +91,7 @@ function ResumeCheckout() {
   const navigate = useNavigate();
 
   createEffect(() => {
-    if (window.desktop || auth.isLoading() || auth.isCheckingAccess() || !auth.isAuthenticated() || !auth.hasAccess()) return;
+    if (auth.isLoading() || auth.isCheckingAccess() || !auth.isAuthenticated() || !auth.hasAccess()) return;
     void takeCheckout().then((chosen) => {
       if (!chosen) return;
       navigate(dashboardRoute('billing'), { replace: true });
@@ -192,23 +167,9 @@ function CloudSync() {
   const auth = useAuth();
 
   createEffect(() => {
-    if (window.desktop || !signedInUserId() || !auth.isAuthenticated() || !auth.hasAccess()) return;
+    if (!signedInUserId() || !auth.isAuthenticated() || !auth.hasAccess()) return;
     void import('@/projects/cloud-sync').then((module) => module.startProjectSync());
     void import('@/lib/media-library').then((module) => module.flushMediaDeletes());
-  });
-
-  return null;
-}
-
-/** The editor's half of the Windows title bar; the dashboard sets its own. */
-function TitleBarColorMode() {
-  const location = useLocation();
-  const { colorMode } = useColorMode();
-
-  createEffect(() => {
-    if (window.desktop?.platform === "win32" && isEditorPath(location.pathname)) {
-      mainBridge.call(MAIN_CHANNELS.WINDOW_SET_COLOR_MODE, { mode: colorMode() });
-    };
   });
 
   return null;
@@ -311,7 +272,7 @@ function GuestGate(props: { account: string; children: JSX.Element }) {
   const auth = useAuth();
   return (
     <Show when={!auth.isLoading()} fallback={<PageLoader />}>
-      <Show when={!auth.isAuthenticated() && !window.desktop} fallback={<Navigate href={props.account} />}>
+      <Show when={!auth.isAuthenticated()} fallback={<Navigate href={props.account} />}>
         <GuestStart>{props.children}</GuestStart>
       </Show>
     </Show>
@@ -355,12 +316,12 @@ function EnvironmentOverlays() {
   const anywhere = () => {
     const path = location.pathname;
     if (path.startsWith('/checkout')) return true;
-    if (!window.desktop && (path === '/' || path === '/login' || path === '/signup' || path === '/login/reviewer' || path === '/auth/confirm' || path === '/terms' || path === '/privacy' || path === '/data-deletion' || path === '/integrations' || path === '/pricing' || path === '/about' || path === '/support')) return true;
+    if (path === '/' || path === '/login' || path === '/signup' || path === '/login/reviewer' || path === '/auth/confirm' || path === '/terms' || path === '/privacy' || path === '/data-deletion' || path === '/integrations' || path === '/pricing' || path === '/about' || path === '/support') return true;
     if (path.startsWith('/p/') || path.startsWith('/connect/')) return true;
-    if (!window.desktop && (path.startsWith('/integrations/') || path.startsWith('/features/') || path === '/docs' || path.startsWith('/docs/'))) return true;
-    if (!window.desktop && (path === '/alternatives' || path.startsWith('/alternatives/') || path === '/character-limits' || path.startsWith('/character-limits/') || path === '/roadmap' || path.startsWith('/roadmap/') || path === '/changelog' || path === '/blog' || path.startsWith('/blog/'))) return true;
-    if (!window.desktop && (path === '/agents' || path.startsWith('/agents/'))) return true;
-    if (!window.desktop && (path === '/tools' || path.startsWith('/tools/'))) return true;
+    if (path.startsWith('/integrations/') || path.startsWith('/features/') || path === '/docs' || path.startsWith('/docs/')) return true;
+    if (path === '/alternatives' || path.startsWith('/alternatives/') || path === '/character-limits' || path.startsWith('/character-limits/') || path === '/roadmap' || path.startsWith('/roadmap/') || path === '/changelog' || path === '/blog' || path.startsWith('/blog/')) return true;
+    if (path === '/agents' || path.startsWith('/agents/')) return true;
+    if (path === '/tools' || path.startsWith('/tools/')) return true;
     // Signing in, connecting a network and approving an AI connector land back
     // here in whatever browser started them, often the AI app's own.
     if (path === '/auth/callback' || path === '/oauth/consent' || /^\/(tiktok|youtube|bluesky|linkedin|x|instagram|facebook|threads)\/callback$/.test(path)) return true;
@@ -390,9 +351,8 @@ window.addEventListener("vite:preloadError", (event) => {
 window.setTimeout(clearModuleReloadMark, 10_000);
 
 function App() {
-  const RouterComponent = window.desktop ? HashRouter : Router;
   return (
-    <RouterComponent
+    <Router
       root={(props) => (
         <ColorModeProvider initialColorMode="dark">
           <AuthProvider>
@@ -407,15 +367,12 @@ function App() {
             <SignedInDialogs />
             <GuestDialogs />
             <HeroShell />
-            <DeferredEditorApi />
           </AuthProvider>
           <Toaster />
           <AnalyticsConsent />
           <EnvironmentOverlays />
           {site && <site.SiteScrollbar />}
-          <PersistRoute />
           <EditorColorMode />
-          <TitleBarColorMode />
         </ColorModeProvider>
       )}
     >
@@ -436,13 +393,13 @@ function App() {
       {site && <site.SiteRoutes />}
       <Route path="/p/:id" component={PostPreviewPage} />
       <Route path="/connect/:link" component={ConnectLinkPage} />
-      <Route path="/dashboard" component={DashboardRoute} />      {/* The website keeps the desktop's start screen at /dashboard. */}
-      <Route path="/" component={window.desktop || !site ? DashboardRoute : HomeRoute} />
+      <Route path="/dashboard" component={DashboardRoute} />
+      <Route path="/" component={!site ? DashboardRoute : HomeRoute} />
       <Route path="/projects/*ref" component={() => <AuthGate><ProjectPage /></AuthGate>} />
       <Route path={TRY_PATH} component={TryRoute} />
       <Route path={`${TRY_PATH}/projects/*ref`} component={TryProjectRoute} />
       <Route path="*404" component={NotFoundPage} />
-    </RouterComponent>
+    </Router>
   );
 }
 

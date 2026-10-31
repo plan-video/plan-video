@@ -12,7 +12,7 @@ import { RemoveButton } from "@/components/ui/remove-button";
 import { cx } from "@/lib/cva";
 import { t } from "@/lib/i18n";
 
-// `path` is null off the desktop, where the browser won't say where a dropped file lives.
+// `path` is null for a dropped file: the browser won't say where it lives.
 export type Attachment = {
   key: string;
   name: string;
@@ -40,13 +40,12 @@ export function droppedAttachments(event: DragEvent): Attachment[] {
     const file = item.getAsFile();
     if (!file) continue;
 
-    const path = window.desktop?.getPathForFile(file) || null;
     const name = entry?.name || file.name;
     result.push({
-      key: path ?? `${name}:${file.size}:${file.lastModified}`,
+      key: `${name}:${file.size}:${file.lastModified}`,
       name,
       kind: entry?.isDirectory ? "folder" : "file",
-      path,
+      path: null,
     });
   }
 

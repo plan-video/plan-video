@@ -2,28 +2,18 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { getLibrary } from "@plan.video/runtime";
 import { AssetLibrary, isAbsoluteSource, isUrlSource } from "@plan.video/assets";
 import { DapiError } from "@plan.video/dapi";
-import { createProjectFS } from "@/projects/fs";
+import { createBrowserProjectFS } from "@/projects/browser";
 
 import type { Asset } from "@plan.video/assets";
-import type { ToolContext } from "../handler";
 
-/**
- * Absolute paths and URLs are described without being added. With no project
- * open, a fresh throwaway library per request, so nothing is remembered between calls.
- */
-export function resolveAsset(ctx: ToolContext, path: string): Promise<Asset> {
-  const world = ctx.session()?.world;
-  if (world) return getLibrary(world).resolve(path);
+/** Described without being added: a fresh throwaway library per request, so nothing is remembered between calls. */
+export function resolveAsset(path: string): Promise<Asset> {
   if (!isAbsoluteSource(path) && !isUrlSource(path)) {
-    throw new DapiError(
-      "no-project",
-      `Could not resolve "${path}": with no project open only absolute paths and URLs resolve — open a project to use library paths.`,
-    );
+    throw new DapiError("no-project", `Could not resolve "${path}": only absolute paths and URLs resolve.`);
   }
-  return new AssetLibrary(createProjectFS("")).resolve(path);
+  return new AssetLibrary(createBrowserProjectFS("")).resolve(path);
 }
 
 export function requireAssetType<T extends Asset["type"]>(

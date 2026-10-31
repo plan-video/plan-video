@@ -11,7 +11,6 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 import { createSignal } from "solid-js";
 import { toast } from "somoto";
 
-import { APP_ORIGIN } from "@/lib/app-url";
 import { msg, t } from "@/lib/i18n";
 import { sendInviteEmail } from "@/lib/publishing";
 import { supabase } from "@/lib/supabase";
@@ -391,7 +390,7 @@ export async function removeTeamMember(id: string): Promise<string | undefined> 
 
 /** It only works for the address invited. */
 export function inviteLink(id: string): string {
-  const origin = window.desktop ? APP_ORIGIN : window.location.origin;
+  const origin = window.location.origin;
   return `${origin}/dashboard?invite=${encodeURIComponent(id)}`;
 }
 

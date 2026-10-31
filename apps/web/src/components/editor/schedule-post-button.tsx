@@ -32,7 +32,7 @@ export function SchedulePostButton() {
   return (
     <Button
       class="gap-1.5 pl-2 pr-2.5"
-      style="-webkit-app-region: no-drag;"
+     
       onClick={schedulePost}
       data-tour="schedule-post"
     >

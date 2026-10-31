@@ -12,8 +12,6 @@ import type {
 
 import { t } from "./i18n";
 import { trpc } from "./trpc";
-import { mainBridge } from "./ipc";
-import { MAIN_CHANNELS } from "@desktop/main-channels";
 
 function toastMessage(err: unknown, fallback: string): string {
   // Empty or non-JSON 500 bodies (upstream crashed before tRPC serialized the error) surface as a SyntaxError.
@@ -71,31 +69,11 @@ export function getTopupPrice(tier: TopupCredits): number {
   return Math.round(credits * CREDIT_RATE * (1 + markup));
 }
 
-const ELECTRON_CHECKOUT_REDIRECT =
-  `${import.meta.env.VITE_APP_URL || window.location.origin}/checkout/electron-callback.html`;
-
 function successAndCancelUrls(): { successUrl: string; cancelUrl: string } {
-  if (window.desktop) {
-    return {
-      successUrl: `${ELECTRON_CHECKOUT_REDIRECT}?status=success`,
-      cancelUrl: `${ELECTRON_CHECKOUT_REDIRECT}?status=cancel`,
-    };
-  }
-
   const cancelUrl = window.location.href;
   const success = new URL(window.location.href);
   success.searchParams.set("checkout", "success");
   return { successUrl: success.toString(), cancelUrl };
-}
-
-/** The system browser on desktop; in place on web. */
-async function openCheckoutUrl(url: string): Promise<void> {
-  if (window.desktop) {
-    await mainBridge.call(MAIN_CHANNELS.APP_OPEN_EXTERNAL, { url });
-    return;
-  }
-
-  window.location.href = url;
 }
 
 export async function startSubscriptionCheckout(input: {
@@ -107,7 +85,7 @@ export async function startSubscriptionCheckout(input: {
       ...input,
       ...successAndCancelUrls(),
     });
-    await openCheckoutUrl(url);
+    window.location.href = url;
   } catch (err) {
     toast.error(toastMessage(err, t("Checkout failed")));
   }
@@ -121,7 +99,7 @@ export async function startTopupCheckout(
       creditQuantity,
       ...successAndCancelUrls(),
     });
-    await openCheckoutUrl(url);
+    window.location.href = url;
   } catch (err) {
     toast.error(toastMessage(err, t("Checkout failed")));
   }

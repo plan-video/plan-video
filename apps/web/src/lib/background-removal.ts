@@ -40,7 +40,7 @@ function keepOffMainThread(): Promise<void> {
     const wasm = env.backends.onnx.wasm;
     if (!wasm) return;
     // transformers.js points ONNX Runtime at cdn.jsdelivr.net, which our CSP blocks; the build ships the files itself.
-    if (import.meta.env.PROD && !window.desktop) wasm.wasmPaths = undefined;
+    if (import.meta.env.PROD) wasm.wasmPaths = undefined;
     if (!hasWebGpu() || webGpuFailed) wasm.proxy = true;
   });
   return proxied;

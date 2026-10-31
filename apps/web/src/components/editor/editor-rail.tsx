@@ -2,33 +2,25 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { For, Show, type JSX } from "solid-js";
+import { For, type JSX } from "solid-js";
 
 import { SIDEBAR_TABS, setSidebarTab, sidebarTab } from "@/agent-chat";
 import { RailPanelIcon } from "@/components/editor/rail-icons";
 import { ProjectMenu } from "@/components/sidebar-left/project-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useLayout } from "@/context/layout";
-import { useEditorApi } from "@/dapi";
 import { t } from "@/lib/i18n";
-import { isMacOSDesktop, isWindowsDesktop } from "@/projects";
 
 export const EDITOR_RAIL_WIDTH = 44;
 
 export function EditorRail(props: { style?: JSX.CSSProperties }) {
-  const { isDesktop, isFullscreen } = useEditorApi();
   const { toggleUI } = useLayout();
 
   return (
     <nav class="flex min-h-0 flex-col items-center gap-1 pb-1.5 pl-1.5" style={props.style} aria-label={t("Panels")}>
-      <Show when={isDesktop && isMacOSDesktop() && !isFullscreen()}>
-        <div class="h-8 shrink-0" />
-      </Show>
-      <Show when={!isWindowsDesktop()}>
-        <div class="relative z-30 flex h-11 shrink-0 items-center" style="-webkit-app-region: no-drag;">
-          <ProjectMenu compact />
-        </div>
-      </Show>
+      <div class="relative z-30 flex h-11 shrink-0 items-center">
+        <ProjectMenu compact />
+      </div>
       <div class="flex flex-col items-center gap-1" data-tour="sidebar">
         <For each={SIDEBAR_TABS}>
           {(tab) => (
@@ -63,7 +55,7 @@ function RailButton(props: { label: string; active?: boolean; onClick: () => voi
           "bg-secondary text-foreground": props.active,
           "text-muted-foreground hover:bg-accent hover:text-foreground": !props.active,
         }}
-        style="-webkit-app-region: no-drag;"
+       
         onClick={props.onClick}
       >
         {props.children}

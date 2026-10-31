@@ -2,19 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Types only, with no Node imports, so the renderer's program can include it.
-
 import type { InspectValue, PropValue, SerializedAssetRef } from "@plan.video/jsx";
 
-export type { PropValue, SerializedAssetRef };
-
 export type EditValue = PropValue | SerializedAssetRef;
-
-export interface SourceContext {
-  dir: string;
-  /** Lets a folder watcher tell this write apart from someone else's. */
-  onWrite?: (file: string, text: string) => void;
-}
 
 export interface SourceSet {
   kind: "set";
@@ -75,3 +65,18 @@ export interface WriteResult {
   unrolled?: string[];
   error?: string;
 }
+
+export type ProjectInfo = {
+  /** Empty for a folder that predates ids and has not been opened since. */
+  id: string;
+  /** Folder name. Renaming the project moves it, so it is not the identity. */
+  name: string;
+  displayName: string;
+  dir: string;
+  entry: string;
+  modifiedAt: string;
+  createdAt: string;
+};
+
+export type CompileResult =
+  { ok: true; code: string } | { ok: false; error: string };

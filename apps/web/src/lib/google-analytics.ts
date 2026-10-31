@@ -37,7 +37,7 @@ const [consent, setConsent] = createSignal<AnalyticsConsent | null>(readConsent(
 export { consent as analyticsConsent };
 
 export function googleAnalyticsEnabled(): boolean {
-  return !window.desktop && HOSTS.has(location.hostname);
+  return HOSTS.has(location.hostname);
 }
 
 function gtag(...args: unknown[]) {

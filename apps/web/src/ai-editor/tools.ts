@@ -180,7 +180,7 @@ async function captureFrames(ctx: ToolContext, times: unknown): Promise<ToolOutp
   const list = (Array.isArray(times) ? times : [0]).filter((t): t is number => typeof t === "number").slice(0, 6);
   if (!list.length) list.push(0);
   const scene = activeScene(ctx.world);
-  const target = await createCapture(ctx.world, scene, { dir: ctx.dir });
+  const target = await createCapture(ctx.world, scene);
   try {
     const encoder = await createImageEncoder(target.world, { frames: list.map((t) => Math.round(t * TIME_FPS)), resolution: 720 });
     const result = await encoder.render();

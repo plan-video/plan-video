@@ -20,14 +20,12 @@ import { FolderArt, ProjectsArt } from "./empty-art";
 import {
   DashboardViewSection,
   createNewProject,
-  openProjectFromList,
   setCardPileDragImage,
 } from "./shared";
 import { DeleteProjectDialog } from "./delete-project-dialog";
 import { DashboardProjectCard } from "./project-card";
 import { parseTimestamp } from "./utils";
 import { DashboardSearchPanel } from "./search-bar";
-import { DashboardProjectsFolderBar } from "./projects-folder-bar";
 import { createProjectMarquee } from "./project-marquee";
 import { PROJECTS_DRAG_TYPE, moveIntoFolder, startNewFolder } from "./sidebar-folders";
 import { projectRoute, useReturnHere } from "@/hooks/use-project-route";
@@ -217,11 +215,9 @@ export function DashboardProjectsView() {
     if (project) setPendingDelete([project]);
   };
 
-  const openProject = async (project: ProjectInfo) => {
-    const found = await openProjectFromList(project);
-    if (!found) return;
+  const openProject = (project: ProjectInfo) => {
     track('project_opened');
-    navigate(projectRoute(projectKey(found)), { state: returnHere() });
+    navigate(projectRoute(projectKey(project)), { state: returnHere() });
   };
 
   const handleDeleted = (project: ProjectInfo) => {
@@ -398,7 +394,6 @@ export function DashboardProjectsView() {
           </Show>
         </Show>
       </DashboardViewSection>
-      <DashboardProjectsFolderBar />
 
       <Show when={marquee.rect()}>
         {(box) => (

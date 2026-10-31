@@ -4,7 +4,6 @@
 
 import { mimeTypeToExtension } from "./media";
 import { colord } from "colord";
-import { ElectronFileHandle } from "@/lib/electron-file-handle";
 
 export function getCssVar(name: string) {
   const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -42,7 +41,7 @@ export async function verifyHandlePermission(
 
 /** Prompts in parallel in one task so Chromium merges them into one dialog. Must run during a user activation (a click). */
 export async function verifyHandlePermissions(
-  handles: (FileSystemDirectoryHandle | FileSystemFileHandle | ElectronFileHandle)[],
+  handles: (FileSystemDirectoryHandle | FileSystemFileHandle)[],
   mode: 'read' | 'readwrite' = 'readwrite'
 ): Promise<boolean> {
   if (handles.length === 0) return true;
@@ -59,26 +58,23 @@ export async function verifyHandlePermissions(
 export async function showFileDialog(
   accept = 'image/*,video/*,audio/*,text/*',
   multiple = true
-): Promise<(File | FileSystemFileHandle | ElectronFileHandle)[]> {
+): Promise<(File | FileSystemFileHandle)[]> {
   try {
-    if (!window.desktop && 'showOpenFilePicker' in window) {
+    if ('showOpenFilePicker' in window) {
       return await window.showOpenFilePicker({
         multiple,
         startIn: 'downloads',
       });
     }
 
-    return new Promise<(File | ElectronFileHandle)[]>(resolve => {
+    return new Promise<File[]>(resolve => {
       const input = document.createElement('input');
       input.type = 'file';
       input.accept = accept;
       input.multiple = multiple;
       input.onchange = (fileEvent: Event) => {
         const files = Array.from((fileEvent.target as HTMLInputElement)?.files ?? []);
-        resolve(files.map((file) => {
-          const path = window.desktop?.getPathForFile(file);
-          return path ? ElectronFileHandle.fromFile(path, file) : file;
-        }));
+        resolve(files);
       };
       input.oncancel = () => resolve([]);
       input.click();

@@ -37,7 +37,7 @@
             apply("dark");
             document.documentElement.classList.add("dashboard-theme");
             document.documentElement.dataset.dashboardTheme = picked || "dark";
-          } else if (!window.desktop && !/^\/(dashboard|try|projects)(\/|$)/.test(location.pathname)) {
+          } else if (!/^\/(dashboard|try|projects)(\/|$)/.test(location.pathname)) {
             var site = picked || "light";
             apply(site);
             if (site === "light") document.documentElement.classList.add("site-light");
@@ -65,10 +65,6 @@
           if (language) document.documentElement.lang = language;
         } catch (e) {}
 
-        if (window.desktop) {
-          document.documentElement.dataset.platform = window.desktop.platform;
-        }
-
         // A dashboard opens on the loading screen (#boot-splash), in its
         // theme: guest mode's demo, and the account's for someone signed in
         // (signed out, /dashboard is the sign-in page). Every other page draws
@@ -79,7 +75,7 @@
             if (/^sb-.+-auth-token$/.test(localStorage.key(n) || "")) signedIn = true;
           }
         } catch (e) {}
-        if (window.desktop ? window.desktop.platform === "darwin" : /^\/try\/?$/.test(location.pathname) || (signedIn && /^\/dashboard\/?$/.test(location.pathname))) {
+        if (/^\/try\/?$/.test(location.pathname) || (signedIn && /^\/dashboard\/?$/.test(location.pathname))) {
           // The app's theme, as above: the one picked, else dark.
           var theme = "dark";
           try {

@@ -1,6 +1,6 @@
 // The empty composition is compiled ahead of time: the browser has no esbuild.
 
-import type { CompileResult, ProjectInfo, SourceEdit, WriteResult } from "@desktop/main-channels";
+import type { CompileResult, ProjectInfo, SourceEdit, WriteResult } from "./types";
 import type { FsEntry, Manifest, ProjectFS } from "@plan.video/assets";
 import { isAbsoluteSource } from "@plan.video/assets";
 import { formatSource } from "@plan.video/jsx";
@@ -74,13 +74,11 @@ function Project() {
 `;
 
 // The website reads bundles rather than evaluating them: its CSP has no 'unsafe-eval' (content-security-policy.ts).
-if (!window.desktop) {
-  setBundleReader((code, require) => {
-    const jsx = require("@plan.video/jsx") as CompositionJsx;
-    if (code === STARTER_BUNDLE) return compositionProject(jsx, { version: 1, background: "#161616", children: [] });
-    return readCompositionBundle(code, jsx);
-  });
-}
+setBundleReader((code, require) => {
+  const jsx = require("@plan.video/jsx") as CompositionJsx;
+  if (code === STARTER_BUNDLE) return compositionProject(jsx, { version: 1, background: "#161616", children: [] });
+  return readCompositionBundle(code, jsx);
+});
 
 const EMPTY_MANIFEST: Manifest = { version: 1, folders: [], assets: [] };
 

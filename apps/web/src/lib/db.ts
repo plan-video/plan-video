@@ -5,7 +5,7 @@
 import { deleteDB, openDB } from 'idb';
 import type * as idb from 'idb';
 
-import type { ProjectInfo } from '@desktop/main-channels';
+import type { ProjectInfo } from "@/projects/types";
 
 import { msg, t } from '@/lib/i18n';
 

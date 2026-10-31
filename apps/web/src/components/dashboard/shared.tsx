@@ -24,18 +24,14 @@ import {
 } from "solid-js";
 import { Separator } from "../ui/separator";
 import { Tooltip, TooltipContent, TooltipPortal, TooltipTrigger } from "@/components/ui/tooltip";
-import { toast } from "somoto";
 import { track } from "@/lib/analytics";
-import { forgetProjectBundle, generateProjectName } from "@/lib/db";
+import { generateProjectName } from "@/lib/db";
 import { cachedProjectCover, loadProjectCover } from "@/projects";
 import {
-  checkProject,
   createProject,
   deleteProject,
   ensureProjectsRoot,
   eraseProject,
-  forgetProject,
-  isDesktop,
   type ProjectInfo,
 } from "@/projects";
 
@@ -678,34 +674,9 @@ export async function createNewProject(): Promise<ProjectInfo | null> {
   return project;
 }
 
-/**
- * Null when the folder is gone or no longer a project. The list isn't touched:
- * a folder on an unmounted volume comes back with the volume.
- */
-export async function openProjectFromList(project: ProjectInfo): Promise<ProjectInfo | null> {
-  if (!isDesktop()) return project;
-
-  const current = await checkProject(project);
-  if (current) return current;
-
-  toast.error(t("Could not find {name}", { name: project.displayName }), {
-    description: t("There is no project at {path}. It may be on a disk that is not connected.", { path: project.dir }),
-    action: {
-      label: t("Remove from list"),
-      onClick: () => {
-        forgetProject(project.dir).catch((e) => {
-          toast.error(t("Failed to remove project"), { description: (e as Error).message });
-        });
-      },
-    },
-  });
-  return null;
-}
-
 /** In the browser the files stay for 30 days, and the cached bundle stays so a restore opens as before. */
 export async function trashProject(project: ProjectInfo): Promise<void> {
   await deleteProject(project.dir);
-  if (isDesktop()) forgetProjectBundle(project.id);
   track("project_deleted");
 }
 

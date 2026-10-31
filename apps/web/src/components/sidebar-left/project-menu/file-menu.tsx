@@ -15,8 +15,8 @@ import {
 import { useLocation, useNavigate } from "@solidjs/router";
 import { For, Show, createMemo } from "solid-js";
 import { toast } from "somoto";
-import { forgetProjectBundle, generateProjectName } from "@/lib/db";
-import { createProject, deleteProject, duplicateProject, ensureProjectsRoot, isDesktop } from "@/projects";
+import { generateProjectName } from "@/lib/db";
+import { createProject, deleteProject, duplicateProject, ensureProjectsRoot } from "@/projects";
 import { AssetId, ChildOf, Name, Root, Scene, getAssetFile, getActiveEntity, sortByItemIndex } from "@plan.video/runtime";
 import { assetName } from "@plan.video/assets";
 import { useQuery, useWorld } from "@plan.video/koota-solid";
@@ -67,7 +67,6 @@ export function FileMenu() {
   const handleDeleteProject = async () => {
     try {
       await deleteProject(project.dir());
-      if (isDesktop()) forgetProjectBundle(project.id());
       navigate(appRoute("projects"));
     } catch (e) {
       toast.error(t("Failed to delete project"), { description: (e as Error).message });

@@ -9,7 +9,7 @@ let asked = false;
 
 /** Once per visit. Chrome decides on its own; Firefox shows a prompt. */
 export function keepBrowserStorage() {
-  if (asked || window.desktop || !navigator.storage?.persist) return;
+  if (asked || !navigator.storage?.persist) return;
   asked = true;
   void navigator.storage
     .persisted()
