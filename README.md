@@ -80,6 +80,6 @@ Found a security problem? Please don't open an issue: see [SECURITY.md](SECURITY
 
 ## License
 
-plan.video is under the [GNU Affero General Public License v3.0](LICENSE). Its editor began as a fork of [Diffusion Studio's editor](https://github.com/diffusionstudio/editor), and every file that carries the MPL notice stays under the [Mozilla Public License 2.0](LICENSES/MPL-2.0.txt). See [NOTICE](NOTICE).
+plan.video is under the [GNU Affero General Public License v3.0](LICENSE). Files that carry the MPL notice stay under the [Mozilla Public License 2.0](LICENSES/MPL-2.0.txt). See [NOTICE](NOTICE).
 
 The plan.video name and logos are trademarks and aren't covered by these licenses: if you run or share a changed version, give it a name of its own. Contributors sign the [Contributor License Agreement](CLA.md).
