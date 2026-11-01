@@ -190,7 +190,10 @@ export function EditorTour() {
     onCleanup(() => clearTimeout(timer));
   });
 
-  onCleanup(() => setTour(null));
+  onCleanup(() => {
+    if (before) layout.setHiddenSections(before.hidden);
+    setTour(null);
+  });
 
   const close = () => {
     setTour(null);
