@@ -15,7 +15,7 @@
   "dependencies": {
     "@atproto/oauth-client-browser": "^0.5.9",
     "@bg0/browser": "^0.1.1",
-    "@huggingface/transformers": "^3.8.1",
+    "@huggingface/transformers": "^4.3.1",
     "@kobalte/core": "^0.13.11",
     "@plan.video/agent-chat": "*",
     "@plan.video/api-contract": "^0.1.0",
