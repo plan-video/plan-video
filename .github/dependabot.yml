@@ -1,6 +1,7 @@
 # Keeps the app's, each service's and CI's dependencies up to date, one grouped
 # pull request a week per folder. Security fixes come as soon as they're out;
 # other new versions wait a week, so a bad release is usually pulled first.
+# npm major versions are left for a person to move to: each one is migration work.
 version: 2
 updates:
   - package-ecosystem: npm
@@ -16,6 +17,10 @@ updates:
     cooldown:
       default-days: 7
     open-pull-requests-limit: 10
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major
     commit-message:
       prefix: chore
       include: scope
