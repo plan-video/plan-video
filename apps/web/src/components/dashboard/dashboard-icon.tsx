@@ -16,11 +16,14 @@ import CircleCheckLucide from "lucide-solid/icons/circle-check";
 import ClapperboardLucide from "lucide-solid/icons/clapperboard";
 import CloudLucide from "lucide-solid/icons/cloud";
 import CopyLucide from "lucide-solid/icons/copy";
+import CropLucide from "lucide-solid/icons/crop";
 import DownloadLucide from "lucide-solid/icons/download";
 import EllipsisLucide from "lucide-solid/icons/ellipsis";
 import ExternalLinkLucide from "lucide-solid/icons/external-link";
 import EyeLucide from "lucide-solid/icons/eye";
 import FileTextLucide from "lucide-solid/icons/file-text";
+import FlipHorizontalLucide from "lucide-solid/icons/triangles-centerline-dashed-vertical";
+import FlipVerticalLucide from "lucide-solid/icons/triangles-centerline-dashed-horizontal";
 import FolderLucide from "lucide-solid/icons/folder";
 import GlobeLucide from "lucide-solid/icons/globe";
 import HashLucide from "lucide-solid/icons/hash";
@@ -38,6 +41,8 @@ import PauseLucide from "lucide-solid/icons/pause";
 import PlayLucide from "lucide-solid/icons/play";
 import RepeatLucide from "lucide-solid/icons/repeat";
 import RepeatOffLucide from "lucide-solid/icons/repeat-off";
+import RotateCcwLucide from "lucide-solid/icons/rotate-ccw-square";
+import RotateCwLucide from "lucide-solid/icons/rotate-cw-square";
 import SignatureLucide from "lucide-solid/icons/signature";
 import SmilePlusLucide from "lucide-solid/icons/face-slightly-smiling-plus";
 import SquareTerminalLucide from "lucide-solid/icons/square-terminal";
@@ -92,6 +97,7 @@ const LUCIDE: Record<string, Glyph> = {
   clipboard: CopyLucide,
   cloud: CloudLucide,
   "controls-export-current-frame-camera": CameraLucide,
+  crop: CropLucide,
   "dapi-cli": SquareTerminalLucide,
   document: FileTextLucide,
   download: DownloadLucide,
@@ -102,6 +108,8 @@ const LUCIDE: Record<string, Glyph> = {
   "eye-on": EyeLucide,
   favorite: StarLucide,
   favorited: StarLucide,
+  "flip-horizontal": FlipHorizontalLucide,
+  "flip-vertical": FlipVerticalLucide,
   globe: GlobeLucide,
   hashtag: HashLucide,
   image: ImageLucide,
@@ -116,6 +124,8 @@ const LUCIDE: Record<string, Glyph> = {
   "no-loop": RepeatOffLucide,
   pause: PauseLucide,
   play: PlayLucide,
+  "rotate-left": RotateCcwLucide,
+  "rotate-right": RotateCwLucide,
   signature: SignatureLucide,
   "spinner-loader": LoaderCircleLucide,
   text: TypeLucide,

@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { intlLocale, localized, t } from "./i18n";
+import type { PictureEdit } from "./picture-edit";
 import { formatDuration, isAspect, type MediaSummary } from "./social";
 
 export type PostMedia = {
@@ -16,6 +17,8 @@ export type PostMedia = {
   /** Seconds. 0 for a picture. */
   duration: number;
   poster: string;
+  /** A picture cropped or turned here, kept with the file it came from so the edit can be changed or undone. */
+  edit?: { original: File; settings: PictureEdit };
 };
 
 const VIDEO_EXTENSIONS = /\.(mp4|mov|m4v|webm|mkv)$/i;

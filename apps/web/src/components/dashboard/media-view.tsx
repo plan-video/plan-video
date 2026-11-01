@@ -13,6 +13,7 @@ import { createProjectMarquee } from "@/components/dashboard/project-marquee";
 import { PlaneButton } from "@/components/dashboard/plane-button";
 import { PlaneIcon } from "@/components/dashboard/plane-icons";
 import { PlatformLogo, createDropHandlers } from "@/components/publish/controls";
+import { PictureEditor } from "@/components/publish/picture-editor";
 import { handOffFiles } from "@/components/publish/handoff";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogPortal, DialogTitle } from "@/components/ui/dialog";
@@ -175,6 +176,7 @@ export function DashboardMediaView() {
   const [selected, setSelected] = createSignal<string[]>([]);
   const [open, setOpen] = createSignal<{ id: string; rename: boolean } | null>(null);
   const [viewing, setViewing] = createSignal<string | null>(null);
+  const [editing, setEditing] = createSignal<MediaItem | null>(null);
   const [dragging, setDragging] = createSignal(false);
   const [progress, setProgress] = createSignal<{ done: number; total: number } | null>(null);
   let anchor: string | null = null;
@@ -315,9 +317,20 @@ export function DashboardMediaView() {
     setViewing(id);
   };
 
+  const saveCopy = async (item: MediaItem, file: File) => {
+    const base = item.name.replace(/\.[^.]+$/, "").replace(/-edited$/, "");
+    const copy = new File([file], `${base}-edited${file.type === "image/png" ? ".png" : ".jpg"}`, { type: file.type, lastModified: Date.now() });
+    const result = await addToLibrary([copy]);
+    const added = result.added[0] ?? result.existing[0];
+    if (!added) throw new Error(result.problems[0] ?? t("The picture could not be read."));
+    setOpen({ id: added.id, rename: false });
+    if (viewing()) setViewing(added.id);
+    toast.success(t("Saved as a copy"), { description: added.name });
+  };
+
   onMount(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.isComposing || viewing()) return;
+      if (event.defaultPrevented || event.isComposing || viewing() || editing()) return;
       const target = event.target as HTMLElement | null;
       if (target && (target.isContentEditable || target.closest("input, textarea, select, video, [role=dialog], [role=alertdialog], [role=menu], [role=listbox]"))) return;
       const key = event.key.toLowerCase();
@@ -349,6 +362,7 @@ export function DashboardMediaView() {
     onDownload: () => void download([item]),
     onRename: () => setOpen({ id: item.id, rename: true }),
     onDelete: () => void remove([item]),
+    onEdit: item.kind === "image" ? () => setEditing(item) : undefined,
   });
 
   return (
@@ -532,6 +546,7 @@ export function DashboardMediaView() {
                   onUse={() => void useInPost([item()])}
                   onDownload={() => void download([item()])}
                   onDelete={() => void remove([item()])}
+                  onEdit={() => setEditing(item())}
                 />
               )}
             </Show>
@@ -606,8 +621,12 @@ export function DashboardMediaView() {
             onClose={() => setViewing(null)}
             onUse={(item) => void useInPost([item])}
             onDownload={(item) => void download([item])}
+            onEdit={setEditing}
           />
         )}
+      </Show>
+      <Show when={editing()}>
+        {(item) => <LibraryPictureEditor item={item()} onSave={(file) => saveCopy(item(), file)} onClose={() => setEditing(null)} />}
       </Show>
     </div>
   );
@@ -620,6 +639,7 @@ function MediaViewer(props: {
   onClose(): void;
   onUse(item: MediaItem): void;
   onDownload(item: MediaItem): void;
+  onEdit(item: MediaItem): void;
 }) {
   let content: HTMLDivElement | undefined;
   const index = () => props.items.findIndex((item) => item.id === props.id);
@@ -664,6 +684,12 @@ function MediaViewer(props: {
                       {many() ? ` · ${t("{current} of {total}", { current: index() + 1, total: props.items.length })}` : ""}
                     </span>
                   </div>
+                  <Show when={item().kind === "image"}>
+                    <Button variant="ghost" class="gap-1 pl-1 text-white hover:bg-white/10 hover:text-white" onClick={() => props.onEdit(item())}>
+                      <Icon name="crop" class="size-5" />
+                      {t("Edit")}
+                    </Button>
+                  </Show>
                   <Button variant="ghost" class="gap-1 pl-1 text-white hover:bg-white/10 hover:text-white" onClick={() => props.onUse(item())}>
                     <Icon name="document" class="size-5" />
                     {t("Use in post")}
@@ -695,6 +721,21 @@ function MediaViewer(props: {
         </DialogContent>
       </DialogPortal>
     </Dialog>
+  );
+}
+
+function LibraryPictureEditor(props: { item: MediaItem; onSave(file: File): Promise<void>; onClose(): void }) {
+  const [file] = createResource(() => props.item, mediaFile);
+  const ready = () => (file.state === "ready" ? file() : null);
+  createEffect(() => {
+    if (file.loading || ready()) return;
+    toast.error(t("The picture could not be read."));
+    props.onClose();
+  });
+  return (
+    <Show when={ready()} keyed>
+      {(picked) => <PictureEditor file={picked} saveLabel={t("Save copy")} onSave={(edited) => props.onSave(edited)} onClose={() => props.onClose()} />}
+    </Show>
   );
 }
 
@@ -793,7 +834,7 @@ function CheckMark(props: { checked: boolean; class?: string; onClick(event: Mou
   );
 }
 
-type ItemActions = { onOpen(): void; onUse(): void; onDownload(): void; onRename(): void; onDelete(): void };
+type ItemActions = { onOpen(): void; onUse(): void; onDownload(): void; onRename(): void; onDelete(): void; onEdit?: () => void };
 
 const opensOnDoubleClick = (event: MouseEvent, selecting: boolean) => !selecting && !event.shiftKey && !event.metaKey && !event.ctrlKey;
 
@@ -817,6 +858,13 @@ function ItemMenu(props: ItemActions & { class?: string }) {
           <DropdownMenuItem tone="neutral" onSelect={() => props.onUse()}>
             {t("Use in post")}
           </DropdownMenuItem>
+          <Show when={props.onEdit}>
+            {(edit) => (
+              <DropdownMenuItem tone="neutral" onSelect={() => edit()()}>
+                {t("Edit")}
+              </DropdownMenuItem>
+            )}
+          </Show>
           <DropdownMenuItem tone="neutral" onSelect={() => props.onRename()}>
             {t("Rename")}
           </DropdownMenuItem>
@@ -886,6 +934,7 @@ function MediaTile(
         onRename={() => props.onRename()}
         onDownload={() => props.onDownload()}
         onDelete={() => props.onDelete()}
+        onEdit={props.onEdit}
         class="absolute right-1.5 top-1.5 size-6 bg-black/55 text-white opacity-0 hover:bg-black/75 group-hover:opacity-100 focus-visible:opacity-100 data-[expanded]:opacity-100"
       />
       <div class="flex min-w-0 flex-col gap-0.5 px-0.5">
@@ -983,6 +1032,7 @@ function MediaDetails(props: {
   onUse(): void;
   onDownload(): void;
   onDelete(): void;
+  onEdit(): void;
 }) {
   const [url, setUrl] = createSignal<string | null>(null);
   const [name, setName] = createSignal("");
@@ -1147,6 +1197,12 @@ function MediaDetails(props: {
         <Button class="flex-1" onClick={() => props.onUse()}>
           {t("Use in post")}
         </Button>
+        <Show when={props.item.kind === "image"}>
+          <Button variant="secondary" class="gap-1 pl-1" onClick={() => props.onEdit()}>
+            <Icon name="crop" class="size-5" />
+            {t("Edit")}
+          </Button>
+        </Show>
         <Button variant="secondary" class="gap-1 pl-1" onClick={() => props.onDownload()}>
           <Icon name="download" class="size-5" />
           {t("Download")}

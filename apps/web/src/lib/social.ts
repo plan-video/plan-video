@@ -225,6 +225,8 @@ export type PostIssue = {
   /** Errors keep the post from going out; warnings are worth a look. */
   level: "error" | "warning";
   message: string;
+  /** The first picture can be cropped in the composer to choose what shows. */
+  crop?: boolean;
 };
 
 /** A post with more goes out with the first ones and skips the rest. */
@@ -274,7 +276,7 @@ export function checkPost(input: PostCheckInput): PostIssue[] {
   for (const id of input.platforms) {
     const platform = socialPlatform(id);
     const media = input.media(id);
-    const add = (level: PostIssue["level"], message: string) => issues.push({ platform: id, level, message });
+    const add = (level: PostIssue["level"], message: string, crop?: boolean) => issues.push({ platform: id, level, message, crop });
 
     if (!platform.kinds.includes(input.kind)) {
       if (input.kind === "text") add("error", platform.kinds.includes("image") ? t("Add a video or pictures.") : t("Add a video."));
@@ -339,7 +341,7 @@ export function checkPost(input: PostCheckInput): PostIssue[] {
       }
       if (platform.imageAspect && media.count > 0) {
         const aspect = media.width / media.height;
-        if (aspect < platform.imageAspect.min || aspect > platform.imageAspect.max) add("warning", t("The first picture is cropped to fit."));
+        if (aspect < platform.imageAspect.min || aspect > platform.imageAspect.max) add("warning", t("The first picture is cropped to fit."), true);
         if (media.count > 1 && media.mixedShapes) add("warning", t("Pictures are cropped to the first one's shape."));
       }
     } else if (media.duration > platform.maxVideoSeconds) {

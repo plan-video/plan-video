@@ -75,6 +75,7 @@ import {
 } from "@/components/calendar/utils";
 import { takeHandOff, takeHandedFiles } from "@/components/publish/handoff";
 import { MediaPicker } from "@/components/publish/media-picker";
+import { PictureEditor } from "@/components/publish/picture-editor";
 import { PUBLISHING_PLATFORMS, sendPost } from "@/components/publish/publisher";
 import { RepeatEndField, RepeatField } from "@/components/publish/repeat-field";
 import { PlatformSettingsFields, platformsWithSettings, tiktokLimitIssues } from "@/components/publish/platform-settings";
@@ -129,6 +130,7 @@ import {
   type ThreadReply,
 } from "@/lib/thread";
 import { keepInLibrary } from "@/lib/media-library";
+import { suggestedShape, type ShapeId } from "@/lib/picture-edit";
 import { appendSignature, createVaultItem, insertVaultText, loadVault, takeVaultInsert, vaultSignature } from "@/lib/vault";
 import {
   createTemplate,
@@ -290,6 +292,23 @@ const keptReplies = () => post.thread.filter(replyHasContent).slice(0, MAX_REPLI
 function releaseUnused(items: readonly PostMedia[]) {
   const held = new Set([...allMedia(), ...threadMedia()].map((item) => item.id));
   for (const item of items) if (!held.has(item.id)) releaseMedia(item);
+}
+
+/** Opens on the file the picture came from, so an earlier crop can be widened or undone. */
+function EditPicture(props: { item: PostMedia; suggest?: ShapeId; onReplace(next: PostMedia): boolean; onClose(): void }) {
+  const original = () => props.item.edit?.original ?? props.item.file;
+  return (
+    <PictureEditor
+      file={original()}
+      edit={props.item.edit?.settings}
+      suggest={props.suggest}
+      onSave={async (file, edit) => {
+        const read = await readMedia(file);
+        if (!props.onReplace(edit ? { ...read, edit: { original: original(), settings: edit } } : read)) releaseMedia(read);
+      }}
+      onClose={() => props.onClose()}
+    />
+  );
 }
 
 const copyOwnMedia = () =>
@@ -1211,6 +1230,7 @@ export function DashboardNewPostView() {
       </main>
 
       <PreviewPanel issues={issues()} />
+      <SlotPictureEditor />
     </div>
   );
 }
@@ -1241,6 +1261,47 @@ function ownMediaSlot(id: PlatformId): MediaSlot {
 }
 
 const maxFor = (slot: MediaSlot) => (post.kind === "story" ? 1 : slot.platform ? picturesOut(slot.platform) : MAX_IMAGES);
+
+const slotOf = (id: PlatformId) => (post.ownMedia[id] ? ownMediaSlot(id) : SHARED_MEDIA);
+
+const [editingPicture, setEditingPicture] = createSignal<{ slot: MediaSlot; item: PostMedia } | null>(null);
+
+/** The networks that cut this slot's first picture from the middle as it is now. */
+function croppedBy(slot: MediaSlot): PlatformId[] {
+  const first = slot.items()[0];
+  if (post.kind !== "image" || first?.kind !== "image") return [];
+  const aspect = first.width / first.height;
+  return (slot.platform ? [slot.platform] : sharingMedia()).filter((id) => {
+    const range = socialPlatform(id).imageAspect;
+    return range && (aspect < range.min || aspect > range.max);
+  });
+}
+
+function SlotPictureEditor() {
+  onCleanup(() => setEditingPicture(null));
+  const suggest = (slot: MediaSlot, item: PostMedia) =>
+    post.kind === "image"
+      ? suggestedShape(item, (slot.platform ? [slot.platform] : sharingMedia()).flatMap((id) => socialPlatform(id).imageAspect ?? []))
+      : undefined;
+  const replace = (slot: MediaSlot, old: PostMedia, next: PostMedia) => {
+    if (!slot.items().some((entry) => entry.id === old.id)) return false;
+    slot.setItems(slot.items().map((entry) => (entry.id === old.id ? next : entry)));
+    releaseUnused([old]);
+    return true;
+  };
+  return (
+    <Show when={editingPicture()}>
+      {(open) => (
+        <EditPicture
+          item={open().item}
+          suggest={suggest(open().slot, open().item)}
+          onReplace={(next) => replace(open().slot, open().item, next)}
+          onClose={() => setEditingPicture(null)}
+        />
+      )}
+    </Show>
+  );
+}
 
 function giveOwnMedia(id: PlatformId) {
   const items = post.kind === "image" ? post.media.slice(0, picturesOut(id)) : [...post.media];
@@ -1697,7 +1758,8 @@ function MediaEditor(props: { slot: MediaSlot }) {
           )}
         </Match>
         <Match when={items()[0]?.kind === "image"}>
-          <ImageGrid slot={slot} dragging={dragging()} handlers={handlers} onAdd={() => void pick()} onRemove={remove} />
+          <ImageGrid slot={slot} dragging={dragging()} handlers={handlers} onAdd={() => void pick()} onRemove={remove} onEdit={(item) => setEditingPicture({ slot, item })} />
+          <CropNote slot={slot} />
           <MediaProblems slot={slot} />
           <Show when={!slot.platform}>
             <LinkedProjectRow framed />
@@ -1778,6 +1840,26 @@ function ProjectExportStatus(props: { projectKey: string; reading: boolean; onPi
         </button>
       </div>
     </div>
+  );
+}
+
+function CropNote(props: { slot: MediaSlot }) {
+  const by = () => croppedBy(props.slot);
+  return (
+    <Show when={by().length}>
+      <div class="flex items-center gap-2 rounded-xl bg-accent/50 py-1 pr-1 pl-2.5 text-xs text-muted-foreground">
+        <Icon name="crop" class="size-4 shrink-0" />
+        <span class="min-w-0 flex-1">
+          {t("{count, plural, one {{names} cuts the first picture from the middle.} other {{names} cut the first picture from the middle.}}", {
+            count: by().length,
+            names: listNames(by()),
+          })}
+        </span>
+        <Button variant="ghost" size="small" class="text-foreground" onClick={() => setEditingPicture({ slot: props.slot, item: props.slot.items()[0]! })}>
+          {t("Crop it")}
+        </Button>
+      </div>
+    </Show>
   );
 }
 
@@ -1978,6 +2060,7 @@ function ImageGrid(props: {
   handlers: ReturnType<typeof createDropHandlers>;
   onAdd(): void;
   onRemove(id: string): void;
+  onEdit(item: PostMedia): void;
 }) {
   const [moving, setMoving] = createSignal<number | null>(null);
 
@@ -2017,6 +2100,7 @@ function ImageGrid(props: {
               setMoving(null);
             }}
             onDragEnd={() => setMoving(null)}
+            onClick={() => props.onEdit(item)}
             class="group relative aspect-square cursor-grab overflow-hidden rounded-xl bg-black active:cursor-grabbing"
             classList={{ "opacity-40": moving() === index() }}
           >
@@ -2028,10 +2112,14 @@ function ImageGrid(props: {
               type="button"
               aria-label={t("Remove picture")}
               class="absolute right-1 top-1 grid size-5 place-items-center rounded-full bg-black/70 text-white opacity-0 press hover:bg-black group-hover:opacity-100 focus-visible:opacity-100 focus-ring"
-              onClick={() => props.onRemove(item.id)}
+              onClick={(event) => {
+                event.stopPropagation();
+                props.onRemove(item.id);
+              }}
             >
               <Icon name="close-remove-small" class="size-4" />
             </button>
+            <EditPictureButton class="absolute bottom-1 right-1" onClick={() => props.onEdit(item)} />
           </div>
         )}
       </For>
@@ -2046,6 +2134,26 @@ function ImageGrid(props: {
         </button>
       </Show>
     </div>
+  );
+}
+
+function EditPictureButton(props: { class: string; onClick(): void }) {
+  return (
+    <button
+      type="button"
+      aria-label={t("Edit picture")}
+      title={t("Edit picture")}
+      class={cx(
+        "grid size-5 place-items-center rounded-full bg-black/70 text-white press hover:bg-black focus-ring",
+        props.class,
+      )}
+      onClick={(event) => {
+        event.stopPropagation();
+        props.onClick();
+      }}
+    >
+      <Icon name="crop" class="size-4" />
+    </button>
   );
 }
 
@@ -2471,17 +2579,29 @@ async function addReplyMedia(index: number, files: readonly File[]) {
 
 function ReplyMedia(props: { index: number }) {
   const media = () => post.thread[props.index]?.media ?? [];
+  const [editing, setEditing] = createSignal<PostMedia | null>(null);
   const remove = (id: string) => {
     const gone = media().filter((item) => item.id === id);
     setPost("thread", props.index, "media", (list) => list.filter((item) => item.id !== id));
     releaseUnused(gone);
+  };
+  const replace = (old: PostMedia, next: PostMedia) => {
+    const reply = post.thread[props.index];
+    if (!reply?.media.some((item) => item.id === old.id)) return false;
+    setPost("thread", props.index, "media", (list) => list.map((item) => (item.id === old.id ? next : item)));
+    releaseUnused([old]);
+    return true;
   };
   return (
     <Show when={media().length}>
       <div class="flex flex-wrap gap-2 px-3.5 pb-3">
         <For each={media()}>
           {(item) => (
-            <div class="group/tile relative size-16 overflow-hidden rounded-lg border border-border bg-accent">
+            <div
+              class="group/tile relative size-16 overflow-hidden rounded-lg border border-border bg-accent"
+              classList={{ "cursor-pointer": item.kind === "image" }}
+              onClick={() => item.kind === "image" && setEditing(item)}
+            >
               <img src={item.kind === "image" ? item.url : item.poster} alt="" class="size-full object-cover" draggable={false} />
               <Show when={item.kind === "video"}>
                 <span class="absolute bottom-1 left-1 rounded-sm bg-black/70 px-1 text-[10px] font-medium text-white tabular-nums">{formatDuration(item.duration)}</span>
@@ -2489,12 +2609,21 @@ function ReplyMedia(props: { index: number }) {
               <RemoveButton
                 label={t("Remove {name}", { name: baseName(item.file) })}
                 class="absolute top-1 right-1 opacity-0 group-hover/tile:opacity-100 focus-visible:opacity-100"
-                onClick={() => remove(item.id)}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  remove(item.id);
+                }}
               />
+              <Show when={item.kind === "image"}>
+                <EditPictureButton class="absolute right-1 bottom-1" onClick={() => setEditing(item)} />
+              </Show>
             </div>
           )}
         </For>
       </div>
+      <Show when={editing()}>
+        {(item) => <EditPicture item={item()} onReplace={(next) => replace(item(), next)} onClose={() => setEditing(null)} />}
+      </Show>
     </Show>
   );
 }
@@ -3018,7 +3147,23 @@ function PreviewPanel(props: { issues: PostIssue[] }) {
                 <span
                   class={cx("mt-1.5 size-1.5 shrink-0 rounded-full", issue.level === "error" ? "bg-destructive/80" : "bg-meter-yellow/80")}
                 />
-                {t(issue.message)}
+                <span class="min-w-0 flex-1">
+                  {t(issue.message)}
+                  <Show when={issue.crop && slotOf(issue.platform).items()[0]}>
+                    {(first) => (
+                      <>
+                        {" "}
+                        <button
+                          type="button"
+                          class="rounded-sm text-foreground underline-offset-2 hover:underline focus-ring"
+                          onClick={() => setEditingPicture({ slot: slotOf(issue.platform), item: first() })}
+                        >
+                          {t("Crop it")}
+                        </button>
+                      </>
+                    )}
+                  </Show>
+                </span>
               </li>
             )}
           </For>
