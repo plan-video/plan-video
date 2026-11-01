@@ -38,7 +38,8 @@ type LayoutContextValue = {
   toggleTimeline(): void;
   resetLayout(): void;
   hiddenSections: Accessor<HideablePanel[]>;
-  setHiddenSections(hidden: HideablePanel[]): void;
+  /** Shows every section for now, leaving the saved choice alone. */
+  setSectionsRevealed(revealed: boolean): void;
   hideSection(panel: HideablePanel): void;
   showSection(panel: HideablePanel): void;
   customizing: Accessor<boolean>;
@@ -80,13 +81,15 @@ export function LayoutProvider(props: { children: JSX.Element }) {
 
   const toggleUI = () => setUiVisible(!uiVisible());
 
-  const [hiddenSections, setHiddenSections] = createStoredSignal(
+  const [savedHidden, setSavedHidden] = createStoredSignal(
     store.define<HideablePanel[]>('layout.hidden', [], readHidden),
   );
+  const [sectionsRevealed, setSectionsRevealed] = createSignal(false);
+  const hiddenSections = () => (sectionsRevealed() ? [] : savedHidden());
   const [customizing, setCustomizing] = createSignal(false);
-  const hideSection = (panel: HideablePanel) => setHiddenSections([...hiddenSections().filter((id) => id !== panel), panel]);
+  const hideSection = (panel: HideablePanel) => setSavedHidden([...savedHidden().filter((id) => id !== panel), panel]);
   const showSection = (panel: HideablePanel) => {
-    if (hiddenSections().includes(panel)) setHiddenSections(hiddenSections().filter((id) => id !== panel));
+    if (hiddenSections().includes(panel)) setSavedHidden(savedHidden().filter((id) => id !== panel));
   };
 
   const toggleTimeline = () => {
@@ -101,7 +104,7 @@ export function LayoutProvider(props: { children: JSX.Element }) {
     store.define<{ id: string; snapshot: string } | null>('layout.applied', null),
   );
 
-  const snapshot = (): LayoutSnapshot => ({ dock: dock(), layersWidth: layersWidth(), toolbarSlot: toolbarSlot(), hidden: hiddenSections() });
+  const snapshot = (): LayoutSnapshot => ({ dock: dock(), layersWidth: layersWidth(), toolbarSlot: toolbarSlot(), hidden: savedHidden() });
   // Compared, not cleared on change, so a drag cancelled with Esc still counts as the same layout.
   const activeLayout = createMemo(() => {
     const current = applied();
@@ -112,7 +115,7 @@ export function LayoutProvider(props: { children: JSX.Element }) {
     setDock(next.dock);
     setLayersWidth(next.layersWidth);
     setToolbarSlot(TOOLBAR_SLOTS.includes(next.toolbarSlot as ToolbarSlot) ? next.toolbarSlot as ToolbarSlot : 'bottom');
-    setHiddenSections(next.hidden);
+    setSavedHidden(next.hidden);
     setTimelineMinimized(false);
     setUiVisible(true);
     setApplied(id ? { id, snapshot: JSON.stringify(snapshot()) } : null);
@@ -149,7 +152,7 @@ export function LayoutProvider(props: { children: JSX.Element }) {
         toggleTimeline,
         resetLayout,
         hiddenSections,
-        setHiddenSections,
+        setSectionsRevealed,
         hideSection,
         showSection,
         customizing,
