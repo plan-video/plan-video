@@ -3,12 +3,14 @@ Description=plan.video publisher
 After=network-online.target
 Wants=network-online.target
 
-# Sends scheduled posts and keeps connected accounts' logins. Laid out like
-# the repo, so it can import the network services' code:
+# Sends scheduled posts and keeps connected accounts' logins. Nothing on the
+# internet reaches it: its port answers only the gateway (services/gateway),
+# with SENDER_SECRET. Laid out like the repo, so it can import the network
+# services' code:
 #   /opt/plan-video-publisher/publisher   this folder, with its node_modules
 #   /opt/plan-video-publisher/{tiktok,youtube,linkedin}/handler.mjs
 # Secrets: /etc/plan-video/publisher.env (SUPABASE_URL,
-# SUPABASE_SERVICE_ROLE_KEY, TOKEN_KEY, SEND_FROM, PUBLIC_URL and, for
+# SUPABASE_SERVICE_ROLE_KEY, TOKEN_KEY, SENDER_SECRET, SEND_FROM, PUBLIC_URL and, for
 # "Sign in with Bluesky", BLUESKY_OAUTH_JWK; for emailing failed posts and
 # expiring logins, RESEND_API_KEY), plus r2.env and each network's env for
 # refreshing logins. Deleting an account ends its plan through the

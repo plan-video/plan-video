@@ -44,7 +44,7 @@ Most of the work happens in `apps/web/src`:
 
 ## Services
 
-Each folder in `services/` is a small Node.js server with its systemd unit: `publisher`, `photos`, `storage`, `mcp`, `agent`, `transcribe`, `billing`, `tiktok`, `youtube`, `linkedin` and `x`, plus `monitor`, a shell script on a timer. They aren't part of the npm workspace: the five with dependencies, `agent`, `mcp`, `photos`, `publisher` and `storage`, have their own `package.json`. [Services](/docs/services) says what each does.
+Each folder in `services/` is a small Node.js server with its systemd unit: `publisher`, `gateway`, `photos`, `storage`, `mcp`, `agent`, `transcribe`, `billing`, `tiktok`, `youtube`, `linkedin` and `x`, plus `monitor`, a shell script on a timer. They aren't part of the npm workspace: the five with dependencies, `agent`, `mcp`, `photos`, `publisher` and `storage`, have their own `package.json`. [Services](/docs/services) says what each does.
 
 The dev server runs `agent`, `transcribe`, `billing` and the four network services itself, from the files beside `apps/web/vite.config.ts`, so you don't need them to develop.
 

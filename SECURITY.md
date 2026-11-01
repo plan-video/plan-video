@@ -55,4 +55,4 @@ There are no numbered releases yet. Fixes go into `main` and out to the hosted v
 
 - Secrets stay on the server. Anything with the `VITE_` prefix is built into the browser bundle, so never put a secret in one.
 - The publisher encrypts network logins with `TOKEN_KEY`. Keep it out of git and back it up: without it the stored logins can't be read.
-- Run each service on `127.0.0.1` behind a reverse proxy, and only open ports 80 and 443 to the internet.
+- Run each service on `127.0.0.1` behind a reverse proxy, and only open ports 80 and 443 to the internet. Point `/api/publisher/` at the gateway, never at the publisher itself.

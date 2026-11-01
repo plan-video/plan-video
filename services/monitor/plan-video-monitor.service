@@ -21,4 +21,4 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-InaccessiblePaths=-/etc/plan-video/agent.env -/etc/plan-video/billing.env -/etc/plan-video/linkedin.env -/etc/plan-video/mcp.env -/etc/plan-video/publisher.env -/etc/plan-video/r2.env -/etc/plan-video/tiktok.env -/etc/plan-video/transcribe.env -/etc/plan-video/youtube.env -/etc/plan-video/x.env
+InaccessiblePaths=-/etc/plan-video/agent.env -/etc/plan-video/billing.env -/etc/plan-video/gateway.env -/etc/plan-video/linkedin.env -/etc/plan-video/mcp.env -/etc/plan-video/publisher.env -/etc/plan-video/r2.env -/etc/plan-video/tiktok.env -/etc/plan-video/transcribe.env -/etc/plan-video/youtube.env -/etc/plan-video/x.env
