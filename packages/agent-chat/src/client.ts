@@ -39,6 +39,8 @@ type Subscription = {
   seq: number;
   /** Set once the snapshot has been delivered for the current socket. */
   opened: boolean;
+  /** Events that beat the snapshot's delivery: `ws` can hand over several frames before the response's await resumes. */
+  early: { seq: number; event: ChatEvent }[];
 };
 
 export type AgentChatClientOptions = {
@@ -108,7 +110,7 @@ export class AgentChatClient {
 
   /** Subscribes to a chat. The listener gets a snapshot first, then events; on reconnect, a snapshot again. */
   open(chatId: string, listener: ChatListener): () => void {
-    const subscription: Subscription = { listener, seq: -1, opened: false };
+    const subscription: Subscription = { listener, seq: -1, opened: false, early: [] };
     this.subscriptions.set(chatId, subscription);
     if (this._state === "open") void this.openOne(chatId, subscription);
     return () => {
@@ -185,6 +187,7 @@ export class AgentChatClient {
       this.setState("open");
       for (const [chatId, subscription] of this.subscriptions) {
         subscription.opened = false;
+        subscription.early = [];
         void this.openOne(chatId, subscription);
       }
     };
@@ -227,6 +230,11 @@ export class AgentChatClient {
       subscription.seq = snapshot.seq;
       subscription.opened = true;
       subscription.listener({ type: "snapshot", snapshot });
+      for (const { seq, event } of subscription.early.splice(0)) {
+        if (seq <= subscription.seq) continue;
+        subscription.seq = seq;
+        subscription.listener({ type: "event", seq, event });
+      }
     } catch (error) {
       // A deleted chat, or a socket that went away: the next reconnect retries, a
       // `not-found` means the subscription is dead.
@@ -254,7 +262,12 @@ export class AgentChatClient {
       }
       case "event": {
         const subscription = this.subscriptions.get(message.chatId);
-        if (!subscription || !subscription.opened || message.seq <= subscription.seq) return;
+        if (!subscription) return;
+        if (!subscription.opened) {
+          subscription.early.push({ seq: message.seq, event: message.event });
+          return;
+        }
+        if (message.seq <= subscription.seq) return;
         subscription.seq = message.seq;
         subscription.listener({ type: "event", seq: message.seq, event: message.event });
         return;
