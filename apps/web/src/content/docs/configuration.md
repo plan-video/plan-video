@@ -49,6 +49,7 @@ Read by every service except `mcp`, `monitor` and `photos`.
 | `REQUIRE_INVITE` | | As in `r2.env`, if it's not there |
 | `SUPABASE_SERVICE_ROLE_KEY` | Required | A secret key for your project. The publisher reads and writes tables browsers can't. |
 | `TOKEN_KEY` | Required | 32 random bytes in base64, from `make-keys`. Seals logins, tickets and media links. |
+| `SENDER_SECRET` | | The password the gateway reaches the publisher with. `services/deploy.sh` adds it. Without it only the health check reaches the publisher: the dashboard can't send, and networks that pull a post's files can't get them. |
 | `BLUESKY_OAUTH_JWK` | | The "Sign in with Bluesky" key, from `make-keys`. Without it, Bluesky connects with app passwords only. |
 | `PUBLIC_URL` | | Your site's address, for media links, emails, the networks' sign-in callbacks and Bluesky. Default `https://plan.video`. |
 | `SEND_FROM` | | A time in ISO 8601. Runs due before it are never sent. `make-keys` sets it; without it, runs that fell due while the publisher was down are skipped. |
@@ -60,6 +61,12 @@ Read by every service except `mcp`, `monitor` and `photos`.
 | `YOUTUBE_UPLOADS_PER_DAY` | | YouTube uploads a day per owner, Free to Agency. Default `3,50,100,200`. |
 | `X_POSTS_PER_MONTH` | | Posts to X in any 30 days per owner, Free to Agency. Default `0,150,400,800`. |
 | `X_LINK_POSTS_PER_MONTH` | | How many of those can have a link. Default `0,10,25,40`. |
+
+## gateway.env
+
+| Key | | What it does |
+| --- | --- | --- |
+| `SENDER_SECRET` | Required | The same value as in `publisher.env`. `services/deploy.sh` writes it. |
 
 ## Network files
 

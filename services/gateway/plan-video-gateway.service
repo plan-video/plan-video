@@ -1,0 +1,42 @@
+[Unit]
+Description=plan.video gateway
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# All the publisher's public traffic comes here. It holds no login, database
+# or storage key: gateway.env has only the password for reaching the publisher.
+User=planvideo-gateway
+Group=planvideo-gateway
+WorkingDirectory=/opt/plan-video-gateway
+ExecStart=/usr/bin/node server.mjs
+Restart=always
+RestartSec=2
+# It holds a request at a time and streams the rest, so this is plenty.
+MemoryMax=256M
+# It only talks to Caddy and the publisher, so taken over it can't send anything out.
+IPAddressDeny=any
+IPAddressAllow=localhost
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectProc=invisible
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+
+[Install]
+WantedBy=multi-user.target

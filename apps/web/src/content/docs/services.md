@@ -4,7 +4,8 @@ Everything that needs a secret runs on your server as a small Node.js service. E
 
 | Service | Port | Path | What it does |
 | --- | --- | --- | --- |
-| `publisher` | 8798 | `/api/publisher/` | Sends scheduled posts, keeps every network login, reads Analytics |
+| `gateway` | 8798 | `/api/publisher/` | Takes the publisher's public traffic. It holds no login, database or storage key. |
+| `publisher` | 8794 | | Sends scheduled posts, keeps every network login, reads Analytics. Only the gateway reaches it. |
 | `photos` | 8793 | | Makes pictures the size each network wants, for the publisher. It holds no keys and isn't reachable from outside. |
 | `storage` | 8788 | `/api/storage/` | Signs upload and download links for your R2 bucket |
 | `tiktok` | 8789 | `/api/tiktok` | Starts TikTok sign-ins |
@@ -17,11 +18,11 @@ Everything that needs a secret runs on your server as a small Node.js service. E
 | `billing` | 8799 | `/api/billing/` | Paid plans, with Stripe |
 | `monitor` | | | Checks the server every minute and reports to Healthchecks.io |
 
-You need `publisher`, `photos` and `storage`, plus the service of each network you connect. The rest are optional: without `mcp` agents can't connect, without `agent` there's no Assistant, without `transcribe` there are no auto-captions, and without `billing` everyone stays on the Free plan unless you [give them a plan](/docs/self-hosting#give-yourself-a-plan).
+You need `publisher`, `gateway`, `photos` and `storage`, plus the service of each network you connect. The rest are optional: without `mcp` agents can't connect, without `agent` there's no Assistant, without `transcribe` there are no auto-captions, and without `billing` everyone stays on the Free plan unless you [give them a plan](/docs/self-hosting#give-yourself-a-plan).
 
 ## Settings files
 
-The services read their settings from `/etc/plan-video`. Most have their own `<name>.env`; `storage` needs only the shared `r2.env`, which holds the Supabase address and the R2 bucket, and which every service but `mcp`, `monitor` and `photos` reads. `photos` reads no settings at all.
+The services read their settings from `/etc/plan-video`. Most have their own `<name>.env`; `storage` needs only the shared `r2.env`, which holds the Supabase address and the R2 bucket, and which every service but `mcp`, `monitor`, `gateway` and `photos` reads. `photos` reads no settings at all.
 
 ```bash /etc/plan-video/r2.env
 SUPABASE_URL=https://your-project.supabase.co
@@ -57,7 +58,7 @@ The units expect each service in `/opt/plan-video-<name>`, each run by a user of
     done
     usermod -aG planvideo-r2,planvideo-tiktok,planvideo-youtube,planvideo-linkedin,planvideo-x planvideo-publisher
     ```
-    Every service but `mcp` and `photos` also reads `r2.env`, so its unit adds `planvideo-r2`. The publisher refreshes logins with each network's keys, so it's in those groups too.
+    Every service but `mcp`, `gateway` and `photos` also reads `r2.env`, so its unit adds `planvideo-r2`. `services/deploy.sh` makes the gateway's own user, `planvideo-gateway`. The publisher refreshes logins with each network's keys, so it's in those groups too.
   </Step>
   <Step title="Write its settings">
     Put its keys in `/etc/plan-video/<name>.env`, if it has any. Its section in [Environment variables](/docs/configuration) says which.
@@ -82,7 +83,7 @@ services/deploy.sh status
 services/deploy.sh all
 ```
 
-`status` shows the commit each service runs and how many of its files differ from the checkout. `all` updates every service that differs, the publisher last, and restarts only those. Each is backed up to `/var/backups/plan-video` first. One whose code doesn't parse, or that doesn't come up healthy, is put back as it was. `--dry-run` lists what would change without changing it.
+`status` shows the commit each service runs and how many of its files differ from the checkout. `all` updates every service that differs, the publisher and then the gateway last, and restarts only those. Each is backed up to `/var/backups/plan-video` first. One whose code doesn't parse, or that doesn't come up healthy, is put back as it was. `--dry-run` lists what would change without changing it.
 
 `all` also installs and starts any service you skipped. `mcp` won't start without `mcp.env`, and that stops the run before the publisher, so if you skipped any, name the ones you run instead: `services/deploy.sh storage tiktok photos publisher`.
 
@@ -117,6 +118,18 @@ If `photos` is down, text and video posts still go out. On Bluesky, a picture un
 
 Install it before updating the publisher: `services/deploy.sh all` does this for you, once the `planvideo-photos` user exists.
 
+## The gateway
+
+`services/deploy.sh publisher` installs it too, the first time. It starts as the publisher leaves port 8798, and if either doesn't come up, the old publisher goes back on that port.
+
+The publisher holds every login and sends every post, so nothing on the internet talks to it directly. The gateway takes `/api/publisher/` from Caddy and passes each request on.
+
+- **What it holds:** only `SENDER_SECRET`, the password for reaching the publisher, in `gateway.env`. `services/deploy.sh` makes it, adds it to `publisher.env` and writes `gateway.env`, so there's nothing to set up. It has no login, database or storage key, and its unit lets it talk only to this server.
+- **If someone broke into it:** they couldn't read logins, or post on their own. The publisher still checks every session and signed link, so they'd get only what comes through while they're there, such as the sessions of people using the dashboard at the time. Fix the hole, change the password below, and end everyone's sessions in Supabase.
+- **What it doesn't cover:** both services run on one server as separate users. Someone who gets root there has everything.
+
+To change the password, remove the `SENDER_SECRET` line from `publisher.env`, then run `services/deploy.sh gateway`. It makes a new one and restarts both.
+
 ## The publisher's keys
 
 `TOKEN_KEY` seals every network login, and `BLUESKY_OAUTH_JWK` is your "Sign in with Bluesky" client's private key. Make both once, on the server, after `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are in `publisher.env`:
@@ -147,7 +160,7 @@ curl https://your-domain.com/api/publisher/health
 journalctl -u plan-video-publisher -f
 ```
 
-Health answers `200` with `"ok": true`, or `503` with a list of problems: posts running late, sends failing, a `TOKEN_KEY` that doesn't open the logins, or no sending pass in 15 minutes.
+Health answers `200` with `"ok": true`, or `503` with a list of problems: posts running late, sends failing, a `TOKEN_KEY` that doesn't open the logins, no sending pass in 15 minutes, or a publisher the gateway can't reach.
 
 ## Monitoring
 

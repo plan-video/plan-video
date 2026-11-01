@@ -10,8 +10,10 @@ plan.video is one web app plus a handful of small services. The browser does the
   <Lane title="Your server" icon="server">
     - **Caddy**
       Serves the site and routes `/api` and `/mcp`
+    - **gateway**
+      Takes the publisher's public traffic, with no keys of its own
     - **publisher**
-      Sends posts and keeps logins
+      Sends posts and keeps logins, off the internet
     - **storage**
       Signs links to your files
     - **mcp**
@@ -62,6 +64,8 @@ plan.video is one web app plus a handful of small services. The browser does the
 ## How logins are kept
 
 When someone connects an account, the network sends them back with a code, which the publisher swaps for the login. The login is sealed with AES-256-GCM under `TOKEN_KEY` and kept in `social_tokens`. Browsers only ever hold a sealed ticket. The publisher refreshes each login before it runs out. [Network apps](/docs/network-apps#how-connecting-works) goes through it step by step.
+
+Nothing on the internet reaches the publisher directly. The [gateway](/docs/services#the-gateway) takes its traffic and passes it on, and holds no login, database or storage key.
 
 ## How agents connect
 

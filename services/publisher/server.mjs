@@ -9,6 +9,7 @@ import { createAccountDeletion } from "./account-deletion.mjs";
 import { createApi, createUsers, json, readBody, revoke } from "./api.mjs";
 import { createAccountLimits } from "./accounts.mjs";
 import { createConnectLinks } from "./connect-links.mjs";
+import { SENDER_PORT, onlyFromGateway } from "./gateway-link.mjs";
 import { createDb } from "./db.mjs";
 import { PublishError, Refused } from "./errors.mjs";
 import { createHealth } from "./health.mjs";
@@ -43,7 +44,6 @@ import { createYouTubeCheck } from "./youtube-check.mjs";
 keepNodeFetch();
 
 const HOST = "127.0.0.1";
-const PORT = 8798;
 const PASS_MS = 30_000;
 const DISPATCH_MS = 5_000;
 /** A run is planned this long after its moment, so the clock is surely past it. */
@@ -103,6 +103,10 @@ const networkEnv = {
 // calendar from before the publisher existed don't all go out on its first day.
 const sendFrom = Date.parse(own.SEND_FROM || "") || Date.now();
 if (!own.SEND_FROM) console.warn("[publisher] SEND_FROM isn't set, so runs that came due while the service was down won't be sent");
+
+// Without it nothing can reach the API and networks can't pull files, though other sends go on: health says so.
+const senderSecret = own.SENDER_SECRET || "";
+if (!senderSecret) console.error("[publisher] SENDER_SECRET isn't set, so the gateway can't reach it. services/deploy.sh makes one");
 
 const db = createDb({ url: supabaseUrl, serviceKey });
 const vault = createVault({ db, key: own.TOKEN_KEY, env: networkEnv });
@@ -191,11 +195,12 @@ const api = createApi({
   users: createUsers({ supabaseUrl, anonKey: shared.SUPABASE_ANON_KEY || own.SUPABASE_ANON_KEY, requireInvite: (own.REQUIRE_INVITE || shared.REQUIRE_INVITE) !== "false" }),
 });
 
-const server = createServer((req, res) => {
+const server = createServer(onlyFromGateway(senderSecret, (req, res) => {
   const path = (req.url || "").split("?")[0];
   if (path === "/api/publisher/health") {
     const problems = [
       ...(nodeProblem ? [nodeProblem] : []),
+      ...(senderSecret ? [] : ["SENDER_SECRET isn't set, so the gateway can't reach the publisher"]),
       ...(Date.now() - lastPass < STUCK_MS ? [] : ["no sending pass has finished for 15 minutes"]),
       ...health.report(),
     ];
@@ -207,7 +212,7 @@ const server = createServer((req, res) => {
     json(res, 404, { error: "Unknown publisher route." });
     return;
   }
-  // Open to Instagram and Threads, which fetch a post's video without signing in: each link is signed and runs out.
+  // Instagram and Threads fetch a post's video without signing in: each link is signed and runs out.
   if (path.startsWith(VIDEO_PATH)) {
     photos.serveVideo(req, res, path).catch((error) => {
       console.error("[publisher] video failed", error instanceof Error ? error.message : error);
@@ -216,7 +221,7 @@ const server = createServer((req, res) => {
     });
     return;
   }
-  // Open to TikTok, which fetches them without signing in: each link is signed and runs out.
+  // TikTok fetches them without signing in: each link is signed and runs out.
   if (path.startsWith(PHOTO_PATH)) {
     photos.serve(req, res, path).catch((error) => {
       console.error("[publisher] photo failed", error instanceof Error ? error.message : error);
@@ -225,7 +230,7 @@ const server = createServer((req, res) => {
     });
     return;
   }
-  // Open to anyone, signed in or not: the support form, which needs no login.
+  // Anyone's, signed in or not: the support form, which needs no login.
   if (path === SUPPORT_PATH) {
     support(req, res).catch((error) => {
       if (error instanceof Refused) json(res, error.status, { error: error.message });
@@ -249,12 +254,12 @@ const server = createServer((req, res) => {
       json(res, 500, { error: "Publishing isn't available right now." });
     }
   });
-});
+}));
 
 server.requestTimeout = 30_000;
 server.headersTimeout = 15_000;
-server.listen(PORT, HOST, () => {
-  console.log(`publisher listening on ${HOST}:${PORT}, sending runs due from ${new Date(sendFrom).toISOString()}`);
+server.listen(SENDER_PORT, HOST, () => {
+  console.log(`publisher listening on ${HOST}:${SENDER_PORT}, sending runs due from ${new Date(sendFrom).toISOString()}`);
   const adopt = () => (health.keyWrong() ? Promise.resolve(0) : worker.adopt()).then((kept) => kept && console.log(`[publisher] kept ${kept} logins from account state`)).catch((error) => console.error("[publisher] adopting logins failed", error));
   const checkHealth = () => health.check().catch((error) => console.error("[publisher] health check failed", error));
   // The key is checked before the first pass, so a wrong one sends nothing at all.
@@ -274,7 +279,7 @@ server.listen(PORT, HOST, () => {
       return loops.pass();
     });
   // A restart lets the sends going finish first, so they aren't cut off and failed as ones that may have gone out.
-  // The server keeps answering meanwhile: Instagram and Threads pull the files of a send going from it.
+  // The server keeps answering meanwhile: Instagram and Threads pull the files of a send going from it, through the gateway.
   let stopping = false;
   for (const signal of ["SIGTERM", "SIGINT"]) {
     process.on(signal, () => {
