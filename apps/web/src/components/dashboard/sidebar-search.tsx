@@ -16,9 +16,10 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { Command as CommandPrimitive } from "cmdk-solid";
+import { Command as CommandPrimitive, defaultFilter } from "cmdk-solid";
 import { isInputTarget } from "@/utils";
 
+import { rankMatches } from "./search-rank";
 import type { DashboardView } from "./types";
 
 const MAC = /Mac|iPhone|iPad/.test(navigator.platform);
@@ -73,10 +74,11 @@ type DashboardSidebarSearchProps = {
 
 export function DashboardSidebarSearch(props: DashboardSidebarSearchProps) {
   const [open, setOpen] = createSignal(false);
+  const [query, setQuery] = createSignal("");
 
   const sections = () => {
     const groups: { label: string; items: SearchPage[] }[] = [];
-    for (const page of PAGES) {
+    for (const page of rankMatches(PAGES, query(), searchValue, defaultFilter)) {
       const group = groups.find((entry) => entry.label === page.section);
       if (group) group.items.push(page);
       else groups.push({ label: page.section, items: [page] });
@@ -109,7 +111,7 @@ export function DashboardSidebarSearch(props: DashboardSidebarSearchProps) {
   });
 
   createEffect(() => {
-    if (!open()) return;
+    if (!open()) return setQuery("");
     queueMicrotask(() => {
       document.querySelector<HTMLInputElement>("[data-slot=command-input]")?.focus();
     });
@@ -153,7 +155,7 @@ export function DashboardSidebarSearch(props: DashboardSidebarSearchProps) {
             }}
           >
             <Command
-              shouldFilter
+              shouldFilter={false}
               loop
               class="flex max-h-[min(80vh,30rem)] flex-col overflow-hidden rounded-none bg-transparent"
             >
@@ -161,6 +163,8 @@ export function DashboardSidebarSearch(props: DashboardSidebarSearchProps) {
                 <PlaneIcon name="search" class="size-3.5 text-(--plane-text-placeholder)" />
                 <CommandPrimitive.Input
                   data-slot="command-input"
+                  value={query()}
+                  onValueChange={setQuery}
                   placeholder={t("Search pages")}
                   class="h-7 min-w-0 flex-1 bg-transparent text-sm text-(--plane-text-primary) outline-none placeholder:text-(--plane-text-placeholder)"
                 />
