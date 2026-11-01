@@ -15,8 +15,8 @@ export type Site = {
   /** Loads with the sign-in. */
   LoginPanel: Component & { preload: () => Promise<unknown> };
   SiteScrollbar: Component;
-  /** Once the homepage won't show. */
-  removeHeroShell: () => void;
+  /** Once the page the HTML drew a hero for won't show. */
+  removeHeroShell: (unless?: string) => void;
   /** For the dot on the dashboard's help menu. */
   newestChangelog: () => Promise<string | undefined>;
 };

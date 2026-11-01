@@ -18,7 +18,7 @@ In week view, drag a post to another day or time. The post goes out at its new t
 
 ## Edit, share or delete
 
-Click a post to open it. From there you can **Edit**, **Share** a [preview link](/docs/clients#preview-links) or **Delete** it, and the **⋯** menu has **Quick edit**, **Copy caption** and **Move to drafts**. A post that has gone out shows **Post again**. Repeating posts also show controls to pause or end the series, and **Delete** offers **Skip this one**.
+Click a post to open it. From there you can **Edit**, **Share** a [preview link](/docs/clients#preview-links) or **Delete** it, and the **…** menu has **Quick edit**, **Copy caption** and **Move to drafts**. A post that has gone out shows **Post again**. Repeating posts also show controls to pause or end the series, and **Delete** offers **Skip this one**.
 
 ## Failed posts
 
