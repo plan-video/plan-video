@@ -76,8 +76,8 @@ export function DashboardIconRailItem(props: {
         class={cx(
           "relative flex size-8 items-center justify-center rounded-md transition-colors",
           props.active
-            ? "bg-(--plane-layer-transparent-active) text-(--plane-text-primary)"
-            : "text-(--plane-text-tertiary) group-hover:bg-(--plane-layer-transparent-hover) group-hover:text-(--plane-text-primary)",
+            ? "bg-(--plane-layer-transparent-active) text-(--plane-text-primary) max-md:bg-transparent max-md:text-(--plane-accent-primary)"
+            : "text-(--plane-text-tertiary) group-hover:bg-(--plane-layer-transparent-hover) group-hover:text-(--plane-text-primary) max-md:text-(--plane-text-secondary)",
         )}
       >
         <PlaneIcon name={props.icon} class="size-5" />
@@ -87,8 +87,8 @@ export function DashboardIconRailItem(props: {
         {/* CJK would break a name between any two characters; it wraps between words instead. */}
         <span
           class={cx(
-            "text-center text-xxs leading-[1.1] font-medium [word-break:keep-all] transition-colors",
-            props.active ? "text-(--plane-text-primary)" : "text-(--plane-text-tertiary) group-hover:text-(--plane-text-secondary)",
+            "text-center text-xxs leading-[1.1] font-medium [word-break:keep-all] transition-colors max-md:truncate",
+            props.active ? "text-(--plane-text-primary) max-md:text-(--plane-accent-primary)" : "text-(--plane-text-tertiary) group-hover:text-(--plane-text-secondary) max-md:text-(--plane-text-secondary)",
           )}
         >
           {props.label}

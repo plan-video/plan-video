@@ -129,7 +129,7 @@ export function DashboardSidebarSearch(props: DashboardSidebarSearchProps) {
         class="flex h-7 w-[364px] max-w-[36vw] items-center rounded-md border border-(--plane-border-subtle-1) bg-(--plane-layer-2) p-2 text-left outline-none transition-colors duration-200 hover:bg-(--plane-layer-2-hover) focus-ring max-md:size-9 max-md:justify-center max-md:border-0 max-md:bg-transparent"
         onClick={() => setOpen(true)}
       >
-        <PlaneIcon name="search" class="mr-2 size-3.5 text-(--plane-text-placeholder) max-md:mr-0 max-md:size-5 max-md:text-(--plane-text-tertiary)" />
+        <PlaneIcon name="search" class="mr-2 size-3.5 text-(--plane-text-placeholder) max-md:mr-0 max-md:size-5 max-md:text-(--plane-text-secondary)" />
         <span class="min-w-0 flex-1 truncate text-sm text-(--plane-text-placeholder) max-md:hidden">{props.placeholder ?? t("Search")}</span>
         {/* Each key on its own, so the ⌘ glyph does not run into the letter. */}
         <Kbd class="h-5 shrink-0 gap-[3px] rounded-md border border-(--plane-border-subtle-1) bg-(--plane-layer-1) px-1.5 text-xxs font-medium text-(--plane-text-tertiary) max-md:hidden">

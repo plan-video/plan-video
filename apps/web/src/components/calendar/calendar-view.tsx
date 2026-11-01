@@ -201,7 +201,6 @@ function CalendarHeader(props: { nav: CalendarNavigation }) {
 
   return (
     <DashboardPageHeader
-      noPhoneCrumbs
       nav={
         <div class="ml-1 flex min-w-0 items-center gap-0.5 max-md:hidden">
           <PlaneButton variant="secondary" size="lg" class="mr-1" aria-keyshortcuts="T" onClick={() => props.nav.go(props.nav.today())}>

@@ -378,6 +378,7 @@ export function DashboardPage() {
   createEffect(on(view, () => playEnter(pageBox), { defer: true }));
 
   const [drawerOpen, setDrawerOpen] = createSignal(false);
+  const railLabels = () => isPhone() || dashboardRailLabels();
   createEffect(on(() => [params.dashboard, params.folder, params.view], () => setDrawerOpen(false), { defer: true }));
 
   const notifications = createNotifications(setView);
@@ -477,7 +478,7 @@ export function DashboardPage() {
       // Wide enough that the longest name ("Analytics") keeps room on both sides.
       style={{ "--rail-width": dashboardRailLabels() ? "4.75rem" : "3rem" }}
     >
-      <header class="relative z-[27] flex min-h-10 w-full shrink-0 items-center bg-(--plane-canvas) px-3.5 max-md:h-12 max-md:gap-1 max-md:px-2">
+      <header class="relative z-[27] flex min-h-10 w-full shrink-0 items-center bg-(--plane-canvas) px-3.5 max-md:h-12 max-md:gap-1 max-md:bg-(--plane-surface-1) max-md:px-2">
         <button
           type="button"
           aria-label={t("Menu")}
@@ -485,7 +486,9 @@ export function DashboardPage() {
           class="grid size-9 shrink-0 place-items-center rounded-md text-(--plane-text-secondary) outline-none press focus-ring md:hidden"
           onClick={() => setDrawerOpen((open) => !open)}
         >
-          <Menu class="size-5" />
+          <Show when={drawerOpen()} fallback={<Menu class="size-5" />}>
+            <PlaneIcon name="close" class="size-5" />
+          </Show>
         </button>
         <div class="flex min-w-0 flex-1 shrink-0">
           {/* On the rail's centre line: half the rail, less the header's 14px, the switcher's 4px and half the 28px badge. */}
@@ -529,20 +532,22 @@ export function DashboardPage() {
         <nav
           aria-label={t("Apps")}
           class={cx(
-            "z-[26] flex h-full w-(--rail-width) shrink-0 flex-col bg-(--plane-canvas) px-2 pt-2 pb-3 max-md:h-auto max-md:w-full max-md:flex-row max-md:justify-around max-md:gap-0 max-md:border-t max-md:border-(--plane-border-subtle) max-md:px-1 max-md:py-1.5",
+            "z-[26] flex h-full w-(--rail-width) shrink-0 flex-col bg-(--plane-canvas) px-2 pt-2 pb-3 max-md:h-14 max-md:w-full max-md:flex-row max-md:gap-0 max-md:border-t max-md:border-(--plane-border-subtle) max-md:bg-(--plane-surface-1) max-md:p-0 max-md:*:min-w-0 max-md:*:flex-1 max-md:*:gap-0.5",
             dashboardRailLabels() ? "gap-4" : "gap-2",
           )}
         >
-          <DashboardIconRailItem showLabel={dashboardRailLabels()} tooltip="right" active={rail() === "work"} onClick={() => openRail("work")} icon="calendar" label={t(RAIL_LABELS.work)} />
+          <DashboardIconRailItem showLabel={railLabels()} tooltip="right" active={rail() === "work" || (isPhone() && rail() === "plugs")} onClick={() => openRail("work")} icon="calendar" label={t(RAIL_LABELS.work)} />
           <div class="contents max-md:hidden">
-            <DashboardIconRailItem showLabel={dashboardRailLabels()} tooltip="right" active={rail() === "projects"} onClick={() => openRail("projects")} icon="project" label={t("Projects")} />
+            <DashboardIconRailItem showLabel={railLabels()} tooltip="right" active={rail() === "projects"} onClick={() => openRail("projects")} icon="project" label={t("Projects")} />
           </div>
-          <DashboardIconRailItem showLabel={dashboardRailLabels()} tooltip="right" active={rail() === "library"} onClick={() => openRail("library")} icon="layer-stack" label={t("Library")} />
-          <DashboardIconRailItem showLabel={dashboardRailLabels()} tooltip="right" active={rail() === "agent"} onClick={() => openRail("agent")} icon="agent" label={t(RAIL_LABELS.agent)} />
-          <DashboardIconRailItem showLabel={dashboardRailLabels()} tooltip="right" active={rail() === "plugs"} onClick={() => openRail("plugs")} icon="plug" label={t("Plugs")} />
-          <DashboardIconRailItem showLabel={dashboardRailLabels()} tooltip="right" active={rail() === "analytics"} onClick={() => openRail("analytics")} icon="analytics" label={t("Analytics")} />
+          <DashboardIconRailItem showLabel={railLabels()} tooltip="right" active={rail() === "library"} onClick={() => openRail("library")} icon="layer-stack" label={t("Library")} />
+          <DashboardIconRailItem showLabel={railLabels()} tooltip="right" active={rail() === "agent"} onClick={() => openRail("agent")} icon="agent" label={t(RAIL_LABELS.agent)} />
+          <div class="contents max-md:hidden">
+            <DashboardIconRailItem showLabel={railLabels()} tooltip="right" active={rail() === "plugs"} onClick={() => openRail("plugs")} icon="plug" label={t("Plugs")} />
+          </div>
+          <DashboardIconRailItem showLabel={railLabels()} tooltip="right" active={rail() === "analytics"} onClick={() => openRail("analytics")} icon="analytics" label={t("Analytics")} />
           <div class="min-h-0 flex-1 max-md:hidden" />
-          <DashboardIconRailItem showLabel={dashboardRailLabels()} tooltip="right" active={rail() === "settings"} onClick={() => openRail("settings")} icon="settings" label={t("Settings")} />
+          <DashboardIconRailItem showLabel={railLabels()} tooltip="right" active={rail() === "settings"} onClick={() => openRail("settings")} icon="settings" label={t("Settings")} />
         </nav>
 
         <div class="relative min-h-0 min-w-0 flex-grow overflow-hidden pr-2 pb-2 max-md:p-0">
@@ -612,6 +617,9 @@ export function DashboardPage() {
                     <PageLink view="calendar" badge={sendingBadge()} />
                     <PageLink view="bulk-tools" />
                     <PageLink view="queue" />
+                    <div class="contents md:hidden">
+                      <PageLink view="plugs" />
+                    </div>
                   </DashboardSidebarSection>
                   <DashboardSidebarSection title={t("Posts")}>
                     <For each={POST_PAGES}>
