@@ -268,7 +268,7 @@ const TOKENS = [
 
 const SCHEDULE_MODES: { id: ScheduleMode; label: string }[] = [
   { id: "spread", label: msg("Spread out") },
-  { id: "queue", label: msg("Queue") },
+  { id: "queue", label: msg("Auto-schedule") },
   { id: "best", label: msg("Best times") },
 ];
 
@@ -725,7 +725,7 @@ function EmptyState(props: {
 }) {
   const features = [
     { icon: "text", title: msg("Caption them together"), text: msg("One template, with each file's name or number filled in.") },
-    { icon: "calendar", title: msg("Space them out"), text: msg("Every few hours or days, in your queue, or at your audience's best times.") },
+    { icon: "calendar", title: msg("Space them out"), text: msg("Every few hours or days, with Auto-schedule, or at your audience's best times.") },
     { icon: "download", title: msg("Bring a spreadsheet"), text: msg("Captions and times from a CSV, matched to files by name.") },
   ];
 
@@ -1099,10 +1099,10 @@ function BatchPanel(props: { target: BulkPost[] }) {
     if (!times.length) return;
     assign(times);
     const short = count() - times.length;
-    toast.success(t("{count, plural, one {Queued # post} other {Queued # posts}}", { count: times.length }), {
+    toast.success(t("{count, plural, one {Scheduled # post} other {Scheduled # posts}}", { count: times.length }), {
       description: short
         ? t(
-            "{count, plural, one {# post kept its time: the queue has no more open slots in the next two months.} other {# posts kept their time: the queue has no more open slots in the next two months.}}",
+            "{count, plural, one {# post kept its time: Auto-schedule has no more free times in the next two months.} other {# posts kept their time: Auto-schedule has no more free times in the next two months.}}",
             { count: short },
           )
         : range(times),
@@ -1293,7 +1293,7 @@ function BatchPanel(props: { target: BulkPost[] }) {
                 </Button>
               </div>
               <p class="text-xs leading-4 text-muted-foreground">
-                <Show when={queuePlan().length} fallback={t("Every slot in the next two months is taken.")}>
+                <Show when={queuePlan().length} fallback={t("All your times in the next two months are taken.")}>
                   {range(queuePlan())}
                   <Show when={queuePlan().length < count()}>, {t("{count} of {total} fit", { count: queuePlan().length, total: count() })}</Show>
                 </Show>
@@ -1303,12 +1303,12 @@ function BatchPanel(props: { target: BulkPost[] }) {
               when={queueSlots().length}
               fallback={
                 <Button variant="secondary" class="w-full" onClick={openQueueSettings}>
-                  {t("Set up queue")}
+                  {t("Set up Auto-schedule")}
                 </Button>
               }
             >
               <Button variant="secondary" class="w-full" disabled={!queuePlan().length} onClick={fillQueue}>
-                {t("{count, plural, one {Queue # post} other {Queue # posts}}", { count: count() })}
+                {t("{count, plural, one {Auto-schedule # post} other {Auto-schedule # posts}}", { count: count() })}
               </Button>
             </Show>
           </Show>

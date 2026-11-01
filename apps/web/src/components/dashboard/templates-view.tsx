@@ -54,7 +54,7 @@ type Editing = { id: string | null; draft: TemplateDraft };
 const WHEN_OPTIONS: { id: TemplateWhen; label: string }[] = [
   { id: "none", label: msg("No set time") },
   { id: "time", label: msg("At a time") },
-  { id: "queue", label: msg("Queue slot") },
+  { id: "queue", label: msg("Auto-schedule") },
 ];
 
 function repeatLabel(repeat: string): string | null {
@@ -62,7 +62,7 @@ function repeatLabel(repeat: string): string | null {
 }
 
 function whenLabel(template: Pick<PostTemplate, "when" | "time" | "repeat">): string {
-  if (template.when === "queue") return t("Next queue slot");
+  if (template.when === "queue") return t("Next free time");
   if (template.when === "none") return t("No set time");
   const repeats = repeatLabel(template.repeat);
   return repeats ? t("At {time}, {repeats}", { time: template.time, repeats }) : t("At {time}", { time: template.time });
@@ -471,7 +471,7 @@ function TemplateEditor(props: { editing: Editing; onClose(): void; onDelete(tem
                 </p>
               </Show>
               <Show when={draft.when === "queue"}>
-                <p class="text-xs text-muted-foreground">{t("Each post takes the next free slot in your queue.")}</p>
+                <p class="text-xs text-muted-foreground">{t("Each post takes the next free time in Auto-schedule.")}</p>
               </Show>
             </div>
 

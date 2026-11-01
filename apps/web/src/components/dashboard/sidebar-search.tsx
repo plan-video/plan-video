@@ -29,13 +29,14 @@ type SearchPage = {
   name: string;
   section: string;
   icon: string;
+  also?: string;
 };
 
 const PAGES: SearchPage[] = [
   { view: "new-post", name: msg("New post"), section: msg("Create"), icon: "document" },
   { view: "bulk-tools", name: msg("Bulk tools"), section: msg("Create"), icon: "layers" },
   { view: "calendar", name: msg("Calendar"), section: msg("Calendar"), icon: "calendar" },
-  { view: "queue", name: msg("Queue"), section: msg("Calendar"), icon: "clock" },
+  { view: "queue", name: msg("Auto-schedule"), section: msg("Calendar"), icon: "clock", also: msg("Queue") },
   { view: "posts", name: msg("Post list"), section: msg("Calendar"), icon: "list" },
   { view: "scheduled", name: msg("Scheduled"), section: msg("Calendar"), icon: "clock" },
   { view: "drafts", name: msg("Drafts"), section: msg("Calendar"), icon: "document" },
@@ -63,8 +64,9 @@ const PAGES: SearchPage[] = [
 
 /** In English too, so the English words still find a page in another language. */
 function searchValue(page: SearchPage) {
-  const english = `${page.name} ${page.section}`;
-  const shown = `${t(page.name)} ${t(page.section)}`;
+  const also = page.also ?? "";
+  const english = `${page.name} ${page.section} ${also}`;
+  const shown = `${t(page.name)} ${t(page.section)} ${also && t(also)}`;
   return shown === english ? english : `${shown} ${english}`;
 }
 

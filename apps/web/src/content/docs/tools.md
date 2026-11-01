@@ -21,7 +21,7 @@ These are the tools plan.video gives your agent. You don't need to call them you
 - **See your logins.** Network tokens are never sent to agents.
 - **Edit videos.** Editing with an agent isn't available yet.
 - **Give each network its own caption.** A post has one caption, so ask for one post per network instead.
-- **Use your queue.** Agents always give a day and time.
+- **Use Auto-schedule.** Agents always give a day and time.
 - **Filter by failed posts.** `list_posts` shows draft, scheduled and posted, and says whether each send worked.
 
 <Warning>

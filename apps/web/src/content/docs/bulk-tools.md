@@ -8,10 +8,10 @@
     Select posts, then use **Apply to** to set the accounts, post them as posts or stories, and write a caption they share. A caption can use `{name}`, `{n}` and `{date}`, so each post gets its own.
   </Step>
   <Step title="Choose when">
-    Space them out every so many days or hours, with **Skip weekends** if you like. Or give them the next slots in your [queue](/docs/scheduling#your-posting-queue), or your [best times](/docs/analytics#post-at-your-best-times).
+    Space them out every so many days or hours, with **Skip weekends** if you like. Or give them the next free times in [Auto-schedule](/docs/scheduling#auto-schedule), or your [best times](/docs/analytics#post-at-your-best-times).
   </Step>
   <Step title="Send them off">
-    Click **Schedule # posts** (or **Queue # posts**), **Save as drafts** or **Post now**.
+    Click **Schedule # posts** (or **Auto-schedule # posts**), **Save as drafts** or **Post now**.
   </Step>
 </Steps>
 

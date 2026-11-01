@@ -41,19 +41,19 @@ visitor in another language sees their headline at the first paint too.
 Each language keeps one register and one word per product term. Match them
 when translating new strings:
 
-| | register | post | Schedule | draft | queue | Plugs | Vault | workspace | subtitles | Templates |
+| | register | post | Schedule | draft | queue (shown as Auto-schedule) | Plugs | Vault | workspace | subtitles | Templates |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| es | tú | Publicación | Programación | Borrador | Cola | Promos | Bóveda | Espacio de trabajo | Subtítulos | Plantillas |
-| fr | vous | Publication | Planning | Brouillon | File d’attente | Relances | Coffre | Espace de travail | Sous-titres | Modèles |
-| de | du | Post | Planung | Entwurf | Warteschlange | Plugs | Tresor | Workspace | Untertitel | Vorlagen |
-| it | tu | Post | Programmazione | Bozza | Coda | Automazioni | Archivio | Spazio di lavoro | Sottotitoli | Modelli |
-| pt-BR | você | Post | Agenda | Rascunho | Fila | Divulgações | Cofre | Espaço de trabalho | Legendas | Modelos |
-| nl | je | Post | Planning | Concept | Wachtrij | Plugs | Kluis | Werkruimte | Ondertiteling | Sjablonen |
-| pl | ty | Post | Harmonogram | Szkic | Kolejka | Dopiski | Skarbiec | Przestrzeń robocza | Napisy | Szablony |
-| tr | sen | Gönderi | Planlama | Taslak | Sıra | Tanıtımlar | Kasa | Çalışma alanı | Altyazılar | Şablonlar |
-| ja | です/ます | 投稿 | 予約投稿 | 下書き | キュー | 宣伝 | 保管庫 | ワークスペース | 字幕 | テンプレート |
-| ko | 해요체 | 게시물 | 일정 | 초안 | 대기열 | 홍보 댓글 | 보관함 | 워크스페이스 | 자막 | 템플릿 |
-| zh-CN | 你 | 帖子 | 排期 | 草稿 | 队列 | 引流 | 文案库 | 工作区 | 字幕 | 模板 |
+| es | tú | Publicación | Programación | Borrador | Programación automática | Promos | Bóveda | Espacio de trabajo | Subtítulos | Plantillas |
+| fr | vous | Publication | Planning | Brouillon | Planning automatique | Relances | Coffre | Espace de travail | Sous-titres | Modèles |
+| de | du | Post | Planung | Entwurf | Auto-Planung | Plugs | Tresor | Workspace | Untertitel | Vorlagen |
+| it | tu | Post | Programmazione | Bozza | Programmazione automatica | Automazioni | Archivio | Spazio di lavoro | Sottotitoli | Modelli |
+| pt-BR | você | Post | Agenda | Rascunho | Agenda automática | Divulgações | Cofre | Espaço de trabalho | Legendas | Modelos |
+| nl | je | Post | Planning | Concept | Auto-planning | Plugs | Kluis | Werkruimte | Ondertiteling | Sjablonen |
+| pl | ty | Post | Harmonogram | Szkic | Automatyczny harmonogram | Dopiski | Skarbiec | Przestrzeń robocza | Napisy | Szablony |
+| tr | sen | Gönderi | Planlama | Taslak | Otomatik planlama | Tanıtımlar | Kasa | Çalışma alanı | Altyazılar | Şablonlar |
+| ja | です/ます | 投稿 | 予約投稿 | 下書き | 自動予約 | 宣伝 | 保管庫 | ワークスペース | 字幕 | テンプレート |
+| ko | 해요체 | 게시물 | 일정 | 초안 | 자동 일정 | 홍보 댓글 | 보관함 | 워크스페이스 | 자막 | 템플릿 |
+| zh-CN | 你 | 帖子 | 排期 | 草稿 | 自动排期 | 引流 | 文案库 | 工作区 | 字幕 | 模板 |
 
 - "Caption" in the scheduler is the post's text. In the editor it means the
   subtitles drawn on the video (the context "video subtitles").

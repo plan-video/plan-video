@@ -15,7 +15,7 @@ Want a look first? [The demo](/try) opens the dashboard and editor with sample p
     Click **New post**, pick the accounts to post to, add a video or pictures, and write a caption. Each network gets its own preview, and you can change the caption for one network without touching the others.
   </Step>
   <Step title="Pick a time">
-    Under **When**, pick **Next queue slot**, a quick time like **Tomorrow**, or **Date and time**. Then click **Schedule**, or **Add to queue** for a queue slot. To send it straight away, click **Post now**.
+    Under **When**, pick **Next free time**, a quick time like **Tomorrow**, or **Date and time**. Then click **Schedule**, or **Auto-schedule** for a free time. To send it straight away, click **Post now**.
   </Step>
   <Step title="Check your calendar">
     Your post shows up on the **Calendar**. Click it to edit or delete it. In week view, you can also drag it to a new time.

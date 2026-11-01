@@ -21,8 +21,8 @@
   <Accordion title="Do I need to keep plan.video open for my posts to go out?">
     No. Scheduled posts go out from plan.video's servers at their time, even with your computer off. Each post then shows that it went out, or why a network turned it down. See [Failed posts](/docs/failed-posts).
   </Accordion>
-  <Accordion title="Can I repeat posts or keep a queue?">
-    Both. A post can repeat every weekday or every few days, weeks or months, and stop on a date or after a number of posts. Or set the days and times you post once, and each new post takes the next open slot. On paid plans, bulk scheduling fills the queue with a whole batch of videos at once. See [Schedule and repeat](/docs/scheduling).
+  <Accordion title="Can I repeat posts or keep a posting queue?">
+    Both. A post can repeat every weekday or every few days, weeks or months, and stop on a date or after a number of posts. Or use Auto-schedule: set the days and times you post once, and each new post can take the next free time. On paid plans, bulk scheduling fills those times with a whole batch of videos at once. See [Schedule and repeat](/docs/scheduling).
   </Accordion>
   <Accordion title="Will scheduling hurt my reach?">
     No. plan.video sends each post through the network's own official API, so it goes out as an ordinary post from your account and reaches as many people as one you post yourself.

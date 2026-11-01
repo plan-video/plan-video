@@ -25,4 +25,4 @@ A **template** is a post set up once, ready to start from: its accounts, caption
 - **Make one:** click **New** on the **Templates** page, or in **New post** open **Templates** and choose **Save as template…**.
 - **Use one:** click **Use** on the template. It opens as a new post, and changing it there leaves the template as it was.
 
-A template's **Goes out** can be **No set time**, a set time, or **Next queue slot**.
+A template's **Goes out** can be **No set time**, a set time, or **Auto-schedule**.

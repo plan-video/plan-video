@@ -4,7 +4,7 @@ Choose when each post goes out. plan.video's servers send it at that time, so yo
 
 | Option | What happens |
 | --- | --- |
-| **Next queue slot** | The post takes the next open slot in your posting queue. |
+| **Next free time** | The post takes the next free time in [Auto-schedule](#auto-schedule). |
 | **In an hour**, **Tonight**, **Tomorrow**, **Monday** | The post is sent at that time. The list shows when each one is. |
 | **Best for your audience** | The post is sent at your best time, from your [Analytics](/docs/analytics). It shows once there are enough numbers. |
 | **Date and time** | The post is sent at the time you pick. |
@@ -12,9 +12,9 @@ Choose when each post goes out. plan.video's servers send it at that time, so yo
 
 To send a post straight away, click **Post now**.
 
-## Your posting queue
+## Auto-schedule
 
-Set the days and times you usually post once, and each queued post takes the next open slot. Open **Queue** in the sidebar to see your week, or switch to **List**. You can also click **Set up queue** in a new post. Use **Add times** to add a time to several days at once, or the **+** under a day to add one there. Each time shows the next date it's open; click it to write the post that fills it. **Taken** means posts, including drafts and paused series, hold that time for the next 2 months; click it to see them in the calendar.
+Auto-schedule is your posting queue. Set the days and times you usually post once, and each new post can take the next free time. Open **Auto-schedule** in the sidebar to see your week, or switch to **List**. You can also click **Set up Auto-schedule** in a new post. Use **Add times** to add a time to several days at once, or the **+** under a day to add one there. Each time shows the next date it's open; click it to write the post that fills it. **Taken** means posts, including drafts and paused series, hold that time for the next 2 months; click it to see them in the calendar.
 
 ## Repeating posts
 

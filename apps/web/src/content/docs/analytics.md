@@ -17,6 +17,6 @@ Pick a range, from today to all time or dates of your own, and it compares them 
 
 ## Post at your best times
 
-**Best times** uses your posts from the last six months, in your time zone. Click **Add to queue** on a time to add it to your [posting queue](/docs/scheduling#your-posting-queue).
+**Best times** uses your posts from the last six months, in your time zone. Click **Add to Auto-schedule** on a time to add it to [Auto-schedule](/docs/scheduling#auto-schedule).
 
 New post offers **Best for your audience** when you pick a time, and [Bulk tools](/docs/bulk-tools) can spread a batch over your best times.

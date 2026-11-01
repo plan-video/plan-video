@@ -161,10 +161,10 @@ export function firstOpenBySlot(times: readonly Date[], list: readonly QueueSlot
 const DAY_LIST = localized((locale) => new Intl.ListFormat(locale, { type: "conjunction" }), "en-GB");
 
 export function describeQueue(list: readonly QueueSlot[] = slots()): string {
-  if (!list.length) return t("No slots yet");
+  if (!list.length) return t("No times yet");
   const byTime = new Map<string, number[]>();
   for (const slot of list) byTime.set(slot.time, [...(byTime.get(slot.time) ?? []), slot.weekday]);
-  if (byTime.size > 2) return t("{count, plural, one {# slot a week} other {# slots a week}}", { count: list.length });
+  if (byTime.size > 2) return t("{count, plural, one {# time a week} other {# times a week}}", { count: list.length });
   const names = (weekdays: number[]) => {
     const labels = QUEUE_WEEKDAYS.filter((day) => weekdays.includes(day.weekday)).map((day) => t(day.short));
     if (labels.length === 7) return t("Every day");

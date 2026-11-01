@@ -1476,8 +1476,8 @@ function BestTimes(props: { posts: readonly AnalyticsPost[] }) {
   const add = (slot: { day: number; hour: number }) => {
     const userId = auth.ownerId();
     if (!userId) return;
-    if (addQueueSlots(userId, [queueWeekday(slot.day)], hourLabel(slot.hour))) toast.success(t("Added to your posting queue"));
-    else toast.error(t("Your posting queue is full"));
+    if (addQueueSlots(userId, [queueWeekday(slot.day)], hourLabel(slot.hour))) toast.success(t("Added to Auto-schedule"));
+    else toast.error(t("Auto-schedule is full"));
   };
 
   return (
@@ -1549,7 +1549,7 @@ function BestTimes(props: { posts: readonly AnalyticsPost[] }) {
                   fallback={
                     <span class="flex h-7 shrink-0 items-center gap-1 px-2 text-xs text-muted-foreground">
                       <Icon name="confirm-check" class="size-4" />
-                      {t("In your queue")}
+                      {t("In Auto-schedule")}
                     </span>
                   }
                 >
@@ -1559,7 +1559,7 @@ function BestTimes(props: { posts: readonly AnalyticsPost[] }) {
                     class="h-7 shrink-0 rounded-md px-2 text-xs text-muted-foreground hover:bg-(--plane-layer-transparent-hover) hover:text-foreground disabled:opacity-50 focus-ring"
                     onClick={() => add(slot)}
                   >
-                    {t("Add to queue")}
+                    {t("Add to Auto-schedule")}
                   </button>
                 </Show>
               </div>

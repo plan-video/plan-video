@@ -61,11 +61,11 @@ export function WhenOptions(props: {
         {(queue) => (
           <WhenRow
             checked={queue().selected}
-            label={t("Next queue slot")}
+            label={t("Next free time")}
             onClick={() => (queue().hasSlots ? queue().onChoose() : queue().onSetUp())}
           >
-            <Show when={queue().hasSlots} fallback={<span class="text-primary">{t("Set up queue")}</span>}>
-              <Show when={queue().at} fallback={t("Every queue slot is taken")}>
+            <Show when={queue().hasSlots} fallback={<span class="text-primary">{t("Set up Auto-schedule")}</span>}>
+              <Show when={queue().at} fallback={t("All your times are taken")}>
                 {(at) => formatWhen(at())}
               </Show>
             </Show>

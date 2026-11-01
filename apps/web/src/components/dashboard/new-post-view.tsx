@@ -717,7 +717,7 @@ function setKind(kind: PostKind) {
 
 const POST_COLUMN = "mx-auto flex w-full max-w-[820px] flex-col px-10 pt-8 pb-12 max-md:px-4 max-md:pt-5";
 
-const SUBMIT_LABELS: Record<When, string> = { now: msg("Post now"), queue: msg("Add to queue"), schedule: msg({ message: "Schedule", context: "verb" }) };
+const SUBMIT_LABELS: Record<When, string> = { now: msg("Post now"), queue: msg("Auto-schedule"), schedule: msg({ message: "Schedule", context: "verb" }) };
 
 export function DashboardNewPostView() {
   const auth = useAuth();
@@ -821,7 +821,7 @@ export function DashboardNewPostView() {
     const next = nextSeriesRun();
     if (next !== undefined) return next ? null : msg("This series has no runs left. Pick a later end, or a new first day.");
     if (post.when === "schedule") return scheduleTimeProblem(scheduledAt());
-    if (post.when === "queue" && !queuedAt()) return queueSlots().length ? msg("Every queue slot is taken") : msg("Add a queue slot first");
+    if (post.when === "queue" && !queuedAt()) return queueSlots().length ? msg("All your times are taken") : msg("Add a time to Auto-schedule first");
     return null;
   };
 
@@ -1054,7 +1054,7 @@ export function DashboardNewPostView() {
         const cadence = !queued && post.repeat ? cadencePhrase(post.repeat, localDateKey(when)) : null;
         const end = cadence ? resolveRepeatEnd(post.repeatEnd, post.repeat, localDateKey(when)) : null;
         const repeats = cadence && (end ? t("{cadence} until {date}", { cadence, date: formatCalendarDay(end) }) : cadence);
-        toast.success(queued ? t("Queued for {date}", { date: formatWhen(shown) }) : t("Scheduled for {date}", { date: formatWhen(shown) }), {
+        toast.success(t("Scheduled for {date}", { date: formatWhen(shown) }), {
           description: [repeats ? t("Then {repeats}", { repeats }) : null, post.platforms.map((id) => socialPlatform(id).name).join(", ")]
             .filter(Boolean)
             .join(". "),
@@ -2215,7 +2215,7 @@ function SaveTemplateDialog(props: { onClose(): void }) {
     const own = Object.keys(post.overrides).length;
     if (own) parts.push(t("{count, plural, one {# caption of its own} other {# captions of their own}}", { count: own }));
     if (platformsWithSettings(post.kind, post.platforms).length) parts.push(t("platform settings"));
-    if (post.when === "queue") parts.push(t("the queue"));
+    if (post.when === "queue") parts.push(t("auto-schedule"));
     return parts;
   };
 
@@ -2803,7 +2803,7 @@ function PlatformSettingsSection(props: { issues: PostIssue[] }) {
 function WhenButton(props: { problem: string | null; queuedAt: Date | null }) {
   const later = () => (post.when === "queue" ? "queue" : "schedule");
   const label = () => {
-    if (later() === "queue") return props.queuedAt ? t("Queue · {date}", { date: formatWhen(props.queuedAt) }) : t("Queue");
+    if (later() === "queue") return props.queuedAt ? t("Auto-schedule · {date}", { date: formatWhen(props.queuedAt) }) : t("Auto-schedule");
     const at = atLocal(post.day, post.time);
     return at ? formatWhen(at) : t("Pick a time");
   };
@@ -2882,13 +2882,13 @@ function WhenFields(props: { problem: string | null; queuedAt: Date | null }) {
             when={!queued()}
             fallback={
               <Show when={queueSlots().length}>
-                <span class="whitespace-nowrap text-xs text-foreground">{t("Posting queue")}</span>
+                <span class="whitespace-nowrap text-xs text-foreground">{t("Auto-schedule")}</span>
                 <span class="flex h-7 min-w-0 items-center justify-between gap-2 text-xs text-muted-foreground">
                   <span class="truncate">
                     {describeQueue()} · {timeZoneName()}
                   </span>
                   <Button variant="link" size="small" class="h-4 shrink-0" onClick={openQueueSettings}>
-                    {t("Edit slots")}
+                    {t("Edit times")}
                   </Button>
                 </span>
               </Show>

@@ -188,7 +188,7 @@ const PAGES: Partial<Record<DashboardView, { label: string; icon: PlaneIconName 
   notifications: { label: msg("Inbox"), icon: "inbox" },
   "new-post": { label: msg("New post"), icon: "draft" },
   "bulk-tools": { label: msg("Bulk tools"), icon: "layers" },
-  queue: { label: msg("Queue"), icon: "queue" },
+  queue: { label: msg("Auto-schedule"), icon: "queue" },
   agent: { label: msg("Assistant"), icon: "agent" },
   projects: { label: msg("All projects"), icon: "project" },
   trash: { label: msg("Trash"), icon: "trash" },
@@ -610,8 +610,8 @@ export function DashboardPage() {
                 <Show when={rail() === "work"}>
                   <DashboardSidebarSection>
                     <PageLink view="calendar" badge={sendingBadge()} />
-                    <PageLink view="queue" />
                     <PageLink view="bulk-tools" />
+                    <PageLink view="queue" />
                   </DashboardSidebarSection>
                   <DashboardSidebarSection title={t("Posts")}>
                     <For each={POST_PAGES}>

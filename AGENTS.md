@@ -19,7 +19,7 @@ Ambitious ideas, simple systems. Find the real constraint, then make the smalles
 - **workspace**: one brand's or client's space, with its own accounts, posts and team. Everyone starts with "Personal".
 - **account**: a social account connected to a workspace (a YouTube channel, an X profile…). **network**: the service it's on.
 - **post**: what goes out, to one or more accounts. **thread**: a post with follow-ups (replies on X and Bluesky, comments on LinkedIn).
-- **queue**: a workspace's regular posting times, which new posts fill in order.
+- **queue**: a workspace's regular posting times, which new posts fill in order. People see it as "Auto-schedule".
 - **publisher**: the service that sends due posts and holds every network login. No network token ever reaches a browser.
 - **plug**: a rule that acts on a post after it goes out, such as reposting it or replying under it with a link.
 - **Assistant**: the chat built into the dashboard. **agents**: outside AIs (Claude, Codex, Cursor…) that connect over MCP at `/mcp`.

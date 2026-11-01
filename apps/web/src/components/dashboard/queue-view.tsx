@@ -14,7 +14,7 @@ import { TimeList, TimePicker } from "@/components/publish/date-time-picker";
 import { nextQueueTimes } from "@/components/publish/queue";
 import { QUEUE_RETURN_LABELS, useQueueSlots } from "@/components/publish/queue-slots";
 import { timeZoneName } from "@/components/publish/save";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverPortal, PopoverTrigger } from "@/components/ui/popover";
 import { useAuth } from "@/context/auth";
 import { cx } from "@/lib/cva";
@@ -26,6 +26,7 @@ import { Icon } from "./dashboard-icon";
 import { isPhone } from "@/lib/phone";
 import { DashboardPageHeader } from "./page-header";
 import { PageToggle } from "./page-toggle";
+import { PlaneButton } from "./plane-button";
 import { PlaneIcon } from "./plane-icons";
 import { SectionHeader } from "./posts-view";
 import type { DashboardView } from "./types";
@@ -49,8 +50,8 @@ function useAddSlots() {
     const userId = auth.ownerId();
     if (!userId || !weekdays.length) return;
     const added = addQueueSlots(userId, weekdays, time);
-    if (added < weekdays.length && queueSlots().length >= MAX_QUEUE_SLOTS) toast(t("The queue is full at {count} times", { count: MAX_QUEUE_SLOTS }));
-    else if (!added) toast(t("Those slots are already in the queue"));
+    if (added < weekdays.length && queueSlots().length >= MAX_QUEUE_SLOTS) toast(t("You can add up to {count} times", { count: MAX_QUEUE_SLOTS }));
+    else if (!added) toast(t("Those times are already added"));
   };
 }
 
@@ -71,7 +72,7 @@ function useSlotActions() {
   };
 }
 
-const slotTitle = (props: SlotProps) => (props.at ? t("Write a post for this slot") : t("Posts hold this time for the next 2 months. Click to see them in the calendar."));
+const slotTitle = (props: SlotProps) => (props.at ? t("Write a post for this time") : t("Posts hold this time for the next 2 months. Click to see them in the calendar."));
 
 function AddTimes() {
   const addSlots = useAddSlots();
@@ -84,8 +85,8 @@ function AddTimes() {
 
   return (
     <Popover placement="bottom-end" open={open()} onOpenChange={setOpen}>
-      <PopoverTrigger type="button" aria-label={t("Add times")} class={cx(buttonVariants({ variant: "secondary" }), "gap-1 pl-1 max-lg:pr-1")}>
-        <Icon name="plus-add" class="size-5" />
+      <PopoverTrigger as={PlaneButton} variant="secondary" size="lg" aria-label={t("Add times")} class="pl-1.5 max-lg:pr-1.5">
+        <PlaneIcon name="plus" class="size-3.5" />
         <span class="max-lg:hidden">{t("Add times")}</span>
       </PopoverTrigger>
       <PopoverPortal>
@@ -115,7 +116,7 @@ function AddTimes() {
           </div>
           <div class="flex items-center gap-2">
             <div class="min-w-0 flex-1">
-              <TimePicker value={time()} label={t("Slot time")} onChange={setTime} />
+              <TimePicker value={time()} zone={timeZoneName()} label={t("Time")} onChange={setTime} />
             </div>
             <Button
               class="shrink-0 px-3"
@@ -255,39 +256,43 @@ export function DashboardQueueView() {
 
   const clear = () => {
     const userId = auth.ownerId();
-    if (userId) toast(t("Queue cleared"), { action: { label: t("Undo"), onClick: clearQueueSlots(userId) } });
+    if (userId) toast(t("Times cleared"), { action: { label: t("Undo"), onClick: clearQueueSlots(userId) } });
   };
 
-  const hint = () => t("The days and times you post each week. A queued post goes to the next slot no other post holds.");
+  const hint = () => t("Pick the days and times you want to post. New posts can then fill the next free time automatically.");
 
   return (
     <div class="flex min-h-0 flex-1 flex-col">
       <DashboardPageHeader>
-        <span class="min-w-0 truncate px-1 text-xs text-(--plane-text-placeholder) max-lg:hidden">{t("Times in {zone}", { zone: timeZoneName() })}</span>
         <Show when={queueSlots().length}>
-          <Button variant="ghost" aria-label={t("Clear all")} class={cx("text-muted-foreground max-lg:px-1", back() && "max-lg:hidden")} onClick={clear}>
+          <PlaneButton variant="ghost" size="lg" aria-label={t("Clear all")} class={cx("max-lg:px-1", back() && "max-lg:hidden")} onClick={clear}>
             <Icon name="trash" class="size-5 lg:hidden" />
             <span class="max-lg:hidden">{t("Clear all")}</span>
-          </Button>
+          </PlaneButton>
         </Show>
         <AddTimes />
         <Show when={back()}>
           {(label) => (
-            <Button
+            <PlaneButton
               variant="secondary"
+              size="lg"
               aria-label={t("Back to {label}", { label: t(label()) })}
               class="min-w-0 shrink max-lg:px-1"
               onClick={() => setParams({ dashboard: params.back as string, back: undefined, view: undefined })}
             >
               <PlaneIcon name="chevron-left" class="size-5 lg:hidden" />
               <span class="truncate max-lg:hidden">{t("Back to {label}", { label: t(label()) })}</span>
-            </Button>
+            </PlaneButton>
           )}
         </Show>
         <div class="contents max-md:hidden">
-          <PageToggle label={t("Queue view")} options={VIEWS} value={listed() ? "list" : "week"} onChange={(view) => setParams({ view: view === "list" ? "list" : undefined }, { replace: true })} />
+          <PageToggle label={t("Auto-schedule view")} options={VIEWS} value={listed() ? "list" : "week"} onChange={(view) => setParams({ view: view === "list" ? "list" : undefined }, { replace: true })} />
         </div>
       </DashboardPageHeader>
+
+      <Show when={queueSlots().length}>
+        <p class="shrink-0 border-b border-(--plane-border-subtle) px-3.5 py-2 text-sm text-(--plane-text-secondary)">{hint()}</p>
+      </Show>
 
       <Show
         when={listed()}
