@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { PublishError } from "./errors.mjs";
 import { createPhotos } from "./photos.mjs";
 
 const T0 = Date.parse("2026-10-12T16:00:00Z");
@@ -22,13 +23,12 @@ function response() {
   };
 }
 
-async function setup(stored) {
+async function setup(stored, maker = { make: async (shape, load) => Buffer.from(`${shape}:${await load()}`) }) {
   let clock = T0;
   const media = {
     postFile: async (userId, id) => (userId === "u1" && stored[id] ? { id, key: `posts/u1/${id}`, ...stored[id].file } : null),
     bytes: async (key) => stored[key.split("/").pop()].bytes,
   };
-  const maker = { make: async (shape, load) => Buffer.from(`${shape}:${await load()}`) };
   const photos = createPhotos({ key: "k".repeat(64), publicUrl: "https://plan.video", media, maker, now: () => clock });
   return { photos, advance: (ms) => (clock += ms) };
 }
@@ -77,6 +77,14 @@ test("a photo link serves pictures only", async () => {
   const res = response();
   await photos.serve({ method: "GET" }, res, new URL(photos.link("u1", "p1")).pathname);
   assert.equal(res.status, 404);
+});
+
+test("a picture that can't be made reaches the server as an error, not as a link that was never there", async () => {
+  const refusal = new PublishError("plan.video couldn't prepare a picture just now. Trying again soon.", { retry: true });
+  const { photos } = await setup({ p1: picture() }, { make: async () => { throw refusal; } });
+  const res = response();
+  await assert.rejects(photos.serve({ method: "GET" }, res, new URL(photos.link("u1", "p1")).pathname), (error) => error === refusal);
+  assert.equal(res.status, 0, "nothing is answered here: server.mjs makes it a 503");
 });
 
 test("a feed link and a plain photo link can't be swapped for each other", async () => {
