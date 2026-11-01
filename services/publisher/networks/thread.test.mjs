@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { bluesky } from "./bluesky.mjs";
+import { createBluesky } from "./bluesky.mjs";
 import { linkedin } from "./linkedin.mjs";
 import { createX } from "./x.mjs";
+
+const bluesky = createBluesky({ maker: { forBluesky: async (bytes, type) => ({ bytes, type }) } });
 
 test("X posts a follow-up as a reply to the one before, and counts it like any post", async (t) => {
   const tweets = [];

@@ -4,7 +4,7 @@
 #
 #   services/deploy.sh status               which commit each service runs, and what differs
 #   services/deploy.sh [--dry-run] all      every service, the publisher last
-#   services/deploy.sh [--dry-run] <name>…  agent billing linkedin mcp monitor publisher storage tiktok transcribe x youtube
+#   services/deploy.sh [--dry-run] <name>…  agent billing linkedin mcp monitor photos publisher storage tiktok transcribe x youtube
 #
 # A failed check puts the service's previous files back and restarts it.
 set -euo pipefail
@@ -15,7 +15,8 @@ UNITS=${DEPLOY_UNITS:-/etc/systemd/system}
 BACKUPS=${DEPLOY_BACKUPS:-/var/backups/plan-video}
 RESTART=${DEPLOY_RESTART:-1}
 NETWORKS=(tiktok youtube linkedin x)
-ORDER=(transcribe mcp storage agent billing tiktok youtube linkedin x monitor publisher)
+ONE_PIXEL_PNG=iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAEBgIApD5fRAAAAABJRU5ErkJggg==
+ORDER=(transcribe mcp storage agent billing tiktok youtube linkedin x monitor photos publisher)
 
 say() { printf '%s\n' "$*"; }
 fail() { printf 'deploy: %s\n' "$*" >&2; exit 1; }
@@ -65,6 +66,12 @@ healthy() {
   [ "$name" = monitor ] && return 0
   for i in $(seq 1 30); do
     if systemctl is-active --quiet "plan-video-$name"; then
+      if [ "$name" = photos ]; then
+        # A real picture: the unit's sandbox could let it start, yet stop it working.
+        base64 -d <<<"$ONE_PIXEL_PNG" | curl -fsS --max-time 10 --data-binary @- -o /dev/null http://127.0.0.1:8793/tiktok 2>/dev/null && return 0
+        sleep 2
+        continue
+      fi
       if [ "$name" != publisher ]; then
         sleep 3
         systemctl is-active --quiet "plan-video-$name" && return 0

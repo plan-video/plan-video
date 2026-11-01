@@ -1,0 +1,11 @@
+{
+  "name": "@plan.video/photos",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "sharp": "^0.35.5"
+  }
+}

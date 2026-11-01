@@ -34,7 +34,7 @@ WorkingDirectory=/opt/plan-video-publisher/publisher
 ExecStart=/opt/node-v22.22.1/bin/node server.mjs
 Restart=always
 RestartSec=2
-# Up to 16 sends go at once (worker.mjs): the ones holding files share 256 MB, beside two pictures being made (photos.mjs).
+# Up to 16 sends go at once (worker.mjs): the ones holding files share 256 MB, beside two pictures on their way to and from services/photos.
 MemoryMax=1G
 NoNewPrivileges=true
 PrivateTmp=true

@@ -1,6 +1,5 @@
 import { PublishError } from "../errors.mjs";
 import { isBlueskyServer, pdsFetch } from "../pds-fetch.mjs";
-import { forBluesky } from "../photos.mjs";
 import { captionOf, graphemes } from "./text.mjs";
 
 export const BLUESKY_TEXT_LIMIT = 300;
@@ -84,11 +83,11 @@ const postUrl = (uri) => {
   return `https://bsky.app/profile/${did}/post/${rkey}`;
 };
 
-async function embedOf(send, media, chosen) {
+async function embedOf(send, media, chosen, maker) {
   const upload = async (file) => {
     // In memory, up to 100 MB, since a "Sign in with Bluesky" session may have to send it twice.
     const bytes = await media.bytes(file.key, 0, file.size - 1);
-    const ready = file.kind === "image" ? await forBluesky(bytes, file.type, MAX_IMAGE_BYTES) : { bytes, type: file.type, aspectRatio: undefined };
+    const ready = file.kind === "image" ? await maker.forBluesky(bytes, file.type, MAX_IMAGE_BYTES) : { bytes, type: file.type, aspectRatio: undefined };
     const reply = await send(
       "com.atproto.repo.uploadBlob",
       { method: "POST", headers: { "Content-Type": ready.type || "application/octet-stream" }, body: ready.bytes },
@@ -111,96 +110,98 @@ async function embedOf(send, media, chosen) {
   return { $type: "app.bsky.embed.images", images };
 }
 
-export const bluesky = {
-  needsFile: false,
+export function createBluesky({ maker } = {}) {
+  return {
+    needsFile: false,
 
-  /** Memory (pool.mjs): each file read whole and sent as a copy; sharp shrinking a picture over 1 MB takes a few times its bytes. */
-  holds(files) {
-    const video = files.find((file) => file.kind === "video");
-    const chosen = video ? [video] : files.filter((file) => file.kind === "image").slice(0, MAX_PICTURES);
-    return chosen.reduce((sum, file) => sum + (file.size || 0) * (file.kind === "image" && file.size > MAX_IMAGE_BYTES ? 6 : 2), 0);
-  },
+    /** Memory (pool.mjs): each file read whole and sent as a copy. */
+    holds(files) {
+      const video = files.find((file) => file.kind === "video");
+      const chosen = video ? [video] : files.filter((file) => file.kind === "image").slice(0, MAX_PICTURES);
+      return chosen.reduce((sum, file) => sum + (file.size || 0) * 2, 0);
+    },
 
-  async send({ post, session, files, media }) {
-    const text = captionOf(post, "bluesky").trim();
-    const video = files.find((file) => file.kind === "video");
-    const chosen = video ? [video] : files.filter((file) => file.kind === "image").slice(0, MAX_PICTURES);
-    if (graphemes(text) > BLUESKY_TEXT_LIMIT) throw new PublishError(`Bluesky posts can be ${BLUESKY_TEXT_LIMIT} characters. Shorten the caption for Bluesky.`);
-    if (!text && !chosen.length) throw new PublishError("Write something or attach a file for Bluesky.");
-    if (video && video.size > MAX_VIDEO_BYTES) throw new PublishError("Bluesky takes videos up to 100 MB.");
-    const send = await sender(session);
-    const embed = await embedOf(send, media, chosen);
+    async send({ post, session, files, media }) {
+      const text = captionOf(post, "bluesky").trim();
+      const video = files.find((file) => file.kind === "video");
+      const chosen = video ? [video] : files.filter((file) => file.kind === "image").slice(0, MAX_PICTURES);
+      if (graphemes(text) > BLUESKY_TEXT_LIMIT) throw new PublishError(`Bluesky posts can be ${BLUESKY_TEXT_LIMIT} characters. Shorten the caption for Bluesky.`);
+      if (!text && !chosen.length) throw new PublishError("Write something or attach a file for Bluesky.");
+      if (video && video.size > MAX_VIDEO_BYTES) throw new PublishError("Bluesky takes videos up to 100 MB.");
+      const send = await sender(session);
+      const embed = await embedOf(send, media, chosen, maker);
 
-    const facets = facetsOf(text);
-    const record = {
-      $type: "app.bsky.feed.post",
-      text,
-      createdAt: new Date().toISOString(),
-      ...(facets.length ? { facets } : {}),
-      ...(embed ? { embed } : {}),
-    };
-    const reply = await send(
-      "com.atproto.repo.createRecord",
-      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ repo: session.did, collection: "app.bsky.feed.post", record }) },
-      "Bluesky didn't take the post.",
-    ).catch((error) => {
-      // A lost answer may still have made the post, so it isn't tried again on its own.
-      if (error instanceof PublishError && error.retry && !/limiting/.test(error.message)) {
-        throw new PublishError("Bluesky didn't confirm the post. Check your profile, and post it again if it isn't there.");
-      }
-      throw error;
-    });
-    return { state: "sent", publishId: reply.uri, url: postUrl(reply.uri) };
-  },
+      const facets = facetsOf(text);
+      const record = {
+        $type: "app.bsky.feed.post",
+        text,
+        createdAt: new Date().toISOString(),
+        ...(facets.length ? { facets } : {}),
+        ...(embed ? { embed } : {}),
+      };
+      const reply = await send(
+        "com.atproto.repo.createRecord",
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ repo: session.did, collection: "app.bsky.feed.post", record }) },
+        "Bluesky didn't take the post.",
+      ).catch((error) => {
+        // A lost answer may still have made the post, so it isn't tried again on its own.
+        if (error instanceof PublishError && error.retry && !/limiting/.test(error.message)) {
+          throw new PublishError("Bluesky didn't confirm the post. Check your profile, and post it again if it isn't there.");
+        }
+        throw error;
+      });
+      return { state: "sent", publishId: reply.uri, url: postUrl(reply.uri) };
+    },
 
-  replyMedia: true,
+    replyMedia: true,
 
-  /** `root` and `parent` are at:// addresses. */
-  async reply({ session, text, root, parent, files = [], media }) {
-    const body = text.trim();
-    if (graphemes(body) > BLUESKY_TEXT_LIMIT) throw new PublishError(`A follow-up on Bluesky can be ${BLUESKY_TEXT_LIMIT} characters. Shorten it in the post's thread.`);
-    const video = files.find((file) => file.kind === "video");
-    const chosen = video ? [video] : files.filter((file) => file.kind === "image").slice(0, MAX_PICTURES);
-    if (!body && !chosen.length) throw new PublishError("This follow-up has nothing Bluesky can post.");
-    if (video && video.size > MAX_VIDEO_BYTES) throw new PublishError("Bluesky takes videos up to 100 MB.");
-    const send = await sender(session);
-    /** A reply names the post's version (cid) along with its address. */
-    const ref = async (uri) => {
-      const [, , repo, collection, rkey] = uri.split("/");
-      if (!repo || collection !== "app.bsky.feed.post" || !rkey) throw new PublishError("Bluesky didn't say where the post before this follow-up is.");
-      const found = await send(
-        `com.atproto.repo.getRecord?repo=${encodeURIComponent(repo)}&collection=${collection}&rkey=${encodeURIComponent(rkey)}`,
-        {},
-        "Bluesky couldn't find the post this follow-up goes under. It may have been deleted.",
-      );
-      if (typeof found.cid !== "string") throw new PublishError("Bluesky couldn't find the post this follow-up goes under. It may have been deleted.");
-      return { uri, cid: found.cid };
-    };
-    const rootRef = await ref(root);
-    const parentRef = parent === root ? rootRef : await ref(parent);
-    const embed = await embedOf(send, media, chosen);
-    const facets = facetsOf(body);
-    const record = {
-      $type: "app.bsky.feed.post",
-      text: body,
-      createdAt: new Date().toISOString(),
-      ...(facets.length ? { facets } : {}),
-      ...(embed ? { embed } : {}),
-      reply: { root: rootRef, parent: parentRef },
-    };
-    const made = await send(
-      "com.atproto.repo.createRecord",
-      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ repo: session.did, collection: "app.bsky.feed.post", record }) },
-      "Bluesky didn't take the follow-up.",
-    ).catch((error) => {
-      if (error instanceof PublishError && error.retry && !/limiting/.test(error.message)) {
-        throw new PublishError("Bluesky didn't confirm the follow-up. Check the thread on your profile, and post it there if it isn't.");
-      }
-      throw error;
-    });
-    return { state: "sent", publishId: made.uri, url: postUrl(made.uri) };
-  },
-};
+    /** `root` and `parent` are at:// addresses. */
+    async reply({ session, text, root, parent, files = [], media }) {
+      const body = text.trim();
+      if (graphemes(body) > BLUESKY_TEXT_LIMIT) throw new PublishError(`A follow-up on Bluesky can be ${BLUESKY_TEXT_LIMIT} characters. Shorten it in the post's thread.`);
+      const video = files.find((file) => file.kind === "video");
+      const chosen = video ? [video] : files.filter((file) => file.kind === "image").slice(0, MAX_PICTURES);
+      if (!body && !chosen.length) throw new PublishError("This follow-up has nothing Bluesky can post.");
+      if (video && video.size > MAX_VIDEO_BYTES) throw new PublishError("Bluesky takes videos up to 100 MB.");
+      const send = await sender(session);
+      /** A reply names the post's version (cid) along with its address. */
+      const ref = async (uri) => {
+        const [, , repo, collection, rkey] = uri.split("/");
+        if (!repo || collection !== "app.bsky.feed.post" || !rkey) throw new PublishError("Bluesky didn't say where the post before this follow-up is.");
+        const found = await send(
+          `com.atproto.repo.getRecord?repo=${encodeURIComponent(repo)}&collection=${collection}&rkey=${encodeURIComponent(rkey)}`,
+          {},
+          "Bluesky couldn't find the post this follow-up goes under. It may have been deleted.",
+        );
+        if (typeof found.cid !== "string") throw new PublishError("Bluesky couldn't find the post this follow-up goes under. It may have been deleted.");
+        return { uri, cid: found.cid };
+      };
+      const rootRef = await ref(root);
+      const parentRef = parent === root ? rootRef : await ref(parent);
+      const embed = await embedOf(send, media, chosen, maker);
+      const facets = facetsOf(body);
+      const record = {
+        $type: "app.bsky.feed.post",
+        text: body,
+        createdAt: new Date().toISOString(),
+        ...(facets.length ? { facets } : {}),
+        ...(embed ? { embed } : {}),
+        reply: { root: rootRef, parent: parentRef },
+      };
+      const made = await send(
+        "com.atproto.repo.createRecord",
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ repo: session.did, collection: "app.bsky.feed.post", record }) },
+        "Bluesky didn't take the follow-up.",
+      ).catch((error) => {
+        if (error instanceof PublishError && error.retry && !/limiting/.test(error.message)) {
+          throw new PublishError("Bluesky didn't confirm the follow-up. Check the thread on your profile, and post it there if it isn't.");
+        }
+        throw error;
+      });
+      return { state: "sent", publishId: made.uri, url: postUrl(made.uri) };
+    },
+  };
+}
 
 export async function postNow(uri) {
   const response = await fetch(`${APPVIEW}/xrpc/app.bsky.feed.getPosts?uris=${encodeURIComponent(uri)}`, { signal: AbortSignal.timeout(15_000) }).catch(() => null);

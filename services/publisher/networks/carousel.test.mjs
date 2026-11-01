@@ -1,10 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import sharp from "sharp";
-
 import { PublishError } from "../errors.mjs";
-import { bluesky } from "./bluesky.mjs";
+import { createBluesky } from "./bluesky.mjs";
 import { createTikTok } from "./tiktok.mjs";
 import { createX } from "./x.mjs";
 import { youtube } from "./youtube.mjs";
@@ -36,7 +34,7 @@ test("X gets up to 4 of a post's pictures in one post", async (t) => {
 });
 
 test("Bluesky gets up to 4 of a post's pictures, each with its shape", async (t) => {
-  const jpeg = await sharp({ create: { width: 40, height: 30, channels: 3, background: "#c33" } }).jpeg().toBuffer();
+  const maker = { forBluesky: async (bytes, type) => ({ bytes, type, aspectRatio: { width: 40, height: 30 } }) };
   const records = [];
   let blobs = 0;
   t.mock.method(globalThis, "fetch", async (url, init = {}) => {
@@ -47,11 +45,11 @@ test("Bluesky gets up to 4 of a post's pictures, each with its shape", async (t)
     records.push(JSON.parse(await request.text()).record);
     return Response.json({ uri: "at://did:plc:me/app.bsky.feed.post/abc", cid: "c" });
   });
-  const sent = await bluesky.send({
+  const sent = await createBluesky({ maker }).send({
     post: { description: "Five" },
     session: { did: "did:plc:me", pds: "https://pds.example", accessJwt: "j" },
     files: pictures(5),
-    media: { bytes: async () => jpeg },
+    media: { bytes: async () => Buffer.from("jpeg") },
   });
   assert.equal(sent.url, "https://bsky.app/profile/did:plc:me/post/abc");
   assert.equal(records[0].embed.$type, "app.bsky.embed.images");
@@ -59,25 +57,23 @@ test("Bluesky gets up to 4 of a post's pictures, each with its shape", async (t)
   assert.deepEqual(records[0].embed.images[0].aspectRatio, { width: 40, height: 30 });
 });
 
-test("Bluesky turns down a picture with more pixels than any camera makes, without working on it", async (t) => {
-  const huge = await sharp({ create: { width: 10_001, height: 10_000, channels: 3, background: "#c33" } }).jpeg({ quality: 50 }).toBuffer();
-  // Past Bluesky's 1 MB, which is what sends a picture to be shrunk.
-  const bytes = Buffer.concat([huge, Buffer.alloc(1_100_000)]);
-  const uploads = [];
+test("Bluesky posts nothing when a picture can't be made, so the send can be tried again", async (t) => {
+  const refusal = new PublishError("plan.video couldn't prepare a picture just now. Trying again soon.", { retry: true });
+  const calls = [];
   t.mock.method(globalThis, "fetch", async (url, init = {}) => {
-    uploads.push(new Request(url, init).url);
+    calls.push(new Request(url, init).url);
     return Response.json({ blob: { ref: 1 } });
   });
   await assert.rejects(
-    bluesky.send({
-      post: { description: "Huge" },
+    createBluesky({ maker: { forBluesky: async () => { throw refusal; } } }).send({
+      post: { description: "Two" },
       session: { did: "did:plc:me", pds: "https://pds.example", accessJwt: "j" },
-      files: pictures(1).map((file) => ({ ...file, size: bytes.length })),
-      media: { bytes: async () => bytes },
+      files: pictures(2),
+      media: { bytes: async () => Buffer.from("jpeg") },
     }),
-    (error) => error instanceof PublishError && !error.retry && /damaged or too large/.test(error.message),
+    (error) => error === refusal,
   );
-  assert.deepEqual(uploads, []);
+  assert.deepEqual(calls, []);
 });
 
 test("TikTok gets a post's pictures as a photo post, pulled from signed links", async (t) => {

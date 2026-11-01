@@ -1,0 +1,42 @@
+[Unit]
+Description=plan.video photos
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# A bad picture file may take over this process, so it holds nothing worth taking: no settings file, no
+# other service's group, and no way to reach anything but this server. The publisher sends it each picture.
+User=planvideo-photos
+Group=planvideo-photos
+WorkingDirectory=/opt/plan-video-photos
+ExecStart=/usr/bin/node server.mjs
+Restart=always
+RestartSec=2
+# Two pictures at once, a few hundred MB each. Running out only costs the pictures being made.
+MemoryMax=768M
+IPAddressDeny=any
+IPAddressAllow=localhost
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+InaccessiblePaths=-/etc/plan-video -/var/backups
+CapabilityBoundingSet=
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectProc=invisible
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+
+[Install]
+WantedBy=multi-user.target

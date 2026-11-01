@@ -5,6 +5,7 @@ Everything that needs a secret runs on your server as a small Node.js service. E
 | Service | Port | Path | What it does |
 | --- | --- | --- | --- |
 | `publisher` | 8798 | `/api/publisher/` | Sends scheduled posts, keeps every network login, reads Analytics |
+| `photos` | 8793 | | Makes pictures the size each network wants, for the publisher. It holds no keys and isn't reachable from outside. |
 | `storage` | 8788 | `/api/storage/` | Signs upload and download links for your R2 bucket |
 | `tiktok` | 8789 | `/api/tiktok` | Starts TikTok sign-ins |
 | `youtube` | 8790 | `/api/youtube` | Starts YouTube sign-ins |
@@ -16,11 +17,11 @@ Everything that needs a secret runs on your server as a small Node.js service. E
 | `billing` | 8799 | `/api/billing/` | Paid plans, with Stripe |
 | `monitor` | | | Checks the server every minute and reports to Healthchecks.io |
 
-You need `publisher` and `storage`, plus the service of each network you connect. The rest are optional: without `mcp` agents can't connect, without `agent` there's no Assistant, without `transcribe` there are no auto-captions, and without `billing` everyone stays on the Free plan unless you [give them a plan](/docs/self-hosting#give-yourself-a-plan).
+You need `publisher`, `photos` and `storage`, plus the service of each network you connect. The rest are optional: without `mcp` agents can't connect, without `agent` there's no Assistant, without `transcribe` there are no auto-captions, and without `billing` everyone stays on the Free plan unless you [give them a plan](/docs/self-hosting#give-yourself-a-plan).
 
 ## Settings files
 
-The services read their settings from `/etc/plan-video`. Each has its own `<name>.env`, and all but `mcp` also read the shared `r2.env`, which holds the Supabase address and the R2 bucket.
+The services read their settings from `/etc/plan-video`. Each has its own `<name>.env`, and all but `mcp` and `photos` also read the shared `r2.env`, which holds the Supabase address and the R2 bucket. `photos` reads no settings at all.
 
 ```bash /etc/plan-video/r2.env
 SUPABASE_URL=https://your-project.supabase.co
@@ -49,12 +50,12 @@ The units expect each service in `/opt/plan-video-<name>`, each run by a user of
   <Step title="Make the users">
     ```bash
     groupadd --system planvideo-r2
-    for name in agent billing linkedin mcp publisher storage tiktok transcribe x youtube; do
+    for name in agent billing linkedin mcp photos publisher storage tiktok transcribe x youtube; do
       useradd --system --no-create-home --shell /usr/sbin/nologin --user-group planvideo-$name
     done
     usermod -aG planvideo-r2,planvideo-tiktok,planvideo-youtube,planvideo-linkedin,planvideo-x planvideo-publisher
     ```
-    Every service but `mcp` also reads `r2.env`, so its unit adds `planvideo-r2`. The publisher refreshes logins with each network's keys, so it's in those groups too.
+    Every service but `mcp` and `photos` also reads `r2.env`, so its unit adds `planvideo-r2`. The publisher refreshes logins with each network's keys, so it's in those groups too.
   </Step>
   <Step title="Write its settings">
     Put its keys in `/etc/plan-video/<name>.env`. Its section in [Environment variables](/docs/configuration) says which.
@@ -97,6 +98,14 @@ The publisher imports the network services' code, so it's laid out as the reposi
 It runs on the official Node.js 22 build from [nodejs.org](https://nodejs.org), unpacked to `/opt/node-v22.22.1`, the path its unit names. [Bluesky](/docs/bluesky-app#nodejs) says why. `services/deploy.sh publisher` lays it out this way and installs the unit with its drop-in. It only comes up healthy once it has its keys, below: make them, then `systemctl restart plan-video-publisher`.
 
 It reads `publisher.env`, `r2.env`, and each network's file. It sends each post the moment it's due, up to 16 at once, and looks for anything else due every 5 seconds. A restart lets the sends going finish first, for up to 30 seconds. It retries a failed send after 2, 10 and 30 minutes, and never sends one run twice.
+
+## Photos
+
+Pictures come from anyone with an account, and a damaged or crafted file can crash the code that decodes it, or worse. So the publisher never opens one itself: it sends each picture to `photos` on `127.0.0.1:8793` and gets the finished file back. Its unit runs it as a user of its own, with no settings file and no access to the internet, and restarts it if it stops.
+
+If `photos` is down, text and video posts still go out. On Bluesky, a picture under 1 MB still goes out, and a larger one is tried again. Instagram, Facebook, Threads and TikTok fetch their pictures from your server, so their picture posts can fail while it's down.
+
+Install it before updating the publisher: `services/deploy.sh all` does this for you, once the `planvideo-photos` user exists.
 
 ## The publisher's keys
 
