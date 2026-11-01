@@ -11,6 +11,7 @@ import { toast } from "somoto";
 import { DashboardFilterCount, DashboardGroupLabel, DashboardHeaderSearch, DashboardPageHeader } from "@/components/dashboard/page-header";
 import { VaultArt } from "@/components/dashboard/empty-art";
 import { createProjectMarquee } from "@/components/dashboard/project-marquee";
+import { SeePlansButton, useAskToUpgrade } from "@/components/dashboard/paid-lock";
 import { PlaneButton } from "@/components/dashboard/plane-button";
 import { PlaneIcon } from "@/components/dashboard/plane-icons";
 import { Segmented, fieldControl, fieldControlBase } from "@/components/publish/controls";
@@ -28,6 +29,7 @@ import { Icon } from "@/components/dashboard/dashboard-icon";
 import { useAuth } from "@/context/auth";
 import { cx } from "@/lib/cva";
 import { intlLocale, msg, t } from "@/lib/i18n";
+import { paidToolsLocked } from "@/lib/paid-tools";
 import { SOCIAL_PLATFORMS, captionLength, hashtagCount } from "@/lib/social";
 import {
   VAULT_KINDS,
@@ -130,8 +132,11 @@ export function DashboardVaultView() {
   });
   const count = (kind: Filter) => (kind === "all" ? vaultItems().length : vaultItems().filter((item) => item.kind === kind).length);
 
-  const startNew = (kind: VaultKind = filter() === "all" ? "caption" : (filter() as VaultKind)) =>
+  const askToUpgrade = useAskToUpgrade();
+  const startNew = (kind: VaultKind = filter() === "all" ? "caption" : (filter() as VaultKind)) => {
+    if (paidToolsLocked()) return askToUpgrade(t("Saving to the Vault comes with a paid plan."));
     setEditing({ id: null, draft: { kind, title: "", body: "" } });
+  };
   const startEdit = (item: VaultItem) => setEditing({ id: item.id, draft: { kind: item.kind, title: item.title, body: item.body } });
 
   const copy = async (item: VaultItem) => {
@@ -358,23 +363,33 @@ function EmptyVault(props: { onNew(kind: VaultKind): void }) {
           <p class="text-xs text-muted-foreground">{t("Save them once, then drop them into any caption from the Vault button.")}</p>
         </div>
       </div>
-      <div class="grid w-full max-w-2xl grid-cols-1 gap-2 text-left sm:grid-cols-3">
-        <For each={VAULT_KINDS}>
-          {(kind) => (
-            <button
-              type="button"
-              class="depth-card flex flex-col items-start gap-1.5 rounded-xl border border-border-strong bg-accent/30 p-3 text-left hover:border-(--border-input) focus-ring"
-              onClick={() => props.onNew(kind.id)}
-            >
-              <span class="flex items-center gap-1.5 text-xs font-medium text-foreground">
-                <Icon name="plus-add-small" class="-ml-1 size-4 text-muted-foreground" />
-                {t(kind.singular)}
-              </span>
-              <span class="text-xs leading-4 text-muted-foreground">{t(kind.hint)}</span>
-            </button>
-          )}
-        </For>
-      </div>
+      <Show
+        when={!paidToolsLocked()}
+        fallback={
+          <div class="flex flex-col items-center gap-3">
+            <p class="text-xs text-muted-foreground">{t("Saving to the Vault comes with a paid plan.")}</p>
+            <SeePlansButton />
+          </div>
+        }
+      >
+        <div class="grid w-full max-w-2xl grid-cols-1 gap-2 text-left sm:grid-cols-3">
+          <For each={VAULT_KINDS}>
+            {(kind) => (
+              <button
+                type="button"
+                class="depth-card flex flex-col items-start gap-1.5 rounded-xl border border-border-strong bg-accent/30 p-3 text-left hover:border-(--border-input) focus-ring"
+                onClick={() => props.onNew(kind.id)}
+              >
+                <span class="flex items-center gap-1.5 text-xs font-medium text-foreground">
+                  <Icon name="plus-add-small" class="-ml-1 size-4 text-muted-foreground" />
+                  {t(kind.singular)}
+                </span>
+                <span class="text-xs leading-4 text-muted-foreground">{t(kind.hint)}</span>
+              </button>
+            )}
+          </For>
+        </div>
+      </Show>
     </div>
   );
 }

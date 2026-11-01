@@ -6,18 +6,21 @@ import { Show, createResource, createSignal, onMount } from "solid-js";
 import { toast } from "somoto";
 
 import { PreviewComments } from "@/components/publish/preview-comments";
+import { useSeePlans } from "@/components/dashboard/paid-lock";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/dashboard/dashboard-icon";
 import { useAuth } from "@/context/auth";
 import { cloudEnabled } from "@/lib/cloud-storage";
 import { askForAccount } from "@/lib/guest";
 import { t } from "@/lib/i18n";
+import { paidToolsLocked } from "@/lib/paid-tools";
 import { loadPreview, mediaLeftOut, previewLink, previewOf, sharePost, stopSharing } from "@/lib/post-previews";
 import { popupFooter } from "./popup";
 import type { StoredEvent } from "./types";
 
 export function SharePanel(props: { post: StoredEvent; onBack(): void }) {
   const auth = useAuth();
+  const seePlans = useSeePlans();
   const [busy, setBusy] = createSignal(false);
   const shared = () => previewOf(props.post.id);
   const [noMedia] = createResource(() => props.post, mediaLeftOut);
@@ -73,6 +76,9 @@ export function SharePanel(props: { post: StoredEvent; onBack(): void }) {
               <p class="text-xs leading-5 text-muted-foreground">
                 {t("Make a link to a preview of it. Anyone with the link can see the post and comment, without an account. You can stop sharing at any time.")}
               </p>
+              <Show when={paidToolsLocked()}>
+                <p class="text-xs leading-5 text-muted-foreground">{t("Preview links come with a paid plan.")}</p>
+              </Show>
             </div>
           }
         >
@@ -117,9 +123,18 @@ export function SharePanel(props: { post: StoredEvent; onBack(): void }) {
         <Show
           when={shared()}
           fallback={
-            <Button class="px-3" disabled={busy()} onClick={() => void share()}>
-              {t("Create link")}
-            </Button>
+            <Show
+              when={!paidToolsLocked()}
+              fallback={
+                <Button class="px-3" onClick={seePlans}>
+                  {t("See plans")}
+                </Button>
+              }
+            >
+              <Button class="px-3" disabled={busy()} onClick={() => void share()}>
+                {t("Create link")}
+              </Button>
+            </Show>
           }
         >
           <Button variant="ghost" class="text-destructive hover:bg-destructive/10" disabled={busy()} onClick={() => void stop()}>

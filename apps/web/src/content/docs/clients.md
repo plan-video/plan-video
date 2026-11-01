@@ -2,7 +2,7 @@ Keep each client in their own [workspace](/docs/workspaces). Two links let them 
 
 ## Preview links
 
-Show a client a post before it goes out, and let them comment.
+Show a client a post before it goes out, and let them comment. Making a preview link is on paid plans. If you move to Free, links you already shared keep working.
 
 <Steps>
   <Step title="Make the link">

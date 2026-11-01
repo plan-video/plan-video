@@ -9,6 +9,7 @@ import { createSignal } from "solid-js";
 import { queueAccountSync } from "@/lib/account-sync-bus";
 import { ownerOf } from "@/lib/guest";
 import { t } from "@/lib/i18n";
+import { paidToolsLocked } from "@/lib/paid-tools";
 import { PLATFORM_IDS, defaultPlatformSettings, type PlatformId, type PlatformSettings } from "@/lib/social";
 import { readChoices, type AccountChoices } from "@/lib/social-connections";
 import { keptThread, type ThreadReply } from "@/lib/thread";
@@ -194,6 +195,7 @@ function problem(draft: TemplateDraft): string | undefined {
 
 /** Returns the new template's id, or an error for the user. */
 export function createTemplate(draft: TemplateDraft): { id: string } | { error: string } {
+  if (paidToolsLocked()) return { error: t("New templates come with a paid plan.") };
   const next = clean(draft);
   const error = problem(next);
   if (error) return { error };

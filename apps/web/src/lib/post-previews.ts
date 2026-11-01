@@ -8,6 +8,7 @@ import { ownCaptions, postFileStates } from "@/components/calendar/store";
 import type { PostStatus, StoredEvent } from "@/components/calendar/types";
 import { platformName } from "@/components/calendar/utils";
 import { t } from "@/lib/i18n";
+import { paidToolsLocked } from "@/lib/paid-tools";
 import { accountsFor } from "@/lib/social-connections";
 import { supabase } from "@/lib/supabase";
 import { activeScope, activeWorkspaceId } from "@/lib/workspaces";
@@ -146,11 +147,16 @@ export async function sharePost(post: StoredEvent): Promise<{ id: string } | { e
   // A shared workspace's post is its owner's, and so is its preview: its files are theirs.
   const subject = await subjectOf();
   if (!supabase || !subject) return { error: t("Sign in to share a preview.") };
+  const existing = previewOf(post.id);
+  if (!existing && paidToolsLocked()) return { error: t("Preview links come with a paid plan.") };
   const owner = subject.owner;
   const snapshot = await snapshotOf(post);
-  const { data, error } = await supabase
-    .from("post_previews")
-    .upsert({ owner_id: owner, post_id: post.id, snapshot, updated_at: new Date().toISOString() }, { onConflict: "owner_id,post_id" })
+  const updatedAt = new Date().toISOString();
+  // An upsert counts as adding one, which the database refuses on Free even for a link made before a downgrade.
+  const { data, error } = await (existing
+    ? supabase.from("post_previews").update({ snapshot, updated_at: updatedAt }).eq("id", existing.id)
+    : supabase.from("post_previews").upsert({ owner_id: owner, post_id: post.id, snapshot, updated_at: updatedAt }, { onConflict: "owner_id,post_id" })
+  )
     .select("id")
     .single();
   if (error || !data) return { error: t("Sharing isn't available right now.") };

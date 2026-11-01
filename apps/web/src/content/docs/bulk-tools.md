@@ -1,4 +1,4 @@
-**Bulk tools** turns a batch of files into posts in one go. Find it under **Schedule** in the dashboard.
+**Bulk tools** turns a batch of files into posts in one go, on paid plans. Find it under **Schedule** in the dashboard.
 
 <Steps>
   <Step title="Add your files">
