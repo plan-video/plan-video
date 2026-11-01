@@ -5,7 +5,7 @@
 import { For, type JSX } from "solid-js";
 
 import { SIDEBAR_TABS, setSidebarTab, sidebarTab } from "@/agent-chat";
-import { RailPanelIcon } from "@/components/editor/rail-icons";
+import { RailCustomizeIcon, RailPanelIcon } from "@/components/editor/rail-icons";
 import { ProjectMenu } from "@/components/sidebar-left/project-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useLayout } from "@/context/layout";
@@ -13,11 +13,12 @@ import { t } from "@/lib/i18n";
 
 export const EDITOR_RAIL_WIDTH = 44;
 
-export function EditorRail(props: { style?: JSX.CSSProperties }) {
-  const { toggleUI } = useLayout();
+export function EditorRail(props: { side: "left" | "right"; style?: JSX.CSSProperties }) {
+  const { toggleUI, customizing, setCustomizing, hiddenSections, showSection } = useLayout();
+  const tooltipSide = () => (props.side === "left" ? "right" : "left");
 
   return (
-    <nav class="flex min-h-0 flex-col items-center gap-1 pb-1.5 pl-1.5" style={props.style} aria-label={t("Panels")}>
+    <nav class="flex min-h-0 shrink-0 flex-col items-center gap-1 pb-1.5" style={props.style} aria-label={t("Panels")}>
       <div class="relative z-30 flex h-11 shrink-0 items-center">
         <ProjectMenu compact />
       </div>
@@ -26,8 +27,12 @@ export function EditorRail(props: { style?: JSX.CSSProperties }) {
           {(tab) => (
             <RailButton
               label={t(tab.label)}
-              active={sidebarTab() === tab.id}
-              onClick={() => setSidebarTab(tab.id)}
+              tooltipSide={tooltipSide()}
+              active={sidebarTab() === tab.id && !hiddenSections().includes("assets")}
+              onClick={() => {
+                showSection("assets");
+                setSidebarTab(tab.id);
+              }}
             >
               <tab.icon />
             </RailButton>
@@ -35,16 +40,19 @@ export function EditorRail(props: { style?: JSX.CSSProperties }) {
         </For>
       </div>
       <div class="min-h-0 flex-1" />
-      <RailButton label={t("Hide panels")} onClick={toggleUI}>
+      <RailButton label={t("Customize layout")} tooltipSide={tooltipSide()} active={customizing()} onClick={() => setCustomizing(!customizing())}>
+        <RailCustomizeIcon />
+      </RailButton>
+      <RailButton label={t("Hide panels")} tooltipSide={tooltipSide()} onClick={toggleUI}>
         <RailPanelIcon />
       </RailButton>
     </nav>
   );
 }
 
-function RailButton(props: { label: string; active?: boolean; onClick: () => void; children: JSX.Element }) {
+function RailButton(props: { label: string; tooltipSide: "left" | "right"; active?: boolean; onClick: () => void; children: JSX.Element }) {
   return (
-    <Tooltip placement="right">
+    <Tooltip placement={props.tooltipSide}>
       <TooltipTrigger
         as="button"
         type="button"

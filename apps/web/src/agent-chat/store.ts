@@ -355,10 +355,6 @@ export const chatRoute = (project: ProjectInfo): string => projectRoute(project.
 
 export { attachmentPaths };
 
-export const ASSETS_SIDEBAR_WIDTH = 264;
-
-export const leftSidebarWidth = (): number => ASSETS_SIDEBAR_WIDTH;
-
 export function blockedReason(): string | null {
   if (state.connection === "unavailable") return t("Chat isn't available in the browser.");
   if (state.connection !== "open") return t("Connecting to the agent host…");

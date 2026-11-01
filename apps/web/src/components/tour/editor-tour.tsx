@@ -189,7 +189,10 @@ export function EditorTour() {
     onCleanup(() => clearTimeout(timer));
   });
 
-  onCleanup(() => setTour(null));
+  onCleanup(() => {
+    layout.setSectionsRevealed(false);
+    setTour(null);
+  });
 
   const close = () => {
     setTour(null);
@@ -218,9 +221,13 @@ export function EditorTour() {
         tab: untrack(sidebarTab),
         selection: [...world.query(Selected)],
       };
+      layout.setSectionsRevealed(true);
+      layout.setCustomizing(false);
     }
     if (state === null && before) {
       setSidebarTab(before.tab);
+      // After the dock's own effect, which shows the assets panel on every tab change.
+      queueMicrotask(() => layout.setSectionsRevealed(false));
       getDocumentEditor(world).select(before.selection.filter((entity) => entity.isAlive()));
       before = null;
     }
