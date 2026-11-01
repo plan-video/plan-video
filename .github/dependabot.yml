@@ -1,0 +1,41 @@
+# Keeps the app's, each service's and CI's dependencies up to date, one grouped
+# pull request a week per folder. Security fixes come as soon as they're out;
+# other new versions wait a week, so a bad release is usually pulled first.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directories:
+      - "/"
+      - "/services/agent"
+      - "/services/mcp"
+      - "/services/publisher"
+      - "/services/storage"
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      security:
+        applies-to: security-updates
+        patterns: ["*"]
+      minor-and-patch:
+        applies-to: version-updates
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: ci
+    groups:
+      actions:
+        patterns: ["*"]
