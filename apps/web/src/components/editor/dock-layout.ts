@@ -231,7 +231,10 @@ function updateAt(root: DockNode, path: number[], change: (node: DockNode) => Do
 
 export function resizeDock(root: DockNode, handle: DockHandle, delta: number): DockNode {
   const total = handle.aSize + handle.bSize;
-  const sizeA = Math.min(Math.max(handle.aSize + delta, handle.aMin), Math.max(handle.aMin, total - handle.bMin));
+  // In a window too small for both minimums, the two panels share what there is.
+  const lowest = Math.min(handle.aMin, total);
+  const highest = Math.max(lowest, total - handle.bMin);
+  const sizeA = Math.min(Math.max(handle.aSize + delta, lowest), highest);
   return updateAt(root, handle.path, (node) => {
     const split = node as DockSplit;
     const children = [...split.children];
@@ -461,6 +464,11 @@ export function withSavedLayout(layouts: SavedLayout[], name: string, snapshot: 
   const saved: SavedLayout = { ...snapshot, id: existing?.id ?? newId, name: name.trim() };
   if (!existing) return { layouts: [...layouts, saved], id: saved.id };
   return { layouts: layouts.map((layout) => (layout.id === existing.id ? saved : layout)), id: saved.id };
+}
+
+export function withRestoredLayout(layouts: SavedLayout[], deleted: SavedLayout, index: number): SavedLayout[] {
+  if (layouts.some((layout) => layout.id === deleted.id) || findLayoutByName(layouts, deleted.name)) return layouts;
+  return [...layouts.slice(0, index), deleted, ...layouts.slice(index)];
 }
 
 export function readHidden(value: unknown): HideablePanel[] {

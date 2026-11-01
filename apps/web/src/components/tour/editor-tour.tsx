@@ -222,6 +222,7 @@ export function EditorTour() {
         selection: [...world.query(Selected)],
       };
       layout.setSectionsRevealed(true);
+      layout.setCustomizing(false);
     }
     if (state === null && before) {
       setSidebarTab(before.tab);

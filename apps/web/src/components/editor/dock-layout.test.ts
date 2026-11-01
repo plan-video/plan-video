@@ -15,6 +15,7 @@ import {
   readHidden,
   readSavedLayouts,
   resizeDock,
+  withRestoredLayout,
   withSavedLayout,
   type LayoutSnapshot,
   type DockNode,
@@ -137,6 +138,16 @@ describe("resizeDock", () => {
     expect(panels.inspector.width).toBe(260);
     expect(panels.assets.width).toBe(264 + 308 - 260);
     expect(panels.canvas.width).toBe(rectsOf(dock).canvas.width);
+  });
+
+  it("never saves a negative size, even in a window too small for both panels", () => {
+    const frame = { width: 300, height: 200 };
+    for (const handle of placeDock(DEFAULT_DOCK, frame).handles) {
+      for (const delta of [9999, -9999]) {
+        const next = resizeDock(DEFAULT_DOCK, handle, delta);
+        expect(readDock(next)).toBe(next);
+      }
+    }
   });
 
   it("resizes the timeline row from the handle above it", () => {
@@ -318,6 +329,22 @@ describe("saved layouts", () => {
     expect(id).toBe("a");
     expect(layouts.map((layout) => layout.name)).toEqual(["reels", "Long videos"]);
     expect(layouts[0]!.dock).toBe(other.dock);
+  });
+
+  it("puts a deleted layout back where it was, keeping what was saved since", () => {
+    const a = { ...snapshot, id: "a", name: "A" };
+    const b = { ...snapshot, id: "b", name: "B" };
+    const c = { ...snapshot, id: "c", name: "C" };
+    expect(withRestoredLayout([a, c], b, 1)).toEqual([a, b, c]);
+    expect(withRestoredLayout([], b, 3)).toEqual([b]);
+  });
+
+  it("does not bring a deleted layout back over one that took its name or id", () => {
+    const old = { ...snapshot, id: "a", name: "Reels" };
+    const taken = [{ ...other, id: "b", name: "reels" }];
+    expect(withRestoredLayout(taken, old, 0)).toBe(taken);
+    const same = [old];
+    expect(withRestoredLayout(same, old, 0)).toBe(same);
   });
 
   it("keeps the good layouts when one saved entry is broken", () => {

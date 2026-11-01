@@ -12,6 +12,7 @@ import {
   readDock,
   readHidden,
   readSavedLayouts,
+  withRestoredLayout,
   withSavedLayout,
   type DockNode,
   type HideablePanel,
@@ -133,8 +134,12 @@ export function LayoutProvider(props: { children: JSX.Element }) {
   };
   const deleteSavedLayout = (id: string) => {
     const before = savedLayouts();
+    const index = before.findIndex((layout) => layout.id === id);
+    const deleted = before[index];
     setSavedLayouts(before.filter((layout) => layout.id !== id));
-    return () => setSavedLayouts(before);
+    return () => {
+      if (deleted) setSavedLayouts(withRestoredLayout(savedLayouts(), deleted, index));
+    };
   };
 
   return (
