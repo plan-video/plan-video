@@ -38,12 +38,10 @@ import { askForAccount } from "@/lib/guest";
 import { t } from "@/lib/i18n";
 import { loadTemplates, postTemplates, sortTemplates } from "@/lib/post-templates";
 import {
-  STARTER_WORKFLOWS,
   WORKFLOW_STEPS,
   activeSteps,
   deleteWorkflow,
   findWorkflow,
-  isStarter,
   loadWorkflows,
   renameWorkflow,
   restoreWorkflow,
@@ -56,13 +54,6 @@ import {
 import { startWorkflow } from "./start";
 import { STEP_INFO, StepIcon, StepValue, WorkflowArt, setSaveRequest, showWorkflow, shownWorkflowId, stepsLine } from "./workflow-ui";
 
-/** A starter's switches are for this visit only: starters are never stored. */
-const [starterEdits, setStarterEdits] = createSignal<Record<string, Workflow>>({});
-
-const shownCopy = (id: string) => starterEdits()[id] ?? findWorkflow(id);
-
-export const workflowName = (workflow: Workflow) => (isStarter(workflow) ? t(workflow.name) : workflow.name);
-
 export function WorkflowsPanel() {
   const auth = useAuth();
   createEffect(() => loadWorkflows(auth.user()?.id));
@@ -70,7 +61,7 @@ export function WorkflowsPanel() {
 
   const shown = createMemo(() => {
     const id = shownWorkflowId();
-    return id ? shownCopy(id) : undefined;
+    return id ? findWorkflow(id) : undefined;
   });
 
   return (
@@ -103,27 +94,19 @@ export function WorkflowsPanel() {
 function WorkflowList() {
   return (
     <div class="min-h-0 flex-1 overflow-y-auto p-2">
-      <Show when={workflows().length > 0}>
-        <ListGroup label={t("Yours")} items={workflows()} />
-      </Show>
-      <ListGroup label={t("Starters")} items={STARTER_WORKFLOWS} />
-      <Show when={workflows().length === 0}>
-        <div class="mx-1 mt-3 flex flex-col gap-2.5 rounded-lg bg-accent p-3">
-          <p class="text-xs text-muted-foreground">{t("Set a clip up the way you like it, then save it as a workflow to do it all again in one go.")}</p>
-          <Button variant="secondary" class="w-full" onClick={() => setSaveRequest({})}>
-            {t("Save as workflow")}
-          </Button>
-        </div>
-      </Show>
-    </div>
-  );
-}
-
-function ListGroup(props: { label: string; items: Workflow[] }) {
-  return (
-    <div class="mb-2 flex flex-col">
-      <div class="flex h-7 items-center px-2 text-xs text-muted-foreground">{props.label}</div>
-      <For each={props.items}>{(workflow) => <ListRow workflow={workflow} />}</For>
+      <For
+        each={workflows()}
+        fallback={
+          <div class="m-1 flex flex-col gap-2.5 rounded-lg bg-accent p-3">
+            <p class="text-xs text-muted-foreground">{t("Set a clip up the way you like it, then save it as a workflow to do it all again in one go.")}</p>
+            <Button variant="secondary" class="w-full" onClick={() => setSaveRequest({})}>
+              {t("Save as workflow")}
+            </Button>
+          </div>
+        }
+      >
+        {(workflow) => <ListRow workflow={workflow} />}
+      </For>
     </div>
   );
 }
@@ -140,10 +123,10 @@ function ListRow(props: { workflow: Workflow }) {
       onClick={() => showWorkflow(props.workflow.id)}
     >
       <div class="h-12 w-[27px] shrink-0 overflow-hidden rounded-[4px] border border-border">
-        <WorkflowArt workflow={props.workflow} height={48} />
+        <WorkflowArt workflow={props.workflow} />
       </div>
       <div class="min-w-0 flex-1">
-        <div class="truncate text-xs font-450 text-foreground">{workflowName(props.workflow)}</div>
+        <div class="truncate text-xs font-450 text-foreground">{props.workflow.name}</div>
         <div class="truncate text-xs text-muted-foreground">{stepsLine(props.workflow) || t("No steps")}</div>
       </div>
       <Show when={running()}>
@@ -167,7 +150,6 @@ function WorkflowDetail(props: { workflow: Workflow }) {
   const world = useWorld();
   const auth = useAuth();
   const schedulePost = useSchedulePost();
-  const own = () => !isStarter(props.workflow);
 
   const run = () => {
     const current = workflowRun();
@@ -189,10 +171,7 @@ function WorkflowDetail(props: { workflow: Workflow }) {
 
   const steps = () => activeSteps(props.workflow);
 
-  const change = (next: Pick<Workflow, "steps" | "off">) => {
-    if (own()) updateWorkflow(props.workflow.id, next);
-    else setStarterEdits((all) => ({ ...all, [props.workflow.id]: { ...props.workflow, ...next } }));
-  };
+  const change = (next: Pick<Workflow, "steps" | "off">) => updateWorkflow(props.workflow.id, next);
 
   const setOn = (id: WorkflowStepId, on: boolean) => {
     const current = props.workflow;
@@ -240,8 +219,8 @@ function WorkflowDetail(props: { workflow: Workflow }) {
         <Show
           when={renaming()}
           fallback={
-            <span class="min-w-0 flex-1 truncate text-xs font-450" onDblClick={() => own() && setRenaming(true)}>
-              {workflowName(props.workflow)}
+            <span class="min-w-0 flex-1 truncate text-xs font-450" onDblClick={() => setRenaming(true)}>
+              {props.workflow.name}
             </span>
           }
         >
@@ -265,23 +244,21 @@ function WorkflowDetail(props: { workflow: Workflow }) {
             }}
           />
         </Show>
-        <Show when={own()}>
-          <DropdownMenu placement="bottom-end">
-            <DropdownMenuTrigger as={Button} size="icon" variant="ghost" class="text-muted-foreground" aria-label={t("More")}>
-              <EllipsisIcon class="size-4" stroke-width={1.75} />
-            </DropdownMenuTrigger>
-            <DropdownMenuPortal>
-              <DropdownMenuContent class="w-56">
-                <DropdownMenuItem onSelect={() => setRenaming(true)}>{t("Rename")}</DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setSaveRequest({ replace: props.workflow.id, name: props.workflow.name })}>
-                  {t("Update from this project")}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={remove}>{t("Delete")}</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenuPortal>
-          </DropdownMenu>
-        </Show>
+        <DropdownMenu placement="bottom-end">
+          <DropdownMenuTrigger as={Button} size="icon" variant="ghost" class="text-muted-foreground" aria-label={t("More")}>
+            <EllipsisIcon class="size-4" stroke-width={1.75} />
+          </DropdownMenuTrigger>
+          <DropdownMenuPortal>
+            <DropdownMenuContent class="w-56">
+              <DropdownMenuItem onSelect={() => setRenaming(true)}>{t("Rename")}</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setSaveRequest({ replace: props.workflow.id, name: props.workflow.name })}>
+                {t("Update from this project")}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={remove}>{t("Delete")}</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenuPortal>
+        </DropdownMenu>
       </div>
 
       <div class="min-h-0 flex-1 overflow-y-auto p-2">
@@ -327,7 +304,7 @@ function WorkflowDetail(props: { workflow: Workflow }) {
         <Show when={otherRunning()}>
           {(other) => (
             <p class="mx-1 mt-3 text-xs text-muted-foreground">
-              {t("“{name}” is running. Starting this one stops it.", { name: findWorkflow(other().workflowId) ? workflowName(findWorkflow(other().workflowId)!) : other().name })}
+              {t("“{name}” is running. Starting this one stops it.", { name: findWorkflow(other().workflowId)?.name ?? other().name })}
             </p>
           )}
         </Show>
@@ -346,15 +323,6 @@ function WorkflowDetail(props: { workflow: Workflow }) {
                 <Show when={finished().post && finished().state === "done"}>
                   <Button class="w-full" onClick={schedulePost}>
                     {t("Schedule post")}
-                  </Button>
-                </Show>
-                <Show when={!own()}>
-                  <Button
-                    variant="secondary"
-                    class="w-full"
-                    onClick={() => setSaveRequest({ name: workflowName(props.workflow) })}
-                  >
-                    {t("Save as workflow")}
                   </Button>
                 </Show>
                 <Button variant="secondary" class="w-full" onClick={clearWorkflowRun}>

@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { Match, Show, Switch, createSignal, type Component } from "solid-js";
+import { Show, createSignal, type Component } from "solid-js";
 import CalendarClockIcon from "lucide-solid/icons/calendar-clock";
 import CaptionsIcon from "lucide-solid/icons/captions";
 import GanttIcon from "lucide-solid/icons/chart-no-axes-gantt";
@@ -19,7 +19,7 @@ import { lookLabel } from "@/components/sidebar-right/inspector/grade-looks";
 import { ALL_PRESETS } from "@/lib/layout-presets";
 import { msg, t } from "@/lib/i18n";
 import { getStreamLayout } from "@/lib/stream-layouts";
-import { activeSteps, isStarter, type StarterArt, type Workflow, type WorkflowStepId } from "@/lib/workflows";
+import { activeSteps, type Workflow, type WorkflowStepId } from "@/lib/workflows";
 
 type IconProps = { class?: string; "stroke-width"?: number };
 
@@ -96,70 +96,12 @@ export function stepsLine(workflow: Workflow): string {
     .join(" · ");
 }
 
-const ART: Record<StarterArt, string> = {
-  stream: "/site/stream.webp",
-  talking: "/site/creator.webp",
-  podcast: "/site/vlogger.webp",
-  travel: "/site/surf.webp",
-};
-
-export function WorkflowArt(props: { workflow: Workflow; height: number }) {
-  const scale = () => props.height / 185;
-  const px = (value: number) => `${Math.max(6, Math.round(value * scale()))}px`;
-
+export function WorkflowArt(props: { workflow: Workflow }) {
   return (
     <div class="relative size-full overflow-hidden bg-[#000]" aria-hidden="true">
-      <Switch fallback={<Placeholder />}>
-        <Match when={isStarter(props.workflow) && props.workflow}>
-          {(starter) => (
-            <>
-              <img src={ART[starter().art]} alt="" draggable={false} class="absolute inset-0 size-full object-cover" classList={{ "saturate-[1.15] sepia-[.18]": starter().art === "travel" }} />
-              {/* Too small to read in a list row: the footage says enough there. */}
-              <Switch>
-                <Match when={props.height < 90}>{null}</Match>
-                <Match when={starter().art === "stream"}>
-                  <Words size={px(12)} top="58%" words={["NO", "WAY", "HE", "HIT"]} hit={3} color="#FFCC00" />
-                </Match>
-                <Match when={starter().art === "talking"}>
-                  <div class="absolute inset-x-1 text-center font-bold leading-tight text-white" style={{ top: "72%", "font-size": px(11), "text-shadow": "0 1px 2px rgba(0,0,0,.6)" }}>
-                    this <span class="rounded-[3px] bg-[#FFD60A] px-[3px] text-[#111]">changed</span> everything
-                  </div>
-                </Match>
-                <Match when={starter().art === "podcast"}>
-                  <Words size={px(12)} top="64%" words={["I", "ALMOST", "QUIT"]} hit={1} color="#24D5FF" />
-                  <div class="absolute inset-x-0 bottom-0 h-[3%] bg-white/30">
-                    <div class="h-full w-[42%] bg-white" />
-                  </div>
-                </Match>
-                <Match when={starter().art === "travel"}>
-                  <div class="absolute inset-x-0 bottom-0 h-[2%] bg-white/25">
-                    <div class="h-full w-[38%] bg-white" />
-                  </div>
-                </Match>
-              </Switch>
-            </>
-          )}
-        </Match>
-        <Match when={props.workflow.thumb}>
-          {(thumb) => <img src={thumb()} alt="" draggable={false} class="absolute inset-0 size-full object-cover" />}
-        </Match>
-      </Switch>
-    </div>
-  );
-}
-
-function Words(props: { words: string[]; hit: number; color: string; size: string; top: string }) {
-  return (
-    <div
-      class="absolute inset-x-1 text-center font-extrabold uppercase leading-[1.1] tracking-[-0.01em] text-white"
-      style={{ top: props.top, "font-size": props.size, "-webkit-text-stroke": `calc(${props.size} / 4.5) #000`, "paint-order": "stroke fill" }}
-    >
-      {props.words.map((word, index) => (
-        <>
-          <span style={index === props.hit ? { color: props.color } : undefined}>{word}</span>
-          {index < props.words.length - 1 ? " " : ""}
-        </>
-      ))}
+      <Show when={props.workflow.thumb} fallback={<Placeholder />}>
+        {(thumb) => <img src={thumb()} alt="" draggable={false} class="absolute inset-0 size-full object-cover" />}
+      </Show>
     </div>
   );
 }

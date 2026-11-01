@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/account-sync-bus", () => ({ queueAccountSync: () => {} }));
 vi.mock("@/lib/guest", () => ({ ownerOf: (id?: string) => id }));
 
-const { STARTER_WORKFLOWS, activeSteps, readSteps, readWorkflow } = await import("./workflows");
+const { activeSteps, readWorkflow } = await import("./workflows");
 
 const base = { id: "w1", name: "Gaming clips", off: [], createdAt: "2026-10-28T10:00:00.000Z", updatedAt: "2026-10-28T10:00:00.000Z" };
 
@@ -43,10 +43,9 @@ describe("readWorkflow", () => {
     expect(read).toEqual({ ...base, off: ["captions"], steps: {} });
   });
 
-  it("refuses rows that are not workflows, and starters", () => {
+  it("refuses rows that are not workflows", () => {
     expect(readWorkflow(null)).toBeNull();
     expect(readWorkflow({ id: 3, name: "x" })).toBeNull();
-    expect(readWorkflow({ ...base, id: "starter:stream" })).toBeNull();
   });
 });
 
@@ -65,11 +64,5 @@ describe("activeSteps", () => {
     expect(activeSteps(workflow(steps, ["layout"]))).toEqual(["size"]);
     const captioned = { ...steps, captions: { look: { props: {}, children: [] } } };
     expect(activeSteps(workflow(captioned))).toEqual(["layout", "captions", "keywords", "emoji"]);
-  });
-});
-
-describe("starters", () => {
-  it("hold up as stored steps", () => {
-    for (const starter of STARTER_WORKFLOWS) expect(readSteps(starter.steps)).toEqual(starter.steps);
   });
 });

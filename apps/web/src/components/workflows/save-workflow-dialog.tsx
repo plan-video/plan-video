@@ -41,7 +41,6 @@ import {
 } from "@/lib/workflows";
 
 import { STEP_INFO, StepIcon, StepValue, saveRequest, setSaveRequest, showWorkflow } from "./workflow-ui";
-import { workflowName } from "./workflows-panel";
 
 export function WorkflowsHost() {
   const auth = useAuth();
@@ -60,8 +59,7 @@ export function WorkflowsHost() {
           showWorkflow(run.workflowId);
           setSidebarTab("workflows");
         };
-        const workflow = findWorkflow(run.workflowId);
-        const name = workflow ? workflowName(workflow) : run.name;
+        const name = findWorkflow(run.workflowId)?.name ?? run.name;
         if (failed) toast.error(t("{name} finished with a problem", { name }), { action: { label: t("Show"), onClick: show } });
         else toast.success(t("{name} is done", { name }), { action: { label: t("Show"), onClick: show } });
       },
