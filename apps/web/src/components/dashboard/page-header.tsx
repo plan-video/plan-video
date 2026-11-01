@@ -19,6 +19,8 @@ export const DashboardCrumbsProvider = CrumbsContext.Provider;
 type DashboardPageHeaderProps = {
   crumbs?: DashboardCrumb[];
   nav?: JSX.Element;
+  /** Gives the crumb's room to the page's controls on phones. */
+  noPhoneCrumbs?: boolean;
   children?: JSX.Element;
 };
 
@@ -27,8 +29,8 @@ export function DashboardPageHeader(props: DashboardPageHeaderProps) {
   const crumbs = () => props.crumbs ?? fromShell();
 
   return (
-    <header class="relative z-[18] flex h-11 w-full shrink-0 items-center gap-3 border-b border-(--plane-border-subtle) bg-(--plane-surface-1) pr-5 pl-[14px]">
-      <nav aria-label={t("Breadcrumb")} class="flex min-w-0 shrink-0 items-center gap-0.5">
+    <header class="relative z-[18] flex h-11 w-full shrink-0 items-center gap-3 border-b border-(--plane-border-subtle) bg-(--plane-surface-1) pr-5 pl-[14px] max-md:gap-2 max-md:px-3">
+      <nav aria-label={t("Breadcrumb")} class={cx("flex min-w-0 shrink-0 items-center gap-0.5 max-md:shrink", props.noPhoneCrumbs && "max-md:hidden")}>
         <For each={crumbs()}>
           {(crumb, index) => (
             <>
@@ -43,7 +45,7 @@ export function DashboardPageHeader(props: DashboardPageHeaderProps) {
         </For>
       </nav>
       {props.nav}
-      <div class="ml-auto flex min-w-0 items-center justify-end gap-2">{props.children}</div>
+      <div class="ml-auto flex min-w-0 items-center justify-end gap-2 max-md:shrink-0">{props.children}</div>
     </header>
   );
 }

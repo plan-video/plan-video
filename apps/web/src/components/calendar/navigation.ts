@@ -4,6 +4,7 @@
 
 import { useSearchParams } from "@solidjs/router";
 import { createSignal, onCleanup } from "solid-js";
+import { isPhone } from "@/lib/phone";
 import { defaultCalendarView, isCalendarView } from "./default-view";
 import { isDateKey, localDateKey, localMinutes } from "./utils";
 import type { CalendarView } from "./types";
@@ -36,7 +37,7 @@ export function useCalendarNavigation(): CalendarNavigation {
   const today = () => localDateKey(now());
   const view = (): CalendarView => {
     const page = first(params.dashboard);
-    if (page && POST_LISTS.has(page)) return "list";
+    if (isPhone() || (page && POST_LISTS.has(page))) return "list";
     const raw = first(params.view);
     return isCalendarView(raw) ? raw : defaultCalendarView();
   };

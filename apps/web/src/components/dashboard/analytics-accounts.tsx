@@ -4,7 +4,6 @@
 
 import { For, Show, createEffect, createMemo } from "solid-js";
 
-import { YouTubeWhiteTile } from "@/components/brand/youtube-icon";
 import { PlaneIcon } from "@/components/dashboard/plane-icons";
 import { DashboardSidebarSection, dashboardNavItemClass } from "@/components/dashboard/sidebar";
 import { AccountAvatar, namesRepeat } from "@/components/publish/account-avatar";
@@ -53,14 +52,9 @@ export function AnalyticsAccounts() {
               <span class="flex min-w-0 items-center gap-2 py-px">
                 <Show
                   when={socialConnections().find((account) => account.id === source.account)}
-                  fallback={
-                    // YouTube small on its white tile, as in the calendar's account list.
-                    <Show when={source.platform !== "youtube"} fallback={<YouTubeWhiteTile fill class="size-4 rounded-sm" />}>
-                      <PlatformLogo id={source.platform} class="size-4 rounded-sm" />
-                    </Show>
-                  }
+                  fallback={<PlatformLogo id={source.platform} class="size-4 rounded-sm" bare />}
                 >
-                  {(account) => <AccountAvatar account={account()} logoOnly={byNetwork()} compact />}
+                  {(account) => <AccountAvatar account={account()} logoOnly={byNetwork()} bare />}
                 </Show>
                 <span class="min-w-0 truncate text-sm leading-5 font-medium">{label(source)}</span>
               </span>

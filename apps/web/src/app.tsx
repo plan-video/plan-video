@@ -15,7 +15,7 @@ import { useColorMode } from "@kobalte/core";
 import { signedInUserId } from '@/lib/guest';
 import { dashboardTheme, setThemeSurface } from "@/lib/dashboard-theme";
 import { AnalyticsConsent } from '@/components/analytics-consent';
-import { ScreenTooSmall } from '@/components/screen-too-small';
+import { ScreenTooSmall, UnlessTooSmall } from '@/components/screen-too-small';
 import { UnsupportedBrowser } from '@/components/unsupported-browser';
 import { OAuthConsentPage, ResumeConsent, rememberConsent, takeConsent } from '@/pages/oauth-consent';
 import { rememberReturn, takeReturn } from '@/lib/return-after-sign-in';
@@ -134,7 +134,7 @@ function HeroShell() {
   const auth = useAuth();
 
   createEffect(() => {
-    if (location.pathname !== '/' || auth.isAuthenticated()) site?.removeHeroShell();
+    site?.removeHeroShell(auth.isAuthenticated() ? undefined : location.pathname);
   });
 
   return null;
@@ -305,7 +305,9 @@ function TryProjectRoute() {
   return (
     <GuestGate account={`/projects/${encodeURIComponent(ref())}`}>
       <GuestFrame>
-        <ProjectPage />
+        <UnlessTooSmall>
+          <ProjectPage />
+        </UnlessTooSmall>
       </GuestFrame>
     </GuestGate>
   );
@@ -318,25 +320,23 @@ function EnvironmentOverlays() {
     if (path.startsWith('/checkout')) return true;
     if (path === '/' || path === '/login' || path === '/signup' || path === '/login/reviewer' || path === '/auth/confirm' || path === '/terms' || path === '/privacy' || path === '/data-deletion' || path === '/integrations' || path === '/pricing' || path === '/about' || path === '/support') return true;
     if (path.startsWith('/p/') || path.startsWith('/connect/')) return true;
-    if (path.startsWith('/integrations/') || path.startsWith('/features/') || path === '/docs' || path.startsWith('/docs/')) return true;
+    if (path.startsWith('/integrations/') || path === '/features' || path.startsWith('/features/') || path === '/docs' || path.startsWith('/docs/')) return true;
     if (path === '/alternatives' || path.startsWith('/alternatives/') || path === '/character-limits' || path.startsWith('/character-limits/') || path === '/roadmap' || path.startsWith('/roadmap/') || path === '/changelog' || path === '/blog' || path.startsWith('/blog/')) return true;
     if (path === '/agents' || path.startsWith('/agents/')) return true;
     if (path === '/tools' || path.startsWith('/tools/')) return true;
+    if (path === DASHBOARD_PATH || path === TRY_PATH) return true;
     // Signing in, connecting a network and approving an AI connector land back
     // here in whatever browser started them, often the AI app's own.
     if (path === '/auth/callback' || path === '/oauth/consent' || /^\/(tiktok|youtube|bluesky|linkedin|x|instagram|facebook|threads)\/callback$/.test(path)) return true;
     return false;
   };
-  // Guest mode's dashboard works in any browser on a big enough screen; its editor needs Chromium.
-  const anyBrowser = () => anywhere() || location.pathname === TRY_PATH;
 
   return (
     <>
+      {/* Last, so a phone hears about its screen rather than being told to switch browsers. */}
       <Show when={!anywhere()}>
-        <ScreenTooSmall />
-      </Show>
-      <Show when={!anyBrowser()}>
         <UnsupportedBrowser />
+        <ScreenTooSmall />
       </Show>
     </>
   );
@@ -395,7 +395,7 @@ function App() {
       <Route path="/connect/:link" component={ConnectLinkPage} />
       <Route path="/dashboard" component={DashboardRoute} />
       <Route path="/" component={!site ? DashboardRoute : HomeRoute} />
-      <Route path="/projects/*ref" component={() => <AuthGate><ProjectPage /></AuthGate>} />
+      <Route path="/projects/*ref" component={() => <AuthGate><UnlessTooSmall><ProjectPage /></UnlessTooSmall></AuthGate>} />
       <Route path={TRY_PATH} component={TryRoute} />
       <Route path={`${TRY_PATH}/projects/*ref`} component={TryProjectRoute} />
       <Route path="*404" component={NotFoundPage} />

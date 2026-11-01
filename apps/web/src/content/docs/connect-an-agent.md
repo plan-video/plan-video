@@ -126,5 +126,5 @@ Which social accounts do I have connected in plan.video?
 It should list your accounts. If it can't reach plan.video, see [Troubleshooting](/docs/agent-troubleshooting).
 
 <Tip>
-Your agents are listed in the dashboard under **MCP & CLI** → **Connected apps**.
+Once one is connected, your agents are listed under **Connected apps** on the dashboard's [**MCP & CLI** page](https://plan.video/dashboard?dashboard=mcp).
 </Tip>

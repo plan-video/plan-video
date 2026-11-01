@@ -2,10 +2,10 @@
 
 <AccordionGroup>
   <Accordion title="What is plan.video?">
-    A social media scheduler with a video editor built in. Plan posts for every network on one calendar, and cut, caption and size each video in the same tab, so nothing is exported from one app and uploaded to another. It runs in your browser, with nothing to install: Chrome, Edge, Brave, Arc or another Chromium browser.
+    A social media scheduler with a video editor built in. Plan posts for every network on one calendar, and cut, caption and size each video in the same tab, so nothing is exported from one app and uploaded to another. It runs in your browser, with nothing to install, on your phone too. Only the video editor needs a computer and a Chromium browser, such as Chrome, Edge, Brave or Arc.
   </Accordion>
-  <Accordion title="How is it different from Buffer or Hootsuite?">
-    They schedule a video you've already made somewhere else. plan.video is where you make it too: cut it, caption it and size it for each network, then schedule it from the same calendar, with nothing to export or upload in between. And it's made by one person, Cihan, so whoever answers your email is the one who builds it.
+  <Accordion title="How is it different from other schedulers?">
+    Most schedule a video you've already made somewhere else. plan.video is where you make it too: cut it, caption it and size it for each network, then schedule it from the same calendar, with nothing to export or upload in between. And it's made by one person, Cihan, so whoever answers your email is the one who builds it.
   </Accordion>
 </AccordionGroup>
 
@@ -36,7 +36,7 @@
     Free connects 3, Creator 15, Pro 40 and Agency 100, and Agency can add more past that. Each account counts once, and several can be on the same network: two TikTok accounts and a YouTube channel are three. See [Connect accounts](/docs/connect-accounts).
   </Accordion>
   <Accordion title="Can I manage several brands or clients?">
-    Yes. Give each brand its own workspace, with its own accounts and calendar, and group accounts to post to them together. On paid plans, send a client a link to a post as it will go out, and they can comment on it without an account. Pro and Agency add team members, as many as you like: admins run a workspace with you, and members write, schedule and post. See [Workspaces](/docs/workspaces).
+    Yes. Give each brand its own workspace, with its own accounts and calendar, and group accounts to post to them together. On paid plans, send a client a link to a post as it will go out, and they can comment on it without an account. A client can also connect their own accounts to a workspace from a link you send them. Pro and Agency add team members, as many as you like: admins run a workspace with you, and members write, schedule and post. See [Workspaces](/docs/workspaces) and [Work with clients](/docs/clients).
   </Accordion>
 </AccordionGroup>
 
@@ -45,6 +45,9 @@
 <AccordionGroup>
   <Accordion title="Which AI agents does it work with?">
     Claude Code, Claude Desktop, Codex, Cursor, VS Code Copilot, Gemini CLI, Antigravity, Devin Desktop and OpenCode. Add plan.video's MCP server, plan.video/mcp, to it and sign in, and while plan.video is open in your browser, it can schedule and publish posts for you. See [Connect an agent](/docs/connect-an-agent).
+  </Accordion>
+  <Accordion title="Is there an AI built in?">
+    Yes. The [Assistant](/docs/assistant) is a chat in the dashboard that plans, writes and schedules posts and reads your numbers. Open it with the round button at the bottom right, or <kbd>⌘</kbd> <kbd>J</kbd>. It asks you before it publishes or deletes anything.
   </Accordion>
 </AccordionGroup>
 
@@ -55,7 +58,7 @@
     Yes. You connect each account through the network's own sign-in, so plan.video never sees your password. The login the network gives back is kept encrypted on plan.video's servers, so posts can go out on time. Bluesky can also connect with an app password, which is used once to sign in and never stored. You can disconnect any account at any time.
   </Accordion>
   <Accordion title="Who can see my footage?">
-    Only you. Your files are saved to a private folder in the cloud that only your account can open, so they're there in any browser you sign in to. A network gets a post's file when it publishes it, and a client sees one only if you share the post for review. Auto-captions send just the audio to ElevenLabs to transcribe. Delete a file or post, or empty a project from the trash, and it's deleted from the cloud too. See [Delete your data](/docs/delete-your-data).
+    You, and anyone you invite to a workspace, who can use its media and posts. Your editor projects stay yours alone. Your files are saved to a private folder in the cloud, so they're there in any browser you sign in to. A network gets a post's file when it publishes it, and a client sees one only if you share the post for review. Auto-captions send just the audio to ElevenLabs to transcribe, and the caption tools and the Assistant send what you ask them about to Anthropic. Delete a file or post, or empty a project from the trash, and it's deleted from the cloud too. See [Delete your data](/docs/delete-your-data).
   </Accordion>
 </AccordionGroup>
 
@@ -63,7 +66,7 @@
 
 <AccordionGroup>
   <Accordion title="Is there a free plan?">
-    Yes, for as long as you like, with no card needed. It has the full editor with 1080p export, the calendar and 3 social accounts on every network but X, each with up to 10 scheduled posts waiting at a time. Upgrade for unlimited posts, 4K, auto-captions, posting to X and more accounts, and cancel any time from **Billing** in **Settings**.
+    Yes, for as long as you like, with no card needed. It has the full editor with 1080p export, the calendar and 3 social accounts on every network but X, each with up to 10 scheduled posts waiting at a time, plus 15 minutes of auto-captions a month. Upgrade for unlimited posts, 4K, hours of auto-captions, posting to X and more accounts, and cancel any time from **Billing** in **Settings**.
   </Accordion>
 </AccordionGroup>
 

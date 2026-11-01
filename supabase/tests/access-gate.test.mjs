@@ -105,6 +105,7 @@ before(async () => {
     makeUser("team-owner"),
     makeUser("team-member", { letIn: false }),
   ]);
+  await Promise.all([setLevel(stranger.id, 2), setLevel(invited.id, 2)]);
   gate(false);
   try {
     landed(await writes.account(stranger), "the stranger's account with the gate off");

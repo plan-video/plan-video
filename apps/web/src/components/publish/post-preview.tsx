@@ -111,6 +111,8 @@ function MediaFill(props: {
   aspect?: number;
   class?: string;
   fit?: "cover" | "contain";
+  /** Where the "1/N" count sits; the vertical layouts keep it under their status bar. */
+  countClass?: string;
 }) {
   const first = () => props.media[0];
   const style = () => (props.aspect ? { "aspect-ratio": String(props.aspect) } : undefined);
@@ -190,7 +192,7 @@ function MediaFill(props: {
             </Show>
           </Show>
           <Show when={props.media.length > 1}>
-            <span class="absolute right-2 top-2 rounded-full bg-black/60 px-1.5 py-0.5 text-[9px] font-medium text-white">
+            <span class={cx("absolute rounded-full bg-black/60 px-1.5 py-0.5 text-[9px] font-medium text-white", props.countClass ?? "right-2 top-2")}>
               1/{props.media.length}
             </span>
           </Show>
@@ -277,7 +279,7 @@ function VerticalPreview(props: PreviewProps) {
   const id = () => props.platform;
   return (
     <Phone>
-      <MediaFill media={props.media} cover={props.cover} class="absolute inset-0" />
+      <MediaFill media={props.media} cover={props.cover} class="absolute inset-0" countClass="right-2 top-16" />
       <div class="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(0,0,0,0.35)_0%,transparent_18%,transparent_55%,rgba(0,0,0,0.65)_100%)]" />
       <div class="pointer-events-none relative z-10 flex h-full flex-col">
         <StatusBar />

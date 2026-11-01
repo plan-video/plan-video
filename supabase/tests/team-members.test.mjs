@@ -394,6 +394,60 @@ describe("working in a shared workspace", () => {
   });
 });
 
+describe("preview links and the plan", () => {
+  let person;
+  const add = (post) =>
+    call("/rest/v1/post_previews?select=id", {
+      token: person.token,
+      method: "POST",
+      prefer: "return=representation",
+      body: { owner_id: person.id, post_id: post, snapshot: { title: "Hi", workspaceId: "own" } },
+    });
+  const upsert = (post) =>
+    call("/rest/v1/post_previews?on_conflict=owner_id,post_id&select=id", {
+      token: person.token,
+      method: "POST",
+      prefer: "resolution=merge-duplicates,return=representation",
+      body: { owner_id: person.id, post_id: post, snapshot: { title: "Again", workspaceId: "own" } },
+    });
+
+  before(async () => {
+    person = await makeUser("previews");
+  });
+
+  test("Free can't make one, a paid plan can", async () => {
+    assert.equal((await add("free-post")).status, 403);
+    await setLevel(person.id, 2);
+    assert.equal((await add("paid-post")).status, 201);
+  });
+
+  test("after a downgrade, a link keeps working and only new ones are refused", async () => {
+    await setLevel(person.id, 2);
+    const made = await add("kept-post");
+    assert.equal(made.status, 201, JSON.stringify(made.data));
+    const preview = made.data[0].id;
+    await setLevel(person.id, 1);
+
+    assert.equal((await add("new-post")).status, 403);
+    assert.equal((await upsert("kept-post")).status, 403);
+    const changed = await call(`/rest/v1/post_previews?id=eq.${preview}`, {
+      token: person.token,
+      method: "PATCH",
+      prefer: "return=representation",
+      body: { snapshot: { title: "Changed", workspaceId: "own" } },
+    });
+    assert.equal(changed.status, 200, JSON.stringify(changed.data));
+    assert.equal(changed.data.length, 1);
+
+    assert.equal((await rpc(ANON, "get_post_preview", { preview })).snapshot.title, "Changed");
+    await rpc(ANON, "add_post_preview_comment", { preview, name: "Client", body: "Looks good" });
+    assert.equal((await rpc(person.token, "get_post_preview", { preview })).comments.length, 1);
+
+    const gone = await call(`/rest/v1/post_previews?id=eq.${preview}`, { token: person.token, method: "DELETE", prefer: "return=representation" });
+    assert.equal(gone.data.length, 1);
+  });
+});
+
 describe("roles and leaving", () => {
   test("members can't manage people; admins can", async () => {
     const team = await rpc(owner.token, "workspace_team", { owner: owner.id, workspace: W1 });

@@ -2,9 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import { A } from "@solidjs/router";
 import { Show } from "solid-js";
 import { isServer } from "solid-js/web";
 import { Icon } from "@/components/ui/icon";
+import { appRoute } from "@/hooks/use-project-route";
 import { t } from "@/lib/i18n";
 
 function isChromium() {
@@ -23,8 +25,11 @@ export function UnsupportedBrowser() {
           </span>
           <h2 class="text-xl font-450 text-foreground">{t("Unsupported browser")}</h2>
           <p class="text-xs text-muted-foreground">
-            {t("Plan Video requires a Chromium-based browser. Please switch to Google Chrome, Microsoft Edge, Brave, or Arc.")}
+            {t("The video editor requires a Chromium-based browser. Please switch to Google Chrome, Microsoft Edge, Brave, or Arc.")}
           </p>
+          <A href={appRoute()} class="mt-1 text-sm text-foreground underline underline-offset-2 focus-ring">
+            {t("Back to dashboard")}
+          </A>
         </div>
       </div>
     </Show>

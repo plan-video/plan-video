@@ -2,17 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { Show, createMemo, createSignal, onMount } from "solid-js";
-import { Canvas } from "@/components/canvas";
-import { ASSETS_SIDEBAR_WIDTH, leftSidebarWidth, setSidebarTab } from "@/agent-chat";
-import { Timeline, Layers } from "@/components/timeline";
-import { Soundboard, Inspector } from "@/components/sidebar-right";
-import { FloatingProjectHeader, SidebarLeft } from "@/components/sidebar-left";
-import { ProjectBar } from "@/components/editor/project-bar";
-import { EDITOR_RAIL_WIDTH, EditorRail } from "@/components/editor/editor-rail";
+import { Show, onMount } from "solid-js";
+import { setSidebarTab } from "@/agent-chat";
+import { FloatingProjectHeader } from "@/components/sidebar-left";
+import { EditorDock } from "@/components/editor/dock";
 import { EditorTour } from "@/components/tour/editor-tour";
-import { useLayout, MIN_TIMELINE_HEIGHT } from "@/context/layout";
-import { RULER_HEIGHT } from "@/engine/timeline";
+import { useLayout } from "@/context/layout";
 import { createEffect, onCleanup, untrack } from 'solid-js';
 import { toast } from 'somoto';
 import { useWorld } from '@plan.video/koota-solid';
@@ -31,7 +26,7 @@ import { browserCompositionText, changesComposition, holdBrowserComposition } fr
 import { compileProject, refreshProject, watchProject } from '@/projects/host';
 import { captureProjectCover } from '@/projects/cover';
 import { coverRect, settleOpeningView } from '@/engine/camera';
-import { closeStreamLayout, layoutTarget } from '@/engine/stream-layout';
+import { closeStreamLayout } from '@/engine/stream-layout';
 import { copySelection, cutSelection, pasteSelection, redoEdit, selectAll, undoEdit } from '@/engine/input/shortcuts';
 import { registerEditCommands } from '@/lib/edit-commands';
 import { useProject } from "@/context/project";
@@ -45,19 +40,8 @@ import type { Mount } from '@plan.video/reconciler';
 import type { EditWriter } from '@/projects/edits';
 import type { CompileResult } from '@/projects/host';
 
-const MIN_CANVAS_HEIGHT = 200;
-const PANEL_GAP = 6;
-// Panels form one frame: each draws only the edges no neighbour draws, so inner lines stay single hairlines.
-const PANEL_SURFACE = 'min-h-0 min-w-0 overflow-hidden border-border-strong bg-background';
-// Rail + left panel wide, so the canvas between them sits centred in the window.
-const INSPECTOR_WIDTH = EDITOR_RAIL_WIDTH + ASSETS_SIDEBAR_WIDTH;
-const LAYOUT_INSPECTOR_WIDTH = 360;
-// One width for every left-panel view, so switching views never moves the canvas.
-const sidebarWidth = () => leftSidebarWidth();
-
 export function EditorPage() {
-  const { uiVisible, timelineMinimized, timelineHeight, setTimelineHeight } = useLayout();
-  const [resizing, setResizing] = createSignal(false);
+  const { uiVisible } = useLayout();
   const project = useProject();
   const world = useWorld();
   const engine = useEngineContext();
@@ -220,8 +204,6 @@ export function EditorPage() {
     });
   });
 
-  // Toggling `uiVisible` changes the track count, which Chromium does not interpolate, so that still snaps.
-  const [animateColumns, setAnimateColumns] = createSignal(false);
   // On <html> so menus and dialogs mounted on <body> get it, and set before first paint so the base theme never flashes.
   const root = document.documentElement;
   root.classList.add('editor-theme');
@@ -235,122 +217,11 @@ export function EditorPage() {
     paste: () => pasteSelection(world),
     selectAll: () => selectAll(world),
   }));
-  onMount(() => {
-    setSidebarTab("assets");
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    requestAnimationFrame(() => requestAnimationFrame(() => setAnimateColumns(true)));
-  });
-
-  const inspectorWidth = () => (layoutTarget() ? LAYOUT_INSPECTOR_WIDTH : INSPECTOR_WIDTH);
-  const layersWidth = () => sidebarWidth();
-  const bottomHeight = () => (timelineMinimized() ? RULER_HEIGHT : timelineHeight());
-  const mixerShown = () => !timelineMinimized();
-
-  const rootStyles = createMemo(() => {
-    if (!uiVisible()) return;
-    return {
-      'grid-template-columns': `${EDITOR_RAIL_WIDTH + PANEL_GAP}px ${sidebarWidth()}px minmax(0, 1fr) ${inspectorWidth()}px`,
-      'grid-template-rows': `minmax(0, 1fr) ${bottomHeight()}px`,
-      padding: `${PANEL_GAP}px ${PANEL_GAP}px ${PANEL_GAP}px 0`,
-      ...(animateColumns() ? { transition: 'grid-template-columns 200ms ease-out' } : {}),
-    };
-  });
-
-  const bottomStyles = createMemo(() => ({
-    'grid-template-columns': `minmax(0, 1fr)${mixerShown() ? ` ${inspectorWidth()}px` : ''}`,
-    ...(animateColumns() ? { transition: 'grid-template-columns 200ms ease-out' } : {}),
-  }));
-
-  const timelineStyles = createMemo(() => ({
-    'grid-template-columns': `${layersWidth() - 2}px 1px minmax(0, 1fr)`,
-    ...(animateColumns() ? { transition: 'grid-template-columns 200ms ease-out' } : {}),
-  }));
-
-  const handleResizeStart = (e: PointerEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const startY = e.clientY;
-    const startHeight = timelineHeight();
-    setResizing(true);
-
-    const handleMove = (ev: PointerEvent) => {
-      const deltaY = startY - ev.clientY;
-      const maxHeight = Math.max(
-        MIN_TIMELINE_HEIGHT,
-        window.innerHeight - MIN_CANVAS_HEIGHT - PANEL_GAP * 3,
-      );
-      const next = Math.max(MIN_TIMELINE_HEIGHT, Math.min(maxHeight, startHeight + deltaY));
-      setTimelineHeight(next);
-    };
-
-    const handleEnd = () => {
-      setResizing(false);
-      document.removeEventListener('pointermove', handleMove);
-      document.removeEventListener('pointerup', handleEnd);
-    };
-
-    document.addEventListener('pointermove', handleMove);
-    document.addEventListener('pointerup', handleEnd);
-  };
+  onMount(() => setSidebarTab("assets"));
 
   return (
-    <div
-      class={cx("bg-canvas w-full overflow-hidden grid", inGuestMode() ? "h-full" : "h-screen")}
-      classList={{ 'grid-cols-[1fr] grid-rows-[1fr]': !uiVisible() }}
-      style={rootStyles()}
-    >
-      <Show when={uiVisible()}>
-        <EditorRail style={{ 'grid-column': '1', 'grid-row': '1 / span 2', 'padding-right': `${PANEL_GAP}px` }} />
-        <div class={`${PANEL_SURFACE} flex flex-col rounded-tl-lg border-l border-t border-r`} style={{ 'grid-column': '2', 'grid-row': '1' }}>
-          <ProjectBar />
-          <div class="flex min-h-0 flex-1 flex-col">
-            <SidebarLeft />
-          </div>
-        </div>
-      </Show>
-      {/* Keeps its grid place whether the panels show or not, so hiding them never remounts the canvas. */}
-      <div
-        class="relative min-h-0 min-w-0"
-        classList={{ 'border-t border-border-strong': uiVisible() }}
-        style={uiVisible() ? { 'grid-column': '3', 'grid-row': '1' } : undefined}
-      >
-        <Canvas />
-      </div>
-      <Show when={uiVisible()}>
-        <div class={`${PANEL_SURFACE} flex flex-col rounded-tr-lg border-l border-t border-r`} style={{ 'grid-column': '4', 'grid-row': '1' }}>
-          <Inspector />
-        </div>
-        <div class="relative min-h-0" style={{ 'grid-column': '2 / span 3', 'grid-row': '2' }}>
-          <Show when={!timelineMinimized()}>
-            <div
-              class="absolute inset-x-0 z-10 cursor-ns-resize group"
-              style={{ top: `-${PANEL_GAP / 2}px`, height: `${PANEL_GAP}px` }}
-              onPointerDown={handleResizeStart}
-            >
-              <div
-                class="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 transition-colors group-hover:bg-primary"
-                classList={{ 'bg-primary': resizing() }}
-              />
-            </div>
-          </Show>
-          <div class="grid h-full min-h-0" style={bottomStyles()}>
-            <div
-              class={`${PANEL_SURFACE} grid rounded-bl-lg border-t border-l border-b`}
-              classList={{ 'rounded-br-lg border-r': !mixerShown() }}
-              style={timelineStyles()}
-            >
-              <Layers />
-              <div class="bg-border-strong" />
-              <Timeline />
-            </div>
-            <Show when={mixerShown()}>
-              <div class={`${PANEL_SURFACE} rounded-br-lg border`}>
-                <Soundboard />
-              </div>
-            </Show>
-          </div>
-        </div>
-      </Show>
+    <div class={cx("bg-canvas w-full overflow-hidden", inGuestMode() ? "h-full" : "h-screen")}>
+      <EditorDock />
       <Show when={!uiVisible()}>
         <FloatingProjectHeader />
       </Show>

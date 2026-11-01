@@ -7,6 +7,7 @@ import { createSignal } from "solid-js";
 import { queueAccountSync } from "@/lib/account-sync-bus";
 import { ownerOf } from "@/lib/guest";
 import { msg, t } from "@/lib/i18n";
+import { paidToolsLocked } from "@/lib/paid-tools";
 import { workspaceKey } from "@/lib/workspaces";
 
 export type VaultKind = "caption" | "hashtags" | "snippet";
@@ -156,6 +157,7 @@ export function fallbackTitle(body: string): string {
 
 /** Returns the new item's id, or an error for the user. */
 export function createVaultItem(draft: VaultDraft): { id: string } | { error: string } {
+  if (paidToolsLocked()) return { error: t("Saving to the Vault comes with a paid plan.") };
   const next = clean(draft);
   if (!next.body) return { error: draft.kind === "hashtags" ? t("Add at least one hashtag.") : t("Write something to keep.") };
   const now = new Date().toISOString();

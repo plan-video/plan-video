@@ -1,4 +1,4 @@
-<a href="https://plan.video"><img src=".github/assets/banner.jpg" alt="plan.video: the all-in-one social media scheduler" width="100%"></a>
+<a href="https://plan.video"><img src=".github/assets/banner.webp" alt="plan.video: the all-in-one social media scheduler" width="100%"></a>
 
 <p align="center">
   <a href="https://plan.video"><b>Website</b></a> ·

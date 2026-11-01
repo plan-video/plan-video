@@ -16,9 +16,10 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { Command as CommandPrimitive } from "cmdk-solid";
+import { Command as CommandPrimitive, defaultFilter } from "cmdk-solid";
 import { isInputTarget } from "@/utils";
 
+import { rankMatches } from "./search-rank";
 import type { DashboardView } from "./types";
 
 const MAC = /Mac|iPhone|iPad/.test(navigator.platform);
@@ -34,6 +35,7 @@ const PAGES: SearchPage[] = [
   { view: "new-post", name: msg("New post"), section: msg("Create"), icon: "document" },
   { view: "bulk-tools", name: msg("Bulk tools"), section: msg("Create"), icon: "layers" },
   { view: "calendar", name: msg("Calendar"), section: msg("Calendar"), icon: "calendar" },
+  { view: "queue", name: msg("Queue"), section: msg("Calendar"), icon: "clock" },
   { view: "posts", name: msg("Post list"), section: msg("Calendar"), icon: "list" },
   { view: "scheduled", name: msg("Scheduled"), section: msg("Calendar"), icon: "clock" },
   { view: "drafts", name: msg("Drafts"), section: msg("Calendar"), icon: "document" },
@@ -73,10 +75,11 @@ type DashboardSidebarSearchProps = {
 
 export function DashboardSidebarSearch(props: DashboardSidebarSearchProps) {
   const [open, setOpen] = createSignal(false);
+  const [query, setQuery] = createSignal("");
 
   const sections = () => {
     const groups: { label: string; items: SearchPage[] }[] = [];
-    for (const page of PAGES) {
+    for (const page of rankMatches(PAGES, query(), searchValue, defaultFilter)) {
       const group = groups.find((entry) => entry.label === page.section);
       if (group) group.items.push(page);
       else groups.push({ label: page.section, items: [page] });
@@ -109,7 +112,7 @@ export function DashboardSidebarSearch(props: DashboardSidebarSearchProps) {
   });
 
   createEffect(() => {
-    if (!open()) return;
+    if (!open()) return setQuery("");
     queueMicrotask(() => {
       document.querySelector<HTMLInputElement>("[data-slot=command-input]")?.focus();
     });
@@ -121,13 +124,13 @@ export function DashboardSidebarSearch(props: DashboardSidebarSearchProps) {
         type="button"
         aria-label={t("Search")}
         aria-keyshortcuts="Meta+K"
-        class="flex h-7 w-[364px] max-w-[36vw] items-center rounded-md border border-(--plane-border-subtle-1) bg-(--plane-layer-2) p-2 text-left outline-none transition-colors duration-200 hover:bg-(--plane-layer-2-hover) focus-ring"
+        class="flex h-7 w-[364px] max-w-[36vw] items-center rounded-md border border-(--plane-border-subtle-1) bg-(--plane-layer-2) p-2 text-left outline-none transition-colors duration-200 hover:bg-(--plane-layer-2-hover) focus-ring max-md:size-9 max-md:justify-center max-md:border-0 max-md:bg-transparent"
         onClick={() => setOpen(true)}
       >
-        <PlaneIcon name="search" class="mr-2 size-3.5 text-(--plane-text-placeholder)" />
-        <span class="min-w-0 flex-1 truncate text-sm text-(--plane-text-placeholder)">{props.placeholder ?? t("Search")}</span>
+        <PlaneIcon name="search" class="mr-2 size-3.5 text-(--plane-text-placeholder) max-md:mr-0 max-md:size-5 max-md:text-(--plane-text-tertiary)" />
+        <span class="min-w-0 flex-1 truncate text-sm text-(--plane-text-placeholder) max-md:hidden">{props.placeholder ?? t("Search")}</span>
         {/* Each key on its own, so the ⌘ glyph does not run into the letter. */}
-        <Kbd class="h-5 shrink-0 gap-[3px] rounded-md border border-(--plane-border-subtle-1) bg-(--plane-layer-1) px-1.5 text-xxs font-medium text-(--plane-text-tertiary)">
+        <Kbd class="h-5 shrink-0 gap-[3px] rounded-md border border-(--plane-border-subtle-1) bg-(--plane-layer-1) px-1.5 text-xxs font-medium text-(--plane-text-tertiary) max-md:hidden">
           <Show when={MAC} fallback={<span>Ctrl</span>}>
             <span class="text-xs leading-none">⌘</span>
           </Show>
@@ -153,7 +156,7 @@ export function DashboardSidebarSearch(props: DashboardSidebarSearchProps) {
             }}
           >
             <Command
-              shouldFilter
+              shouldFilter={false}
               loop
               class="flex max-h-[min(80vh,30rem)] flex-col overflow-hidden rounded-none bg-transparent"
             >
@@ -161,6 +164,8 @@ export function DashboardSidebarSearch(props: DashboardSidebarSearchProps) {
                 <PlaneIcon name="search" class="size-3.5 text-(--plane-text-placeholder)" />
                 <CommandPrimitive.Input
                   data-slot="command-input"
+                  value={query()}
+                  onValueChange={setQuery}
                   placeholder={t("Search pages")}
                   class="h-7 min-w-0 flex-1 bg-transparent text-sm text-(--plane-text-primary) outline-none placeholder:text-(--plane-text-placeholder)"
                 />

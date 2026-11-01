@@ -42,7 +42,7 @@ Each of these is optional and turns on one feature:
     Make a developer app on each network and add its keys. See [Network apps](/docs/network-apps).
   </Step>
   <Step title="Sign in">
-    Open your site, sign in with your email and give yourself a plan.
+    [Let your own email in](/docs/supabase#letting-people-in), since the database starts invite-only. Then open your site, sign in with your email and [give yourself a plan](#give-yourself-a-plan).
   </Step>
 </Steps>
 
@@ -67,7 +67,7 @@ The services reach R2 at its EU address, `<account>.eu.r2.cloudflarestorage.com`
 
 ## Give yourself a plan
 
-Plans are kept in `user_data.access_level`: 1 is Free, 2 Creator, 3 Pro and 4 Agency. Without the billing service, everyone stays on Free, with its limits: 3 social accounts, 10 scheduled posts waiting per account, and no X or team members. Give yourself Agency in the SQL editor:
+Plans are kept in `user_data.access_level`: 1 is Free, 2 Creator, 3 Pro and 4 Agency. Without the billing service, everyone stays on Free, with its limits: 3 social accounts, 10 scheduled posts waiting per account, 1080p export, and no X, team members, Bulk tools or preview links, and no new templates or Vault items. Give yourself Agency in the SQL editor:
 
 ```sql
 update public.user_data set access_level = 4
@@ -76,7 +76,7 @@ where id = (select id from auth.users where email = 'you@example.com');
 
 ## Open sign-up
 
-Out of the box, plan.video is invite-only, as it is before launch: people join a waitlist, and only emails you let in can sign in. To let anyone sign up, build the website with `VITE_INVITE_ONLY=false`, set `REQUIRE_INVITE=false` in `r2.env`, and run `update public.invite_gate set invite_only = false;` in the SQL editor (with the sign-up hook off, if you turned it on). To let one person in, see [Letting people in](/docs/supabase#letting-people-in).
+Out of the box, only emails you let in can use your copy: the database saves nothing for anyone else, the services turn them down and, with the sign-up hook on, no account is made for them. There's no waitlist page, because that belongs to plan.video's own website. To let anyone sign up, set `REQUIRE_INVITE=false` in `r2.env`, and run `update public.invite_gate set invite_only = false;` in the SQL editor (with the sign-up hook off, if you turned it on). To let one person in, see [Letting people in](/docs/supabase#letting-people-in).
 
 ## Your domain
 
@@ -99,7 +99,7 @@ A copy you run has no homepage of its own: `/` opens the dashboard.
     Apply each new file in `supabase/migrations`, oldest first, in the order its notes ask for.
   </Step>
   <Step title="Update the services">
-    Copy each changed service to its folder, run `npm ci --omit=dev` where it has packages, and restart it.
+    Run `services/deploy.sh all`, or name the services you run. See [Services](/docs/services#update).
   </Step>
   <Step title="Update the website">
     Build it and copy `apps/web/dist` to the server again.

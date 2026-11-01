@@ -1,12 +1,12 @@
-A workspace holds one brand's social accounts, account groups, posts, calendar and Vault. Use one per brand or client to keep them apart.
+A workspace holds one brand's social accounts, account groups, posts, calendar and Vault. Everyone starts with one called *Personal*. Use one per brand or client to keep them apart.
 
 ## Switch workspaces
 
-Click the workspace name at the top of the dashboard's sidebar and pick another one.
+Click the workspace name at the top left of the dashboard and pick another one.
 
 ## Make a workspace
 
-Choose **New workspace** in the same menu. A new workspace starts with no accounts, posts or Vault items. Give it a name and a logo on the workspace's **General** page.
+Choose **New workspace** in the same menu. A new workspace starts with no accounts, posts or Vault items. Give it a name and a logo on the workspace's **General** page, in **Settings**.
 
 ## Invite your team
 

@@ -13,6 +13,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { capCentered } from "@/components/ui/cap-label";
 import { Icon } from "@/components/dashboard/dashboard-icon";
 import { DashboardPageHeader } from "@/components/dashboard/page-header";
+import { useAskToUpgrade } from "@/components/dashboard/paid-lock";
 import { Slider, SliderLabel, SliderThumb, SliderTrack } from "@/components/ui/slider";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverPortal, PopoverTrigger } from "@/components/ui/popover";
@@ -87,6 +88,7 @@ import { projectRoute, useReturnHere } from "@/hooks/use-project-route";
 import { track } from "@/lib/analytics";
 import { cx } from "@/lib/cva";
 import { localized, msg, t } from "@/lib/i18n";
+import { paidToolsLocked } from "@/lib/paid-tools";
 import {
   captionLength,
   checkPost,
@@ -112,7 +114,7 @@ import {
   type PlatformSettings,
   type PostIssue,
 } from "@/lib/social";
-import { accountCount, accountLabel, accountsFor, accountsForPlatforms, connectionsFor, loadSocialConnections, readChoices, sameChoices, type AccountChoices } from "@/lib/social-connections";
+import { accountLabel, accountsFor, accountsForPlatforms, connectionsFor, loadSocialConnections, readChoices, sameChoices, type AccountChoices } from "@/lib/social-connections";
 import { describeQueue, queueSlots } from "@/lib/queue-slots";
 import { META_NAMES, META_NETWORKS } from "@/lib/meta";
 import { rememberPinterestBoard } from "@/lib/pinterest-boards";
@@ -713,7 +715,7 @@ function setKind(kind: PostKind) {
   });
 }
 
-const POST_COLUMN = "mx-auto flex w-full max-w-[820px] flex-col px-10 pt-8 pb-12";
+const POST_COLUMN = "mx-auto flex w-full max-w-[820px] flex-col px-10 pt-8 pb-12 max-md:px-4 max-md:pt-5";
 
 const SUBMIT_LABELS: Record<When, string> = { now: msg("Post now"), queue: msg("Add to queue"), schedule: msg({ message: "Schedule", context: "verb" }) };
 
@@ -762,15 +764,6 @@ export function DashboardNewPostView() {
     if (!sameChoices(next, post.accounts)) setPost("accounts", reconcile(next));
   });
   const unconnected = () => post.platforms.filter((id) => connectionsFor(id).length === 0);
-  const postToHint = () => {
-    const platforms = post.platforms.length;
-    if (!platforms) return undefined;
-    const accounts = accountCount(post.platforms, post.accounts);
-    return accounts > platforms
-      ? t("{platforms, plural, one {# platform} other {# platforms}}, {accounts, plural, one {# account} other {# accounts}}", { platforms, accounts })
-      : t("{count, plural, one {# selected} other {# selected}}", { count: platforms });
-  };
-
   createEffect(
     on(
       () => params.project,
@@ -1108,6 +1101,9 @@ export function DashboardNewPostView() {
     }
   };
 
+  // The crop is said once, under the pictures, by CropNote.
+  const mirror = () => issues().filter((issue) => !issue.crop);
+
   onMount(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Enter" || !(event.metaKey || event.ctrlKey)) return;
@@ -1130,9 +1126,9 @@ export function DashboardNewPostView() {
           <TemplatesMenu canSave={hasContent() || post.platforms.length > 0} />
         </DashboardPageHeader>
 
-        <div class="min-h-0 flex-1 overflow-y-auto">
+        <div class="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable_both-edges]">
           <div class={cx(POST_COLUMN, "gap-8")}>
-            <FormSection title={t("Post to")} hint={postToHint()}>
+            <FormSection title={t("Post to")}>
               <div class="flex flex-col rounded-xl border border-(--border-input)">
                 <PlatformPicker
                   variant="logos"
@@ -1170,18 +1166,23 @@ export function DashboardNewPostView() {
               </Show>
             </FormSection>
 
-            <EditingTabs />
-            <MediaSection />
+            <div class="flex flex-col gap-4">
+              <EditingTabs />
+              <MediaSection />
+            </div>
             <Show when={post.kind !== "story"}>
               <CaptionSection />
               <ThreadSection />
             </Show>
             <PlatformSettingsSection issues={issues()} />
+            <Show when={mirror().length}>
+              <IssueList issues={mirror()} names={post.platforms.length > 1} class="@3xl:hidden" />
+            </Show>
           </div>
         </div>
 
-        <footer class="flex shrink-0 flex-col gap-2.5 border-t border-border-strong px-6 py-3">
-          <div class="flex items-center gap-2">
+        <footer class="flex shrink-0 border-t border-border-strong">
+          <div class="mx-auto flex w-full max-w-[820px] flex-wrap items-center justify-end gap-2 px-10 py-3 @max-3xl:pr-16 max-md:px-3! max-md:py-2">
             <Show when={!toInbox()}>
               <WhenButton problem={scheduleProblem()} queuedAt={queuedAt()} />
             </Show>
@@ -1262,7 +1263,6 @@ function ownMediaSlot(id: PlatformId): MediaSlot {
 
 const maxFor = (slot: MediaSlot) => (post.kind === "story" ? 1 : slot.platform ? picturesOut(slot.platform) : MAX_IMAGES);
 
-const slotOf = (id: PlatformId) => (post.ownMedia[id] ? ownMediaSlot(id) : SHARED_MEDIA);
 
 const [editingPicture, setEditingPicture] = createSignal<{ slot: MediaSlot; item: PostMedia } | null>(null);
 
@@ -1328,11 +1328,9 @@ function MediaSection() {
     const id = active();
     return id !== "all" && post.ownMedia[id] ? id : undefined;
   };
-  const shown = () => (own() ? ownMediaSlot(own()!) : SHARED_MEDIA);
   const hint = () => {
     const id = active();
     if (id !== "all" && !own()) return t("Same as all platforms");
-    if (shown().items()[0]?.kind === "image") return t("{count} of {max} pictures", { count: shown().items().length, max: maxFor(shown()) });
     return id === "all" ? undefined : t("Only for {platform}", { platform: socialPlatform(id).name });
   };
 
@@ -1348,13 +1346,13 @@ function MediaSection() {
       action={
         <>
           <Show when={canBeStory()}>
-            <Button variant="link" size="small" onClick={toggleStory}>
+            <Button variant="link" size="small" class="text-xs" onClick={toggleStory}>
               {post.kind === "story" ? t("Make it a post") : t("Make it a story")}
             </Button>
           </Show>
           <Show when={own()}>
             {(id) => (
-              <Button variant="link" size="small" onClick={() => dropOwnMedia(id())}>
+              <Button variant="link" size="small" class="text-xs" onClick={() => dropOwnMedia(id())}>
                 {t("Use the shared media")}
               </Button>
             )}
@@ -1434,7 +1432,7 @@ function SharedMediaNotice(props: { platform: PlatformId }) {
   };
 
   return (
-    <div class="flex flex-col gap-3 rounded-xl border border-border-strong bg-accent/30 p-3">
+    <div class="flex flex-col gap-3 rounded-xl border border-(--border-input) p-3">
       <Show when={post.media.length}>
         <div class="flex flex-wrap gap-1.5">
           <For each={post.media}>
@@ -1626,7 +1624,7 @@ function MediaEditor(props: { slot: MediaSlot }) {
       <Switch>
         <Match when={!items().length && (slot.platform || !post.project)}>
           <DropZone
-            class="py-8"
+            variant="compact"
             title={reading() ? t("Reading…") : t(DROP_TITLES[post.kind])}
             hint={slot.platform ? ownDropHint(slot.platform) : t(DROP_HINTS[post.kind], { count: MEDIA_LIMITS.maxImages })}
             pickLabel={post.kind === "image" ? t("Choose pictures") : post.kind === "video" ? t("Choose a video") : t("Choose a file")}
@@ -1640,7 +1638,7 @@ function MediaEditor(props: { slot: MediaSlot }) {
                   {t("From library")}
                 </MediaPicker>
                 <Show when={post.kind !== "image" && !slot.platform}>
-                  <ProjectPicker class={dropZoneAction} onPick={(project) => void attachProject(project)}>
+                  <ProjectPicker class={cx(dropZoneAction, "max-md:hidden")} onPick={(project) => void attachProject(project)}>
                     <Icon name="navigation.folder" class="-ml-1.5 size-5" />
                     {t("Use a project")}
                   </ProjectPicker>
@@ -1653,11 +1651,11 @@ function MediaEditor(props: { slot: MediaSlot }) {
           {(project) => (
             <div
               class="flex flex-col gap-3 rounded-xl border p-3 transition-colors"
-              classList={{ "border-primary bg-primary/5": dragging(), "border-border-strong bg-accent/30": !dragging() }}
+              classList={{ "border-primary bg-primary/5": dragging(), "border-(--border-input)": !dragging() }}
               {...handlers}
             >
               <div class="flex gap-4">
-                <CoverImage src={project().cover} class="h-24 w-36 rounded-xl" />
+                <CoverImage src={project().cover} class="h-24 w-36 rounded-md" />
                 <div class="flex min-w-0 flex-1 flex-col gap-1 py-0.5">
                   <span class="flex items-center gap-1 text-xs text-muted-foreground">
                     <Icon name="link" class="-ml-1 size-4" />
@@ -1692,12 +1690,12 @@ function MediaEditor(props: { slot: MediaSlot }) {
           {(item) => (
             <div
               class="flex flex-col gap-4 rounded-xl border p-3 transition-colors"
-              classList={{ "border-primary bg-primary/5": dragging(), "border-border-strong bg-accent/30": !dragging() }}
+              classList={{ "border-primary bg-primary/5": dragging(), "border-(--border-input)": !dragging() }}
               {...handlers}
             >
               <div class="flex gap-4">
                 <div
-                  class="relative w-24 shrink-0 overflow-hidden rounded-xl bg-black"
+                  class="relative w-24 shrink-0 overflow-hidden rounded-md bg-black"
                   style={{ "aspect-ratio": `${item().width || 9} / ${item().height || 16}` }}
                 >
                   <img src={slot.cover()?.src ?? item().poster} alt="" class="size-full object-cover" draggable={false} />
@@ -1762,7 +1760,7 @@ function MediaEditor(props: { slot: MediaSlot }) {
           <CropNote slot={slot} />
           <MediaProblems slot={slot} />
           <Show when={!slot.platform}>
-            <LinkedProjectRow framed />
+            <LinkedProjectRow bare />
           </Show>
         </Match>
       </Switch>
@@ -1793,7 +1791,7 @@ function ProjectExportStatus(props: { projectKey: string; reading: boolean; onPi
   const failed = () => (state()?.error ? state() : null);
 
   return (
-    <div class="flex items-center gap-3 rounded-xl border border-dashed border-(--border-input) px-3 py-2.5">
+    <div class="flex items-center gap-3 border-t border-(--border-input) pt-3">
       <Show
         when={failed()}
         fallback={<Icon name="spinner-loader" class="size-6 shrink-0 animate-spin text-muted-foreground" />}
@@ -1847,18 +1845,19 @@ function CropNote(props: { slot: MediaSlot }) {
   const by = () => croppedBy(props.slot);
   return (
     <Show when={by().length}>
-      <div class="flex items-center gap-2 rounded-xl bg-accent/50 py-1 pr-1 pl-2.5 text-xs text-muted-foreground">
-        <Icon name="crop" class="size-4 shrink-0" />
-        <span class="min-w-0 flex-1">
-          {t("{count, plural, one {{names} cuts the first picture from the middle.} other {{names} cut the first picture from the middle.}}", {
-            count: by().length,
-            names: listNames(by()),
-          })}
-        </span>
-        <Button variant="ghost" size="small" class="text-foreground" onClick={() => setEditingPicture({ slot: props.slot, item: props.slot.items()[0]! })}>
+      <p class="text-xs leading-4 text-muted-foreground">
+        {t("{count, plural, one {{names} cuts the first picture from the middle.} other {{names} cut the first picture from the middle.}}", {
+          count: by().length,
+          names: listNames(by()),
+        })}{" "}
+        <button
+          type="button"
+          class="rounded-sm text-foreground underline-offset-2 hover:underline focus-ring"
+          onClick={() => setEditingPicture({ slot: props.slot, item: props.slot.items()[0]! })}
+        >
           {t("Crop it")}
-        </Button>
-      </div>
+        </button>
+      </p>
     </Show>
   );
 }
@@ -1869,30 +1868,28 @@ function MediaProblems(props: { slot: MediaSlot }) {
 
   return (
     <Show when={problems().length}>
-      <div class="flex items-start gap-2 rounded-xl bg-destructive/10 px-2.5 py-2 text-xs">
-        <Icon name="alert-warning" class="-my-0.5 size-5 shrink-0 text-destructive" />
-        <div class="flex min-w-0 flex-col gap-0.5">
-          <For each={problems()}>{(problem) => <span class="text-foreground">{t(problem)}</span>}</For>
-          <Show when={video()}>
-            <span class="text-xs leading-4 text-muted-foreground">{t("Edit it in plan.video to trim or reframe it, then export again.")}</span>
-          </Show>
-        </div>
+      <div class="flex flex-col gap-1 text-xs">
+        <For each={problems()}>
+          {(problem) => (
+            <span class="flex items-start gap-2 text-foreground">
+              <span class="mt-1.5 size-1.5 shrink-0 rounded-full bg-destructive/80" />
+              <span class="min-w-0 flex-1">{t(problem)}</span>
+            </span>
+          )}
+        </For>
+        <Show when={video()}>
+          <span class="pl-3.5 leading-4 text-muted-foreground">{t("Edit it in plan.video to trim or reframe it, then export again.")}</span>
+        </Show>
       </div>
     </Show>
   );
 }
 
-function LinkedProjectRow(props: { framed?: boolean }) {
+function LinkedProjectRow(props: { bare?: boolean }) {
   return (
     <Show when={post.project}>
       {(project) => (
-        <div
-          class="flex items-center gap-2.5"
-          classList={{
-            "border-t border-border-strong pt-3": !props.framed,
-            "rounded-xl border border-border-strong bg-accent/30 p-2": props.framed,
-          }}
-        >
+        <div class="flex items-center gap-2.5" classList={{ "border-t border-(--border-input) pt-3": !props.bare }}>
           <CoverImage src={project().cover} class="h-8 w-12 rounded-md" />
           <div class="flex min-w-0 flex-1 flex-col gap-0.5">
             <span class="truncate text-xs text-foreground">{project().name}</span>
@@ -2074,8 +2071,8 @@ function ImageGrid(props: {
 
   return (
     <div
-      class="grid grid-cols-5 gap-2 rounded-xl border p-2 transition-colors"
-      classList={{ "border-primary bg-primary/5": props.dragging, "border-border-strong bg-accent/30": !props.dragging }}
+      class="grid grid-cols-5 gap-2 rounded-md"
+      classList={{ "outline-dashed outline-1 outline-offset-8 outline-primary": props.dragging }}
       {...props.handlers}
     >
       <For each={props.slot.items()}>
@@ -2101,7 +2098,7 @@ function ImageGrid(props: {
             }}
             onDragEnd={() => setMoving(null)}
             onClick={() => props.onEdit(item)}
-            class="group relative aspect-square cursor-grab overflow-hidden rounded-xl bg-black active:cursor-grabbing"
+            class="group relative aspect-square cursor-grab overflow-hidden rounded-md bg-black active:cursor-grabbing"
             classList={{ "opacity-40": moving() === index() }}
           >
             <img src={item.url} alt="" class="size-full object-cover" draggable={false} />
@@ -2127,7 +2124,7 @@ function ImageGrid(props: {
         <button
           type="button"
           aria-label={t("Add pictures")}
-          class="grid aspect-square place-items-center rounded-xl border border-dashed border-(--border-input) text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-ring"
+          class="grid aspect-square place-items-center rounded-md border border-dashed border-(--border-input) text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-ring"
           onClick={() => props.onAdd()}
         >
           <Icon name="plus-add" class="size-6" />
@@ -2160,6 +2157,7 @@ function EditPictureButton(props: { class: string; onClick(): void }) {
 function TemplatesMenu(props: { canSave: boolean }) {
   const auth = useAuth();
   const [, setParams] = useSearchParams();
+  const askToUpgrade = useAskToUpgrade();
   const [saving, setSaving] = createSignal(false);
   createEffect(() => loadTemplates(auth.ownerId()));
   const shown = () => sortTemplates(postTemplates()).slice(0, 8);
@@ -2187,7 +2185,7 @@ function TemplatesMenu(props: { canSave: boolean }) {
               </DropdownMenuGroup>
               <DropdownMenuSeparator />
             </Show>
-            <DropdownMenuItem tone="neutral" disabled={!props.canSave} onSelect={() => setSaving(true)}>
+            <DropdownMenuItem tone="neutral" disabled={!props.canSave} onSelect={() => (paidToolsLocked() ? askToUpgrade(t("New templates come with a paid plan.")) : setSaving(true))}>
               {t("Save as template…")}
             </DropdownMenuItem>
             <DropdownMenuItem tone="neutral" onSelect={() => setParams({ dashboard: "templates", date: undefined, view: undefined })}>
@@ -2373,17 +2371,17 @@ function CaptionSection() {
       action={
         <>
           <Show when={active() !== "all" && post.overrides[active() as PlatformId] !== undefined}>
-            <Button variant="link" size="small" onClick={() => resetOverride(active() as PlatformId)}>
+            <Button variant="link" size="small" class="text-xs" onClick={() => resetOverride(active() as PlatformId)}>
               {t("Use the shared caption")}
             </Button>
           </Show>
           <Show when={linkedProjectWords() && !value().includes(linkedProjectWords())}>
-            <Button variant="link" size="small" onClick={takeVideoWords}>
+            <Button variant="link" size="small" class="text-xs" onClick={takeVideoWords}>
               {t("Use the video's words")}
             </Button>
           </Show>
           <Show when={value().trim()}>
-            <Button variant="link" size="small" onClick={saveToVault}>
+            <Button variant="link" size="small" class="text-xs" onClick={saveToVault}>
               {t("Save to vault")}
             </Button>
           </Show>
@@ -2404,7 +2402,7 @@ function CaptionSection() {
         />
         <Show when={vaultSignature()}>
           {(signature) => (
-            <div class="flex items-start gap-3 border-t border-border-strong px-3 py-2">
+            <div class="flex items-start gap-3 border-t border-(--border-input) px-3 py-2">
               <div class="flex min-w-0 flex-1 flex-col gap-0.5">
                 <span class="text-xs text-muted-foreground">
                   {post.signature ? t("Ends with your signature") : t("Signature left off this post")} · {signature().title}
@@ -2416,19 +2414,19 @@ function CaptionSection() {
                   {signature().body}
                 </p>
               </div>
-              <Button variant="ghost" size="small" class="shrink-0 text-muted-foreground" onClick={() => setPost("signature", !post.signature)}>
+              <Button variant="ghost" size="small" class="shrink-0 text-xs text-muted-foreground" onClick={() => setPost("signature", !post.signature)}>
                 {post.signature ? t("Leave off") : t("Add it back")}
               </Button>
             </div>
           )}
         </Show>
-        <div class="flex h-10 items-center gap-3 border-t border-border-strong pr-3 pl-1.5 text-xs">
+        <div class="flex h-10 items-center gap-3 border-t border-(--border-input) pr-3 pl-2.5 text-xs">
           <CaptionTools field={() => field} onVaultPick={(item) => write(insertVaultText(value(), item))} />
           <span class="flex-1" />
           <Show when={tags()}>
             <span class="text-muted-foreground">{t("{count, plural, one {# hashtag} other {# hashtags}}", { count: tags() })}</span>
           </Show>
-          <Show when={limit()}>
+          <Show when={value().trim() ? limit() : null}>
             {(current) => (
               <span class="flex items-center gap-1.5">
                 <Show when={active() === "all" && post.platforms.length > 1}>
@@ -2472,17 +2470,7 @@ function ThreadSection() {
 
   return (
     <Show when={networks().length || post.thread.length}>
-      <FormSection
-        title={t("Thread")}
-        hint={hint()}
-        action={
-          <Show when={post.thread.length && post.thread.length < MAX_REPLIES}>
-            <Button variant="link" size="small" onClick={add}>
-              {t("Add another")}
-            </Button>
-          </Show>
-        }
-      >
+      <FormSection title={t("Thread")} hint={hint()}>
         <For each={post.thread}>
           {(reply, index) => (
             <div class="flex flex-col overflow-hidden rounded-xl border border-(--border-input) bg-input transition-colors focus-within:border-primary">
@@ -2503,11 +2491,11 @@ function ThreadSection() {
                 }}
               />
               <ReplyMedia index={index()} />
-              <div class="flex h-10 items-center gap-1 border-t border-border-strong pr-2 pl-1.5 text-xs">
+              <div class="flex h-10 items-center gap-1 border-t border-(--border-input) pr-2 pl-1.5 text-xs">
                 <ReplyMediaButton index={index()} />
                 <DelaySelect value={reply.delay} first={index() === 0} onChange={(minutes) => setPost("thread", index(), "delay", minutes)} />
                 <span class="flex-1" />
-                <Show when={limit()}>
+                <Show when={reply.text.trim() ? limit() : null}>
                   {(current) => (
                     <span class="flex items-center gap-1.5">
                       <Show when={networks().length > 1}>
@@ -2524,10 +2512,10 @@ function ThreadSection() {
             </div>
           )}
         </For>
-        <Show when={!post.thread.length}>
+        <Show when={post.thread.length < MAX_REPLIES}>
           <button
             type="button"
-            class="flex h-10 items-center gap-1.5 rounded-xl border border-dashed border-(--border-input) px-3 text-sm text-muted-foreground press hover:bg-accent hover:text-foreground focus-ring"
+            class="-mx-2 flex h-8 w-fit items-center gap-1.5 rounded-md px-2 text-sm text-muted-foreground press hover:bg-accent hover:text-foreground focus-ring disabled:pointer-events-none disabled:opacity-50"
             disabled={!networks().length}
             onClick={add}
           >
@@ -2598,7 +2586,7 @@ function ReplyMedia(props: { index: number }) {
         <For each={media()}>
           {(item) => (
             <div
-              class="group/tile relative size-16 overflow-hidden rounded-lg border border-border bg-accent"
+              class="group/tile relative size-16 overflow-hidden rounded-md border border-(--border-input) bg-accent"
               classList={{ "cursor-pointer": item.kind === "image" }}
               onClick={() => item.kind === "image" && setEditing(item)}
             >
@@ -2703,7 +2691,7 @@ function EditingTabs() {
 
   return (
     <Show when={post.platforms.length > 1}>
-      <div class={cx(TAB_LIST, "-mb-4")} role="tablist" aria-label={what()}>
+      <div class={TAB_LIST} role="tablist" aria-label={what()}>
         <PlatformTab selected={active() === "all"} onClick={() => pick("all")}>
           {t("All platforms")}
         </PlatformTab>
@@ -2725,14 +2713,15 @@ function EditingTabs() {
 
 const TAB_LIST = "flex w-fit max-w-full flex-wrap items-center gap-0.5 rounded-lg bg-accent p-0.5";
 
-function PlatformTab(props: { selected: boolean; onClick(): void; children: JSX.Element }) {
+function PlatformTab(props: { selected: boolean; onClick(): void; children: JSX.Element; class?: string; label?: string }) {
   const label = capCentered(() => props.children);
   return (
     <button
       type="button"
       role="tab"
       aria-selected={props.selected}
-      class="flex h-7 items-center gap-1.5 rounded-md px-2.5 text-sm press focus-ring"
+      aria-label={props.label}
+      class={cx("flex h-7 items-center gap-1.5 rounded-md px-2.5 text-sm press focus-ring", props.class)}
       classList={{
         "bg-background text-foreground shadow-xs": props.selected,
         "text-muted-foreground hover:text-foreground": !props.selected,
@@ -2758,15 +2747,15 @@ function PlatformSettingsSection(props: { issues: PostIssue[] }) {
         <button
           type="button"
           aria-expanded={open()}
-          class="-mx-2 flex items-center gap-2 rounded-md px-2 py-1 text-left transition-colors hover:bg-accent focus-ring"
+          class="-mx-2 flex h-6 items-center gap-2 rounded-md px-2 text-left transition-colors hover:bg-accent focus-ring"
           onClick={() => setOpen(!open())}
         >
-          <Icon name="chevron-down" class={cx("size-5 shrink-0 text-muted-foreground transition-transform", !open() && "-rotate-90")} />
           <span class="text-sm font-medium text-foreground">{t("Platform settings")}</span>
           <span class="min-w-0 flex-1 truncate text-xs text-muted-foreground">{listNames(shown())}</span>
           <Show when={!open() && shown().some(blocked)}>
-            <span class="text-xs text-destructive">{t("Needs a look")}</span>
+            <span class="shrink-0 text-xs text-destructive">{t("Needs a look")}</span>
           </Show>
+          <Icon name="chevron-down" class={cx("size-5 shrink-0 text-muted-foreground transition-transform", !open() && "-rotate-90")} />
         </button>
         <Show when={open()}>
         <Show when={shown().length > 1}>
@@ -2825,7 +2814,7 @@ function WhenButton(props: { problem: string | null; queuedAt: Date | null }) {
         as="button"
         type="button"
         aria-label={t("When it goes out: {when}", { when: label() })}
-        class="flex h-8 min-w-0 items-center gap-1.5 rounded-md border border-(--border-input) bg-input pl-2 pr-1 text-sm text-foreground press hover:bg-accent focus-ring"
+        class="flex h-7 min-w-0 items-center gap-1.5 rounded-md border border-(--border-input) bg-input pl-2 pr-1 text-sm text-foreground press hover:bg-accent focus-ring"
         classList={{ "border-destructive/60": !!props.problem }}
       >
         <Icon name="calendar" class="size-5 shrink-0 text-muted-foreground" />
@@ -3035,26 +3024,44 @@ function PreviewAside(props: { children: JSX.Element }) {
 
 const PHONE = { width: 286, height: 588 };
 
-const PREVIEW_NUDGE = 64;
-
 function PreviewStage(props: { children: JSX.Element }) {
   const [scale, setScale] = createSignal(1);
   let stage!: HTMLDivElement;
   onMount(() => {
     const observer = new ResizeObserver(() => {
       if (stage.clientWidth <= 0 || stage.clientHeight <= 0) return;
-      const fit = Math.min((stage.clientWidth - 48 - PREVIEW_NUDGE) / PHONE.width, (stage.clientHeight - 48) / PHONE.height);
+      const fit = Math.min((stage.clientWidth - 48) / PHONE.width, (stage.clientHeight - 48) / PHONE.height);
       setScale(previewWidth() == null ? Math.min(1.5, Math.max(0.8, fit)) : Math.max(0.45, fit));
     });
     observer.observe(stage);
     onCleanup(() => observer.disconnect());
   });
   return (
-    <div ref={stage} class="flex min-h-0 flex-1 flex-col overflow-auto" style={{ "padding-left": `${PREVIEW_NUDGE}px` }}>
-      <div class="m-auto w-[272px]" style={{ zoom: String(scale()) }}>
+    <div ref={stage} class="flex min-h-0 flex-1 flex-col overflow-auto px-6 pt-8 pb-4">
+      <div class="mx-auto mb-auto w-[272px]" style={{ zoom: String(scale()) }}>
         {props.children}
       </div>
     </div>
+  );
+}
+
+function IssueList(props: { issues: PostIssue[]; names?: boolean; class?: string }) {
+  return (
+    <ul class={cx("flex flex-col gap-1", props.class)}>
+      <For each={props.issues}>
+        {(issue) => (
+          <li class="flex items-start gap-2 text-xs text-muted-foreground">
+            <span class={cx("mt-1.5 size-1.5 shrink-0 rounded-full", issue.level === "error" ? "bg-destructive/80" : "bg-meter-yellow/80")} />
+            <span class="min-w-0 flex-1">
+              <Show when={props.names}>
+                <span class="text-foreground">{socialPlatform(issue.platform).name}</span> ·{" "}
+              </Show>
+              {t(issue.message)}
+            </span>
+          </li>
+        )}
+      </For>
+    </ul>
   );
 }
 
@@ -3064,47 +3071,41 @@ function PreviewPanel(props: { issues: PostIssue[] }) {
   const previewAccounts = () => accountsFor(platform(), post.accounts);
   const previewAccount = () => previewAccounts().find((account) => account.id === previewAccountId()) ?? previewAccounts()[0];
   const issuesOf = (id: PlatformId) => props.issues.filter((issue) => issue.platform === id);
+  const band = () => issuesOf(platform()).filter((issue) => !issue.crop);
 
   return (
     <PreviewAside>
       <div class="flex h-11 shrink-0 items-center justify-center gap-3 border-b border-border-strong px-3">
         <Show when={post.platforms.length} fallback={<span class="text-sm font-medium text-foreground">{t("Preview")}</span>}>
-          <div class="flex min-w-0 items-center gap-0.5" role="tablist" aria-label={t("Preview platform")}>
+          <div class={cx(TAB_LIST, "min-w-0 flex-nowrap overflow-x-auto [scrollbar-width:none]")} role="tablist" aria-label={t("Preview platform")}>
             <For each={post.platforms}>
               {(id) => (
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={platform() === id}
-                  aria-label={socialPlatform(id).name}
-                  class="relative flex h-7 shrink-0 items-center gap-1.5 rounded-md px-1.5 text-xs press focus-ring"
-                  classList={{
-                    "bg-secondary text-foreground": platform() === id,
-                    "text-muted-foreground hover:bg-accent hover:text-foreground": platform() !== id,
-                  }}
-                  onClick={() => setPreviewing(id)}
-                >
-                  <PlatformLogo id={id} class="size-4.5" />
+                <PlatformTab selected={platform() === id} class="relative shrink-0 px-1.5" label={socialPlatform(id).name} onClick={() => setPreviewing(id)}>
+                  <PlatformLogo id={id} class="size-4" />
                   <Show when={platform() === id}>
-                    <span class="cap-centered pr-0.5">{socialPlatform(id).name}</span>
+                    <span class="pr-0.5">{socialPlatform(id).name}</span>
                   </Show>
                   <Show when={issuesOf(id).some((issue) => issue.level === "error")}>
                     <span class="absolute top-0.5 right-0.5 size-1.5 rounded-full bg-destructive" />
                   </Show>
-                </button>
+                </PlatformTab>
               )}
             </For>
           </div>
         </Show>
         <Show when={previewAccounts().length > 1}>
-          <div class="flex shrink-0 items-center gap-0.5 border-l border-border-strong pl-3" role="tablist" aria-label={t("Preview account")}>
+          <div
+            class="flex min-w-0 shrink items-center gap-0.5 overflow-x-auto border-l border-border-strong pl-3 [scrollbar-width:none]"
+            role="tablist"
+            aria-label={t("Preview account")}
+          >
             <For each={previewAccounts()}>
               {(account) => (
                 <button
                   type="button"
                   role="tab"
                   aria-selected={previewAccount()?.id === account.id}
-                  class="cap-trim h-6 max-w-32 truncate rounded-full px-2 text-xs press focus-ring"
+                  class="cap-trim h-6 max-w-24 shrink-0 truncate rounded-full px-2 text-xs press focus-ring"
                   classList={{
                     "bg-secondary text-foreground": previewAccount()?.id === account.id,
                     "text-muted-foreground hover:bg-accent hover:text-foreground": previewAccount()?.id !== account.id,
@@ -3139,35 +3140,8 @@ function PreviewPanel(props: { issues: PostIssue[] }) {
         />
       </PreviewStage>
 
-      <Show when={issuesOf(platform()).length}>
-        <ul class="mx-auto flex max-w-md shrink-0 flex-col gap-1 px-6 pb-6">
-          <For each={issuesOf(platform())}>
-            {(issue) => (
-              <li class="flex items-start gap-2 text-xs text-muted-foreground">
-                <span
-                  class={cx("mt-1.5 size-1.5 shrink-0 rounded-full", issue.level === "error" ? "bg-destructive/80" : "bg-meter-yellow/80")}
-                />
-                <span class="min-w-0 flex-1">
-                  {t(issue.message)}
-                  <Show when={issue.crop && slotOf(issue.platform).items()[0]}>
-                    {(first) => (
-                      <>
-                        {" "}
-                        <button
-                          type="button"
-                          class="rounded-sm text-foreground underline-offset-2 hover:underline focus-ring"
-                          onClick={() => setEditingPicture({ slot: slotOf(issue.platform), item: first() })}
-                        >
-                          {t("Crop it")}
-                        </button>
-                      </>
-                    )}
-                  </Show>
-                </span>
-              </li>
-            )}
-          </For>
-        </ul>
+      <Show when={band().length}>
+        <IssueList issues={band()} class="min-h-13 shrink-0 justify-center border-t border-border-strong py-3 pl-5 pr-16" />
       </Show>
     </PreviewAside>
   );

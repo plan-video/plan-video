@@ -4,7 +4,7 @@ The dev server reloads as you edit, and you need no accounts or keys to start: i
 
 - **Node.js 22** and npm. Node.js 20.19 or later runs the website, but the services need 22.
 - **git**. The install step uses it to apply the fixes in `patches/`.
-- **A Chromium browser**, such as Chrome, Edge, Brave or Arc. The dashboard and the editor only open in one.
+- **A Chromium browser**, such as Chrome, Edge, Brave or Arc. The editor only opens in one; the dashboard opens in any browser.
 
 ## Run it
 
@@ -78,7 +78,7 @@ stripe listen --forward-to localhost:5173/api/billing/webhook
 
 The publisher, which keeps logins and sends posts, doesn't run inside the dev server. In development, `/api/publisher` goes to `VITE_PUBLISHER_URL`, else `VITE_APP_URL`, else plan.video's own publisher, which only answers sessions from plan.video's own Supabase.
 
-To connect accounts and post from your own copy, run the publisher next to the dev server:
+To connect accounts and post from your own copy, run the publisher and its gateway next to the dev server:
 
 <Steps>
   <Step title="Install it">
@@ -95,13 +95,20 @@ To connect accounts and post from your own copy, run the publisher next to the d
     # 32 random bytes in base64, from: openssl rand -base64 32
     TOKEN_KEY=your-token-key
     REQUIRE_INVITE=false
+    SENDER_SECRET=any-password-you-like
+    ```
+    Beside it, make a `gateway.env` with the same password:
+    ```bash gateway.env
+    SENDER_SECRET=any-password-you-like
     ```
   </Step>
-  <Step title="Start it">
+  <Step title="Start them">
+    Run each in its own terminal, from its own folder:
     ```bash
-    PLAN_VIDEO_ENV_DIR=/path/to/that/folder node server.mjs
+    cd services/publisher && PLAN_VIDEO_ENV_DIR=/path/to/that/folder node server.mjs
+    cd services/gateway && PLAN_VIDEO_ENV_DIR=/path/to/that/folder node server.mjs
     ```
-    It listens on `127.0.0.1:8798`.
+    The gateway listens on `127.0.0.1:8798`, and the publisher on `127.0.0.1:8794`, where only the gateway can reach it.
   </Step>
   <Step title="Point the dev server at it">
     Set `VITE_PUBLISHER_URL=http://127.0.0.1:8798` in `apps/web/.env`, then restart the dev server.
@@ -118,10 +125,10 @@ npm test                            # unit tests in the workspaces
 npm run build                       # a production build, in apps/web/dist
 ```
 
-Each service runs its own tests with Node's test runner:
+Each service's tests run with Node's test runner:
 
 ```bash
-cd services/publisher && npm test
+cd services/publisher && node --test
 ```
 
 ## Troubleshooting

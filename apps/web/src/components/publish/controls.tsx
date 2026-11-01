@@ -234,7 +234,7 @@ export function AccountSelect(props: {
           <Icon name="chevron-down" class="size-4 shrink-0" />
         </PopoverTrigger>
         <PopoverPortal>
-          <PopoverContent data-calendar-keep-popup class="z-[10000] flex w-64 flex-col overflow-hidden rounded-xl border-white/10 p-0">
+          <PopoverContent data-calendar-keep-popup class="z-[10000] flex w-64 flex-col overflow-hidden rounded-xl border-(--plane-border-strong) p-0">
             <div class="flex items-center gap-2 border-b border-border-strong px-3 py-2">
               <PlatformLogo id={props.platform as PlatformId} class="size-5 rounded-md" />
               <span class="flex-1 text-xs text-foreground">{t("Post from")}</span>
@@ -269,7 +269,7 @@ export function AccountSelect(props: {
                       <span
                         class={cx(
                           "grid size-4 shrink-0 place-items-center rounded-sm border transition-colors",
-                          on() ? "border-primary bg-primary text-primary-foreground" : "border-white/25",
+                          on() ? "border-primary bg-primary text-primary-foreground" : "border-(--plane-border-strong-1)",
                           last() && "opacity-60",
                         )}
                       >
@@ -656,6 +656,8 @@ export function DropZone(props: {
   title: string;
   hint: string;
   icon?: string;
+  /** `compact` drops the icon and the tall padding, for a zone that sits among other sections. */
+  variant?: "default" | "compact";
   dragging: boolean;
   onPick(): void;
   pickLabel: string;
@@ -671,15 +673,18 @@ export function DropZone(props: {
   return (
     <div
       class={cx(
-        "flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed px-6 py-10 text-center transition-colors",
+        "flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed px-6 text-center transition-colors",
+        props.variant === "compact" ? "py-6" : "py-10",
         props.dragging ? "border-primary bg-primary/5" : "border-(--border-input)",
         props.class,
       )}
       {...props.handlers}
     >
-      <span class="grid size-10 place-items-center rounded-full bg-accent text-muted-foreground">
-        <Icon name={props.icon ?? "video"} class="size-6" />
-      </span>
+      <Show when={props.variant !== "compact"}>
+        <span class="grid size-10 place-items-center rounded-full bg-accent text-muted-foreground">
+          <Icon name={props.icon ?? "video"} class="size-6" />
+        </span>
+      </Show>
       <div class="flex flex-col gap-1">
         <p class="text-sm text-foreground">{props.title}</p>
         <p class="text-xs text-muted-foreground">{props.hint}</p>

@@ -18,19 +18,19 @@ export function GuestFrame(props: { children: JSX.Element }) {
   const navigate = useNavigate();
 
   return (
-    <div class="flex h-screen w-full flex-col bg-[#1c1c1c] px-2 pb-2 text-white">
+    <div class="flex h-dvh w-full flex-col bg-[#1c1c1c] px-2 pb-2 text-white max-md:px-0 max-md:pb-0">
       {/* Above the frame, so the tooltip that opens down from it lands over the demo. */}
       <div class="relative z-10 flex h-12 shrink-0 items-center px-2">
-        <A href="/" class={`${BAND_BUTTON} pl-1.5 text-white hover:bg-white/[0.08]`}>
+        <A href="/" aria-label={t("Back to plan.video")} class={`${BAND_BUTTON} pl-1.5 text-white hover:bg-white/[0.08]`}>
           <ChevronLeft class="size-4" />
-          {t("Back to plan.video")}
+          <span class="max-md:hidden">{t("Back to plan.video")}</span>
         </A>
-        <div class="absolute left-1/2 flex -translate-x-1/2 items-center gap-1.5">
+        <div class="absolute left-1/2 flex -translate-x-1/2 items-center gap-1.5 max-md:static max-md:ml-auto max-md:translate-x-0">
           <Tooltip placement="bottom" openDelay={120}>
             <TooltipTrigger
               as="span"
               tabIndex={0}
-              class="mr-1.5 flex cursor-default items-center gap-1.5 rounded-[6px] text-[14px] font-[400] text-white/70 outline-none focus-ring"
+              class="mr-1.5 flex cursor-default items-center gap-1.5 rounded-[6px] whitespace-nowrap text-[14px] font-[400] text-white/70 outline-none focus-ring"
             >
               {t("Guest mode")}
               <PlaneIcon name="info" class="size-3.5" />
@@ -39,13 +39,13 @@ export function GuestFrame(props: { children: JSX.Element }) {
               {t("A demo with sample posts, accounts and numbers. Nothing in it goes out, and it starts over each day.")}
             </TooltipContent>
           </Tooltip>
-          <button type="button" class={`${BAND_BUTTON} border border-white/15 text-white hover:bg-white/[0.08]`} onClick={() => navigate("/signup")}>
+          <button type="button" class={`${BAND_BUTTON} border border-white/15 whitespace-nowrap text-white hover:bg-white/[0.08]`} onClick={() => navigate("/signup")}>
             {t("Create account")}
           </button>
         </div>
       </div>
       {/* Its own containing block, so what the app pins to the window stays inside the frame. */}
-      <div class="relative min-h-0 flex-1 transform-gpu overflow-hidden rounded-[12px]">{props.children}</div>
+      <div class="relative min-h-0 flex-1 transform-gpu overflow-hidden rounded-[12px] max-md:rounded-none">{props.children}</div>
     </div>
   );
 }

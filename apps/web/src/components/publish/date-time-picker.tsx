@@ -220,7 +220,7 @@ type TimeListProps = {
   class?: string;
 };
 
-function TimeList(props: TimeListProps & { ref?: (show: () => void) => void }) {
+export function TimeList(props: TimeListProps & { ref?: (show: () => void) => void }) {
   const [draft, setDraft] = createSignal("");
   let list: HTMLDivElement | undefined;
   let input: HTMLInputElement | undefined;

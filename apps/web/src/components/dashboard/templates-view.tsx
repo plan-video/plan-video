@@ -9,6 +9,7 @@ import { toast } from "somoto";
 
 import { DashboardFilterCount, DashboardHeaderSearch, DashboardPageHeader } from "@/components/dashboard/page-header";
 import { TemplatesArt } from "@/components/dashboard/empty-art";
+import { SeePlansButton, useAskToUpgrade } from "@/components/dashboard/paid-lock";
 import { PlaneButton } from "@/components/dashboard/plane-button";
 import { PlaneIcon } from "@/components/dashboard/plane-icons";
 import { cadencePhrase, localDateKey } from "@/components/calendar/utils";
@@ -28,6 +29,7 @@ import { Icon } from "@/components/dashboard/dashboard-icon";
 import { useAuth } from "@/context/auth";
 import { cx } from "@/lib/cva";
 import { intlLocale, msg, t } from "@/lib/i18n";
+import { paidToolsLocked } from "@/lib/paid-tools";
 import {
   createTemplate,
   deleteTemplate,
@@ -95,7 +97,11 @@ export function DashboardTemplatesView() {
 
   const results = () => searchTemplates(postTemplates(), query());
 
-  const startNew = () => setEditing({ id: null, draft: emptyTemplate() });
+  const askToUpgrade = useAskToUpgrade();
+  const startNew = () => {
+    if (paidToolsLocked()) return askToUpgrade(t("New templates come with a paid plan."));
+    setEditing({ id: null, draft: emptyTemplate() });
+  };
   const startEdit = (template: PostTemplate) => setEditing({ id: template.id, draft: copyDraft(template) });
 
   const use = (template: PostTemplate) => {
@@ -180,20 +186,30 @@ function EmptyTemplates(props: { onNew(): void; onCompose(): void }) {
           <p class="text-xs text-muted-foreground">{t("Where it goes, the caption, each platform's settings and the time. You bring the video.")}</p>
         </div>
       </div>
-      <div class="grid w-full max-w-xl grid-cols-1 gap-2 text-left sm:grid-cols-2">
-        <StartTile
-          icon="plus"
-          title={t("New template")}
-          hint={t("Pick the platforms, write the caption and choose when posts go out.")}
-          onClick={() => props.onNew()}
-        />
-        <StartTile
-          icon="edit"
-          title={t("Save one from New post")}
-          hint={t("Set a post up, then choose Save as template from the Templates menu.")}
-          onClick={() => props.onCompose()}
-        />
-      </div>
+      <Show
+        when={!paidToolsLocked()}
+        fallback={
+          <div class="flex flex-col items-center gap-3">
+            <p class="text-xs text-muted-foreground">{t("New templates come with a paid plan.")}</p>
+            <SeePlansButton />
+          </div>
+        }
+      >
+        <div class="grid w-full max-w-xl grid-cols-1 gap-2 text-left sm:grid-cols-2">
+          <StartTile
+            icon="plus"
+            title={t("New template")}
+            hint={t("Pick the platforms, write the caption and choose when posts go out.")}
+            onClick={() => props.onNew()}
+          />
+          <StartTile
+            icon="edit"
+            title={t("Save one from New post")}
+            hint={t("Set a post up, then choose Save as template from the Templates menu.")}
+            onClick={() => props.onCompose()}
+          />
+        </div>
+      </Show>
     </div>
   );
 }

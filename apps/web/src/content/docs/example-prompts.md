@@ -30,8 +30,10 @@ Post a reminder to LinkedIn every Monday at 8am for the next four weeks.
 Move all of Thursday's posts to Friday, same times.
 ```
 
+Each scheduled post asks you to **Allow** the change in your plan.video tab.
+
 ```text
-Copy last week's best TikTok post and schedule it again for Sunday evening.
+Copy my TikTok post about the summer sale and schedule it again for Sunday evening.
 ```
 
 ## Publish
@@ -39,6 +41,8 @@ Copy last week's best TikTok post and schedule it again for Sunday evening.
 ```text
 Publish the draft about the new feature now.
 ```
+
+This asks you to **Allow** it first. A post has to have one account per network to publish this way.
 
 <Tip>
 Your agent can only attach files that are in your [media library](/docs/media-library). Upload them there first.

@@ -1,7 +1,7 @@
 plan.video is one repository: an npm workspace with the apps and packages, plus the services and the database next to them.
 
 ```text
-plan.video/
+plan-video/
   apps/        the website
   packages/    the editor's engine and shared code
   services/    the server's services, one folder each
@@ -9,6 +9,7 @@ plan.video/
   scripts/     tools for installing, translating and releasing
   patches/     fixes applied to node_modules on install
   docs/        the JSX reference, examples, and brand and design notes
+  assets/      the killfeed extension's game icons
 ```
 
 ## Apps
@@ -21,7 +22,7 @@ Most of the work happens in `apps/web/src`:
 
 | Folder | What's in it |
 | --- | --- |
-| `pages` | One file per page or route, such as `docs.tsx` or `dashboard.tsx` |
+| `pages` | One file per page or route, such as `login.tsx` or `dashboard.tsx` |
 | `components` | The UI, with a folder for each area: `calendar`, `dashboard`, `timeline` and more |
 | `lib` | Logic without UI: syncing, scheduling, each network's sign-in, translations |
 | `content/docs` | These docs, one Markdown file per page |
@@ -43,7 +44,7 @@ Most of the work happens in `apps/web/src`:
 
 ## Services
 
-Each folder in `services/` is a small Node.js server with its systemd unit: `publisher`, `storage`, `mcp`, `agent`, `transcribe`, `billing`, `tiktok`, `youtube`, `linkedin` and `x`, plus `monitor`, a shell script on a timer. They aren't part of the npm workspace: the four with dependencies, `agent`, `mcp`, `publisher` and `storage`, have their own `package.json`. [Services](/docs/services) says what each does.
+Each folder in `services/` is a small Node.js server with its systemd unit: `publisher`, `gateway`, `photos`, `storage`, `mcp`, `agent`, `transcribe`, `billing`, `tiktok`, `youtube`, `linkedin` and `x`, plus `monitor`, a shell script on a timer. They aren't part of the npm workspace: the five with dependencies, `agent`, `mcp`, `photos`, `publisher` and `storage`, have their own `package.json`. [Services](/docs/services) says what each does.
 
 The dev server runs `agent`, `transcribe`, `billing` and the four network services itself, from the files beside `apps/web/vite.config.ts`, so you don't need them to develop.
 

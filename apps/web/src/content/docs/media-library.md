@@ -1,4 +1,4 @@
-Upload videos and pictures to **Media** once, then use them in any post.
+Upload videos and pictures to **Media**, under **Library** in the dashboard, once. Then use them in any post.
 
 ## What you can upload
 
@@ -9,7 +9,7 @@ Upload videos and pictures to **Media** once, then use them in any post.
 
 ## Video rules
 
-So a video can go to every network, plan.video checks that it is:
+plan.video checks that a video is:
 
 - between **3 seconds and 5 minutes** long
 - **9:16, 16:9, 1:1 or 4:3**

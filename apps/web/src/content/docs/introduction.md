@@ -1,4 +1,4 @@
-plan.video is a video editor and a social media scheduler in one browser tab. Edit a video, caption it, and schedule it to every network you post on, without downloading and re-uploading files between apps.
+plan.video is the all-in-one social media scheduler, with a video editor built in. Plan your posts on one calendar, cut and caption your videos in the same browser tab, and they go out to every network on time.
 
 <CardGroup cols={2}>
   <Card title="Quickstart" icon="rocket" href="/docs/quickstart">
@@ -18,9 +18,12 @@ plan.video is a video editor and a social media scheduler in one browser tab. Ed
 ## What you can do
 
 - **Schedule posts** to TikTok, YouTube, Instagram, Facebook, Threads, X, LinkedIn and Bluesky from one calendar. Pinterest is [coming soon](/docs/coming-soon).
-- **Edit videos** in the browser, with auto-captions, transcript cutting and transitions.
+- **Edit videos** in [the editor](/docs/editor), with auto-captions, transcript cutting, transitions, effects and colour grading.
+- **Post in bulk** with [Bulk tools](/docs/bulk-tools): drop in a batch of files and schedule them all at once.
+- **See what works** in [Analytics](/docs/analytics), and post at your best times.
+- **Ask the [Assistant](/docs/assistant)**, the chat built into the dashboard, to plan and schedule posts for you.
 - **Post from your AI agent.** Connect Claude, Claude Code, Cursor, Codex and others at `plan.video/mcp`, and ask them to write and schedule posts.
-- **Keep brands apart** with [workspaces](/docs/workspaces), each with its own accounts, posts and calendar.
+- **Keep brands apart** with [workspaces](/docs/workspaces), each with its own accounts, posts and calendar, and [work with clients](/docs/clients) without giving them an account.
 
 ## How posting works
 

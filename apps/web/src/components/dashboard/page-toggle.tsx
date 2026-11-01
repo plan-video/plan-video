@@ -25,7 +25,7 @@ export function PageToggle<T extends string>(props: {
               aria-pressed={active()}
               aria-keyshortcuts={option.key}
               class={cx(
-                "cap-trim h-full rounded-sm px-2 text-xs font-medium outline-none press focus-ring",
+                "cap-trim h-full rounded-sm px-2 text-sm font-medium outline-none press focus-ring",
                 active()
                   ? "bg-(--plane-layer-transparent-active) text-(--plane-text-primary)"
                   : "text-(--plane-text-secondary) hover:bg-(--plane-layer-transparent-hover) hover:text-(--plane-text-primary)",

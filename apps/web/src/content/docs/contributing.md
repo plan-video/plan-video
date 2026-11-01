@@ -19,11 +19,11 @@ Fixes, features, translations and docs are all welcome.
     Type-check the website, and run the tests of whatever you changed:
     ```bash
     npm run check -w @plan.video/web
-    cd services/publisher && npm test
+    cd services/publisher && node --test
     ```
   </Step>
   <Step title="Open a pull request">
-    Open it against `main`. Say what changes for the people using plan.video and why, and add a screenshot or a short video for anything you can see.
+    Open it against `main`, with a title like `fix(publisher): retry TikTok uploads that time out`; [CONTRIBUTING.md](https://github.com/plan-video/plan-video/blob/main/CONTRIBUTING.md) has the format. The first time, a bot asks you to sign the [CLA](https://github.com/plan-video/plan-video/blob/main/CLA.md). Say what changes for the people using plan.video and why, and add a screenshot or a short video for anything you can see.
   </Step>
 </Steps>
 
@@ -31,7 +31,7 @@ Fixes, features, translations and docs are all welcome.
 
 Match the code around your change. A few things hold everywhere:
 
-- **Comments say why.** They're plain sentences above the code they explain, written for someone reading it for the first time.
+- **Comments are rare.** Write one only for a constraint or an outside quirk the code can't show.
 - **Every word people read is translated.** Wrap it in `t()`, as in [Translations](/docs/translations), and run `node scripts/i18n.mjs unwrapped <path>` to catch any you missed.
 - **Secrets stay on the server.** Anything with the `VITE_` prefix ends up in the browser. Network tokens never go to a browser: the publisher keeps them.
 - **Test what you change.** The services use Node's own test runner, with `*.test.mjs` files beside the code. The packages use Vitest.

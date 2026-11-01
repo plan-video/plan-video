@@ -107,7 +107,7 @@ function CloudUsageDetails(props: { usage: CloudUsage }) {
       <Show when={free()}>
         <div class="flex flex-col gap-3 border-t border-border-strong pt-3 sm:flex-row sm:items-center">
           <p class="min-w-0 flex-1 text-xs text-muted-foreground">{t("Creator comes with {limit} of cloud storage.", { limit: t(CREATOR_LIMIT) })}</p>
-          <Button class="gap-0 pl-0 pr-2" onClick={() => setParams({ dashboard: "billing" }, { replace: true })}>
+          <Button class="gap-0 pl-0 pr-2" onClick={() => setParams({ dashboard: "billing" })}>
             <span class="grid h-7 w-6 place-items-center overflow-clip">
               <Icon name="upgrade" class="size-6" />
             </span>

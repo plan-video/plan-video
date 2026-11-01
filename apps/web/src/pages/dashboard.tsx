@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { useNavigate, useSearchParams } from "@solidjs/router";
+import Menu from "lucide-solid/icons/menu";
 import { For, Match, Show, Suspense, Switch, createEffect, createRenderEffect, createSignal, lazy, on, onCleanup, onMount } from "solid-js";
 import { toast } from "somoto";
 import { DashboardSectionView } from "@/components/dashboard/section-view";
@@ -21,6 +22,7 @@ const AssistantLauncher = lazy(() => import("@/components/dashboard/assistant-pa
 const DashboardMediaView = lazy(() => import("@/components/dashboard/media-view").then((module) => ({ default: module.DashboardMediaView })));
 const DashboardNewPostView = lazy(() => import("@/components/dashboard/new-post-view").then((module) => ({ default: module.DashboardNewPostView })));
 const DashboardBulkToolsView = lazy(() => import("@/components/dashboard/bulk-tools-view").then((module) => ({ default: module.DashboardBulkToolsView })));
+const DashboardQueueView = lazy(() => import("@/components/dashboard/queue-view").then((module) => ({ default: module.DashboardQueueView })));
 const DashboardAccountView = lazy(() => import("@/components/dashboard/account-view").then((module) => ({ default: module.DashboardAccountView })));
 const DashboardBillingView = lazy(() => import("@/components/dashboard/billing-view").then((module) => ({ default: module.DashboardBillingView })));
 const DashboardHelpView = lazy(() => import("@/components/dashboard/help-view").then((module) => ({ default: module.DashboardHelpView })));
@@ -52,7 +54,8 @@ import { LibraryStorageMeter } from "@/components/dashboard/sidebar-usage";
 import { loadMediaLibrary, mediaItems } from "@/lib/media-library";
 import { loadTemplates, postTemplates } from "@/lib/post-templates";
 import { loadVault, vaultItems } from "@/lib/vault";
-import { allPosts, hydrateCalendar, loadError as calendarLoadError, loaded as calendarLoaded, setStatusFilter, waitingOf } from "@/components/calendar/store";
+import { allPosts, hydrateCalendar, loadError as calendarLoadError, loaded as calendarLoaded, setStatusFilter, statusFilter, waitingOf } from "@/components/calendar/store";
+import { defaultCalendarView, isCalendarView } from "@/components/calendar/default-view";
 import { loadOwnPreviews, ownPreviews, syncOwnPreviews } from "@/lib/post-previews";
 import { useDeliveries } from "@/components/publish/deliveries";
 import { hasFailed, isGoingOut } from "@/components/publish/publisher";
@@ -77,6 +80,7 @@ import { PlaneIcon, type PlaneIconName } from "@/components/dashboard/plane-icon
 import { listProjects, projectKey, projectsRevision, type ProjectInfo } from "@/projects";
 import { cx } from "@/lib/cva";
 import { intlLocale, msg, t } from "@/lib/i18n";
+import { isPhone } from "@/lib/phone";
 import { planOfLevel } from "@/lib/plans";
 
 import type { DashboardView, PostsTab } from "@/components/dashboard/types";
@@ -96,6 +100,7 @@ const DASHBOARD_VIEWS: readonly DashboardView[] = [
   "notifications",
   "new-post",
   "bulk-tools",
+  "queue",
   "calendar",
   "posts",
   "scheduled",
@@ -127,6 +132,14 @@ const POST_LISTS: Partial<Record<DashboardView, PostsTab>> = {
   drafts: "draft",
   failed: "failed",
 };
+
+/** The List view by status, as rivals list their queue, drafts and sent posts. */
+const POST_PAGES: readonly { view: DashboardView; tab: PostsTab; label: string; icon: PlaneIconName }[] = [
+  { view: "scheduled", tab: "scheduled", label: msg("Scheduled"), icon: "clock" },
+  { view: "drafts", tab: "draft", label: msg("Drafts"), icon: "draft" },
+  { view: "posted", tab: "posted", label: msg("Posted"), icon: "check" },
+  { view: "failed", tab: "failed", label: msg("Failed"), icon: "alert" },
+];
 
 const SETTINGS_VIEWS: readonly DashboardView[] = [
   "account",
@@ -175,6 +188,7 @@ const PAGES: Partial<Record<DashboardView, { label: string; icon: PlaneIconName 
   notifications: { label: msg("Inbox"), icon: "inbox" },
   "new-post": { label: msg("New post"), icon: "draft" },
   "bulk-tools": { label: msg("Bulk tools"), icon: "layers" },
+  queue: { label: msg("Queue"), icon: "queue" },
   agent: { label: msg("Assistant"), icon: "agent" },
   projects: { label: msg("All projects"), icon: "project" },
   trash: { label: msg("Trash"), icon: "trash" },
@@ -212,6 +226,7 @@ const OWN_HEADER = new Set<DashboardView>([
   "notifications",
   "new-post",
   "bulk-tools",
+  "queue",
   "projects",
   "trash",
   "media",
@@ -297,17 +312,20 @@ export function DashboardPage() {
   });
 
   const view = (): DashboardView => parseView(params.dashboard);
-  const setView = (next: DashboardView) =>
-    setParams({ dashboard: next, date: undefined, time: undefined, view: undefined, back: undefined, folder: undefined }, { replace: true });
+  const setView = (next: DashboardView, options?: { replace: boolean }) => {
+    // From a status page, Calendar shows every post again rather than the month with that status alone.
+    if (next === "calendar" && (listTab() ?? "all") !== "all") setStatusFilter("all");
+    setParams({ dashboard: next, date: undefined, time: undefined, view: undefined, back: undefined, folder: undefined }, options);
+  };
   const openFolder = () => (view() === "projects" && typeof params.folder === "string" ? projectFolder(params.folder) : undefined);
-  const showFolder = (id: string | undefined) => setParams({ dashboard: "projects", folder: id }, { replace: true });
+  const showFolder = (id: string | undefined, options?: { replace: boolean }) => setParams({ dashboard: "projects", folder: id }, options);
 
   // Projects and their folders belong to a person, not a workspace.
   createEffect(() => loadProjectFolders(auth.user()?.id));
 
   createEffect(() => {
     const raw = Array.isArray(params.dashboard) ? params.dashboard[0] : params.dashboard;
-    if (raw === "home") setView("calendar");
+    if (raw === "home") setView("calendar", { replace: true });
   });
   createEffect(() => {
     const tab = POST_LISTS[view()];
@@ -321,7 +339,7 @@ export function DashboardPage() {
   onMount(() => void hydrateCalendar());
 
   createEffect(() => {
-    if (auth.isGuest() && (view() === "account" || view() === "billing")) setView("settings");
+    if (auth.isGuest() && (view() === "account" || view() === "billing")) setView("settings", { replace: true });
   });
 
   useDeliveries(() => auth.user()?.id);
@@ -340,9 +358,11 @@ export function DashboardPage() {
   );
   onCleanup(() => clearTimeout(previewSync));
   const failedCount = () => allPosts().filter((post) => hasFailed(post) && !isGoingOut(post)).length;
-  const postsBadge = () => {
-    if (failedCount()) return t("{count, plural, other {# failed}}", { count: failedCount() });
-    return allPosts().some((post) => isGoingOut(post) && !waitingOf(post)) ? t("Sending") : undefined;
+  const sendingBadge = () => (allPosts().some((post) => isGoingOut(post) && !waitingOf(post)) ? t("Sending") : undefined);
+  const countOf = (tab: PostsTab) => {
+    if (tab === "failed") return failedCount();
+    if (tab === "posted" || tab === "all") return 0;
+    return allPosts().filter((post) => post.status === tab).length;
   };
 
   createEffect(() => {
@@ -357,6 +377,9 @@ export function DashboardPage() {
   let pageBox: HTMLDivElement | undefined;
   createEffect(on(view, () => playEnter(pageBox), { defer: true }));
 
+  const [drawerOpen, setDrawerOpen] = createSignal(false);
+  createEffect(on(() => [params.dashboard, params.folder, params.view], () => setDrawerOpen(false), { defer: true }));
+
   const notifications = createNotifications(setView);
   const unreadNotices = () => notifications.unread().length;
 
@@ -368,6 +391,15 @@ export function DashboardPage() {
     setView(next === "settings" && auth.isGuest() ? "settings" : RAIL_HOME[next]);
   };
   const onCalendar = () => view() === "calendar" || !!POST_LISTS[view()];
+  // The URL leaves out the view picked in Preferences, so the list may be shown with no `view` param.
+  const listTab = (): PostsTab | undefined => {
+    const tab = POST_LISTS[view()];
+    if (tab) return tab;
+    if (view() !== "calendar") return undefined;
+    const raw = typeof params.view === "string" ? params.view : undefined;
+    return isPhone() || (isCalendarView(raw) ? raw : defaultCalendarView()) === "list" ? statusFilter() : undefined;
+  };
+  const onCalendarHome = () => onCalendar() && (listTab() ?? "all") === "all";
 
   const crumbs = (): DashboardCrumb[] => {
     const page = pageOf(view());
@@ -430,7 +462,7 @@ export function DashboardPage() {
 
   const PageLink = (props: { view: DashboardView; badge?: string; badgeAlert?: boolean }) => (
     <DashboardSidebarItem
-      active={props.view === "calendar" ? onCalendar() : props.view === "projects" ? view() === "projects" && !openFolder() : view() === props.view}
+      active={props.view === "calendar" ? onCalendarHome() : props.view === "projects" ? view() === "projects" && !openFolder() : view() === props.view}
       onClick={() => setView(props.view)}
       icon={pageOf(props.view).icon}
       label={t(pageOf(props.view).label)}
@@ -441,22 +473,33 @@ export function DashboardPage() {
 
   return (
     <div
-      class={cx("dashboard-shell flex w-full min-h-0 flex-col overflow-hidden", auth.isGuest() ? "h-full" : "h-screen")}
+      class={cx("dashboard-shell flex w-full min-h-0 flex-col overflow-hidden", auth.isGuest() ? "h-full" : "h-dvh")}
       // Wide enough that the longest name ("Analytics") keeps room on both sides.
       style={{ "--rail-width": dashboardRailLabels() ? "4.75rem" : "3rem" }}
     >
-      <header class="relative z-[27] flex min-h-10 w-full shrink-0 items-center bg-(--plane-canvas) px-3.5">
+      <header class="relative z-[27] flex min-h-10 w-full shrink-0 items-center bg-(--plane-canvas) px-3.5 max-md:h-12 max-md:gap-1 max-md:px-2">
+        <button
+          type="button"
+          aria-label={t("Menu")}
+          aria-expanded={drawerOpen()}
+          class="grid size-9 shrink-0 place-items-center rounded-md text-(--plane-text-secondary) outline-none press focus-ring md:hidden"
+          onClick={() => setDrawerOpen((open) => !open)}
+        >
+          <Menu class="size-5" />
+        </button>
         <div class="flex min-w-0 flex-1 shrink-0">
           {/* On the rail's centre line: half the rail, less the header's 14px, the switcher's 4px and half the 28px badge. */}
-          <div class="ml-[calc(var(--rail-width)/2-2rem)] flex min-w-0">
+          <div class="ml-[calc(var(--rail-width)/2-2rem)] flex min-w-0 max-md:ml-0">
             {workspaceSwitcher()}
           </div>
         </div>
         <div class="shrink-0">
           <DashboardSidebarSearch placeholder={t("Search")} onNavigate={setView} />
         </div>
-        <div class="flex flex-1 shrink-0 items-center justify-end gap-1">
-          <DashboardHelpMenu onHelp={() => setView("help")} />
+        <div class="flex shrink-0 items-center justify-end gap-1 md:flex-1">
+          <div class="contents max-md:hidden">
+            <DashboardHelpMenu onHelp={() => setView("help")} />
+          </div>
           {/* A guest's way to an account is on guest mode's frame instead. */}
           <Show when={!auth.isGuest()}>
             <DashboardIconRailItem
@@ -482,27 +525,35 @@ export function DashboardPage() {
         </div>
       </header>
 
-      <div class="relative flex min-h-0 flex-1 overflow-hidden">
+      <div class="relative flex min-h-0 flex-1 overflow-hidden max-md:flex-col-reverse">
         <nav
           aria-label={t("Apps")}
           class={cx(
-            "z-[26] flex h-full w-(--rail-width) shrink-0 flex-col bg-(--plane-canvas) px-2 pt-2 pb-3",
+            "z-[26] flex h-full w-(--rail-width) shrink-0 flex-col bg-(--plane-canvas) px-2 pt-2 pb-3 max-md:h-auto max-md:w-full max-md:flex-row max-md:justify-around max-md:gap-0 max-md:border-t max-md:border-(--plane-border-subtle) max-md:px-1 max-md:py-1.5",
             dashboardRailLabels() ? "gap-4" : "gap-2",
           )}
         >
           <DashboardIconRailItem showLabel={dashboardRailLabels()} tooltip="right" active={rail() === "work"} onClick={() => openRail("work")} icon="calendar" label={t(RAIL_LABELS.work)} />
-          <DashboardIconRailItem showLabel={dashboardRailLabels()} tooltip="right" active={rail() === "projects"} onClick={() => openRail("projects")} icon="project" label={t("Projects")} />
+          <div class="contents max-md:hidden">
+            <DashboardIconRailItem showLabel={dashboardRailLabels()} tooltip="right" active={rail() === "projects"} onClick={() => openRail("projects")} icon="project" label={t("Projects")} />
+          </div>
           <DashboardIconRailItem showLabel={dashboardRailLabels()} tooltip="right" active={rail() === "library"} onClick={() => openRail("library")} icon="layer-stack" label={t("Library")} />
           <DashboardIconRailItem showLabel={dashboardRailLabels()} tooltip="right" active={rail() === "agent"} onClick={() => openRail("agent")} icon="agent" label={t(RAIL_LABELS.agent)} />
           <DashboardIconRailItem showLabel={dashboardRailLabels()} tooltip="right" active={rail() === "plugs"} onClick={() => openRail("plugs")} icon="plug" label={t("Plugs")} />
           <DashboardIconRailItem showLabel={dashboardRailLabels()} tooltip="right" active={rail() === "analytics"} onClick={() => openRail("analytics")} icon="analytics" label={t("Analytics")} />
-          <div class="min-h-0 flex-1" />
+          <div class="min-h-0 flex-1 max-md:hidden" />
           <DashboardIconRailItem showLabel={dashboardRailLabels()} tooltip="right" active={rail() === "settings"} onClick={() => openRail("settings")} icon="settings" label={t("Settings")} />
         </nav>
 
-        <div class="relative min-w-0 flex-grow overflow-hidden pr-2 pb-2">
-          <div class="depth-frame relative flex size-full overflow-hidden rounded-xl border border-(--plane-border-subtle)">
-            <aside class="flex h-full w-[250px] shrink-0 flex-col overflow-hidden border-r border-(--plane-border-subtle) bg-(--plane-surface-1)">
+        <div class="relative min-h-0 min-w-0 flex-grow overflow-hidden pr-2 pb-2 max-md:p-0">
+          <div class="depth-frame relative flex size-full overflow-hidden rounded-xl border border-(--plane-border-subtle) max-md:rounded-none max-md:border-0">
+            <Show when={drawerOpen()}>
+              <button type="button" aria-label={t("Close")} class="absolute inset-0 z-30 bg-black/50 md:hidden" onClick={() => setDrawerOpen(false)} />
+            </Show>
+            <aside
+              class="flex h-full w-[250px] shrink-0 flex-col overflow-hidden border-r border-(--plane-border-subtle) bg-(--plane-surface-1) max-md:absolute max-md:inset-y-0 max-md:left-0 max-md:z-30 max-md:w-[min(85vw,300px)] max-md:transition-[translate,visibility] max-md:duration-200"
+              classList={{ "max-md:invisible max-md:-translate-x-full": !drawerOpen() }}
+            >
               <div class="flex h-11 shrink-0 items-center gap-2 px-5">
                 <h2 class="truncate text-[15px] leading-5 font-medium tracking-[-0.01em] text-(--plane-text-primary)">{t(RAIL_LABELS[rail()])}</h2>
                 <Show when={rail() === "analytics"}>
@@ -558,8 +609,26 @@ export function DashboardPage() {
               >
                 <Show when={rail() === "work"}>
                   <DashboardSidebarSection>
-                    <PageLink view="calendar" badge={postsBadge()} badgeAlert={failedCount() > 0} />
+                    <PageLink view="calendar" badge={sendingBadge()} />
+                    <PageLink view="queue" />
                     <PageLink view="bulk-tools" />
+                  </DashboardSidebarSection>
+                  <DashboardSidebarSection title={t("Posts")}>
+                    <For each={POST_PAGES}>
+                      {(page) => (
+                        <Show when={page.tab !== "failed" || failedCount() > 0 || listTab() === "failed"}>
+                          <DashboardSidebarItem
+                            active={listTab() === page.tab}
+                            onClick={() => setView(page.view)}
+                            icon={page.icon}
+                            label={t(page.label)}
+                            badge={page.tab === "failed" ? countBadge(failedCount()) : undefined}
+                            badgeAlert={page.tab === "failed"}
+                            count={countOf(page.tab)}
+                          />
+                        </Show>
+                      )}
+                    </For>
                   </DashboardSidebarSection>
                   <Show when={onCalendar()}>
                     <Suspense>
@@ -575,7 +644,7 @@ export function DashboardPage() {
                   <DashboardSidebarFolders
                     activeId={openFolder()?.id}
                     onOpen={showFolder}
-                    onDeleted={(id) => params.folder === id && showFolder(undefined)}
+                    onDeleted={(id) => params.folder === id && showFolder(undefined, { replace: true })}
                   />
                   <Show when={sidebarProjects().length > 0}>
                     <DashboardSidebarSection title={t("Recent")}>
@@ -684,6 +753,9 @@ export function DashboardPage() {
                       <Match when={view() === "bulk-tools"}>
                         <DashboardBulkToolsView />
                       </Match>
+                      <Match when={view() === "queue"}>
+                        <DashboardQueueView />
+                      </Match>
                       <Match when={view() === "connections"}>
                         <DashboardConnectionsView />
                       </Match>
@@ -740,9 +812,21 @@ export function DashboardPage() {
                 </div>
               </DashboardCrumbsProvider>
               {/* The Assistant from any page; its own boundary, so the page never waits for it. */}
-              <Suspense>
-                <AssistantLauncher page={pageOf(view()).label} hidden={view() === "agent"} onExpand={() => setView("agent")} />
-              </Suspense>
+              <div class="contents max-md:hidden">
+                <Suspense>
+                  <AssistantLauncher page={pageOf(view()).label} hidden={view() === "agent"} onExpand={() => setView("agent")} />
+                </Suspense>
+              </div>
+              <Show when={onCalendar() || view() === "queue"}>
+                <button
+                  type="button"
+                  aria-label={t("New post")}
+                  class="absolute right-4 bottom-4 z-20 grid size-14 place-items-center rounded-full bg-(--plane-accent-primary) text-white shadow-lg outline-none press focus-ring md:hidden"
+                  onClick={() => setView("new-post")}
+                >
+                  <PlaneIcon name="plus" class="size-6" />
+                </button>
+              </Show>
             </main>
           </div>
         </div>

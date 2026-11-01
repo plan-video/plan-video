@@ -3,7 +3,7 @@
 
 @custom-variant dark (&:is([data-kb-theme="dark"] *));
 
-/* Must match the screens ScreenTooSmall refuses. */
+/* Must match the screens ScreenTooSmall refuses, and UnlessTooSmall. */
 @custom-variant too-small {
   @media (max-width: 719px), (max-height: 479px) {
     @slot;
@@ -19,6 +19,7 @@
   font-style: normal;
   font-optical-sizing: auto;
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-209F, U+20AC, U+2122, U+2190-21FF, U+2212, U+2215, U+2300-23FF, U+2500-257F, U+25A0-25FF, U+2700-27BF, U+FEFF, U+FFFD;
+  font-display: swap;
 }
 
 @font-face {
@@ -29,6 +30,7 @@
   font-style: normal;
   font-optical-sizing: auto;
   unicode-range: U+0100-0130, U+0132-0151, U+0154-02BA, U+02BD-02C5, U+02C7-02D9, U+02DB, U+02DD-0303, U+0305-0307, U+0309-0328, U+032A-1FFF, U+20A0-20AB, U+20AD-2121, U+2123-218F, U+2200-2211, U+2213-2214, U+2216-22FF, U+2400-24FF, U+2580-259F, U+2600-26FF, U+27C0-FEFE, U+FF00-FFFC, U+FFFE-10FFFF;
+  font-display: swap;
 }
 
 @font-face {
@@ -39,6 +41,7 @@
   font-style: italic;
   font-optical-sizing: auto;
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-209F, U+20AC, U+2122, U+2190-21FF, U+2212, U+2215, U+2300-23FF, U+2500-257F, U+25A0-25FF, U+2700-27BF, U+FEFF, U+FFFD;
+  font-display: swap;
 }
 
 @font-face {
@@ -49,6 +52,7 @@
   font-style: italic;
   font-optical-sizing: auto;
   unicode-range: U+0100-0130, U+0132-0151, U+0154-02BA, U+02BD-02C5, U+02C7-02D9, U+02DB, U+02DD-0303, U+0305-0307, U+0309-0328, U+032A-1FFF, U+20A0-20AB, U+20AD-2121, U+2123-218F, U+2200-2211, U+2213-2214, U+2216-22FF, U+2400-24FF, U+2580-259F, U+2600-26FF, U+27C0-FEFE, U+FF00-FFFC, U+FFFE-10FFFF;
+  font-display: swap;
 }
 
 /* Geist (Vercel, SIL Open Font License, see assets/fonts/Geist-OFL.txt): the dashboard's typeface. */
@@ -96,13 +100,14 @@
 
 /* @site:cards */
 
-/* The Latin subset is preloaded for HOME_HEADLINE (lib/hero-shell.ts) and the dashboard. */
+/* The Latin subset is preloaded for the editor. */
 @font-face {
   font-family: 'Geist';
   src: url('./assets/fonts/Geist-Variable-Latin.woff2') format('woff2');
   font-weight: 100 900;
   font-style: normal;
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-209F, U+20AC, U+2122, U+2190-21FF, U+2212, U+2215, U+2300-23FF, U+2500-257F, U+25A0-25FF, U+2700-27BF, U+FEFF, U+FFFD;
+  font-display: swap;
 }
 
 @font-face {
@@ -130,6 +135,7 @@
   font-style: normal;
   font-feature-settings: 'zero' 1;
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-209F, U+20AC, U+2122, U+2190-21FF, U+2212, U+2215, U+2300-23FF, U+2500-257F, U+25A0-25FF, U+2700-27BF, U+FEFF, U+FFFD;
+  font-display: swap;
 }
 
 @font-face {
@@ -140,6 +146,7 @@
   font-style: normal;
   font-feature-settings: 'zero' 1;
   unicode-range: U+0100-0130, U+0132-0151, U+0154-02BA, U+02BD-02C5, U+02C7-02D9, U+02DB, U+02DD-0303, U+0305-0307, U+0309-0328, U+032A-1FFF, U+20A0-20AB, U+20AD-2121, U+2123-218F, U+2200-2211, U+2213-2214, U+2216-22FF, U+2400-24FF, U+2580-259F, U+2600-26FF, U+27C0-FEFE, U+FF00-FFFC, U+FFFE-10FFFF;
+  font-display: swap;
 }
 
 @theme inline {
@@ -182,6 +189,7 @@
   --color-primary-hover: var(--primary-hover);
   --color-primary-pressing: var(--primary-pressing);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-destructive-hover: var(--destructive-hover);
   --color-destructive-pressing: var(--destructive-pressing);
   --color-destructive-accent: var(--destructive-accent);
@@ -445,6 +453,23 @@
 @media (max-width: 719px), (max-height: 479px) {
   .screen-too-small {
     display: flex;
+  }
+}
+
+/* What a pointer reveals by hovering has to stay on screen where there's no hover. */
+@media (hover: none) {
+  [class*="group-hover:opacity-100"],
+  [class*="group-hover/"][class*=":opacity-100"] {
+    opacity: 1;
+  }
+}
+
+/* iOS zooms the page into any field under 16px. */
+@media (max-width: 767px) {
+  html.dashboard-theme input,
+  html.dashboard-theme textarea,
+  html.dashboard-theme select {
+    font-size: 16px;
   }
 }
 
@@ -987,12 +1012,13 @@ html.dashboard-theme {
   text-rendering: optimizeLegibility;
 }
 
-/* Inter is the first fallback, so the moment before Geist loads looks almost the same. On <body> too, for menus and dialogs. */
+/* On <body> too, for menus and dialogs. `opsz` 32 is Inter's display cut, at every size. */
 html.dashboard-theme :is(body, .font-sans) {
-  font-family: 'Geist', 'Inter', ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  font-variation-settings: 'opsz' 32;
 }
 
-/* Geist is variable, so 430 is a real weight. */
+/* Inter is variable, so 430 is a real weight. */
 html.dashboard-theme {
   --font-weight-normal: 430;
   --font-weight-medium: 530;

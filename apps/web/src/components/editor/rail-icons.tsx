@@ -5,6 +5,7 @@
 import type { Component } from "solid-js";
 import BetweenVerticalStartLucide from "lucide-solid/icons/between-vertical-start";
 import ClapperboardLucide from "lucide-solid/icons/clapperboard";
+import LayoutDashboardLucide from "lucide-solid/icons/layout-dashboard";
 import PanelLeftLucide from "lucide-solid/icons/panel-left";
 import PanelsTopLeftLucide from "lucide-solid/icons/panels-top-left";
 import PuzzleLucide from "lucide-solid/icons/puzzle";
@@ -31,3 +32,4 @@ export const RailEffectsIcon = railIcon(SparklesLucide);
 export const RailTemplatesIcon = railIcon(PanelsTopLeftLucide);
 export const RailExtensionsIcon = railIcon(PuzzleLucide);
 export const RailPanelIcon = railIcon(PanelLeftLucide);
+export const RailCustomizeIcon = railIcon(LayoutDashboardLucide);

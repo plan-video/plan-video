@@ -7,6 +7,6 @@
     "tools": "node scripts/build-tools.mjs"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.132.0"
+    "@anthropic-ai/sdk": "^0.137.0"
   }
 }

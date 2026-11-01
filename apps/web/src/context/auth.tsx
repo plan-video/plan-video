@@ -18,7 +18,7 @@ import {
 } from 'solid-js';
 import { toast } from 'somoto';
 import type { Session, User } from '@supabase/supabase-js';
-import { FREE_CREDITS_QUOTA, type UserData } from '@plan.video/api-contract';
+import type { UserData } from '@plan.video/api-contract';
 
 import { supabase } from '@/lib/supabase';
 import { rememberLinkAsked } from '@/lib/sign-in-link';
@@ -68,6 +68,9 @@ type AuthContextValue = {
   deleteAccount: () => Promise<{ error: string | null }>;
   refreshSession: () => Promise<void>;
 };
+
+/** Same as @plan.video/api-contract's: importing a value from there brings all of zod into the first script. */
+const FREE_CREDITS_QUOTA = 50;
 
 const AuthContext = createContext<AuthContextValue>();
 

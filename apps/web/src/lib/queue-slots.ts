@@ -10,7 +10,7 @@ import { createSignal } from "solid-js";
 import { queueAccountSync } from "@/lib/account-sync-bus";
 import { ownerOf } from "@/lib/guest";
 import { localized, msg, t } from "@/lib/i18n";
-import { dayKeyAt, momentOf, zonedParts } from "@/lib/time-zone";
+import { clockAt, dayKeyAt, momentOf, zonedParts } from "@/lib/time-zone";
 import { workspaceKey } from "@/lib/workspaces";
 
 export type QueueSlot = {
@@ -32,7 +32,7 @@ export const QUEUE_WEEKDAYS = [
   { weekday: 0, short: msg("Sun"), name: msg("Sunday") },
 ] as const;
 
-const MAX_SLOTS = 70;
+export const MAX_QUEUE_SLOTS = 70;
 
 const [slots, setSlots] = createSignal<QueueSlot[]>([]);
 let loadedKey: string | undefined;
@@ -94,7 +94,7 @@ export function addQueueSlots(userId: string, weekdays: readonly number[], time:
   const fresh = weekdays
     .filter((weekday) => !slots().some((slot) => slot.weekday === weekday && slot.time === time))
     .map((weekday) => ({ id: crypto.randomUUID(), weekday, time }));
-  const room = Math.max(0, MAX_SLOTS - slots().length);
+  const room = Math.max(0, MAX_QUEUE_SLOTS - slots().length);
   const added = fresh.slice(0, room);
   if (added.length) write([...slots(), ...added]);
   return added.length;
@@ -105,9 +105,18 @@ export function removeQueueSlot(userId: string, id: string) {
   write(slots().filter((slot) => slot.id !== id));
 }
 
-export function clearQueueSlots(userId: string) {
+/** Returns an undo, which leaves any other workspace alone. */
+export function clearQueueSlots(userId: string): () => void {
   loadQueueSlots(userId);
+  const key = loadedKey;
+  const cleared = slots();
   write([]);
+  return () => {
+    loadQueueSlots(userId);
+    if (loadedKey !== key) return;
+    const since = slots().filter((slot) => !cleared.some((old) => old.weekday === slot.weekday && old.time === slot.time));
+    write([...cleared, ...since].slice(0, MAX_QUEUE_SLOTS));
+  };
 }
 
 /** A slot taken by one post is free for none after it. */
@@ -134,6 +143,18 @@ export function openQueueTimes(
     }
   }
   return found;
+}
+
+/** Each slot's soonest time in `times`, by id. A slot left out has none free. */
+export function firstOpenBySlot(times: readonly Date[], list: readonly QueueSlot[] = slots()): Map<string, Date> {
+  const first = new Map<string, Date>();
+  for (const at of times) {
+    const { weekday } = zonedParts(at);
+    const time = clockAt(at);
+    const slot = list.find((row) => row.weekday === weekday && row.time === time);
+    if (slot && !first.has(slot.id)) first.set(slot.id, at);
+  }
+  return first;
 }
 
 /** Joins weekdays as the language does; en-GB's has no comma before "and". */

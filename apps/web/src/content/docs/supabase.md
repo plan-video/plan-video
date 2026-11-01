@@ -16,7 +16,7 @@ plan.video keeps its accounts and data in [Supabase](https://supabase.com): sign
 | `waitlist` | Emails waiting to be let in, while sign-up is invite-only |
 | `invite_gate` | One switch: whether the database itself keeps out anyone not let in |
 
-Browsers read and write only their own rows, under row-level security. Logins, deliveries and plan limits are written only by the services, with the secret key, and browsers can't read the logins at all. Videos and pictures aren't in Supabase: they go to your R2 bucket.
+Browsers read and write only their own rows, under row-level security. Logins and deliveries are written only by the services, with the secret key, plans only by billing, with a key of its own, and browsers can't read the logins at all. Videos and pictures aren't in Supabase: they go to your R2 bucket.
 
 ## Set it up
 
@@ -35,7 +35,7 @@ Browsers read and write only their own rows, under row-level security. Logins, d
     Under **Authentication** → **URL Configuration**, set **Site URL** to your site's address, and add `https://your-domain.com/**` to the redirect URLs. Sign-in emails link to the Site URL.
   </Step>
   <Step title="Add the emails">
-    Under **Authentication** → **Emails**, paste each template from `supabase/templates` into its email: `magic-link.html` for the magic link, `confirm-signup.html` for confirming a sign-up, and `invite.html` for invites. They link to `plan.video`'s logo and site, so change those addresses to yours.
+    Under **Authentication** → **Emails**, paste each template from `supabase/templates` into its email: `magic-link.html` for the magic link, `confirm-signup.html` for confirming a sign-up, and `invite.html` for invites. Their links and logo come from your Site URL, so there's nothing to change.
   </Step>
   <Step title="Send the emails yourself">
     Supabase's own mail service only sends a few emails an hour, so set up your own SMTP under **Authentication** → **Emails** → **SMTP Settings**. plan.video uses [Resend](https://resend.com).
@@ -61,14 +61,20 @@ Turn it on after `mcp` is running: an `mcp` that doesn't know the new tokens can
 
 ## Letting people in
 
-While sign-up is invite-only, people join the waitlist and only invited emails can sign in. Four things keep it that way: the website (`VITE_INVITE_ONLY`), the services (`REQUIRE_INVITE`), the database, which saves nothing for someone not let in, and the sign-up hook above, which makes no account for them. Let someone in with SQL:
+While sign-up is invite-only, only emails you let in can use your copy. Up to four things keep it that way: the website if you set `VITE_INVITE_ONLY=true`, the services (`REQUIRE_INVITE`), the database, which saves nothing for someone not let in, and the sign-up hook above, which makes no account for them. Let someone in with SQL:
 
 ```sql
 insert into public.waitlist (email, invited_at) values ('name@example.com', now())
 on conflict (email) do update set invited_at = now();
 ```
 
-Or open sign-up to everyone: build the website with `VITE_INVITE_ONLY=false`, set `REQUIRE_INVITE=false` in `r2.env`, turn off the sign-up hook, and open the database:
+The migrations also let in `reviewer@plan.video`, the sign-in plan.video gives its network reviewers. On your own copy, take it out:
+
+```sql
+delete from public.waitlist where email = 'reviewer@plan.video';
+```
+
+Or open sign-up to everyone: set `REQUIRE_INVITE=false` in `r2.env`, turn off the sign-up hook, and open the database:
 
 ```sql
 update public.invite_gate set invite_only = false;
@@ -89,7 +95,9 @@ That applies every migration, and catches sign-in emails in a test inbox at `htt
 The tests in `supabase/tests` run against it:
 
 ```bash
-node --test supabase/tests/posts.test.mjs supabase/tests/team-members.test.mjs
+node --test supabase/tests/*.test.mjs
 ```
+
+`connector-tokens` needs its hook turned on in `config.toml`, and the last `access-gate` test needs its hook plus `BEFORE_USER_CREATED_HOOK=on`.
 
 So do the publisher's tests against the real database (`services/publisher/integration.test.mjs`, skipped when no local Supabase answers), and the end-to-end checks in `apps/web/e2e`, which drive the dashboard in Chrome against it.

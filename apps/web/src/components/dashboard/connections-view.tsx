@@ -170,7 +170,7 @@ export function DashboardConnectionsView() {
     if (!id || activeScope() || !accountsFull(id)) return false;
     toast.error(t("All your social accounts are in use"), {
       description: t("Your plan connects {count} social accounts. Disconnect one, or get more to connect another.", { count: accountsLimit()! }),
-      action: { label: auth.accessLevel() >= 4 ? t("Add accounts") : t("Upgrade"), onClick: () => setParams({ dashboard: "billing" }, { replace: true }) },
+      action: { label: auth.accessLevel() >= 4 ? t("Add accounts") : t("Upgrade"), onClick: () => setParams({ dashboard: "billing" }) },
     });
     return true;
   };
@@ -278,7 +278,7 @@ export function DashboardConnectionsView() {
                         fallback={
                           <Button
                             class="gap-0 pl-0 pr-2"
-                            onClick={() => (auth.isGuest() ? askForAccount({ reason: "account" }) : setParams({ dashboard: "billing" }, { replace: true }))}
+                            onClick={() => (auth.isGuest() ? askForAccount({ reason: "account" }) : setParams({ dashboard: "billing" }))}
                           >
                             <span class="grid h-7 w-6 place-items-center overflow-clip">
                               <Icon name="upgrade" class="size-6" />

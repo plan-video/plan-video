@@ -19,7 +19,7 @@ DOMAIN=${SITE#*://}
 DOMAIN=${DOMAIN%%[/:]*}
 STATE=${STATE_DIRECTORY:-/var/lib/plan-video-monitor}
 # Each service answers on its own port; any HTTP answer, even a 404, means it's serving.
-PORTS="agent:8796 billing:8799 linkedin:8795 mcp:8791 photos:8793 publisher:8798 storage:8788 tiktok:8789 transcribe:8792 x:8797 youtube:8790"
+PORTS="agent:8796 billing:8799 gateway:8798 linkedin:8795 mcp:8791 photos:8793 publisher:8794 storage:8788 tiktok:8789 transcribe:8792 x:8797 youtube:8790"
 DISK_MAX_PCT=90
 MEM_MIN_MB=150
 CERT_MIN_DAYS=14

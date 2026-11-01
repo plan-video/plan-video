@@ -8,12 +8,11 @@ The website takes its settings when it's built. Each service reads its files fro
 | --- | --- | --- |
 | `VITE_SUPABASE_URL` | Required | Your Supabase project's address. Without it and the key, sign-in is off. |
 | `VITE_SUPABASE_ANON_KEY` | Required | Its publishable key, which is safe in a browser |
-| `VITE_INVITE_ONLY` | | `false` lets everyone sign up. A build shows the waitlist unless this is `false`; the dev server doesn't unless it's `true`. |
+| `VITE_INVITE_ONLY` | | `true` makes the website stop anyone not let in, as well as the database and services. A copy built from this repository leaves it off unless you set it. |
 | `VITE_APP_URL` | | Your site's address, like `https://your-domain.com`; set it for every build. Sign-in emails and the networks' logins come back to it, and the dashboard shows the agent address with it. Leave it empty on the dev server, so sign-in comes back to `localhost`. |
 | `VITE_SENTRY_DSN` | | A [Sentry](https://sentry.io) project's DSN, for reporting a build's errors. Without it, nothing is reported and Sentry isn't loaded. |
 | `VITE_UMAMI_WEBSITE_ID`, `VITE_UMAMI_SCRIPT_URL`, `VITE_UMAMI_DOMAINS` | | [Umami](https://umami.is) analytics. Off when empty. |
 | `VITE_PUBLISHER_URL` | | Where the dev server sends `/api/publisher`. Default `VITE_APP_URL`, else `https://plan.video`. Only the dev server reads it. |
-| `VITE_API_URL` | | Where the editor's `/api/trpc` calls go. Empty means your own site. |
 | `VITE_AGENT_CHAT_URL` | | An agent chat host for the editor. Without it, the editor's agent chat stays off. |
 | `VITE_CONNECTOR_DEV` | | `true` turns the agent connector on in the dev server too, through `/api/mcp`. Builds always have it. |
 
@@ -27,7 +26,7 @@ Set `VITE_APP_URL` for every build you put up. Without it, the website takes its
 
 ## Shared: r2.env
 
-Read by every service except `mcp`.
+Read by every service except `mcp`, `monitor` and `photos`.
 
 | Key | | What it does |
 | --- | --- | --- |
@@ -38,7 +37,7 @@ Read by every service except `mcp`.
 | `R2_BUCKET` | Required | The bucket's name |
 | `R2_JURISDICTION` | | The bucket's jurisdiction: `eu`, `fedramp`, or `default` for a bucket made without one. Default `eu`. |
 | `R2_ENDPOINT` | | The bucket's full S3 address, in place of the R2 one the two keys above make, such as another S3-compatible store's |
-| `REQUIRE_INVITE` | | `false` lets everyone in. Otherwise each service checks the person was let in from the waitlist. |
+| `REQUIRE_INVITE` | | `false` lets everyone in. Otherwise the services that act for a person, all but `billing` and `mcp`, check they were let in. |
 | `PUBLIC_URL` | | Your site's address. The TikTok, YouTube, LinkedIn and X services allow sign-ins to come back to it and its `www.` address. Default `https://plan.video`. |
 
 ## publisher.env
@@ -46,22 +45,32 @@ Read by every service except `mcp`.
 | Key | | What it does |
 | --- | --- | --- |
 | `SUPABASE_URL` | Required | Your Supabase project's address, if not in `r2.env` |
+| `SUPABASE_ANON_KEY` | | Its publishable key, if not in `r2.env` |
+| `REQUIRE_INVITE` | | As in `r2.env`, if it's not there |
 | `SUPABASE_SERVICE_ROLE_KEY` | Required | A secret key for your project. The publisher reads and writes tables browsers can't. |
 | `TOKEN_KEY` | Required | 32 random bytes in base64, from `make-keys`. Seals logins, tickets and media links. |
+| `SENDER_SECRET` | | The password the gateway reaches the publisher with. `services/deploy.sh` adds it. Without it only the health check reaches the publisher: the dashboard can't send, and networks that pull a post's files can't get them. |
 | `BLUESKY_OAUTH_JWK` | | The "Sign in with Bluesky" key, from `make-keys`. Without it, Bluesky connects with app passwords only. |
 | `PUBLIC_URL` | | Your site's address, for media links, emails, the networks' sign-in callbacks and Bluesky. Default `https://plan.video`. |
 | `SEND_FROM` | | A time in ISO 8601. Runs due before it are never sent. `make-keys` sets it; without it, runs that fell due while the publisher was down are skipped. |
 | `RESEND_API_KEY` | | A [Resend](https://resend.com) key, to email owners about failed posts and LinkedIn logins running out |
-| `NOTICE_FROM` | | Who those emails come from. Default `plan.video <hello@plan.video>`. |
+| `NOTICE_FROM` | | Who those emails come from, at a domain your Resend account can send from. Set it with `RESEND_API_KEY`: the default, `plan.video <hello@plan.video>`, is plan.video's. |
+| `SUPPORT_TO`, `SUPPORT_FROM` | | Who the site's support form emails, and from which address. Only plan.video's own website has that form, so a copy without it can leave these out. |
 | `BILLING_URL` | | Where the billing service is, to end a plan when an account is deleted. Default `http://127.0.0.1:8799`. |
 | `PHOTOS_URL` | | Where the photos service is, to make pictures for posts. Default `http://127.0.0.1:8793`. |
 | `YOUTUBE_UPLOADS_PER_DAY` | | YouTube uploads a day per owner, Free to Agency. Default `3,50,100,200`. |
 | `X_POSTS_PER_MONTH` | | Posts to X in any 30 days per owner, Free to Agency. Default `0,150,400,800`. |
 | `X_LINK_POSTS_PER_MONTH` | | How many of those can have a link. Default `0,10,25,40`. |
 
+## gateway.env
+
+| Key | | What it does |
+| --- | --- | --- |
+| `SENDER_SECRET` | Required | The same value as in `publisher.env`. `services/deploy.sh` writes it. |
+
 ## Network files
 
-The network's service and the publisher both read these.
+The network's service and the publisher both read these. `meta.env` has no service of its own: only the publisher reads it.
 
 | File | Keys |
 | --- | --- |

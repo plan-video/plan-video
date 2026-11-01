@@ -2,14 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Only settings are saved, never the clips or the words. The starters are built in and never stored.
+// Only settings are saved, never the clips or the words.
 
 import { createSignal } from "solid-js";
 import { NEUTRAL_GRADE } from "@plan.video/runtime";
 
 import { queueAccountSync } from "@/lib/account-sync-bus";
 import { ownerOf } from "@/lib/guest";
-import { msg } from "@/lib/i18n";
 import { readPostTemplate, type PostTemplate } from "@/lib/post-templates";
 import { STREAM_LAYOUTS, type CropId, type CropShape, type CropStyles, type Crops } from "@/lib/stream-layouts";
 
@@ -55,52 +54,11 @@ export type Workflow = {
   updatedAt: string;
 };
 
-export type StarterArt = "stream" | "talking" | "podcast" | "travel";
-
-export type StarterWorkflow = Workflow & { starter: true; art: StarterArt };
-
-export const isStarter = (workflow: Workflow): workflow is StarterWorkflow => "starter" in workflow;
-
 const MAX_NAME = 40;
 /** The whole account copy has a size limit. */
 const MAX_THUMB = 24_000;
 
-const SHORT = { width: 1080, height: 1920 };
 const EPOCH = new Date(0).toISOString();
-
-const starter = (id: string, name: string, art: StarterArt, steps: WorkflowSteps): StarterWorkflow => ({
-  id: `starter:${id}`,
-  name,
-  art,
-  steps,
-  off: [],
-  starter: true,
-  createdAt: EPOCH,
-  updatedAt: EPOCH,
-});
-
-export const STARTER_WORKFLOWS: StarterWorkflow[] = [
-  starter("stream", msg("Stream highlight"), "stream", {
-    layout: { id: "split" },
-    captions: { look: { props: { preset: "pop" }, children: [] } },
-  }),
-  starter("talking", msg("Talking head"), "talking", {
-    size: SHORT,
-    autoZoom: { strength: "medium", frequency: "normal", motion: "smooth" },
-    captions: { look: { props: { preset: "box" }, children: [] } },
-  }),
-  starter("podcast", msg("Podcast clip"), "podcast", {
-    size: SHORT,
-    autoZoom: { strength: "subtle", frequency: "fewer", motion: "snap" },
-    captions: { look: { props: { preset: "spotlight" }, children: [] } },
-    progressBar: { position: "bottom", thickness: "thin", color: "#FFFFFF", track: true },
-  }),
-  starter("travel", msg("Travel reel"), "travel", {
-    size: SHORT,
-    grade: { look: "warm" },
-    progressBar: { position: "bottom", thickness: "medium", color: "#FFFFFF", track: false },
-  }),
-];
 
 export const workflowsKey = (userId: string) => `plan.video.workflows.${userId}`;
 
@@ -112,7 +70,7 @@ export const workflows = () => [...items()].sort((a, b) => b.createdAt.localeCom
 
 export function findWorkflow(id: string | undefined): Workflow | undefined {
   if (!id) return undefined;
-  return items().find((item) => item.id === id) ?? STARTER_WORKFLOWS.find((item) => item.id === id);
+  return items().find((item) => item.id === id);
 }
 
 export function activeSteps(workflow: Workflow): WorkflowStepId[] {
@@ -220,7 +178,6 @@ export function readSteps(value: unknown): WorkflowSteps {
 
 export function readWorkflow(value: unknown): Workflow | null {
   if (!isRecord(value) || typeof value.id !== "string" || typeof value.name !== "string") return null;
-  if (value.id.startsWith("starter:")) return null;
   const off = Array.isArray(value.off) ? WORKFLOW_STEPS.filter((id) => (value.off as unknown[]).includes(id)) : [];
   const thumb = typeof value.thumb === "string" && value.thumb.startsWith("data:image/") && value.thumb.length <= MAX_THUMB ? value.thumb : undefined;
   return {

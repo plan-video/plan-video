@@ -15,7 +15,7 @@ Accounts on other Bluesky servers work too. The publisher calls them through a g
     `scripts/make-keys.mjs` prints `BLUESKY_OAUTH_JWK` along with the publisher's other keys. See [Services](/docs/services#the-publishers-keys).
   </Step>
   <Step title="Set your address">
-    Set `PUBLIC_URL` in `publisher.env` to your site's address. Your client's identity is then `https://your-domain.com/api/publisher/bluesky/client.json`, and Bluesky sends people back to `https://your-domain.com/bluesky/callback`. The website only offers the button on the address in `ORIGIN`, in `apps/web/src/lib/bluesky-oauth.ts`, so set that to yours too.
+    Set `PUBLIC_URL` in `publisher.env` to your site's address. Your client's identity is then `https://your-domain.com/api/publisher/bluesky/client.json`, and Bluesky sends people back to `https://your-domain.com/bluesky/callback`. The website only offers the button on its own address, `VITE_APP_URL`, so build it with yours.
   </Step>
   <Step title="Check it's reachable">
     Bluesky servers fetch that `client.json` and its `jwks.json` over HTTPS, so open both in a browser and check they load.

@@ -65,6 +65,18 @@ export default [
     },
   },
   {
+    // It imports every page's data for the build: one page importing it ships all of them to every visitor.
+    files: ["site/src/pages/**/*.tsx", "site/src/components/**/*.tsx", "site/src/index.tsx"],
+    rules: {
+      "no-restricted-imports": ["error", {
+        patterns: [{
+          group: ["@site/lib/seo-pages", "**/lib/seo-pages"],
+          message: "That's the build's list of pages; words pages draw go in lib/site-words.ts.",
+        }],
+      }],
+    },
+  },
+  {
     files: ["e2e/**/*.mjs"],
     languageOptions: {
       ecmaVersion: "latest",

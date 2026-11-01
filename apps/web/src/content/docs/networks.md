@@ -27,4 +27,15 @@ plan.video posts to eight networks today. Pinterest is [coming soon](/docs/comin
 
 ## Videos on every network
 
-Every video must be between **3 seconds and 5 minutes** long and shaped **9:16, 16:9, 1:1 or 4:3**. Each network then has its own file size limit, listed on its page.
+plan.video takes videos between **3 seconds and 5 minutes** long, up to **500 MB**, shaped **9:16, 16:9, 1:1 or 4:3**. Some networks take less:
+
+| Network | Longest | Largest |
+| --- | --- | --- |
+| TikTok | 5 minutes, or what your TikTok account allows | 200 MB |
+| YouTube | 5 minutes | 500 MB |
+| X | 5 minutes | 500 MB |
+| LinkedIn | 5 minutes | 200 MB |
+| Bluesky | 3 minutes | 100 MB |
+| Instagram | 3 minutes | 300 MB |
+| Facebook | 5 minutes | 500 MB |
+| Threads | 5 minutes | 500 MB |

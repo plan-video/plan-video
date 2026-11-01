@@ -24,6 +24,10 @@ The rest of the repository is under AGPL-3.0.
 This is a summary, not legal advice. The license texts in the repository are what count.
 </Note>
 
+## The name and logo
+
+The licenses cover the code, not plan.video's name, wordmark or squirrel logo. A changed version, or a service run from this code, can't use them as its own brand. See [NOTICE](https://github.com/plan-video/plan-video/blob/main/NOTICE).
+
 ## The hosted version
 
 [plan.video](https://plan.video) runs this same code for you, with the networks' developer apps already registered, so there's nothing to set up. See [Self-hosting](/docs/self-hosting) for what running your own copy takes.

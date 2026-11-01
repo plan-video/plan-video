@@ -20,7 +20,8 @@ import {
 } from "@/lib/cloud-storage";
 import { inGuestMode } from "@/lib/guest";
 import { msg, t } from "@/lib/i18n";
-import { accountsFor, accountsForPlatforms, readChoices, socialConnections, type AccountChoices } from "@/lib/social-connections";
+import { accountGroups, groupAccounts, type AccountGroup } from "@/lib/account-groups";
+import { accountsFor, accountsForPlatforms, readChoices, socialConnections, type AccountChoices, type SocialConnection } from "@/lib/social-connections";
 import { scheduledLimit } from "@/lib/plans";
 import { convertWallClock, dayKeyAt, deviceTimeZone, momentOf, timeZone } from "@/lib/time-zone";
 import { activeScope, isActiveWorkspace, onWorkspaceChange, scopeOf, workspaceDatabase, workspaceDatabaseFor, type TeamScope } from "@/lib/workspaces";
@@ -133,21 +134,45 @@ export const saving = () => pendingSaves() > 0;
 
 const [hiddenCalendars, setHiddenCalendars] = createSignal<ReadonlySet<string>>(new Set());
 const [statusFilter, setStatusFilter] = createSignal<PostStatusFilter>("all");
-const [pickedAccount, setAccountFilter] = createSignal<string | null>(null);
+const [pickedAccount, setPickedAccount] = createSignal<string | null>(null);
+const [pickedGroup, setPickedGroup] = createSignal<string | null>(null);
 
-export { hiddenCalendars, setAccountFilter, setStatusFilter, statusFilter };
+export { hiddenCalendars, setStatusFilter, statusFilter };
+
+/** One account or one group is picked at a time. */
+export function setAccountFilter(id: string | null) {
+  setPickedAccount(id);
+  setPickedGroup(null);
+}
+
+export function setGroupFilter(id: string | null) {
+  setPickedGroup(id);
+  setPickedAccount(null);
+}
 
 export function accountFilter() {
   const id = pickedAccount();
   return id && socialConnections().some((item) => item.id === id) ? id : null;
 }
 
+/** Null once the group is gone or none of its accounts is connected, as `accountFilter` forgets a removed account. */
+export function groupFilter(): AccountGroup | null {
+  const id = pickedGroup();
+  const group = id ? accountGroups().find((item) => item.id === id) : undefined;
+  return group && groupAccounts(group).length ? group : null;
+}
+
+function goesToAccount(post: { platforms: readonly string[]; accounts?: AccountChoices }, account: SocialConnection) {
+  return post.platforms.includes(account.platform) && accountsFor(account.platform, post.accounts).some((item) => item.id === account.id);
+}
+
 export function goesOutFromPicked(post: { platforms: readonly string[]; accounts?: AccountChoices }) {
+  const group = groupFilter();
+  if (group) return groupAccounts(group).some((account) => goesToAccount(post, account));
   const id = accountFilter();
   if (!id) return true;
   const account = socialConnections().find((item) => item.id === id);
-  if (!account || !post.platforms.includes(account.platform)) return false;
-  return accountsFor(account.platform, post.accounts).some((item) => item.id === id);
+  return !!account && goesToAccount(post, account);
 }
 
 export function toggleCalendar(id: string) {

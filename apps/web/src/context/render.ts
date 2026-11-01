@@ -8,6 +8,7 @@ import { Computed, FrameRate, Workarea } from "@plan.video/runtime";
 
 import { createCapture } from "@/engine/capture";
 import { track } from "@/lib/analytics";
+import { allowedExport } from "@/lib/paid-tools";
 import { version } from "../../package.json";
 
 import type { Entity } from "koota";
@@ -47,8 +48,9 @@ export type RenderSceneOptions = {
 
 export async function renderScene(
   engine: Engine,
-  { scene, target, config, source }: RenderSceneOptions,
+  { scene, target, config: asked, source }: RenderSceneOptions,
 ): Promise<ExportResult> {
+  const config = allowedExport(asked);
   const world = engine.world;
 
   const workarea = scene.get(Workarea);

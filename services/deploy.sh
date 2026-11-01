@@ -3,8 +3,8 @@
 # and checks what changed. Run as root on the server, from a clean clone of the repository:
 #
 #   services/deploy.sh status               which commit each service runs, and what differs
-#   services/deploy.sh [--dry-run] all      every service, the publisher last
-#   services/deploy.sh [--dry-run] <name>…  agent billing linkedin mcp monitor photos publisher storage tiktok transcribe x youtube
+#   services/deploy.sh [--dry-run] all      every service, the publisher and then its gateway last
+#   services/deploy.sh [--dry-run] <name>…  agent billing gateway linkedin mcp monitor photos publisher storage tiktok transcribe x youtube
 #
 # A failed check puts the service's previous files back and restarts it.
 set -euo pipefail
@@ -14,9 +14,10 @@ DEST=${DEPLOY_ROOT:-/opt}
 UNITS=${DEPLOY_UNITS:-/etc/systemd/system}
 BACKUPS=${DEPLOY_BACKUPS:-/var/backups/plan-video}
 RESTART=${DEPLOY_RESTART:-1}
+ENV_DIR=${DEPLOY_ENV:-/etc/plan-video}
 NETWORKS=(tiktok youtube linkedin x)
 ONE_PIXEL_PNG=iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAEBgIApD5fRAAAAABJRU5ErkJggg==
-ORDER=(transcribe mcp storage agent billing tiktok youtube linkedin x monitor photos publisher)
+ORDER=(transcribe mcp storage agent billing tiktok youtube linkedin x monitor photos publisher gateway)
 
 say() { printf '%s\n' "$*"; }
 fail() { printf 'deploy: %s\n' "$*" >&2; exit 1; }
@@ -72,13 +73,20 @@ healthy() {
         sleep 2
         continue
       fi
+      local body
+      if [ "$name" = gateway ]; then
+        # The publisher asking for a session, not the gateway's 503 or a 403 for the wrong secret: it got through.
+        body=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{}' http://127.0.0.1:8798/api/publisher/logins 2>/dev/null || true)
+        [ "$body" = 401 ] && return 0
+        sleep 2
+        continue
+      fi
       if [ "$name" != publisher ]; then
         sleep 3
         systemctl is-active --quiet "plan-video-$name" && return 0
         return 1
       fi
-      local body
-      body=$(curl -fsS http://127.0.0.1:8798/api/publisher/health 2>/dev/null || true)
+      body=$(curl -fsS http://127.0.0.1:8794/api/publisher/health 2>/dev/null || true)
       # Healthy once a pass has finished since the restart.
       if [[ $body == *'"ok":true'* ]] && [[ $(sed -E 's/.*"lastPass":"([^"]+)".*/\1/' <<<"$body") > $since ]]; then return 0; fi
     fi
@@ -105,6 +113,12 @@ restore() {
     fi
   done
   rm -rf "$old"
+  # Back to a publisher from before the gateway, which needs its port.
+  if [ "$name" = publisher ] && [ "$RESTART" = 1 ] && [ ! -f "$DEST/plan-video-publisher/publisher/gateway-link.mjs" ]; then
+    systemctl disable --now plan-video-gateway 2>/dev/null || true
+    rm -f "$UNITS/plan-video-gateway.service"
+    systemctl daemon-reload
+  fi
   [ "$name" = monitor ] || [ "$RESTART" != 1 ] || systemctl restart "plan-video-$name"
 }
 
@@ -112,7 +126,8 @@ deploy() {
   local name=$1 dry=$2
   local changed
   changed=$(changes "$name")
-  if [ -z "$changed" ]; then
+  # A publisher still to move has to restart even with its files in place.
+  if [ -z "$changed" ] && { [ "$name" != publisher ] || [ "$gateway_new" != 1 ]; }; then
     say "$name: up to date"
     [ "$dry" = 1 ] || write_deployed "$name"
     return 0
@@ -122,7 +137,7 @@ deploy() {
   [ "$dry" = 1 ] && return 0
 
   local stamp backup="" existing
-  existing=$(for pair in $(parts "$name"); do [ -d "$DEST/${pair#*:}" ] && echo "${pair#*:}"; done)
+  existing=$(for pair in $(parts "$name"); do if [ -d "$DEST/${pair#*:}" ]; then echo "${pair#*:}"; fi; done)
   if [ -n "$existing" ]; then
     stamp=$(date -u +%Y%m%d-%H%M%S)
     backup="$BACKUPS/$name-$stamp.tgz"
@@ -169,8 +184,20 @@ deploy() {
   if [ "$RESTART" = 1 ] && [ "$name" != monitor ]; then
     local since
     since=$(date -u +%Y-%m-%dT%H:%M:%S)
+    # The gateway takes the port as the old publisher leaves it, before the new one sends anything:
+    # a network that can't pull a post's files fails that post for good.
+    if [ "$name" = publisher ] && [ "$gateway_new" = 1 ]; then
+      systemctl stop plan-video-publisher
+      systemctl restart plan-video-gateway || true
+      if ! gateway_answers; then
+        journalctl -u plan-video-gateway --since "-2min" --no-pager | tail -20 >&2
+        restore "$name" "$backup"
+        fail "the gateway didn't start${backup:+, so the previous publisher is back}"
+      fi
+    fi
     systemctl restart "plan-video-$name"
-    if ! healthy "$name" "$since"; then
+    # A publisher networks can't pull files from through the gateway would fail posts, so that counts too.
+    if ! healthy "$name" "$since" || { [ "$name" = publisher ] && [ "$gateway_new" = 1 ] && ! healthy gateway ""; }; then
       journalctl -u "plan-video-$name" --since "-2min" --no-pager | tail -20 >&2
       restore "$name" "$backup"
       fail "$name didn't come up healthy${backup:+, so the previous version is back}"
@@ -183,6 +210,53 @@ deploy() {
     say "  the publisher keeps its own copy of $name: deploy publisher too"
   fi
   return 0
+}
+
+# Asks the running publisher, not the files, so a retry finishes a run that was cut off at any point.
+gateway_moved() {
+  [ -f "$UNITS/plan-video-gateway.service" ] &&
+    [ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:8794/api/publisher/health 2>/dev/null || true)" != 000 ]
+}
+
+gateway_answers() {
+  local i
+  for i in $(seq 1 15); do
+    [ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:8798/api/publisher/health 2>/dev/null || true)" != 000 ] && return 0
+    sleep 2
+  done
+  return 1
+}
+
+# The gateway's first time: ready to start before anything moves.
+prepare_gateway() {
+  local to=$DEST/plan-video-gateway unit file
+  mkdir -p "$to"
+  put gateway plan-video-gateway "$(stat -c '%U:%G' "$to")" >/dev/null
+  for file in "$to"/*.mjs; do node --check "$file" || fail "gateway: $file doesn't parse, so nothing was moved"; done
+  for unit in $(units_of gateway); do install -D -m 644 "$unit" "$(unit_target "$unit")"; done
+  systemctl daemon-reload
+  systemctl enable --quiet plan-video-gateway.service
+}
+
+# The password between the publisher and its gateway, and the gateway's user. Nothing to do once they exist.
+gateway_ready() {
+  local own=$ENV_DIR/publisher.env gate=$ENV_DIR/gateway.env secret
+  [ -f "$own" ] || fail "write $own first"
+  id planvideo-gateway >/dev/null 2>&1 || useradd --system --no-create-home --shell /usr/sbin/nologin --user-group planvideo-gateway
+  secret=$(sed -n 's/^SENDER_SECRET=//p' "$own" | tail -1)
+  if [ -z "$secret" ]; then
+    secret=$(openssl rand -hex 32)
+    [ -z "$(tail -c1 "$own")" ] || echo >> "$own"
+    printf 'SENDER_SECRET=%s\n' "$secret" >> "$own"
+    secret_new=1
+    say "added SENDER_SECRET to $own"
+  fi
+  if [ "$(cat "$gate" 2>/dev/null)" != "SENDER_SECRET=$secret" ]; then
+    install -m 640 -o root -g planvideo-gateway /dev/null "$gate"
+    printf 'SENDER_SECRET=%s\n' "$secret" > "$gate"
+    secret_new=1
+    say "wrote $gate"
+  fi
 }
 
 write_deployed() {
@@ -215,7 +289,30 @@ dry=0
 names=()
 if [ "$1" = all ]; then names=("${ORDER[@]}"); else
   for name in "$@"; do [[ " ${ORDER[*]} " == *" $name "* ]] || fail "no service called $name"; done
-  # The publisher goes last, whatever order they were named in.
+  # The first time, the two move together: the gateway takes the port the publisher has had.
+  if ! gateway_moved && [[ " $* " == *" publisher "* || " $* " == *" gateway "* ]]; then set -- "$@" publisher gateway; fi
+  # The publisher and then its gateway go last, whatever order they were named in.
   for name in "${ORDER[@]}"; do [[ " $* " == *" $name "* ]] && names+=("$name"); done
 fi
+gateway_new=0
+gateway_named=0
+secret_new=0
+if [ "$dry" = 0 ] && [ "$RESTART" = 1 ] && [[ " ${names[*]} " == *" publisher "* || " ${names[*]} " == *" gateway "* ]]; then
+  gateway_named=1
+  gateway_ready
+  if ! gateway_moved; then
+    gateway_new=1
+    prepare_gateway
+  fi
+fi
 for name in "${names[@]}"; do deploy "$name" "$dry"; done
+if [ "$gateway_named" = 1 ]; then
+  # Each read it when it started, so they'd no longer know each other. The first switch has started both already.
+  if [ "$secret_new" = 1 ] && [ "$gateway_new" = 0 ]; then
+    systemctl restart plan-video-publisher
+    systemctl restart plan-video-gateway
+  fi
+  systemctl is-active --quiet plan-video-gateway || systemctl start plan-video-gateway || true
+  healthy gateway "" || fail "the gateway doesn't reach the publisher. Check SENDER_SECRET in publisher.env and gateway.env, and journalctl -u plan-video-gateway"
+  [ "$gateway_new" = 0 ] || say "gateway: now takes the publisher's traffic"
+fi

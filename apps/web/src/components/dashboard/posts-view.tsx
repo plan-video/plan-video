@@ -743,7 +743,7 @@ export function DashboardPostsView(props: { tab: PostsTab }) {
   );
 }
 
-function SectionHeader(props: { id: string; label: string; note?: string; earlier?: boolean }) {
+export function SectionHeader(props: { id: string; label: string; note?: string; earlier?: boolean }) {
   return (
     <>
       <Show when={props.earlier}>
@@ -872,14 +872,14 @@ function PostRow(props: {
     waiting() ? "late" : sending() ? "sending" : failure() ? "failed" : held() ? "late" : inInbox() ? "scheduled" : props.pastDue ? "late" : props.post.status === "posted" ? "posted" : props.post.status === "scheduled" ? "scheduled" : "draft";
 
   return (
-    <div class={`group relative flex h-14 items-center gap-3 rounded-md px-3 transition-colors hover:bg-accent ${ROW_COLUMNS} lg:items-center`}>
+    <div class={`group relative flex h-14 items-center gap-3 rounded-md px-3 transition-colors hover:bg-accent max-sm:gap-2 max-sm:px-2 ${ROW_COLUMNS} lg:items-center`}>
       <button
         type="button"
         class="absolute inset-0 rounded-md focus-ring"
         aria-label={t("Open {title}", { title: props.post.title })}
         onClick={(event) => props.onOpen(event)}
       />
-      <div class="pointer-events-none flex w-18 shrink-0 flex-col">
+      <div class="pointer-events-none flex w-18 shrink-0 flex-col max-sm:w-14">
         <span class="text-sm tabular-nums text-muted-foreground">{time()}</span>
         <Show when={props.showDay}>
           <span class="truncate text-xs text-muted-foreground">{shortDay(props.post.day)}</span>
@@ -954,14 +954,14 @@ function PostRow(props: {
         <PostAccounts post={props.post} platforms={platforms()} />
       </div>
       <span
-        class="flex w-24 shrink-0 items-center gap-2 text-xs lg:w-auto"
+        class="flex w-24 shrink-0 items-center gap-2 text-xs max-sm:w-auto lg:w-auto"
         classList={{ [STATUS_TONE[tone()]]: true, "pointer-events-none": !inInbox() && !held() && !waiting() }}
         title={waiting() ? t(waiting()!) : inInbox() ? t("Open the notification in TikTok to finish it") : held() ? t(held()!.detail) : undefined}
       >
         <Show when={sending() && !waiting()} fallback={<span class={cx("size-1.5 shrink-0 rounded-full", STATUS_DOT[tone()])} />}>
           <Icon name="spinner-loader" class="-mx-1 size-4 shrink-0 animate-spin" />
         </Show>
-        {status()}
+        <span class="max-sm:sr-only">{status()}</span>
       </span>
       <DropdownMenu placement="bottom-end">
         <DropdownMenuTrigger

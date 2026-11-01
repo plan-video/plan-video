@@ -10,8 +10,10 @@ plan.video is one web app plus a handful of small services. The browser does the
   <Lane title="Your server" icon="server">
     - **Caddy**
       Serves the site and routes `/api` and `/mcp`
+    - **gateway**
+      Takes the publisher's public traffic, with no keys of its own
     - **publisher**
-      Sends posts and keeps logins
+      Sends posts and keeps logins, off the internet
     - **storage**
       Signs links to your files
     - **mcp**
@@ -33,7 +35,7 @@ plan.video is one web app plus a handful of small services. The browser does the
 
 ## The web app
 
-`apps/web` is a single [SolidJS](https://www.solidjs.com) app built with [Vite](https://vite.dev) and Tailwind CSS. The website, the dashboard and the editor are all routes of it. At build time, every public page also gets its own HTML file with its text, so search engines can read it without running the app.
+`apps/web` is a single [SolidJS](https://www.solidjs.com) app built with [Vite](https://vite.dev) and Tailwind CSS. The website, the dashboard and the editor are all routes of it. A copy built from this repository has no public pages: `/` opens the dashboard. plan.video's own website, with the homepage and these docs, lives in a separate private repository at `apps/web/site`, which adds those routes and gives each page its own HTML file for search engines.
 
 - **Your data.** Posts live in the browser and sync one at a time to the `posts` table, each written only over the version the browser last read, so two devices' edits merge rather than overwrite. Workspaces, the calendar and settings sync to one `account_state` row per person. Supabase Realtime carries changes to every other open tab.
 - **The editor.** Decoding, editing and exporting all run in the browser, with the `packages/runtime`, `reconciler` and `encoder` packages. For auto-captions, only the audio goes to the transcribe service.
@@ -62,6 +64,8 @@ plan.video is one web app plus a handful of small services. The browser does the
 ## How logins are kept
 
 When someone connects an account, the network sends them back with a code, which the publisher swaps for the login. The login is sealed with AES-256-GCM under `TOKEN_KEY` and kept in `social_tokens`. Browsers only ever hold a sealed ticket. The publisher refreshes each login before it runs out. [Network apps](/docs/network-apps#how-connecting-works) goes through it step by step.
+
+Nothing on the internet reaches the publisher directly. The [gateway](/docs/services#the-gateway) takes its traffic and passes it on, and holds no login, database or storage key.
 
 ## How agents connect
 

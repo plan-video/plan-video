@@ -10,6 +10,8 @@ Every plan includes the calendar and the built-in video editor. Paid plans add u
 | Storage | 5 GB | 50 GB | 150 GB | 250 GB |
 | Scheduled posts | 10 per account | Unlimited | Unlimited | Unlimited |
 | Export | 1080p | 4K | 4K | 4K |
+| Auto-captions a month | 15 minutes | 10 hours | 20 hours | 40 hours |
+| YouTube uploads a day | 3 | 50 | 100 | 200 |
 | X | No | Yes | Yes | Yes |
 | Posts to X a month | | 150, 10 with links | 400, 25 with links | 800, 40 with links |
 | Team members | Just you | Just you | Unlimited | Unlimited |
@@ -22,6 +24,10 @@ Paying yearly saves 20%, paid up front. Prices are in US dollars.
 - Templates and saved captions
 - Client preview links, which anyone can open and comment on without an account
 
+In a workspace someone shared with you, these follow the owner's plan.
+
+Every plan has the [Assistant](/docs/assistant), with a daily limit that grows with your plan and is lowest on Free.
+
 ## Upgrade
 
 Open **Settings** → **Billing**, pick a plan, and pay through Stripe. Your new plan starts straight away.
@@ -31,6 +37,8 @@ Open **Settings** → **Billing**, pick a plan, and pay through Stripe. Your new
 - **Change plan:** pick another plan in **Billing**.
 - **Cancel:** choose **Downgrade to Free**. You keep your plan until the end of the period you paid for.
 - **Card and invoices:** update your card from **Billing**, and find past invoices under **Invoices**.
+
+If you move to Free, nothing you made goes away. Your templates and Vault items stay and still work, and preview links you've shared keep opening. You just can't add new ones, use Bulk tools or export above 1080p until you upgrade again.
 
 <Info>
 Questions about a charge? Email [hello@plan.video](mailto:hello@plan.video).
