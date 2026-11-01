@@ -715,7 +715,7 @@ function setKind(kind: PostKind) {
   });
 }
 
-const POST_COLUMN = "mx-auto flex w-full max-w-[820px] flex-col px-10 pt-8 pb-12";
+const POST_COLUMN = "mx-auto flex w-full max-w-[820px] flex-col px-10 pt-8 pb-12 max-md:px-4 max-md:pt-5";
 
 const SUBMIT_LABELS: Record<When, string> = { now: msg("Post now"), queue: msg("Add to queue"), schedule: msg({ message: "Schedule", context: "verb" }) };
 
@@ -1642,7 +1642,7 @@ function MediaEditor(props: { slot: MediaSlot }) {
                   {t("From library")}
                 </MediaPicker>
                 <Show when={post.kind !== "image" && !slot.platform}>
-                  <ProjectPicker class={dropZoneAction} onPick={(project) => void attachProject(project)}>
+                  <ProjectPicker class={cx(dropZoneAction, "max-md:hidden")} onPick={(project) => void attachProject(project)}>
                     <Icon name="navigation.folder" class="-ml-1.5 size-5" />
                     {t("Use a project")}
                   </ProjectPicker>

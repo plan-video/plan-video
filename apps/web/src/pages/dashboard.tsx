@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { useNavigate, useSearchParams } from "@solidjs/router";
+import Menu from "lucide-solid/icons/menu";
 import { For, Match, Show, Suspense, Switch, createEffect, createRenderEffect, createSignal, lazy, on, onCleanup, onMount } from "solid-js";
 import { toast } from "somoto";
 import { DashboardSectionView } from "@/components/dashboard/section-view";
@@ -357,6 +358,9 @@ export function DashboardPage() {
   let pageBox: HTMLDivElement | undefined;
   createEffect(on(view, () => playEnter(pageBox), { defer: true }));
 
+  const [drawerOpen, setDrawerOpen] = createSignal(false);
+  createEffect(on(() => [params.dashboard, params.folder, params.view], () => setDrawerOpen(false), { defer: true }));
+
   const notifications = createNotifications(setView);
   const unreadNotices = () => notifications.unread().length;
 
@@ -441,22 +445,33 @@ export function DashboardPage() {
 
   return (
     <div
-      class={cx("dashboard-shell flex w-full min-h-0 flex-col overflow-hidden", auth.isGuest() ? "h-full" : "h-screen")}
+      class={cx("dashboard-shell flex w-full min-h-0 flex-col overflow-hidden", auth.isGuest() ? "h-full" : "h-dvh")}
       // Wide enough that the longest name ("Analytics") keeps room on both sides.
       style={{ "--rail-width": dashboardRailLabels() ? "4.75rem" : "3rem" }}
     >
-      <header class="relative z-[27] flex min-h-10 w-full shrink-0 items-center bg-(--plane-canvas) px-3.5">
+      <header class="relative z-[27] flex min-h-10 w-full shrink-0 items-center bg-(--plane-canvas) px-3.5 max-md:h-12 max-md:gap-1 max-md:px-2">
+        <button
+          type="button"
+          aria-label={t("Menu")}
+          aria-expanded={drawerOpen()}
+          class="grid size-9 shrink-0 place-items-center rounded-md text-(--plane-text-secondary) outline-none press focus-ring md:hidden"
+          onClick={() => setDrawerOpen((open) => !open)}
+        >
+          <Menu class="size-5" />
+        </button>
         <div class="flex min-w-0 flex-1 shrink-0">
           {/* On the rail's centre line: half the rail, less the header's 14px, the switcher's 4px and half the 28px badge. */}
-          <div class="ml-[calc(var(--rail-width)/2-2rem)] flex min-w-0">
+          <div class="ml-[calc(var(--rail-width)/2-2rem)] flex min-w-0 max-md:ml-0">
             {workspaceSwitcher()}
           </div>
         </div>
         <div class="shrink-0">
           <DashboardSidebarSearch placeholder={t("Search")} onNavigate={setView} />
         </div>
-        <div class="flex flex-1 shrink-0 items-center justify-end gap-1">
-          <DashboardHelpMenu onHelp={() => setView("help")} />
+        <div class="flex shrink-0 items-center justify-end gap-1 md:flex-1">
+          <div class="contents max-md:hidden">
+            <DashboardHelpMenu onHelp={() => setView("help")} />
+          </div>
           {/* A guest's way to an account is on guest mode's frame instead. */}
           <Show when={!auth.isGuest()}>
             <DashboardIconRailItem
@@ -482,27 +497,35 @@ export function DashboardPage() {
         </div>
       </header>
 
-      <div class="relative flex min-h-0 flex-1 overflow-hidden">
+      <div class="relative flex min-h-0 flex-1 overflow-hidden max-md:flex-col-reverse">
         <nav
           aria-label={t("Apps")}
           class={cx(
-            "z-[26] flex h-full w-(--rail-width) shrink-0 flex-col bg-(--plane-canvas) px-2 pt-2 pb-3",
+            "z-[26] flex h-full w-(--rail-width) shrink-0 flex-col bg-(--plane-canvas) px-2 pt-2 pb-3 max-md:h-auto max-md:w-full max-md:flex-row max-md:justify-around max-md:gap-0 max-md:border-t max-md:border-(--plane-border-subtle) max-md:px-1 max-md:py-1.5",
             dashboardRailLabels() ? "gap-4" : "gap-2",
           )}
         >
           <DashboardIconRailItem showLabel={dashboardRailLabels()} tooltip="right" active={rail() === "work"} onClick={() => openRail("work")} icon="calendar" label={t(RAIL_LABELS.work)} />
-          <DashboardIconRailItem showLabel={dashboardRailLabels()} tooltip="right" active={rail() === "projects"} onClick={() => openRail("projects")} icon="project" label={t("Projects")} />
+          <div class="contents max-md:hidden">
+            <DashboardIconRailItem showLabel={dashboardRailLabels()} tooltip="right" active={rail() === "projects"} onClick={() => openRail("projects")} icon="project" label={t("Projects")} />
+          </div>
           <DashboardIconRailItem showLabel={dashboardRailLabels()} tooltip="right" active={rail() === "library"} onClick={() => openRail("library")} icon="layer-stack" label={t("Library")} />
           <DashboardIconRailItem showLabel={dashboardRailLabels()} tooltip="right" active={rail() === "agent"} onClick={() => openRail("agent")} icon="agent" label={t(RAIL_LABELS.agent)} />
           <DashboardIconRailItem showLabel={dashboardRailLabels()} tooltip="right" active={rail() === "plugs"} onClick={() => openRail("plugs")} icon="plug" label={t("Plugs")} />
           <DashboardIconRailItem showLabel={dashboardRailLabels()} tooltip="right" active={rail() === "analytics"} onClick={() => openRail("analytics")} icon="analytics" label={t("Analytics")} />
-          <div class="min-h-0 flex-1" />
+          <div class="min-h-0 flex-1 max-md:hidden" />
           <DashboardIconRailItem showLabel={dashboardRailLabels()} tooltip="right" active={rail() === "settings"} onClick={() => openRail("settings")} icon="settings" label={t("Settings")} />
         </nav>
 
-        <div class="relative min-w-0 flex-grow overflow-hidden pr-2 pb-2">
-          <div class="depth-frame relative flex size-full overflow-hidden rounded-xl border border-(--plane-border-subtle)">
-            <aside class="flex h-full w-[250px] shrink-0 flex-col overflow-hidden border-r border-(--plane-border-subtle) bg-(--plane-surface-1)">
+        <div class="relative min-h-0 min-w-0 flex-grow overflow-hidden pr-2 pb-2 max-md:p-0">
+          <div class="depth-frame relative flex size-full overflow-hidden rounded-xl border border-(--plane-border-subtle) max-md:rounded-none max-md:border-0">
+            <Show when={drawerOpen()}>
+              <button type="button" aria-label={t("Close")} class="absolute inset-0 z-30 bg-black/50 md:hidden" onClick={() => setDrawerOpen(false)} />
+            </Show>
+            <aside
+              class="flex h-full w-[250px] shrink-0 flex-col overflow-hidden border-r border-(--plane-border-subtle) bg-(--plane-surface-1) max-md:absolute max-md:inset-y-0 max-md:left-0 max-md:z-30 max-md:w-[min(85vw,300px)] max-md:transition-[translate,visibility] max-md:duration-200"
+              classList={{ "max-md:invisible max-md:-translate-x-full": !drawerOpen() }}
+            >
               <div class="flex h-11 shrink-0 items-center gap-2 px-5">
                 <h2 class="truncate text-[15px] leading-5 font-medium tracking-[-0.01em] text-(--plane-text-primary)">{t(RAIL_LABELS[rail()])}</h2>
                 <Show when={rail() === "analytics"}>
@@ -740,9 +763,21 @@ export function DashboardPage() {
                 </div>
               </DashboardCrumbsProvider>
               {/* The Assistant from any page; its own boundary, so the page never waits for it. */}
-              <Suspense>
-                <AssistantLauncher page={pageOf(view()).label} hidden={view() === "agent"} onExpand={() => setView("agent")} />
-              </Suspense>
+              <div class="contents max-md:hidden">
+                <Suspense>
+                  <AssistantLauncher page={pageOf(view()).label} hidden={view() === "agent"} onExpand={() => setView("agent")} />
+                </Suspense>
+              </div>
+              <Show when={onCalendar()}>
+                <button
+                  type="button"
+                  aria-label={t("New post")}
+                  class="absolute right-4 bottom-4 z-20 grid size-14 place-items-center rounded-full bg-(--plane-accent-primary) text-white shadow-lg outline-none press focus-ring md:hidden"
+                  onClick={() => setView("new-post")}
+                >
+                  <PlaneIcon name="plus" class="size-6" />
+                </button>
+              </Show>
             </main>
           </div>
         </div>

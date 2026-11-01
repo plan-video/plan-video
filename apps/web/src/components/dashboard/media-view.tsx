@@ -377,7 +377,7 @@ export function DashboardMediaView() {
           </Portal>
         )}
       </Show>
-      <DashboardPageHeader>
+      <DashboardPageHeader noPhoneCrumbs>
         <Show when={!mediaLoaded() || mediaItems().length || progress() || mediaLoadError()}>
           <Show when={mediaLoaded()}>
             <DashboardFilterCount shown={results().length} total={mediaItems().length} />
@@ -428,7 +428,7 @@ export function DashboardMediaView() {
               </DropdownMenuContent>
             </DropdownMenuPortal>
           </DropdownMenu>
-          <div class="flex h-7 items-center gap-0.5 rounded-md bg-(--plane-layer-3) p-[3px]" role="group" aria-label={t("Layout")}>
+          <div class="flex h-7 items-center gap-0.5 rounded-md bg-(--plane-layer-3) p-[3px] max-md:hidden" role="group" aria-label={t("Layout")}>
             <LayoutButton label={t("Grid")} icon="view.grid" pressed={layout() === "grid"} onClick={() => setLayout("grid")} />
             <LayoutButton label={t("List")} icon="list" pressed={layout() === "list"} onClick={() => setLayout("list")} />
           </div>
@@ -442,7 +442,7 @@ export function DashboardMediaView() {
       <div class="flex min-h-0 flex-1">
         <div class="flex min-h-0 min-w-0 flex-1 flex-col">
           <div class="min-h-0 flex-1 overflow-y-auto" onPointerDown={marquee.onPointerDown}>
-            <div class="flex w-full flex-col gap-3 px-6 pt-6 pb-24">
+            <div class="flex w-full flex-col gap-3 px-6 pt-6 pb-24 max-md:px-4">
               <Show when={!mediaLoadError()} fallback={<p class="py-16 text-center text-xs text-destructive">{t(mediaLoadError() ?? "")}</p>}>
                 <Show when={mediaLoaded()} fallback={<Skeleton />}>
                   <Show when={mediaItems().length || progress()} fallback={<EmptyLibrary dragging={dragging()} onUpload={() => void pick()} />}>

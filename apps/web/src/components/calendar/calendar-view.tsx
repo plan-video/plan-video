@@ -193,8 +193,9 @@ function CalendarHeader(props: { nav: CalendarNavigation }) {
 
   return (
     <DashboardPageHeader
+      noPhoneCrumbs
       nav={
-        <div class="ml-1 flex min-w-0 items-center gap-0.5">
+        <div class="ml-1 flex min-w-0 items-center gap-0.5 max-md:hidden">
           <PlaneButton variant="secondary" size="lg" class="mr-1" aria-keyshortcuts="T" onClick={() => props.nav.go(props.nav.today())}>
             {t("Today")}
           </PlaneButton>
@@ -222,7 +223,7 @@ function CalendarHeader(props: { nav: CalendarNavigation }) {
     >
       <span
         role="status"
-        class={cn("text-xs text-(--plane-text-placeholder) transition-opacity duration-150", saving() ? "opacity-100" : "opacity-0")}
+        class={cn("text-xs text-(--plane-text-placeholder) transition-opacity duration-150 max-md:hidden", saving() ? "opacity-100" : "opacity-0")}
       >
         {t("Saving…")}
       </span>
@@ -231,7 +232,9 @@ function CalendarHeader(props: { nav: CalendarNavigation }) {
       </Show>
       <AccountChip />
       <StatusFilter />
-      <ViewToggle nav={props.nav} />
+      <div class="contents max-md:hidden">
+        <ViewToggle nav={props.nav} />
+      </div>
     </DashboardPageHeader>
   );
 }

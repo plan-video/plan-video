@@ -3,7 +3,7 @@
 
 @custom-variant dark (&:is([data-kb-theme="dark"] *));
 
-/* Must match the screens ScreenTooSmall refuses. */
+/* Must match the screens ScreenTooSmall refuses, and UnlessTooSmall. */
 @custom-variant too-small {
   @media (max-width: 719px), (max-height: 479px) {
     @slot;
@@ -445,6 +445,23 @@
 @media (max-width: 719px), (max-height: 479px) {
   .screen-too-small {
     display: flex;
+  }
+}
+
+/* What a pointer reveals by hovering has to stay on screen where there's no hover. */
+@media (hover: none) {
+  [class*="group-hover:opacity-100"],
+  [class*="group-hover/"][class*=":opacity-100"] {
+    opacity: 1;
+  }
+}
+
+/* iOS zooms the page into any field under 16px. */
+@media (max-width: 767px) {
+  html.dashboard-theme input,
+  html.dashboard-theme textarea,
+  html.dashboard-theme select {
+    font-size: 16px;
   }
 }
 

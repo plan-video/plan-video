@@ -2,7 +2,7 @@
 
 <AccordionGroup>
   <Accordion title="What is plan.video?">
-    A social media scheduler with a video editor built in. Plan posts for every network on one calendar, and cut, caption and size each video in the same tab, so nothing is exported from one app and uploaded to another. It runs in your browser, with nothing to install: Chrome, Edge, Brave, Arc or another Chromium browser.
+    A social media scheduler with a video editor built in. Plan posts for every network on one calendar, and cut, caption and size each video in the same tab, so nothing is exported from one app and uploaded to another. It runs in your browser, with nothing to install, on your phone too. Only the video editor needs a computer and a Chromium browser, such as Chrome, Edge, Brave or Arc.
   </Accordion>
   <Accordion title="How is it different from other schedulers?">
     Most schedule a video you've already made somewhere else. plan.video is where you make it too: cut it, caption it and size it for each network, then schedule it from the same calendar, with nothing to export or upload in between. And it's made by one person, Cihan, so whoever answers your email is the one who builds it.

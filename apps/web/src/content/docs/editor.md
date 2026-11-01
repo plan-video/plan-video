@@ -1,4 +1,4 @@
-plan.video's video editor runs in your browser, with nothing to install. It needs a Chromium browser, such as Chrome, Edge, Brave or Arc.
+plan.video's video editor runs in your browser, with nothing to install. It needs a computer and a Chromium browser, such as Chrome, Edge, Brave or Arc. The rest of plan.video also works on your phone.
 
 ## Projects
 
