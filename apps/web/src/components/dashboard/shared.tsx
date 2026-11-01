@@ -10,6 +10,7 @@ import { SkeletonBar } from "@/components/dashboard/page-skeleton";
 import { cx } from "@/lib/cva";
 import { intlLocale, t } from "@/lib/i18n";
 import { zonedFormat } from "@/lib/time-zone";
+import { useAuth } from "@/context/auth";
 import { LEVEL_OF_PLAN, billingAccount, type BillingSummary } from "@/lib/billing";
 import { planOfLevel } from "@/lib/plans";
 import {
@@ -38,7 +39,7 @@ import {
 
 type DashboardLabelValueProps = {
   label: JSX.Element;
-  value: JSX.Element;
+  value?: JSX.Element;
   labelClass?: string;
   valueClass?: string;
 };
@@ -49,9 +50,11 @@ export function DashboardLabelValue(props: DashboardLabelValueProps) {
       <p class={cx("text-foreground text-xs", props.labelClass)}>
         {props.label}
       </p>
-      <p class={cx("text-muted-foreground text-xs", props.valueClass)}>
-        {props.value}
-      </p>
+      <Show when={props.value}>
+        <p class={cx("text-muted-foreground text-xs", props.valueClass)}>
+          {props.value}
+        </p>
+      </Show>
     </div>
   );
 }
@@ -212,7 +215,7 @@ export function DashboardFormModal(props: DashboardFormModalProps) {
 type DashboardPlanDetailsProps = {
   details: readonly {
     label: JSX.Element;
-    value: JSX.Element;
+    value?: JSX.Element;
   }[];
 };
 
@@ -265,6 +268,7 @@ function formatCurrency(amountCents: number, currency: string) {
 export type BillingSummarySource = { loaded: () => boolean; summary: () => BillingSummary | undefined };
 
 export function DashboardProPlanDetails(props: { source?: BillingSummarySource }) {
+  const auth = useAuth();
   const [account] = createResource(
     () => (props.source ? undefined : true),
     () => billingAccount().catch(() => null),
@@ -273,21 +277,9 @@ export function DashboardProPlanDetails(props: { source?: BillingSummarySource }
   const loaded = () => (props.source ? props.source.loaded() : account.state === "ready");
   const summary = () => (props.source ? props.source.summary() : loaded() ? account.latest?.summary ?? undefined : undefined);
 
-  const priceLabel = () => {
-    const s = summary();
-    if (!s) return "\u2014";
+  const priceLabel = (s: BillingSummary) => {
     const price = formatCurrency(s.amount, s.currency);
     return s.billingPeriod === "year" ? t("{price}/yr", { price }) : t("{price}/mo", { price });
-  };
-
-  const renewsLabel = () => {
-    const s = summary();
-    if (!s) return "\u2014";
-    return RENEWAL_DATE_FORMAT.format(new Date(s.currentPeriodEnd));
-  };
-  const planName = () => {
-    const s = summary();
-    return s ? t(planOfLevel(LEVEL_OF_PLAN[s.plan]).name) : "\u2014";
   };
 
   return (
@@ -302,12 +294,17 @@ export function DashboardProPlanDetails(props: { source?: BillingSummarySource }
         />
       }
     >
-      <DashboardPlanDetails
-        details={[
-          { label: planName(), value: priceLabel() },
-          { label: summary()?.cancelAtPeriodEnd ? t("Ends") : t("Renews"), value: renewsLabel() },
-        ]}
-      />
+      {/* Billing can be down, or a plan can have no subscription behind it, but the account still knows its level. */}
+      <Show when={summary()} fallback={<DashboardPlanDetails details={[{ label: t(planOfLevel(auth.accessLevel()).name) }]} />}>
+        {(s) => (
+          <DashboardPlanDetails
+            details={[
+              { label: t(planOfLevel(LEVEL_OF_PLAN[s().plan]).name), value: priceLabel(s()) },
+              { label: s().cancelAtPeriodEnd ? t("Ends") : t("Renews"), value: RENEWAL_DATE_FORMAT.format(new Date(s().currentPeriodEnd)) },
+            ]}
+          />
+        )}
+      </Show>
     </Show>
   );
 }
