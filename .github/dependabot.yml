@@ -9,6 +9,7 @@ updates:
       - "/"
       - "/services/agent"
       - "/services/mcp"
+      - "/services/photos"
       - "/services/publisher"
       - "/services/storage"
     schedule:

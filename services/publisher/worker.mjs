@@ -29,7 +29,7 @@ const PLUG_CHECKS = 3;
 const LOOK = 50;
 export const SENDS_AT_ONCE = 16;
 export const PER_USER = 4;
-/** Kept well inside the unit's 1 GB, with photos.mjs making pictures beside the sends. */
+/** Kept well inside the unit's 1 GB, with pictures on their way to and from services/photos beside the sends. */
 export const MEMORY_BUDGET = 256 * 1024 * 1024;
 /** Cap on a row's immediate restarts a second, so one stuck row can't spin. */
 const STARTS_A_SECOND = 3;

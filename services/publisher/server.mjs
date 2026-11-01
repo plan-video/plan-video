@@ -16,7 +16,7 @@ import { createInviteMailer } from "./invites.mjs";
 import { createMedia } from "./media.mjs";
 import { createMailer, createNotices } from "./notices.mjs";
 import { blueskyNodeProblem, createBlueskyOAuth } from "./bluesky-oauth.mjs";
-import { bluesky, useBlueskyOAuth } from "./networks/bluesky.mjs";
+import { createBluesky, useBlueskyOAuth } from "./networks/bluesky.mjs";
 import { createFacebook } from "./networks/facebook.mjs";
 import { createInstagram } from "./networks/instagram.mjs";
 import { linkedin } from "./networks/linkedin.mjs";
@@ -26,6 +26,7 @@ import { createX } from "./networks/x.mjs";
 import { youtube } from "./networks/youtube.mjs";
 import { META_NETWORKS, configured } from "./meta.mjs";
 import { createMetaLogins } from "./meta-logins.mjs";
+import { createPhotoMaker } from "./photo-maker.mjs";
 import { PHOTO_PATH, VIDEO_PATH, createPhotos } from "./photos.mjs";
 import { X_LINK_POSTS_BY_LEVEL, X_POSTS_BY_LEVEL, byLevel, createPlanLimits, uploadsPerDay } from "./plans.mjs";
 import { plugs } from "./plugs.mjs";
@@ -107,7 +108,8 @@ const db = createDb({ url: supabaseUrl, serviceKey });
 const vault = createVault({ db, key: own.TOKEN_KEY, env: networkEnv });
 const media = createMedia(shared);
 // TikTok pulls a photo post's pictures from here. Its app has to have this domain verified.
-const photos = createPhotos({ key: own.TOKEN_KEY, publicUrl, media });
+const maker = createPhotoMaker({ url: (own.PHOTOS_URL || "http://127.0.0.1:8793").replace(/\/$/, "") });
+const photos = createPhotos({ key: own.TOKEN_KEY, publicUrl, media, maker });
 const accountLimits = createAccountLimits(db);
 const planLimits = createPlanLimits({
   db,
@@ -120,7 +122,7 @@ const networks = {
   youtube,
   tiktok: createTikTok({ photos }),
   linkedin,
-  bluesky,
+  bluesky: createBluesky({ maker }),
   ...(networkEnv.x.clientId ? { x: createX({ limits: planLimits }) } : {}),
   ...Object.fromEntries(META_NETWORKS.filter((network) => configured(network, networkEnv)).map((network) => [network, metaNetworks[network]])),
 };

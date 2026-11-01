@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { bluesky } from "./bluesky.mjs";
+import { createBluesky } from "./bluesky.mjs";
 import { createFacebook } from "./facebook.mjs";
 import { createInstagram } from "./instagram.mjs";
 import { linkedin } from "./linkedin.mjs";
@@ -14,11 +14,12 @@ const MB = 1024 * 1024;
 const video = (size) => ({ id: "v", key: "posts/u1/v", size, type: "video/mp4", kind: "video" });
 const picture = (id, size) => ({ id, key: `posts/u1/${id}`, size, type: "image/jpeg", kind: "image" });
 
-test("Bluesky holds each file it sends whole, and more for a picture it shrinks", () => {
+test("Bluesky holds each file it sends whole, and a copy", () => {
+  const bluesky = createBluesky();
   assert.equal(bluesky.holds([]), 0);
   assert.equal(bluesky.holds([video(90 * MB)]), 180 * MB);
   assert.equal(bluesky.holds([picture("a", 2 * MB), video(10 * MB)]), 20 * MB);
-  assert.equal(bluesky.holds([picture("a", 500_000), picture("b", 3 * MB)]), 1_000_000 + 18 * MB);
+  assert.equal(bluesky.holds([picture("a", 500_000), picture("b", 3 * MB)]), 1_000_000 + 6 * MB);
   assert.equal(bluesky.holds(["a", "b", "c", "d", "e"].map((id) => picture(id, 100))), 800);
 });
 

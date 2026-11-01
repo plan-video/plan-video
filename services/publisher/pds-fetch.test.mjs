@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { bluesky } from "./networks/bluesky.mjs";
+import { createBluesky } from "./networks/bluesky.mjs";
 import { isBlueskyServer, pdsFetch, pdsOrigin } from "./pds-fetch.mjs";
 
 test("a login's server must be a plain https name", () => {
@@ -51,7 +51,7 @@ test("no request to a login's server follows a redirect", async (t) => {
 test("another server's own error words aren't shown, Bluesky's are", async (t) => {
   t.mock.method(globalThis, "fetch", async () => Response.json({ error: "Nope", message: "secret from inside" }, { status: 400 }));
   const send = (pds) =>
-    bluesky.send({ post: { description: "Hi" }, session: { did: "did:plc:me", pds, accessJwt: "j" }, files: [], media: {} });
+    createBluesky().send({ post: { description: "Hi" }, session: { did: "did:plc:me", pds, accessJwt: "j" }, files: [], media: {} });
   await assert.rejects(send("https://pds.someone.net"), (error) => error.message === "Bluesky didn't take the post.");
   await assert.rejects(send("https://bsky.social"), /secret from inside/);
 });
