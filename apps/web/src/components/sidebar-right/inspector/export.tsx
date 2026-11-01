@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import { A } from "@solidjs/router";
 import { Show, children, createMemo, createResource } from "solid-js";
 import DownloadIcon from "lucide-solid/icons/download";
 import RotateCcwIcon from "lucide-solid/icons/rotate-ccw";
@@ -35,7 +36,10 @@ import { Computed, FrameRate, Source } from "@plan.video/runtime";
 import { useDerived } from "@/engine/hooks";
 import { useProjectConfig } from "@/engine/project-config";
 import { useExport } from "@/context/export";
+import { dashboardRoute } from "@/hooks/use-project-route";
+import { inGuestMode } from "@/lib/guest";
 import { t } from "@/lib/i18n";
+import { allowedExport, canExportAt, exportCapped } from "@/lib/paid-tools";
 import {
   DEFAULT_EXPORT_TEMPLATE_ID,
   TEMPLATE_BY_ID,
@@ -58,9 +62,11 @@ type ResolutionOption = {
   width: number;
   height: number;
   native: boolean;
+  locked: boolean;
 };
 
 function resolutionTag(option: ResolutionOption): string {
+  if (option.locked) return t("Paid plans");
   return option.native ? t("Original") : `${option.resolution}p`;
 }
 
@@ -97,7 +103,7 @@ function useSceneExport(entity: () => Entity) {
     source();
     return config()?.exportOf(entity()) ?? undefined;
   });
-  const effective = createMemo(() => settings() ?? defaultExportSettings());
+  const effective = createMemo(() => allowedExport(settings() ?? defaultExportSettings()) ?? defaultExportSettings());
   const frameRate = useTrait(world, FrameRate);
   const duration = useDerived(() => entity().get(Computed)?.duration ?? 0);
   const durationInSeconds = createMemo(() => duration() / (frameRate()?.value ?? 30));
@@ -113,6 +119,7 @@ function useSceneExport(entity: () => Entity) {
       resolution,
       ...computeOutputSize(w, h, resolution),
       native: resolution === shortSide,
+      locked: !canExportAt(resolution),
     }));
   });
 
@@ -122,7 +129,7 @@ function useSceneExport(entity: () => Entity) {
     if (match) return match;
     const w = sceneWidth();
     const h = sceneHeight();
-    return { resolution, ...computeOutputSize(w, h, resolution), native: resolution === Math.min(w, h) };
+    return { resolution, ...computeOutputSize(w, h, resolution), native: resolution === Math.min(w, h), locked: false };
   });
 
   const [encodable] = createResource(
@@ -269,9 +276,14 @@ type ExportInspectorProps = {
   footer?: JSX.Element;
 };
 
+const templateLocked = (id: string) => !canExportAt(TEMPLATE_BY_ID.get(id)?.video?.resolution ?? 0);
+
 function ExportInspector(props: ExportInspectorProps) {
   const config = () => props.settings;
-  const templateId = () => props.settings.template ?? "";
+  const templateId = () => {
+    const id = props.settings.template ?? "";
+    return templateLocked(id) ? "" : id;
+  };
 
   const write = props.onPatch;
   // Resolved once: a JSX prop is built anew on every read.
@@ -283,6 +295,7 @@ function ExportInspector(props: ExportInspectorProps) {
         <Select
           value={templateId()}
           options={Array.from(TEMPLATE_BY_ID.keys())}
+          optionDisabled={templateLocked}
           onChange={(value) => value && props.onSelectTemplate(value)}
           itemComponent={(itemProps) => {
             const template = TEMPLATE_BY_ID.get(itemProps.item.rawValue);
@@ -356,6 +369,7 @@ function ExportInspector(props: ExportInspectorProps) {
                 options={props.resolutionOptions}
                 optionValue="resolution"
                 optionTextValue={resolutionLabel}
+                optionDisabled="locked"
                 onChange={(value) => value && write({ video: { resolution: value.resolution } })}
                 itemComponent={(itemProps) => {
                   const option = itemProps.item.rawValue;
@@ -390,6 +404,16 @@ function ExportInspector(props: ExportInspectorProps) {
                 </SelectPortal>
               </Select>
             </ControlRow>
+            <Show when={exportCapped()}>
+              <p class="text-xxs leading-4 text-muted-foreground">
+                {t("Exports above 1080p come with a paid plan.")}{" "}
+                <Show when={!inGuestMode()}>
+                  <A href={dashboardRoute("billing")} class="text-foreground underline underline-offset-2">
+                    {t("See plans")}
+                  </A>
+                </Show>
+              </p>
+            </Show>
             <ControlRow label={t("Bitrate")}>
               <SliderInput
                 value={(config().video?.bitrate ?? 10e6) / 1e6}

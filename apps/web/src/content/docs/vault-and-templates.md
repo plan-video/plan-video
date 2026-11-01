@@ -1,5 +1,7 @@
 Save what you post again and again. Both are under **Library** in the dashboard, and belong to the workspace.
 
+Adding to them is on paid plans. If you move to Free, what you made stays and still works.
+
 ## Vault
 
 The **Vault** keeps words you reuse, each with a name:

@@ -12,6 +12,7 @@ import { capCentered } from "@/components/ui/cap-label";
 import { Checkbox, CheckboxControl, CheckboxInput } from "@/components/ui/checkbox";
 import { Icon } from "@/components/dashboard/dashboard-icon";
 import { DashboardPageHeader } from "@/components/dashboard/page-header";
+import { SeePlansButton } from "@/components/dashboard/paid-lock";
 import { Popover, PopoverContent, PopoverPortal, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -60,6 +61,7 @@ import { droppedFiles, pickFiles } from "@/engine/asset-actions";
 import { track } from "@/lib/analytics";
 import { cx } from "@/lib/cva";
 import { msg, rich, t } from "@/lib/i18n";
+import { paidToolsLocked } from "@/lib/paid-tools";
 import { keepInLibrary } from "@/lib/media-library";
 import { rememberPinterestBoard } from "@/lib/pinterest-boards";
 import {
@@ -286,6 +288,26 @@ const POST_AS: { id: "post" | "story"; label: string }[] = [
 ];
 
 export function DashboardBulkToolsView() {
+  return (
+    <Show
+      when={!paidToolsLocked()}
+      fallback={
+        <div class="flex min-h-0 flex-1 flex-col">
+          <DashboardPageHeader />
+          <div class="flex flex-col items-center gap-3 px-6 pt-16 text-center">
+            <h2 class="text-sm font-medium text-foreground">{t("Bulk tools come with a paid plan")}</h2>
+            <p class="text-xs text-muted-foreground">{t("Schedule a batch of posts at once, or from a CSV file.")}</p>
+            <SeePlansButton />
+          </div>
+        </div>
+      }
+    >
+      <BulkTools />
+    </Show>
+  );
+}
+
+function BulkTools() {
   const auth = useAuth();
   const [, setParams] = useSearchParams();
   createEffect(() => loadVault(auth.user()?.id));

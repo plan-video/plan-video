@@ -67,7 +67,7 @@ The services reach R2 at its EU address, `<account>.eu.r2.cloudflarestorage.com`
 
 ## Give yourself a plan
 
-Plans are kept in `user_data.access_level`: 1 is Free, 2 Creator, 3 Pro and 4 Agency. Without the billing service, everyone stays on Free, with its limits: 3 social accounts, 10 scheduled posts waiting per account, and no X or team members. Give yourself Agency in the SQL editor:
+Plans are kept in `user_data.access_level`: 1 is Free, 2 Creator, 3 Pro and 4 Agency. Without the billing service, everyone stays on Free, with its limits: 3 social accounts, 10 scheduled posts waiting per account, 1080p export, and no X, team members, Bulk tools or preview links, and no new templates or Vault items. Give yourself Agency in the SQL editor:
 
 ```sql
 update public.user_data set access_level = 4

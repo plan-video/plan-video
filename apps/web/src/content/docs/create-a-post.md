@@ -52,7 +52,7 @@ Other networks get the post alone. If a follow-up fails, the ones after it don't
 
 ## Saved text in the Vault
 
-Save captions, hashtags and snippets you use often in the **Vault**, then drop them into any caption from the **Vault** button. See [Vault and templates](/docs/vault-and-templates), which also covers starting a post from a template.
+On paid plans, save captions, hashtags and snippets you use often in the **Vault**, then drop them into any caption from the **Vault** button. See [Vault and templates](/docs/vault-and-templates), which also covers starting a post from a template.
 
 ## Stories and covers
 

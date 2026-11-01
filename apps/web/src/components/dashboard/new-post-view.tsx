@@ -13,6 +13,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { capCentered } from "@/components/ui/cap-label";
 import { Icon } from "@/components/dashboard/dashboard-icon";
 import { DashboardPageHeader } from "@/components/dashboard/page-header";
+import { useAskToUpgrade } from "@/components/dashboard/paid-lock";
 import { Slider, SliderLabel, SliderThumb, SliderTrack } from "@/components/ui/slider";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverPortal, PopoverTrigger } from "@/components/ui/popover";
@@ -87,6 +88,7 @@ import { projectRoute, useReturnHere } from "@/hooks/use-project-route";
 import { track } from "@/lib/analytics";
 import { cx } from "@/lib/cva";
 import { localized, msg, t } from "@/lib/i18n";
+import { paidToolsLocked } from "@/lib/paid-tools";
 import {
   captionLength,
   checkPost,
@@ -2160,6 +2162,7 @@ function EditPictureButton(props: { class: string; onClick(): void }) {
 function TemplatesMenu(props: { canSave: boolean }) {
   const auth = useAuth();
   const [, setParams] = useSearchParams();
+  const askToUpgrade = useAskToUpgrade();
   const [saving, setSaving] = createSignal(false);
   createEffect(() => loadTemplates(auth.ownerId()));
   const shown = () => sortTemplates(postTemplates()).slice(0, 8);
@@ -2187,7 +2190,7 @@ function TemplatesMenu(props: { canSave: boolean }) {
               </DropdownMenuGroup>
               <DropdownMenuSeparator />
             </Show>
-            <DropdownMenuItem tone="neutral" disabled={!props.canSave} onSelect={() => setSaving(true)}>
+            <DropdownMenuItem tone="neutral" disabled={!props.canSave} onSelect={() => (paidToolsLocked() ? askToUpgrade(t("New templates come with a paid plan.")) : setSaving(true))}>
               {t("Save as template…")}
             </DropdownMenuItem>
             <DropdownMenuItem tone="neutral" onSelect={() => setParams({ dashboard: "templates", date: undefined, view: undefined })}>

@@ -24,6 +24,8 @@ Paying yearly saves 20%, paid up front. Prices are in US dollars.
 - Templates and saved captions
 - Client preview links, which anyone can open and comment on without an account
 
+In a workspace someone shared with you, these follow the owner's plan.
+
 Every plan has the [Assistant](/docs/assistant), with a daily limit that grows with your plan and is lowest on Free.
 
 ## Upgrade
@@ -35,6 +37,8 @@ Open **Settings** → **Billing**, pick a plan, and pay through Stripe. Your new
 - **Change plan:** pick another plan in **Billing**.
 - **Cancel:** choose **Downgrade to Free**. You keep your plan until the end of the period you paid for.
 - **Card and invoices:** update your card from **Billing**, and find past invoices under **Invoices**.
+
+If you move to Free, nothing you made goes away. Your templates and Vault items stay and still work, and preview links you've shared keep opening. You just can't add new ones, use Bulk tools or export above 1080p until you upgrade again.
 
 <Info>
 Questions about a charge? Email [hello@plan.video](mailto:hello@plan.video).
