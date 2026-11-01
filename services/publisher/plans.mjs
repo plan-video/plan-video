@@ -12,7 +12,7 @@ export const FREE_SCHEDULED_PER_ACCOUNT = 10;
 export const GOING_OUT_MS = 5 * 60_000;
 /** By access level (Free, Creator, Pro, Agency); YOUTUBE_UPLOADS_PER_DAY in publisher.env overrides. */
 export const YOUTUBE_UPLOADS_BY_LEVEL = { 1: 3, 2: 50, 3: 100, 4: 200 };
-/** By access level; X_POSTS_PER_MONTH and X_LINK_POSTS_PER_MONTH in publisher.env override. Must match apps/web/src/lib/plans.ts. */
+/** By access level; X_POSTS_PER_MONTH and X_LINK_POSTS_PER_MONTH in publisher.env override. Must match apps/web/src/content/docs/x.md. */
 export const X_POSTS_BY_LEVEL = { 1: 0, 2: 150, 3: 400, 4: 800 };
 export const X_LINK_POSTS_BY_LEVEL = { 1: 0, 2: 10, 3: 25, 4: 40 };
 export const X_POSTS_PER_DAY = 50;
