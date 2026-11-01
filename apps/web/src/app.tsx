@@ -134,7 +134,7 @@ function HeroShell() {
   const auth = useAuth();
 
   createEffect(() => {
-    if (location.pathname !== '/' || auth.isAuthenticated()) site?.removeHeroShell();
+    site?.removeHeroShell(auth.isAuthenticated() ? undefined : location.pathname);
   });
 
   return null;

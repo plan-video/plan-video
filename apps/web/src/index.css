@@ -19,6 +19,7 @@
   font-style: normal;
   font-optical-sizing: auto;
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-209F, U+20AC, U+2122, U+2190-21FF, U+2212, U+2215, U+2300-23FF, U+2500-257F, U+25A0-25FF, U+2700-27BF, U+FEFF, U+FFFD;
+  font-display: swap;
 }
 
 @font-face {
@@ -29,6 +30,7 @@
   font-style: normal;
   font-optical-sizing: auto;
   unicode-range: U+0100-0130, U+0132-0151, U+0154-02BA, U+02BD-02C5, U+02C7-02D9, U+02DB, U+02DD-0303, U+0305-0307, U+0309-0328, U+032A-1FFF, U+20A0-20AB, U+20AD-2121, U+2123-218F, U+2200-2211, U+2213-2214, U+2216-22FF, U+2400-24FF, U+2580-259F, U+2600-26FF, U+27C0-FEFE, U+FF00-FFFC, U+FFFE-10FFFF;
+  font-display: swap;
 }
 
 @font-face {
@@ -39,6 +41,7 @@
   font-style: italic;
   font-optical-sizing: auto;
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-209F, U+20AC, U+2122, U+2190-21FF, U+2212, U+2215, U+2300-23FF, U+2500-257F, U+25A0-25FF, U+2700-27BF, U+FEFF, U+FFFD;
+  font-display: swap;
 }
 
 @font-face {
@@ -49,6 +52,7 @@
   font-style: italic;
   font-optical-sizing: auto;
   unicode-range: U+0100-0130, U+0132-0151, U+0154-02BA, U+02BD-02C5, U+02C7-02D9, U+02DB, U+02DD-0303, U+0305-0307, U+0309-0328, U+032A-1FFF, U+20A0-20AB, U+20AD-2121, U+2123-218F, U+2200-2211, U+2213-2214, U+2216-22FF, U+2400-24FF, U+2580-259F, U+2600-26FF, U+27C0-FEFE, U+FF00-FFFC, U+FFFE-10FFFF;
+  font-display: swap;
 }
 
 /* Geist (Vercel, SIL Open Font License, see assets/fonts/Geist-OFL.txt): the dashboard's typeface. */
@@ -103,6 +107,7 @@
   font-weight: 100 900;
   font-style: normal;
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-209F, U+20AC, U+2122, U+2190-21FF, U+2212, U+2215, U+2300-23FF, U+2500-257F, U+25A0-25FF, U+2700-27BF, U+FEFF, U+FFFD;
+  font-display: swap;
 }
 
 @font-face {
@@ -130,6 +135,7 @@
   font-style: normal;
   font-feature-settings: 'zero' 1;
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-209F, U+20AC, U+2122, U+2190-21FF, U+2212, U+2215, U+2300-23FF, U+2500-257F, U+25A0-25FF, U+2700-27BF, U+FEFF, U+FFFD;
+  font-display: swap;
 }
 
 @font-face {
@@ -140,6 +146,7 @@
   font-style: normal;
   font-feature-settings: 'zero' 1;
   unicode-range: U+0100-0130, U+0132-0151, U+0154-02BA, U+02BD-02C5, U+02C7-02D9, U+02DB, U+02DD-0303, U+0305-0307, U+0309-0328, U+032A-1FFF, U+20A0-20AB, U+20AD-2121, U+2123-218F, U+2200-2211, U+2213-2214, U+2216-22FF, U+2400-24FF, U+2580-259F, U+2600-26FF, U+27C0-FEFE, U+FF00-FFFC, U+FFFE-10FFFF;
+  font-display: swap;
 }
 
 @theme inline {

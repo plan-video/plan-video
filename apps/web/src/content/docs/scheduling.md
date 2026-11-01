@@ -24,7 +24,7 @@ Click a run on the calendar to **Pause series**, **Resume series** or **End seri
 
 ## Drafts
 
-Click **Save draft** to keep a post without scheduling it. To stop a scheduled post going out without deleting it, click it on the calendar and choose **Move to drafts** from the **⋯** menu. Drafts stay on the calendar, and go out only once you schedule them.
+Click **Save draft** to keep a post without scheduling it. To stop a scheduled post going out without deleting it, click it on the calendar and choose **Move to drafts** from the **…** menu. Drafts stay on the calendar, and go out only once you schedule them.
 
 ## Post again
 
