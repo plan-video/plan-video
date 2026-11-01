@@ -13,6 +13,7 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
 } from "@/components/ui/dropdown-menu";
+import { LayoutMenu } from "@/components/editor/layout-menu";
 import { Icon } from "@/components/ui/icon";
 import { useWorld } from "@plan.video/koota-solid";
 import { useLayout } from "@/context/layout";
@@ -126,6 +127,7 @@ export function ViewMenu() {
         <DropdownMenuItem onSelect={layout.toggleTimeline}>
           {t("Toggle timeline")}
         </DropdownMenuItem>
+        <LayoutMenu />
       </DropdownMenuGroup>
     </>
   );

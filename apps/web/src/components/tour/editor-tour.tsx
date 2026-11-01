@@ -22,6 +22,7 @@ import { LogoBadge } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { useLayout } from "@/context/layout";
+import type { HideablePanel } from "@/components/editor/dock-layout";
 import { getDocumentEditor } from "@/engine/editor";
 import { msg, t } from "@/lib/i18n";
 import { createStoredSignal } from "@/lib/store";
@@ -173,7 +174,7 @@ export function EditorTour() {
   const [hole, setHole] = createSignal<Rect | null>(null, { equals: sameRect });
   const [viewport, setViewport] = createSignal({ width: window.innerWidth, height: window.innerHeight });
   const [cardSize, setCardSize] = createSignal({ width: 320, height: 160 });
-  let before: { tab: SidebarTab; selection: Entity[] } | null = null;
+  let before: { tab: SidebarTab; selection: Entity[]; hidden: HideablePanel[] } | null = null;
   let primaryButton: HTMLButtonElement | undefined;
 
   const step = createMemo(() => {
@@ -217,10 +218,12 @@ export function EditorTour() {
       before = {
         tab: untrack(sidebarTab),
         selection: [...world.query(Selected)],
+        hidden: untrack(layout.hiddenSections),
       };
     }
     if (state === null && before) {
       setSidebarTab(before.tab);
+      layout.setHiddenSections(before.hidden);
       getDocumentEditor(world).select(before.selection.filter((entity) => entity.isAlive()));
       before = null;
     }
@@ -231,6 +234,7 @@ export function EditorTour() {
     if (!current) return;
     untrack(() => {
       if (!layout.uiVisible()) layout.toggleUI();
+      layout.setHiddenSections([]);
       if (current.targets.includes("timeline") && layout.timelineMinimized()) layout.toggleTimeline();
       if (current.tab) setSidebarTab(current.tab);
       if (current.select) {

@@ -6,7 +6,6 @@ export { ChatPanel } from "./chat-panel";
 export { SIDEBAR_TABS, SidebarTabs } from "./sidebar-tabs";
 export { ModelPicker, harnessIcon } from "./model-picker";
 export {
-  leftSidebarWidth,
   sidebarTab,
   setSidebarTab,
   startChat,
@@ -14,7 +13,6 @@ export {
   storedModel,
   setStoredModel,
   ensureConnected,
-  ASSETS_SIDEBAR_WIDTH,
 } from "./store";
 export {
   AttachmentTile,
