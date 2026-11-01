@@ -30,4 +30,4 @@ export const REPO_URL = "https://github.com/plan-video/plan-video";
  * Until true, builds say nothing about the code being open, so the live site never links a page GitHub hides.
  * The dev server shows it all.
  */
-export const REPO_PUBLIC = false;
+export const REPO_PUBLIC = true;
