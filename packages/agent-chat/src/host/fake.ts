@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 // Needs no binary: for tests and UI work without spending tokens; never offered to users. A prompt
-// starting "ask" opens a question, "fail" fails the turn, "slow" streams; anything else echoes.
+// starting "ask" opens a question, "fail" fails the turn, "slow" streams until stopped; anything else echoes.
 
 import { QuestionBox, newItemId } from "./harness";
 
@@ -13,8 +13,11 @@ import type { Emit, Harness, HarnessSession, OpenOptions, ResumeCursor, TurnOutc
 export type FakeOptions = {
   /** Milliseconds between deltas. */
   tickMs?: number;
-  slowWords?: number;
 };
+
+function* endless() {
+  for (let i = 0; ; i++) yield `word${i}`;
+}
 
 const sleep = (ms: number, signal?: AbortSignal) =>
   new Promise<void>((resolve) => {
@@ -101,15 +104,13 @@ class FakeSession implements HarnessSession {
     if (signal.aborted) return { status: "interrupted" };
     emit({ type: "item.completed", item: { id: tool, kind: "tool", name: "Read", title: "Read", detail: `${this.cwd}/package.json`, status: "done" } });
 
-    const words = lower.startsWith("slow")
-      ? Array.from({ length: this.options.slowWords ?? 200 }, (_, i) => `word${i}`)
-      : `(${model}) ${text}`.split(" ");
+    const words = lower.startsWith("slow") ? endless() : `(${model}) ${text}`.split(" ");
     const id = newItemId("a");
     let acc = "";
     emit({ type: "item.started", item: { id, kind: "assistant", text: "" } });
-    for (const [index, word] of words.entries()) {
+    for (const word of words) {
       if (signal.aborted) return { status: "interrupted" };
-      const piece = (index ? " " : "") + word;
+      const piece = (acc ? " " : "") + word;
       acc += piece;
       emit({ type: "item.delta", itemId: id, text: piece });
       await sleep(tick, signal);
