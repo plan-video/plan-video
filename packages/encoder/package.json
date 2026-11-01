@@ -19,11 +19,11 @@
   "dependencies": {
     "@plan.video/runtime": "*",
     "koota": "^0.6.6",
-    "mediabunny": "^1.32.2"
+    "mediabunny": "^1.62.1"
   },
   "devDependencies": {
-    "@types/audioworklet": "^0.0.92",
-    "@webgpu/types": "^0.1.71",
+    "@types/audioworklet": "^0.0.100",
+    "@webgpu/types": "^0.1.74",
     "typescript": "~5.9.3"
   }
 }
