@@ -96,7 +96,7 @@
 
 /* @site:cards */
 
-/* The Latin subset is preloaded for HOME_HEADLINE (lib/hero-shell.ts) and the dashboard. */
+/* The Latin subset is preloaded for the editor. */
 @font-face {
   font-family: 'Geist';
   src: url('./assets/fonts/Geist-Variable-Latin.woff2') format('woff2');
@@ -1004,12 +1004,13 @@ html.dashboard-theme {
   text-rendering: optimizeLegibility;
 }
 
-/* Inter is the first fallback, so the moment before Geist loads looks almost the same. On <body> too, for menus and dialogs. */
+/* On <body> too, for menus and dialogs. `opsz` 32 is Inter's display cut, at every size. */
 html.dashboard-theme :is(body, .font-sans) {
-  font-family: 'Geist', 'Inter', ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  font-variation-settings: 'opsz' 32;
 }
 
-/* Geist is variable, so 430 is a real weight. */
+/* Inter is variable, so 430 is a real weight. */
 html.dashboard-theme {
   --font-weight-normal: 430;
   --font-weight-medium: 530;
