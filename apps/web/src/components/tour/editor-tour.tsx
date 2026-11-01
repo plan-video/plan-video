@@ -222,8 +222,10 @@ export function EditorTour() {
       };
     }
     if (state === null && before) {
+      const { hidden } = before;
       setSidebarTab(before.tab);
-      layout.setHiddenSections(before.hidden);
+      // After the dock's own effect, which shows the assets panel on every tab change.
+      queueMicrotask(() => layout.setHiddenSections(hidden));
       getDocumentEditor(world).select(before.selection.filter((entity) => entity.isAlive()));
       before = null;
     }
