@@ -22,19 +22,21 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverPortal, PopoverTrigger } from "@/components/ui/popover";
+import { GroupLogos } from "@/components/publish/account-group-picker";
 import { PlatformLogo } from "@/components/publish/controls";
 import { atLocal, nextSlot, timeOf } from "@/components/publish/save";
 import { CalendarPostList, listQuery, setListQuery } from "@/components/dashboard/posts-view";
 import { hasFailed, isGoingOut } from "@/components/publish/publisher";
 import { msg, t } from "@/lib/i18n";
-import type { PlatformId } from "@/lib/social";
+import { groupSelection } from "@/lib/account-groups";
+import { sortPlatforms, type PlatformId } from "@/lib/social";
 import { accountLabel, socialConnections } from "@/lib/social-connections";
 import { EventPopover } from "./event-popover";
 import { MiniMonth } from "./mini-month";
 import { MonthBoard } from "./month-board";
 import { useCalendarNavigation, type CalendarNavigation } from "./navigation";
 import { SquirrelAsleep } from "@/components/brand/mascot";
-import { accountFilter, allPosts, hydrateCalendar, isEventVisible, loadError, loaded, monthRange, saving, setAccountFilter, setStatusFilter, statusFilter, weekRange } from "./store";
+import { accountFilter, allPosts, groupFilter, hydrateCalendar, isEventVisible, loadError, loaded, monthRange, saving, setAccountFilter, setStatusFilter, statusFilter, weekRange } from "./store";
 import { STATUS_FILTERS, cn, formatMonth, localDateKey, shiftPeriod } from "./utils";
 import { CalendarViewToggle } from "./view-toggle";
 import { WeekBoard } from "./week-board";
@@ -167,12 +169,18 @@ function StatusFilter() {
 /** Repeats the sidebar's pick, since the sidebar is hidden on narrow windows. */
 function AccountChip() {
   const account = () => socialConnections().find((item) => item.id === accountFilter());
+  const picked = () => {
+    const group = groupFilter();
+    if (group) return { label: group.name, mark: <GroupLogos platforms={sortPlatforms(groupSelection(group).platforms as PlatformId[])} /> };
+    const one = account();
+    return one ? { label: accountLabel(one), mark: <PlatformLogo id={one.platform as PlatformId} class="size-4 rounded-sm" bare /> } : null;
+  };
   return (
-    <Show when={account()}>
+    <Show when={picked()}>
       {(picked) => (
         <span class="flex h-7 min-w-0 items-center gap-1.5 rounded-md bg-(--plane-layer-3) pr-0.5 pl-1.5 text-sm font-medium text-(--plane-text-secondary)">
-          <PlatformLogo id={picked().platform as PlatformId} class="size-4 rounded-sm" bare />
-          <span class="max-w-32 truncate">{accountLabel(picked())}</span>
+          {picked().mark}
+          <span class="max-w-32 truncate">{picked().label}</span>
           <button
             type="button"
             aria-label={t("Show every account")}

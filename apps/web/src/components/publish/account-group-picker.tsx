@@ -16,7 +16,7 @@ import { accountGroups, groupAccounts, groupSelection, loadAccountGroups, type A
 import { cx } from "@/lib/cva";
 import { t } from "@/lib/i18n";
 import { socialPlatform, sortPlatforms, type PlatformId } from "@/lib/social";
-import { accountLabel, accountsFor, sameChoices, socialConnections, type AccountChoices } from "@/lib/social-connections";
+import { accountLabel, accountsFor, sameChoices, type AccountChoices } from "@/lib/social-connections";
 
 import { CheckMark, PlatformLogo } from "./controls";
 
@@ -37,7 +37,7 @@ const LABEL_CLASS =
 const ROW_ACTION_CLASS = "grid size-6 place-items-center rounded-md text-muted-foreground press hover:bg-background hover:text-foreground focus-ring";
 
 /** Nothing may overlap YouTube's icon. */
-function GroupLogos(props: { platforms: readonly PlatformId[] }) {
+export function GroupLogos(props: { platforms: readonly PlatformId[] }) {
   return (
     <span class={cx("flex shrink-0 items-center", props.platforms.slice(0, 4).includes("youtube") ? "gap-1" : "-space-x-1")}>
       {/* YouTube's small on its white tile, the size of the others (see brand/youtube-icon). */}
@@ -227,7 +227,7 @@ export function AccountGroupPicker(props: {
   );
 
   return (
-    <Show when={accountGroups().length > 0 || socialConnections().length > 0}>
+    <Show when={accountGroups().length > 0}>
       <div ref={setRow} class={cx("flex flex-wrap items-center gap-1.5", props.class)} role="group" aria-label={t("Account groups")}>
         <Show when={accountGroups().length} fallback={<span class="mr-0.5 text-xs text-muted-foreground">{t("Groups")}</span>}>
           <Popover placement="bottom-start" open={listFrom() === "label"} onOpenChange={(next) => openList("label", next)}>
