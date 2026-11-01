@@ -53,7 +53,8 @@ import { LibraryStorageMeter } from "@/components/dashboard/sidebar-usage";
 import { loadMediaLibrary, mediaItems } from "@/lib/media-library";
 import { loadTemplates, postTemplates } from "@/lib/post-templates";
 import { loadVault, vaultItems } from "@/lib/vault";
-import { allPosts, hydrateCalendar, loadError as calendarLoadError, loaded as calendarLoaded, setStatusFilter, waitingOf } from "@/components/calendar/store";
+import { allPosts, hydrateCalendar, loadError as calendarLoadError, loaded as calendarLoaded, setStatusFilter, statusFilter, waitingOf } from "@/components/calendar/store";
+import { defaultCalendarView, isCalendarView } from "@/components/calendar/default-view";
 import { loadOwnPreviews, ownPreviews, syncOwnPreviews } from "@/lib/post-previews";
 import { useDeliveries } from "@/components/publish/deliveries";
 import { hasFailed, isGoingOut } from "@/components/publish/publisher";
@@ -78,6 +79,7 @@ import { PlaneIcon, type PlaneIconName } from "@/components/dashboard/plane-icon
 import { listProjects, projectKey, projectsRevision, type ProjectInfo } from "@/projects";
 import { cx } from "@/lib/cva";
 import { intlLocale, msg, t } from "@/lib/i18n";
+import { isPhone } from "@/lib/phone";
 import { planOfLevel } from "@/lib/plans";
 
 import type { DashboardView, PostsTab } from "@/components/dashboard/types";
@@ -128,6 +130,14 @@ const POST_LISTS: Partial<Record<DashboardView, PostsTab>> = {
   drafts: "draft",
   failed: "failed",
 };
+
+/** The List view by status, as rivals list their queue, drafts and sent posts. */
+const POST_PAGES: readonly { view: DashboardView; tab: PostsTab; label: string; icon: PlaneIconName }[] = [
+  { view: "scheduled", tab: "scheduled", label: msg("Scheduled"), icon: "clock" },
+  { view: "drafts", tab: "draft", label: msg("Drafts"), icon: "draft" },
+  { view: "posted", tab: "posted", label: msg("Posted"), icon: "check" },
+  { view: "failed", tab: "failed", label: msg("Failed"), icon: "alert" },
+];
 
 const SETTINGS_VIEWS: readonly DashboardView[] = [
   "account",
@@ -298,8 +308,11 @@ export function DashboardPage() {
   });
 
   const view = (): DashboardView => parseView(params.dashboard);
-  const setView = (next: DashboardView, options?: { replace: boolean }) =>
+  const setView = (next: DashboardView, options?: { replace: boolean }) => {
+    // From a status page, Calendar shows every post again rather than the month with that status alone.
+    if (next === "calendar" && (listTab() ?? "all") !== "all") setStatusFilter("all");
     setParams({ dashboard: next, date: undefined, time: undefined, view: undefined, back: undefined, folder: undefined }, options);
+  };
   const openFolder = () => (view() === "projects" && typeof params.folder === "string" ? projectFolder(params.folder) : undefined);
   const showFolder = (id: string | undefined, options?: { replace: boolean }) => setParams({ dashboard: "projects", folder: id }, options);
 
@@ -341,9 +354,11 @@ export function DashboardPage() {
   );
   onCleanup(() => clearTimeout(previewSync));
   const failedCount = () => allPosts().filter((post) => hasFailed(post) && !isGoingOut(post)).length;
-  const postsBadge = () => {
-    if (failedCount()) return t("{count, plural, other {# failed}}", { count: failedCount() });
-    return allPosts().some((post) => isGoingOut(post) && !waitingOf(post)) ? t("Sending") : undefined;
+  const sendingBadge = () => (allPosts().some((post) => isGoingOut(post) && !waitingOf(post)) ? t("Sending") : undefined);
+  const countOf = (tab: PostsTab) => {
+    if (tab === "failed") return failedCount();
+    if (tab === "posted" || tab === "all") return 0;
+    return allPosts().filter((post) => post.status === tab).length;
   };
 
   createEffect(() => {
@@ -372,6 +387,15 @@ export function DashboardPage() {
     setView(next === "settings" && auth.isGuest() ? "settings" : RAIL_HOME[next]);
   };
   const onCalendar = () => view() === "calendar" || !!POST_LISTS[view()];
+  // The URL leaves out the view picked in Preferences, so the list may be shown with no `view` param.
+  const listTab = (): PostsTab | undefined => {
+    const tab = POST_LISTS[view()];
+    if (tab) return tab;
+    if (view() !== "calendar") return undefined;
+    const raw = typeof params.view === "string" ? params.view : undefined;
+    return isPhone() || (isCalendarView(raw) ? raw : defaultCalendarView()) === "list" ? statusFilter() : undefined;
+  };
+  const onCalendarHome = () => onCalendar() && (listTab() ?? "all") === "all";
 
   const crumbs = (): DashboardCrumb[] => {
     const page = pageOf(view());
@@ -434,7 +458,7 @@ export function DashboardPage() {
 
   const PageLink = (props: { view: DashboardView; badge?: string; badgeAlert?: boolean }) => (
     <DashboardSidebarItem
-      active={props.view === "calendar" ? onCalendar() : props.view === "projects" ? view() === "projects" && !openFolder() : view() === props.view}
+      active={props.view === "calendar" ? onCalendarHome() : props.view === "projects" ? view() === "projects" && !openFolder() : view() === props.view}
       onClick={() => setView(props.view)}
       icon={pageOf(props.view).icon}
       label={t(pageOf(props.view).label)}
@@ -581,8 +605,25 @@ export function DashboardPage() {
               >
                 <Show when={rail() === "work"}>
                   <DashboardSidebarSection>
-                    <PageLink view="calendar" badge={postsBadge()} badgeAlert={failedCount() > 0} />
+                    <PageLink view="calendar" badge={sendingBadge()} />
                     <PageLink view="bulk-tools" />
+                  </DashboardSidebarSection>
+                  <DashboardSidebarSection title={t("Posts")}>
+                    <For each={POST_PAGES}>
+                      {(page) => (
+                        <Show when={page.tab !== "failed" || failedCount() > 0 || listTab() === "failed"}>
+                          <DashboardSidebarItem
+                            active={listTab() === page.tab}
+                            onClick={() => setView(page.view)}
+                            icon={page.icon}
+                            label={t(page.label)}
+                            badge={page.tab === "failed" ? countBadge(failedCount()) : undefined}
+                            badgeAlert={page.tab === "failed"}
+                            count={countOf(page.tab)}
+                          />
+                        </Show>
+                      )}
+                    </For>
                   </DashboardSidebarSection>
                   <Show when={onCalendar()}>
                     <Suspense>

@@ -22,7 +22,7 @@ import { changelogUnread, markChangelogSeen, watchChangelog } from "@/lib/change
 import { dashboardTheme, setDashboardTheme, type DashboardTheme } from "@/lib/dashboard-theme";
 import { AvatarPhoto, useAvatar } from "@/hooks/use-avatar";
 import { cx } from "@/lib/cva";
-import { msg, t } from "@/lib/i18n";
+import { intlLocale, msg, t } from "@/lib/i18n";
 import { planOfLevel } from "@/lib/plans";
 import { site } from "@/lib/site";
 
@@ -32,6 +32,8 @@ type DashboardSidebarItemProps = {
   active?: boolean;
   badge?: string;
   badgeAlert?: boolean;
+  /** A quiet count, as the account rows show theirs; `badge` wins when both are given. */
+  count?: number;
   onClick?(): void;
   class?: string;
 };
@@ -207,7 +209,14 @@ export function DashboardSidebarItem(props: DashboardSidebarItemProps) {
         <PlaneIcon name={props.icon} class={cx("size-4 transition-colors", navIconClass(!!props.active))} />
         <span class="min-w-0 truncate text-sm leading-5 font-medium">{props.label}</span>
       </span>
-      <Show when={props.badge}>
+      <Show
+        when={props.badge}
+        fallback={
+          <Show when={props.count}>
+            {(count) => <span class="shrink-0 text-xxs font-medium tabular-nums text-(--plane-text-placeholder)">{count().toLocaleString(intlLocale())}</span>}
+          </Show>
+        }
+      >
         <span
           class={cx(
             "shrink-0 rounded-md px-1.5 py-0.5 text-xxs leading-[1.1] font-medium tabular-nums",
