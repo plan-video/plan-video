@@ -40,4 +40,4 @@ Do the same edits to every video? Choose **Save as workflow**, and it keeps thos
 
 ## Find your way around
 
-Press <kbd>⌘</kbd> <kbd>Z</kbd> to undo, <kbd>⇧</kbd> <kbd>⌘</kbd> <kbd>Z</kbd> to redo, and <kbd>⌘</kbd> <kbd>B</kbd> to split at the playhead. The menu at the top of the rail lists every shortcut under **Keybinds**, and **Help** → **Take the tour** walks you through the editor.
+Press <kbd>⌘</kbd> <kbd>Z</kbd> to undo, <kbd>⇧</kbd> <kbd>⌘</kbd> <kbd>Z</kbd> to redo, and <kbd>⌘</kbd> <kbd>B</kbd> to split at the playhead. The menu at the top of the rail lists every shortcut under **Keybinds**, and **Help** → **Take the tour** walks you through the editor. To move and resize the editor's sections, see [Editor layout](/docs/preferences#editor-layout).
