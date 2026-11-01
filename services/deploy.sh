@@ -122,7 +122,7 @@ deploy() {
   [ "$dry" = 1 ] && return 0
 
   local stamp backup="" existing
-  existing=$(for pair in $(parts "$name"); do [ -d "$DEST/${pair#*:}" ] && echo "${pair#*:}"; done)
+  existing=$(for pair in $(parts "$name"); do if [ -d "$DEST/${pair#*:}" ]; then echo "${pair#*:}"; fi; done)
   if [ -n "$existing" ]; then
     stamp=$(date -u +%Y%m%d-%H%M%S)
     backup="$BACKUPS/$name-$stamp.tgz"
