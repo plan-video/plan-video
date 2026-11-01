@@ -1,5 +1,6 @@
 import { PublishError } from "../errors.mjs";
 import { isBlueskyServer, pdsFetch } from "../pds-fetch.mjs";
+import { forBluesky } from "../photos.mjs";
 import { captionOf, graphemes } from "./text.mjs";
 
 export const BLUESKY_TEXT_LIMIT = 300;
@@ -78,30 +79,6 @@ export function facetsOf(text) {
   return facets;
 }
 
-/** A picture under Bluesky's 1 MB, as a JPEG no wider or taller than 2000 pixels, with its size for the layout. */
-async function preparedImage(bytes, type) {
-  let sharp;
-  try {
-    sharp = (await import("sharp")).default;
-  } catch {
-    if (bytes.length > MAX_IMAGE_BYTES) throw new PublishError("That picture is over Bluesky's 1 MB. Attach a smaller one.");
-    return { bytes, type };
-  }
-  const meta = await sharp(bytes).metadata().catch(() => ({}));
-  const aspectRatio = meta.width && meta.height ? { width: meta.width, height: meta.height } : undefined;
-  if (bytes.length <= MAX_IMAGE_BYTES) return { bytes, type, aspectRatio };
-  for (const side of [2000, 1600, 1200]) {
-    for (const quality of [90, 80, 70]) {
-      const out = await sharp(bytes).rotate().resize({ width: side, height: side, fit: "inside", withoutEnlargement: true }).jpeg({ quality }).toBuffer();
-      if (out.length <= MAX_IMAGE_BYTES) {
-        const shrunk = await sharp(out).metadata();
-        return { bytes: out, type: "image/jpeg", aspectRatio: shrunk.width && shrunk.height ? { width: shrunk.width, height: shrunk.height } : aspectRatio };
-      }
-    }
-  }
-  throw new PublishError("That picture is too large for Bluesky, even made smaller.");
-}
-
 const postUrl = (uri) => {
   const [, , did, , rkey] = uri.split("/");
   return `https://bsky.app/profile/${did}/post/${rkey}`;
@@ -111,7 +88,7 @@ async function embedOf(send, media, chosen) {
   const upload = async (file) => {
     // In memory, up to 100 MB, since a "Sign in with Bluesky" session may have to send it twice.
     const bytes = await media.bytes(file.key, 0, file.size - 1);
-    const ready = file.kind === "image" ? await preparedImage(bytes, file.type) : { bytes, type: file.type, aspectRatio: undefined };
+    const ready = file.kind === "image" ? await forBluesky(bytes, file.type, MAX_IMAGE_BYTES) : { bytes, type: file.type, aspectRatio: undefined };
     const reply = await send(
       "com.atproto.repo.uploadBlob",
       { method: "POST", headers: { "Content-Type": ready.type || "application/octet-stream" }, body: ready.bytes },

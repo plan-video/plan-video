@@ -6,6 +6,8 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { Readable } from "node:stream";
 
+import { PublishError } from "./errors.mjs";
+
 export const PHOTO_PATH = "/api/publisher/photo/";
 export const VIDEO_PATH = "/api/publisher/video/";
 /** Meta works on a video for a while, and fetches it while it does. */
@@ -30,6 +32,44 @@ async function loadSharp() {
     })
     .catch(() => null);
   return sharp;
+}
+
+let running = 0;
+const waiting = [];
+async function inTurn(work) {
+  if (running >= AT_ONCE) await new Promise((resolve) => waiting.push(resolve));
+  running++;
+  try {
+    return await work();
+  } finally {
+    running--;
+    waiting.shift()?.();
+  }
+}
+
+/** A picture under Bluesky's 1 MB, as a JPEG no wider or taller than 2000 pixels, with its size for the layout. */
+export function forBluesky(bytes, type, limit) {
+  return inTurn(async () => {
+    if (!(await loadSharp())) {
+      if (bytes.length > limit) throw new PublishError("That picture is over Bluesky's 1 MB. Attach a smaller one.");
+      return { bytes, type };
+    }
+    const meta = await sharp(bytes, LIMITS).metadata().catch(() => ({}));
+    const aspectRatio = meta.width && meta.height ? { width: meta.width, height: meta.height } : undefined;
+    if (bytes.length <= limit) return { bytes, type, aspectRatio };
+    try {
+      for (const side of [2000, 1600, 1200]) {
+        for (const quality of [90, 80, 70]) {
+          const out = await sharp(bytes, LIMITS).rotate().resize({ width: side, height: side, fit: "inside", withoutEnlargement: true }).jpeg({ quality }).toBuffer();
+          if (out.length <= limit) {
+            const shrunk = await sharp(out).metadata();
+            return { bytes: out, type: "image/jpeg", aspectRatio: shrunk.width && shrunk.height ? { width: shrunk.width, height: shrunk.height } : aspectRatio };
+          }
+        }
+      }
+    } catch {}
+    throw new PublishError("That picture is damaged or too large for Bluesky. Attach another one.");
+  });
 }
 
 /** A picture as TikTok takes it: upright, a JPEG, and no bigger than 1080 by 1920 either way round. */
@@ -92,19 +132,6 @@ export async function forFeed(bytes) {
 export function createPhotos({ key, publicUrl, media, now = () => Date.now() }) {
   const secret = createHmac("sha256", key).update("tiktok photo links").digest();
   const sign = (userId, fileId, until) => createHmac("sha256", secret).update(`${userId}/${fileId}/${until}`).digest("base64url");
-
-  let running = 0;
-  const waiting = [];
-  async function inTurn(work) {
-    if (running >= AT_ONCE) await new Promise((resolve) => waiting.push(resolve));
-    running++;
-    try {
-      return await work();
-    } finally {
-      running--;
-      waiting.shift()?.();
-    }
-  }
 
   // A video's links, and a feed picture's, are signed apart from a picture's, so one can't be read as another.
   const signVideo = (userId, fileId, until) => createHmac("sha256", secret).update(`video/${userId}/${fileId}/${until}`).digest("base64url");
