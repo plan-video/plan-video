@@ -87,6 +87,8 @@ services/deploy.sh all
 
 `all` also installs and starts any service you skipped. `mcp` won't start without `mcp.env`, and that stops the run before the publisher, so if you skipped any, name the ones you run instead: `services/deploy.sh storage tiktok photos publisher`.
 
+`all` also installs and starts any service you skipped. `mcp` won't start without `mcp.env`, and that stops the run before the publisher, so if you skipped any, name the ones you run instead: `services/deploy.sh storage tiktok publisher`.
+
 ## The publisher
 
 The publisher imports the network services' code, so it's laid out as the repository is:
