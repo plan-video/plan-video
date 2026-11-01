@@ -297,17 +297,17 @@ export function DashboardPage() {
   });
 
   const view = (): DashboardView => parseView(params.dashboard);
-  const setView = (next: DashboardView) =>
-    setParams({ dashboard: next, date: undefined, time: undefined, view: undefined, back: undefined, folder: undefined }, { replace: true });
+  const setView = (next: DashboardView, options?: { replace: boolean }) =>
+    setParams({ dashboard: next, date: undefined, time: undefined, view: undefined, back: undefined, folder: undefined }, options);
   const openFolder = () => (view() === "projects" && typeof params.folder === "string" ? projectFolder(params.folder) : undefined);
-  const showFolder = (id: string | undefined) => setParams({ dashboard: "projects", folder: id }, { replace: true });
+  const showFolder = (id: string | undefined, options?: { replace: boolean }) => setParams({ dashboard: "projects", folder: id }, options);
 
   // Projects and their folders belong to a person, not a workspace.
   createEffect(() => loadProjectFolders(auth.user()?.id));
 
   createEffect(() => {
     const raw = Array.isArray(params.dashboard) ? params.dashboard[0] : params.dashboard;
-    if (raw === "home") setView("calendar");
+    if (raw === "home") setView("calendar", { replace: true });
   });
   createEffect(() => {
     const tab = POST_LISTS[view()];
@@ -321,7 +321,7 @@ export function DashboardPage() {
   onMount(() => void hydrateCalendar());
 
   createEffect(() => {
-    if (auth.isGuest() && (view() === "account" || view() === "billing")) setView("settings");
+    if (auth.isGuest() && (view() === "account" || view() === "billing")) setView("settings", { replace: true });
   });
 
   useDeliveries(() => auth.user()?.id);
@@ -575,7 +575,7 @@ export function DashboardPage() {
                   <DashboardSidebarFolders
                     activeId={openFolder()?.id}
                     onOpen={showFolder}
-                    onDeleted={(id) => params.folder === id && showFolder(undefined)}
+                    onDeleted={(id) => params.folder === id && showFolder(undefined, { replace: true })}
                   />
                   <Show when={sidebarProjects().length > 0}>
                     <DashboardSidebarSection title={t("Recent")}>

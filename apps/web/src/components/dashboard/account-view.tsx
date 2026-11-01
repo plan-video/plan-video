@@ -518,7 +518,7 @@ function DashboardAccountFreePlanCard() {
 
       <Button
         class="gap-0 pl-0 pr-2"
-        onClick={() => setParams({ dashboard: "billing" }, { replace: true })}
+        onClick={() => setParams({ dashboard: "billing" })}
       >
         <span class="grid h-7 w-6 place-items-center overflow-clip">
           <Icon name="upgrade" class="size-6" />
@@ -543,7 +543,7 @@ function DashboardAccountPlanSection() {
           action={
             <Button
               variant="secondary"
-              onClick={() => setParams({ dashboard: "billing" }, { replace: true })}
+              onClick={() => setParams({ dashboard: "billing" })}
             >
               {t("View details")}
             </Button>

@@ -159,7 +159,7 @@ function DashboardAiCreditsTopUpSection() {
 function DashboardAiCreditsNeedMoreSection() {
   const [, setParams] = useSearchParams();
   const goToBilling = () =>
-    setParams({ dashboard: "billing" }, { replace: true });
+    setParams({ dashboard: "billing" });
 
   return (
     <DashboardSurfaceSection title={t("Need more?")}>
@@ -192,7 +192,7 @@ export function DashboardAiCreditsView() {
   const auth = useAuth();
   const [, setParams] = useSearchParams();
   const goToBilling = () =>
-    setParams({ dashboard: "billing" }, { replace: true });
+    setParams({ dashboard: "billing" });
 
   const isPro = () => auth.isPro();
   const total = () => auth.creditLimit();

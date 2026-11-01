@@ -355,7 +355,7 @@ export function DashboardProjectsView() {
                       <p class="max-w-xs text-xs text-balance text-muted-foreground">{t("Drag projects onto it in the sidebar, or use Move to folder in a project's menu.")}</p>
                     </div>
                     <div class="flex gap-2">
-                      <Button variant="secondary" class="px-3" onClick={() => setParams({ folder: undefined }, { replace: true })}>
+                      <Button variant="secondary" class="px-3" onClick={() => setParams({ folder: undefined })}>
                         {t("All projects")}
                       </Button>
                       <Button class="px-3" disabled={creating()} onClick={() => void handleCreateProject()}>
