@@ -26,6 +26,8 @@ Every network's keys go in its own file in `/etc/plan-video`. Bluesky's key is t
 
 Without its keys, a network can't be connected. Everything else keeps working.
 
+Pinterest has no page here: plan.video can plan posts for it but doesn't send them yet, so there's no app to register.
+
 ## How connecting works
 
 <Steps>

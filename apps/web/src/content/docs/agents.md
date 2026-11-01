@@ -21,8 +21,8 @@ plan.video runs an MCP server at `https://plan.video/mcp`. Any agent that suppor
 
 - see your connected accounts, media library and calendar
 - write, schedule, move and delete posts
-- read your Analytics, such as how your posts did on TikTok and YouTube, and pick good times
-- publish a post when you ask
+- read your Analytics, for TikTok, YouTube, Instagram, Facebook Pages and Threads, and pick good times
+- publish a post when you ask, once you've allowed it in your tab
 
 <Warning>
 Keep plan.video open in a browser tab, signed in, while your agent works. The agent's requests run through that tab. Once a post is scheduled, it goes out on time whether the tab is open or not.
@@ -33,5 +33,5 @@ Keep plan.video open in a browser tab, signed in, while your agent works. The ag
 Claude, Claude Code, Codex, Cursor, VS Code Copilot, Gemini CLI, Antigravity, Devin Desktop, OpenCode, and any other agent that supports MCP.
 
 <Note>
-Agents can schedule and publish posts. Editing videos with an agent isn't available yet.
+Agents can schedule and publish posts. Editing videos with an agent isn't available yet. Looking for the chat inside plan.video? See the [Assistant](/docs/assistant).
 </Note>

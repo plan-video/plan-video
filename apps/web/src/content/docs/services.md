@@ -21,7 +21,7 @@ You need `publisher`, `photos` and `storage`, plus the service of each network y
 
 ## Settings files
 
-The services read their settings from `/etc/plan-video`. Each has its own `<name>.env`, and all but `mcp` and `photos` also read the shared `r2.env`, which holds the Supabase address and the R2 bucket. `photos` reads no settings at all.
+The services read their settings from `/etc/plan-video`. Most have their own `<name>.env`; `storage` needs only the shared `r2.env`, which holds the Supabase address and the R2 bucket, and which every service but `mcp`, `monitor` and `photos` reads. `photos` reads no settings at all.
 
 ```bash /etc/plan-video/r2.env
 SUPABASE_URL=https://your-project.supabase.co
@@ -30,7 +30,9 @@ R2_ACCOUNT_ID=your-cloudflare-account-id
 R2_ACCESS_KEY_ID=your-r2-access-key-id
 R2_SECRET_ACCESS_KEY=your-r2-secret-access-key
 R2_BUCKET=your-bucket
-# Lets everyone with an account in. Leave it out to keep the waitlist.
+# Your site's address. Without it, the network services refuse sign-ins to your domain.
+PUBLIC_URL=https://your-domain.com
+# Lets everyone with an account in. Leave it out to let in only emails you've added.
 REQUIRE_INVITE=false
 ```
 
@@ -40,11 +42,11 @@ The services read these files themselves, once, when they start:
 - A `#` starts a comment only at the start of a line.
 - After changing a file, restart the services that read it.
 
-Make each file owned by `root` and by the group of the service that reads it, with mode `640`: `<name>.env` by `planvideo-<name>`, `meta.env` by `planvideo-publisher`, and `r2.env`, which most services share, by `planvideo-r2`. Then a bug in one service can't read another's keys. [Environment variables](/docs/configuration) lists every key.
+Make each file owned by `root` and by the group of the service that reads it, with mode `640`: `<name>.env` by `planvideo-<name>`, `meta.env` by `planvideo-publisher`, and `r2.env`, which most services share, by `planvideo-r2`. `monitor` runs as root, so `monitor.env` needs no group of its own. Then a bug in one service can't read another's keys. [Environment variables](/docs/configuration) lists every key.
 
 ## Install a service
 
-The units expect each service in `/opt/plan-video-<name>`, each run by a user of its own, `planvideo-<name>`. They run `/usr/bin/node`, so install Node.js 22 from your distribution or [nodejs.org](https://nodejs.org) first.
+The units expect each service in `/opt/plan-video-<name>`, each run by a user of its own, `planvideo-<name>`. They run `/usr/bin/node`, so install Node.js 22 there first, from your distribution or [nodejs.org](https://nodejs.org). `services/deploy.sh` also needs `git`, `rsync`, `curl`, and `node` and `npm` on your path, and runs as root.
 
 <Steps>
   <Step title="Make the users">
@@ -58,7 +60,7 @@ The units expect each service in `/opt/plan-video-<name>`, each run by a user of
     Every service but `mcp` and `photos` also reads `r2.env`, so its unit adds `planvideo-r2`. The publisher refreshes logins with each network's keys, so it's in those groups too.
   </Step>
   <Step title="Write its settings">
-    Put its keys in `/etc/plan-video/<name>.env`. Its section in [Environment variables](/docs/configuration) says which.
+    Put its keys in `/etc/plan-video/<name>.env`, if it has any. Its section in [Environment variables](/docs/configuration) says which.
   </Step>
   <Step title="Install it">
     Clone the repository on the server once, then let `services/deploy.sh` install each service:
@@ -82,6 +84,8 @@ services/deploy.sh all
 
 `status` shows the commit each service runs and how many of its files differ from the checkout. `all` updates every service that differs, the publisher last, and restarts only those. Each is backed up to `/var/backups/plan-video` first. One whose code doesn't parse, or that doesn't come up healthy, is put back as it was. `--dry-run` lists what would change without changing it.
 
+`all` also installs and starts any service you skipped. `mcp` won't start without `mcp.env`, and that stops the run before the publisher, so if you skipped any, name the ones you run instead: `services/deploy.sh storage tiktok photos publisher`.
+
 ## The publisher
 
 The publisher imports the network services' code, so it's laid out as the repository is:
@@ -95,7 +99,13 @@ The publisher imports the network services' code, so it's laid out as the reposi
   x/           services/x
 ```
 
-It runs on the official Node.js 22 build from [nodejs.org](https://nodejs.org), unpacked to `/opt/node-v22.22.1`, the path its unit names. [Bluesky](/docs/bluesky-app#nodejs) says why. `services/deploy.sh publisher` lays it out this way and installs the unit with its drop-in. It only comes up healthy once it has its keys, below: make them, then `systemctl restart plan-video-publisher`.
+It runs on the official Node.js 22 build from [nodejs.org](https://nodejs.org), at `/opt/node-v22.22.1`, the path its unit names. [Bluesky](/docs/bluesky-app#nodejs) says why. Unpack it there first, using `arm64` in place of `x64` on an ARM server:
+
+```bash
+curl -fsSL https://nodejs.org/dist/v22.22.1/node-v22.22.1-linux-x64.tar.xz | tar -xJ -C /opt
+mv /opt/node-v22.22.1-linux-x64 /opt/node-v22.22.1
+```
+ `services/deploy.sh publisher` lays it out this way and installs the unit with its drop-in. It only comes up healthy once it has its keys, below: make them, then `systemctl restart plan-video-publisher`.
 
 It reads `publisher.env`, `r2.env`, and each network's file. It sends each post the moment it's due, up to 16 at once, and looks for anything else due every 5 seconds. A restart lets the sends going finish first, for up to 30 seconds. It retries a failed send after 2, 10 and 30 minutes, and never sends one run twice.
 
@@ -154,4 +164,4 @@ To set it up:
 1. Put `PUBLIC_URL=https://your-domain.com` in `/etc/plan-video/monitor.env`, beside `HC_PING_URL`.
 2. Run `services/deploy.sh monitor`. It copies the script to `/opt/plan-video-monitor` and installs and starts the timer.
 
-When you add a service, add its `name:port` to `PORTS` in the script.
+The script checks every service in its `PORTS` list, so a service you skipped reports as a problem every minute.

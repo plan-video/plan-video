@@ -10,6 +10,8 @@ Every plan includes the calendar and the built-in video editor. Paid plans add u
 | Storage | 5 GB | 50 GB | 150 GB | 250 GB |
 | Scheduled posts | 10 per account | Unlimited | Unlimited | Unlimited |
 | Export | 1080p | 4K | 4K | 4K |
+| Auto-captions a month | 15 minutes | 10 hours | 20 hours | 40 hours |
+| YouTube uploads a day | 3 | 50 | 100 | 200 |
 | X | No | Yes | Yes | Yes |
 | Posts to X a month | | 150, 10 with links | 400, 25 with links | 800, 40 with links |
 | Team members | Just you | Just you | Unlimited | Unlimited |
@@ -21,6 +23,8 @@ Paying yearly saves 20%, paid up front. Prices are in US dollars.
 - Bulk and CSV scheduling, up to 50 posts at a time
 - Templates and saved captions
 - Client preview links, which anyone can open and comment on without an account
+
+Every plan has the [Assistant](/docs/assistant), with a daily limit that grows with your plan and is lowest on Free.
 
 ## Upgrade
 

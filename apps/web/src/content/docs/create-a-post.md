@@ -28,16 +28,19 @@ Each network has its own caption limit. plan.video counts an emoji as one charac
 | X | 280 |
 | LinkedIn | 3,000 |
 | Bluesky | 300 |
+| Instagram | 2,200 |
+| Facebook | 63,206 |
+| Threads | 500 |
 
 See [Networks](/docs/networks) for every limit.
 
 ## Network options
 
-Some networks have settings of their own, like TikTok's **Who can watch** or YouTube's title and privacy. They show under the network's tab. See each network's page for what they do.
+Some networks have settings of their own, like TikTok's **Who can watch** or YouTube's title and privacy. They show under **Platform settings**, below the caption, with a tab for each network. See each network's page for what they do.
 
 ## Threads
 
-Under the caption, click **Add a follow-up** to post more under the post once it's out, like a link kept out of the caption or the next part of a story. Each follow-up goes out a set time after the one before it, from right away up to a day later. On X and Bluesky a follow-up can also carry up to 4 pictures or a video: click the media button under it.
+Under the caption, click **Add a follow-up** to post more under the post once it's out, like a link kept out of the caption or the next part of a story. A post can have up to 10. Each goes out a set time after the one before it, from right away up to a day later. On X and Bluesky a follow-up can also carry up to 4 pictures or a video: click the media button under it.
 
 | Network | Follow-ups go out as | Limit | Media |
 | --- | --- | --- | --- |
@@ -49,12 +52,12 @@ Other networks get the post alone. If a follow-up fails, the ones after it don't
 
 ## Saved text in the Vault
 
-Save captions, hashtags and signatures you use often in the **Vault**, then drop them into any caption from the Vault button.
+Save captions, hashtags and snippets you use often in the **Vault**, then drop them into any caption from the **Vault** button. See [Vault and templates](/docs/vault-and-templates), which also covers starting a post from a template.
 
 ## Stories and covers
 
-- **Stories** take one picture, or one video of up to 60 seconds.
-- **Covers:** pick the frame to use as the cover for TikTok, Instagram and Pinterest.
+- **Stories** go to Instagram and Facebook, with one picture or one video of up to 60 seconds and no caption.
+- **Covers:** pick the frame to use as a video's cover. A single Instagram Reel uses it. TikTok may show the video's first frame whatever you pick.
 
 ## Save, schedule or post
 

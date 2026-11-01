@@ -4,7 +4,7 @@ The dev server reloads as you edit, and you need no accounts or keys to start: i
 
 - **Node.js 22** and npm. Node.js 20.19 or later runs the website, but the services need 22.
 - **git**. The install step uses it to apply the fixes in `patches/`.
-- **A Chromium browser**, such as Chrome, Edge, Brave or Arc. The dashboard and the editor only open in one.
+- **A Chromium browser**, such as Chrome, Edge, Brave or Arc. Signed in, the dashboard and the editor only open in one, and so does the editor at `/try`.
 
 ## Run it
 
@@ -118,10 +118,10 @@ npm test                            # unit tests in the workspaces
 npm run build                       # a production build, in apps/web/dist
 ```
 
-Each service runs its own tests with Node's test runner:
+Each service's tests run with Node's test runner:
 
 ```bash
-cd services/publisher && npm test
+cd services/publisher && node --test
 ```
 
 ## Troubleshooting

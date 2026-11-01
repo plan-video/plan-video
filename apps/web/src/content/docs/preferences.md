@@ -1,4 +1,4 @@
-Make plan.video yours. These settings are kept on this device.
+Make plan.video yours. Language and theme are kept on this device; your time zone follows your account.
 
 ## Language
 
@@ -8,7 +8,7 @@ Change it in the dashboard under **Settings** → **Preferences**, or from the l
 
 ## Theme
 
-Pick **Dark** or **Light** under **Preferences**, or with the switch at the bottom of the site. The docs follow the same choice; use the switch in the top bar.
+Pick **Dark** or **Light** under **Preferences** → **Appearance**, or with the switch at the bottom of the site. One pick applies everywhere. Until you pick, the site starts light, and the dashboard and editor start dark. The docs follow the same choice; use the switch in the top bar.
 
 ## Time zone
 

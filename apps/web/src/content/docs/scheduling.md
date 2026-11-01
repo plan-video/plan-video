@@ -4,9 +4,13 @@ Choose when each post goes out. plan.video's servers send it at that time, so yo
 
 | Option | What happens |
 | --- | --- |
-| **Now** | The post is sent straight away. |
+| **Next queue slot** | The post takes the next open slot in your posting queue. |
+| **In an hour**, **Tonight**, **Tomorrow**, **Monday** | The post is sent at that time. The list shows when each one is. |
+| **Best for your audience** | The post is sent at your best time, from your [Analytics](/docs/analytics). It shows once there are enough numbers. |
 | **Date and time** | The post is sent at the time you pick. |
-| **Queue** | The post takes the next open slot in your posting queue. |
+| **Repeat** | The post goes out again and again, as below. |
+
+To send a post straight away, click **Post now**.
 
 ## Your posting queue
 
@@ -16,15 +20,15 @@ Set the days and times you usually post once, and each queued post takes the nex
 
 A post can repeat every weekday, or every so many days, weeks or months. A series can end on a date or after a number of posts.
 
-From the calendar you can **pause**, **resume**, **skip** the next post, or **end** a series.
+Click a run on the calendar to **Pause series**, **Resume series** or **End series**. To skip one run and keep the rest, click **Delete**, then **Skip this one**.
 
 ## Drafts
 
-Click **Save draft** to keep a post without scheduling it. To take a scheduled post off the calendar without deleting it, use **Move to drafts**.
+Click **Save draft** to keep a post without scheduling it. To stop a scheduled post going out without deleting it, click it on the calendar and choose **Move to drafts** from the **⋯** menu. Drafts stay on the calendar, and go out only once you schedule them.
 
 ## Post again
 
-A post that has gone out shows **Post again**. It makes a copy with everything you set, including media and options for each network, and gives it a new time. Other posts show **Open in New post** to edit them.
+A post that has gone out shows **Post again**. It makes a copy with everything you set, including media and options for each network, and gives it a new time. To change any other post, click it on the calendar and choose **Edit**.
 
 ## Time zones
 

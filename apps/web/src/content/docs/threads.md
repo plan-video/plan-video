@@ -5,8 +5,8 @@ Post to your Threads profile with text, pictures or a video.
 | | Limit |
 | --- | --- |
 | Text | 500 characters |
-| Pictures and videos | Up to 20 in a carousel |
-| Video | Up to 5 minutes and 1 GB |
+| Pictures | Up to 20 in a carousel |
+| Video | One per post, up to 5 minutes and 500 MB |
 
 ## Good to know
 

@@ -33,7 +33,7 @@ plan.video is one web app plus a handful of small services. The browser does the
 
 ## The web app
 
-`apps/web` is a single [SolidJS](https://www.solidjs.com) app built with [Vite](https://vite.dev) and Tailwind CSS. The website, the dashboard and the editor are all routes of it. At build time, every public page also gets its own HTML file with its text, so search engines can read it without running the app.
+`apps/web` is a single [SolidJS](https://www.solidjs.com) app built with [Vite](https://vite.dev) and Tailwind CSS. The website, the dashboard and the editor are all routes of it. A copy built from this repository has no public pages: `/` opens the dashboard. plan.video's own website, with the homepage and these docs, lives in a separate private repository at `apps/web/site`, which adds those routes and gives each page its own HTML file for search engines.
 
 - **Your data.** Posts live in the browser and sync one at a time to the `posts` table, each written only over the version the browser last read, so two devices' edits merge rather than overwrite. Workspaces, the calendar and settings sync to one `account_state` row per person. Supabase Realtime carries changes to every other open tab.
 - **The editor.** Decoding, editing and exporting all run in the browser, with the `packages/runtime`, `reconciler` and `encoder` packages. For auto-captions, only the audio goes to the transcribe service.

@@ -5,7 +5,7 @@ Post to your LinkedIn profile with text, pictures or a video.
 | | Limit |
 | --- | --- |
 | Text | 3,000 characters |
-| Pictures | Up to 20, 10 MB each |
+| Pictures | Up to 20, 8 MB each |
 | Video | Up to 200 MB, and up to 5 minutes in plan.video |
 
 ## Good to know

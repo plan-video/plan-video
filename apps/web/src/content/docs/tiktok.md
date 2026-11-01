@@ -17,8 +17,8 @@ Post videos and photo posts to TikTok.
   <Accordion title="Who can watch">
     **Everyone**, **Friends**, **Followers** or **Only me**. TikTok asks you to choose each time, so there's no default.
   </Accordion>
-  <Accordion title="Comments, Duet and Stitch">
-    Off unless you turn them on. If one is turned off in your TikTok privacy settings, you can't turn it on here.
+  <Accordion title="Allow users to">
+    **Comment**, **Duet** and **Stitch** are off unless you turn them on. Duet and Stitch are for videos only. If one is turned off in your TikTok privacy settings, you can't turn it on here.
   </Accordion>
   <Accordion title="Disclose commercial content">
     Turn this on if the post promotes you, a brand, a product or a service, then pick **Your brand** or **Branded content**. Branded content can't be set to **Only me**.
