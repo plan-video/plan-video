@@ -2,12 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { useSearchParams } from "@solidjs/router";
-import { For, Match, Show, Switch, createSignal, onCleanup, onMount } from "solid-js";
+import { For, Match, Show, Switch, createSignal, onCleanup } from "solid-js";
 import { toast } from "somoto";
 
 import { DefaultCalendarViewToggle } from "@/components/calendar/view-toggle";
-import { QUEUE_RETURN_LABELS, QueueSlotsEditor } from "@/components/publish/queue-slots";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/dashboard/dashboard-icon";
 import { Switch as Toggle, SwitchControl, SwitchInput, SwitchLabel, SwitchThumb } from "@/components/ui/switch";
@@ -31,7 +29,6 @@ import {
 } from "./shared";
 import { LanguagePicker } from "./language-picker";
 import { TimeZonePicker } from "./time-zone-picker";
-import type { DashboardView } from "./types";
 
 const THEME_PREVIEWS: { value: DashboardTheme; label: string; canvas: string; surface: string; line: string; text: string; accent: string }[] = [
   { value: "dark", label: msg("Dark"), canvas: "#060606", surface: "#0b0b0b", line: "#1c1c1c", text: "#3a3a3a", accent: "#2f6ff0" },
@@ -50,7 +47,7 @@ function DashboardAppearanceSection() {
                 type="button"
                 role="radio"
                 aria-checked={selected()}
-                class="group flex flex-col gap-2.5 rounded-xl p-1.5 text-left outline-none depth-card depth-unlit focus-ring"
+                class="group flex min-w-0 flex-col gap-2.5 rounded-xl p-1.5 text-left outline-none depth-card depth-unlit focus-ring"
                 onClick={() => setDashboardTheme(option.value)}
               >
                 <span
@@ -169,36 +166,6 @@ function DashboardCalendarSection() {
   );
 }
 
-function DashboardQueueSection() {
-  const [params, setParams] = useSearchParams();
-  let section: HTMLDivElement | undefined;
-  const back = () => (typeof params.back === "string" ? QUEUE_RETURN_LABELS[params.back as DashboardView] : undefined);
-
-  onMount(() => {
-    if (params.section !== "queue") return;
-    setParams({ section: undefined }, { replace: true });
-    requestAnimationFrame(() => section?.scrollIntoView({ block: "start", behavior: "smooth" }));
-  });
-
-  return (
-    <div ref={section} class="scroll-mt-6">
-      <DashboardSurfaceSection
-        title={t("Posting queue")}
-        hint={t("The days and times you post each week. A queued post goes to the next slot no other post holds.")}
-      >
-        <QueueSlotsEditor />
-        <Show when={back()}>
-          {(label) => (
-            <div class="flex justify-end border-t border-border-strong pt-3">
-              <Button onClick={() => setParams({ dashboard: params.back as string, back: undefined })}>{t("Back to {label}", { label: t(label()) })}</Button>
-            </div>
-          )}
-        </Show>
-      </DashboardSurfaceSection>
-    </div>
-  );
-}
-
 type PermissionActionButtonProps = {
   state: PermissionState;
   pendingLabel: string;
@@ -313,7 +280,6 @@ export function DashboardSettingsView() {
       <DashboardLanguageSection />
       <DashboardTimeZoneSection />
       <DashboardCalendarSection />
-      <DashboardQueueSection />
       <DashboardPermissionsSection />
     </DashboardScrollView>
   );

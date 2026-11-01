@@ -35,6 +35,7 @@ const PAGES: SearchPage[] = [
   { view: "new-post", name: msg("New post"), section: msg("Create"), icon: "document" },
   { view: "bulk-tools", name: msg("Bulk tools"), section: msg("Create"), icon: "layers" },
   { view: "calendar", name: msg("Calendar"), section: msg("Calendar"), icon: "calendar" },
+  { view: "queue", name: msg("Queue"), section: msg("Calendar"), icon: "clock" },
   { view: "posts", name: msg("Post list"), section: msg("Calendar"), icon: "list" },
   { view: "scheduled", name: msg("Scheduled"), section: msg("Calendar"), icon: "clock" },
   { view: "drafts", name: msg("Drafts"), section: msg("Calendar"), icon: "document" },

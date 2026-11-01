@@ -6,15 +6,18 @@ import { For, Match, Switch, type JSX } from "solid-js";
 
 import { defaultCalendarView, isCalendarView } from "@/components/calendar/default-view";
 import { cx } from "@/lib/cva";
+import { isPhone } from "@/lib/phone";
 
 import type { DashboardView } from "./types";
 
 export type SkeletonKind = "cards" | "list" | "week" | "month" | "settings" | "analytics" | "billing";
 
-/** `calendarView` is the calendar's `?view=`. */
+/** `calendarView` is the `?view=` of the calendar or the queue. */
 export function skeletonFor(view: DashboardView, calendarView?: string): SkeletonKind {
+  if ((view === "calendar" || view === "queue") && isPhone()) return "list";
   if (view === "calendar") return isCalendarView(calendarView) ? calendarView : defaultCalendarView();
   if (view === "projects" || view === "trash" || view === "media" || view === "templates" || view === "vault" || view === "plugs") return "cards";
+  if (view === "queue") return calendarView === "list" ? "list" : "month";
   if (view === "notifications" || view === "posts" || view === "scheduled" || view === "posted" || view === "drafts" || view === "failed") return "list";
   if (view.startsWith("analytics")) return "analytics";
   if (view === "billing") return "billing";

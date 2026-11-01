@@ -19,6 +19,7 @@ export type DashboardView =
   | "notifications"
   | "new-post"
   | "bulk-tools"
+  | "queue"
   | "calendar"
   | "posts"
   | "scheduled"

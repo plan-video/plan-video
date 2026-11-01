@@ -5,6 +5,7 @@
 import { For } from "solid-js";
 import ClockLucide from "lucide-solid/icons/clock";
 import CircleAlertLucide from "lucide-solid/icons/circle-alert";
+import CalendarClockLucide from "lucide-solid/icons/calendar-clock";
 import ArrowUpRightLucide from "lucide-solid/icons/arrow-up-right";
 import BookOpenLucide from "lucide-solid/icons/book-open";
 import CircleHelpLucide from "lucide-solid/icons/circle-question-mark";
@@ -65,6 +66,7 @@ const LUCIDE_ICONS = {
   "credit-card": CreditCardLucide,
   clock: ClockLucide,
   alert: CircleAlertLucide,
+  queue: CalendarClockLucide,
   moon: MoonLucide,
   sun: SunLucide,
   template: LayoutTemplateLucide,

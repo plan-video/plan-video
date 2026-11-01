@@ -22,6 +22,7 @@ const AssistantLauncher = lazy(() => import("@/components/dashboard/assistant-pa
 const DashboardMediaView = lazy(() => import("@/components/dashboard/media-view").then((module) => ({ default: module.DashboardMediaView })));
 const DashboardNewPostView = lazy(() => import("@/components/dashboard/new-post-view").then((module) => ({ default: module.DashboardNewPostView })));
 const DashboardBulkToolsView = lazy(() => import("@/components/dashboard/bulk-tools-view").then((module) => ({ default: module.DashboardBulkToolsView })));
+const DashboardQueueView = lazy(() => import("@/components/dashboard/queue-view").then((module) => ({ default: module.DashboardQueueView })));
 const DashboardAccountView = lazy(() => import("@/components/dashboard/account-view").then((module) => ({ default: module.DashboardAccountView })));
 const DashboardBillingView = lazy(() => import("@/components/dashboard/billing-view").then((module) => ({ default: module.DashboardBillingView })));
 const DashboardHelpView = lazy(() => import("@/components/dashboard/help-view").then((module) => ({ default: module.DashboardHelpView })));
@@ -99,6 +100,7 @@ const DASHBOARD_VIEWS: readonly DashboardView[] = [
   "notifications",
   "new-post",
   "bulk-tools",
+  "queue",
   "calendar",
   "posts",
   "scheduled",
@@ -186,6 +188,7 @@ const PAGES: Partial<Record<DashboardView, { label: string; icon: PlaneIconName 
   notifications: { label: msg("Inbox"), icon: "inbox" },
   "new-post": { label: msg("New post"), icon: "draft" },
   "bulk-tools": { label: msg("Bulk tools"), icon: "layers" },
+  queue: { label: msg("Queue"), icon: "queue" },
   agent: { label: msg("Assistant"), icon: "agent" },
   projects: { label: msg("All projects"), icon: "project" },
   trash: { label: msg("Trash"), icon: "trash" },
@@ -223,6 +226,7 @@ const OWN_HEADER = new Set<DashboardView>([
   "notifications",
   "new-post",
   "bulk-tools",
+  "queue",
   "projects",
   "trash",
   "media",
@@ -606,6 +610,7 @@ export function DashboardPage() {
                 <Show when={rail() === "work"}>
                   <DashboardSidebarSection>
                     <PageLink view="calendar" badge={sendingBadge()} />
+                    <PageLink view="queue" />
                     <PageLink view="bulk-tools" />
                   </DashboardSidebarSection>
                   <DashboardSidebarSection title={t("Posts")}>
@@ -748,6 +753,9 @@ export function DashboardPage() {
                       <Match when={view() === "bulk-tools"}>
                         <DashboardBulkToolsView />
                       </Match>
+                      <Match when={view() === "queue"}>
+                        <DashboardQueueView />
+                      </Match>
                       <Match when={view() === "connections"}>
                         <DashboardConnectionsView />
                       </Match>
@@ -809,7 +817,7 @@ export function DashboardPage() {
                   <AssistantLauncher page={pageOf(view()).label} hidden={view() === "agent"} onExpand={() => setView("agent")} />
                 </Suspense>
               </div>
-              <Show when={onCalendar()}>
+              <Show when={onCalendar() || view() === "queue"}>
                 <button
                   type="button"
                   aria-label={t("New post")}

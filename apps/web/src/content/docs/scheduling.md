@@ -14,7 +14,7 @@ To send a post straight away, click **Post now**.
 
 ## Your posting queue
 
-Set the days and times you usually post once, and each queued post takes the next open slot. Click **Set up queue** in a new post to pick your times.
+Set the days and times you usually post once, and each queued post takes the next open slot. Open **Queue** in the sidebar to see your week, or switch to **List**. You can also click **Set up queue** in a new post. Use **Add times** to add a time to several days at once, or the **+** under a day to add one there. Each time shows the next date it's open; click it to write the post that fills it. **Taken** means posts, including drafts and paused series, hold that time for the next 2 months; click it to see them in the calendar.
 
 ## Repeating posts
 
