@@ -57,7 +57,7 @@
     "@tailwindcss/vite": "^4.1.18",
     "@types/audioworklet": "^0.0.92",
     "@types/chrome": "^0.1.32",
-    "@types/node": "^24.10.1",
+    "@types/node": "^26.6.5",
     "@types/stats.js": "^0.17.4",
     "@types/wicg-file-system-access": "^2023.10.7",
     "@typescript-eslint/eslint-plugin": "^8.51.0",
