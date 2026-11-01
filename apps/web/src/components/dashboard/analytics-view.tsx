@@ -949,7 +949,7 @@ function PostsTable(props: {
                         </Show>
                       </span>
                       <Show when={post.platform === "youtube"}>
-                        <PlatformLogo id={post.platform} class="size-4" compact />
+                        <PlatformLogo id={post.platform} class="size-4" bare />
                       </Show>
                       <div class="flex min-w-0 flex-col">
                         <span class="truncate text-xs text-foreground">{post.title}</span>
@@ -990,7 +990,7 @@ function PlatformCard(props: {
   return (
     <section class={`${card} flex min-w-0 flex-col gap-3 p-4`}>
       <div class="flex min-w-0 items-center gap-2">
-        <PlatformLogo id={props.row.platform.id} class="size-5 rounded-md" compact />
+        <PlatformLogo id={props.row.platform.id} class="size-5 rounded-md" bare />
         <h2 class="shrink-0 text-sm font-medium text-foreground">{props.row.platform.name}</h2>
         <span class="min-w-0 flex-1 truncate text-xs text-muted-foreground">{handles()}</span>
         <Show when={followers() !== null}>
@@ -1128,7 +1128,7 @@ function PostAnalytics(props: { post: AnalyticsPost; peers: readonly AnalyticsPo
   return (
     <div class="@container flex w-full flex-col gap-4 px-6 pt-6 pb-16">
       <div class="flex min-w-0 items-center gap-2">
-        <PlatformLogo id={props.post.platform} class="size-5 rounded-md" compact />
+        <PlatformLogo id={props.post.platform} class="size-5 rounded-md" bare />
         <h1 class="min-w-0 truncate text-[22px] leading-7 font-medium tracking-[-0.02em] text-foreground">{props.post.title}</h1>
         <span class="shrink-0 pt-1 text-xs text-muted-foreground">
           {props.post.handle ? `${accountLabel(props.post)}, ` : ""}
@@ -1223,7 +1223,7 @@ function PostCard(props: { post: AnalyticsPost }) {
         <dl class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-xs">
           <dt class="text-muted-foreground">{t("Account")}</dt>
           <dd class="flex min-w-0 items-center gap-1.5 text-foreground">
-            <PlatformLogo id={props.post.platform} class="size-3.5 shrink-0 rounded-sm" compact />
+            <PlatformLogo id={props.post.platform} class="size-3.5 shrink-0 rounded-sm" bare />
             <span class="truncate">{accountLabel(props.post) || item().name}</span>
           </dd>
           <dt class="text-muted-foreground">{t("Posted")}</dt>
