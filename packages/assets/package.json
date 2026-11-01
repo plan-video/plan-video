@@ -18,7 +18,7 @@
     "media"
   ],
   "dependencies": {
-    "mediabunny": "^1.32.2",
+    "mediabunny": "^1.62.1",
     "solid-js": "^1.9.0"
   },
   "devDependencies": {
