@@ -416,6 +416,8 @@ export function DateTimePicker(props: {
   minTime?: (day: string) => string | undefined;
   label?: string;
   class?: string;
+  /** Leaves out the calendar mark, for a table cell that reads as text. */
+  plain?: boolean;
   onChange(day: string, time: string): void;
 }) {
   const [open, setOpen] = createSignal(false);
@@ -425,7 +427,9 @@ export function DateTimePicker(props: {
   return (
     <Popover placement="bottom-end" open={open()} onOpenChange={setOpen}>
       <PopoverTrigger type="button" aria-label={props.label} class={cn(triggerClass, props.class)}>
-        <Icon name="calendar" class="size-6 shrink-0 text-muted-foreground" />
+        <Show when={!props.plain}>
+          <Icon name="calendar" class="size-6 shrink-0 text-muted-foreground" />
+        </Show>
         <span class="min-w-0 flex-1 truncate">
           {relativeDay(props.day) ?? SHORT_DAY_LABEL().format(fromKey(props.day))}
           <span class="text-muted-foreground">, </span>

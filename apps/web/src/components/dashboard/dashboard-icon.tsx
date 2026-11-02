@@ -47,6 +47,8 @@ import RotateCwLucide from "lucide-solid/icons/rotate-cw-square";
 import SignatureLucide from "lucide-solid/icons/signature";
 import SmilePlusLucide from "lucide-solid/icons/face-slightly-smiling-plus";
 import SquareTerminalLucide from "lucide-solid/icons/square-terminal";
+import GripVerticalLucide from "lucide-solid/icons/grip-vertical";
+import ShuffleLucide from "lucide-solid/icons/shuffle";
 import StarLucide from "lucide-solid/icons/star";
 import TriangleAlertLucide from "lucide-solid/icons/triangle-alert";
 import TypeLucide from "lucide-solid/icons/type";
@@ -89,6 +91,8 @@ const PLANE: Record<string, PlaneIconName> = {
 
 const LUCIDE: Record<string, Glyph> = {
   "alert-warning": TriangleAlertLucide,
+  "grip-vertical": GripVerticalLucide,
+  shuffle: ShuffleLucide,
   "all-media-types": ImagesLucide,
   "arrow-top": ArrowUpLucide,
   "ask-chat": MessageCircleLucide,

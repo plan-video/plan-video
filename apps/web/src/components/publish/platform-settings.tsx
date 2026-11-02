@@ -378,6 +378,8 @@ export function PlatformSettingsFields(props: {
   mixed?: boolean;
   tiktokAccount?: () => SocialConnection | undefined;
   only?: PlatformId;
+  /** Each post is titled elsewhere, as in Bulk tools. */
+  noTitles?: boolean;
   youtubeChannels?: () => SocialConnection[];
   /** Shown with its title and privacy status, as YouTube's rules ask. */
   youtubeDescription?: { value: () => string; onInput: (text: string) => void; own: () => boolean; reset: () => void };
@@ -396,15 +398,17 @@ export function PlatformSettingsFields(props: {
   const fields = (id: PlatformId) => (
     <Switch>
       <Match when={id === "youtube"}>
-        <Field label={t("Title")} trailing={<CharCount count={captionLength(props.settings.youtube.title)} limit={100} />}>
-          <input
-            class={fieldControl}
-            placeholder={t("What's the video called?")}
-            value={props.settings.youtube.title}
-            onInput={(event) => set("youtube", "title", event.currentTarget.value)}
-            onKeyDown={(event) => event.stopPropagation()}
-          />
-        </Field>
+        <Show when={!props.noTitles}>
+          <Field label={t("Title")} trailing={<CharCount count={captionLength(props.settings.youtube.title)} limit={100} />}>
+            <input
+              class={fieldControl}
+              placeholder={t("What's the video called?")}
+              value={props.settings.youtube.title}
+              onInput={(event) => set("youtube", "title", event.currentTarget.value)}
+              onKeyDown={(event) => event.stopPropagation()}
+            />
+          </Field>
+        </Show>
         <Show when={props.youtubeDescription}>
           {(description) => (
             <Field
@@ -537,15 +541,17 @@ export function PlatformSettingsFields(props: {
             </div>
           </Show>
         </FieldGroup>
-        <Field label={t("Title")} trailing={<CharCount count={captionLength(props.settings.pinterest.title)} limit={100} />}>
-          <input
-            class={fieldControl}
-            placeholder={t("Give the pin a title")}
-            value={props.settings.pinterest.title}
-            onInput={(event) => set("pinterest", "title", event.currentTarget.value)}
-            onKeyDown={(event) => event.stopPropagation()}
-          />
-        </Field>
+        <Show when={!props.noTitles}>
+          <Field label={t("Title")} trailing={<CharCount count={captionLength(props.settings.pinterest.title)} limit={100} />}>
+            <input
+              class={fieldControl}
+              placeholder={t("Give the pin a title")}
+              value={props.settings.pinterest.title}
+              onInput={(event) => set("pinterest", "title", event.currentTarget.value)}
+              onKeyDown={(event) => event.stopPropagation()}
+            />
+          </Field>
+        </Show>
         <Field label={t("Link")}>
           <input
             class={fieldControl}

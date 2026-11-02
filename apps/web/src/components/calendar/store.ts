@@ -635,6 +635,11 @@ function putEvent(input: StoredEvent) {
   void persist((database) => database.put("events", next), { rows: [`event:${next.id}`] });
 }
 
+/** Hydrate first. Counts a post deleted since, so what was deleted doesn't come back either. */
+export function isOnCalendar(id: string) {
+  return storedEvents().some((event) => event.id === id);
+}
+
 function findEvent(id: string) {
   const saved = storedEvents().find((event) => event.id === id);
   return saved && shown(saved);

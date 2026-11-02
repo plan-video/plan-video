@@ -217,6 +217,12 @@ export async function readMedia(file: File): Promise<PostMedia> {
   }
 }
 
+/** The file and what `readMedia` learned from it, without reading it again. */
+export function mediaFromSaved(saved: Pick<PostMedia, "file" | "kind" | "width" | "height" | "duration" | "poster">): PostMedia {
+  const url = URL.createObjectURL(saved.file);
+  return { ...saved, id: `media-${++nextId}`, url, poster: saved.kind === "image" ? url : saved.poster };
+}
+
 export function releaseMedia(media: PostMedia): void {
   URL.revokeObjectURL(media.url);
 }

@@ -353,7 +353,7 @@ export function isActiveWorkspace(userId: string, workspaceId: string) {
 }
 
 /** Deleting a workspace deletes them. */
-export const WORKSPACE_DATABASES = ["plan-video-calendar", "plan-video-media", "plan-video-agent-chats", "plan-video-team-copy"];
+export const WORKSPACE_DATABASES = ["plan-video-calendar", "plan-video-media", "plan-video-agent-chats", "plan-video-team-copy", "plan-video-bulk"];
 
 /**
  * Database names once ignored the account. With one old account on this browser it keeps them;

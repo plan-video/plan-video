@@ -292,7 +292,7 @@ export function AccountSelect(props: {
 }
 
 export function PlatformPicker(props: {
-  variant?: "tiles" | "logos";
+  variant?: "tiles" | "logos" | "row";
   value: readonly PlatformId[];
   accounts?: AccountChoices;
   onChange(ids: PlatformId[], accounts: AccountChoices): void;
@@ -358,6 +358,50 @@ export function PlatformPicker(props: {
             }}
           </For>
         </div>
+      </div>
+    );
+  }
+
+  // All nine logos in one row, for a side panel; a network's accounts open under it.
+  if (props.variant === "row") {
+    const choosing = () =>
+      offered().filter((platform) => {
+        const accounts = connectionsFor(platform.id);
+        return props.value.includes(platform.id) && (accounts.length > 1 || (accounts.length > 0 && !accountsFor(platform.id, props.accounts).length));
+      });
+    return (
+      <div class={cx("flex flex-col gap-1", props.class)}>
+        <div class="grid grid-cols-9 gap-0.5">
+          <For each={offered()}>
+            {(platform) => {
+              const on = () => props.value.includes(platform.id);
+              return (
+                <button
+                  type="button"
+                  aria-pressed={on()}
+                  aria-label={platform.name}
+                  class="grid h-10 min-w-0 place-items-center rounded-md border press focus-ring"
+                  classList={{ "border-primary/70 bg-primary/10": on(), "border-transparent hover:bg-accent": !on() }}
+                  onClick={() => toggle(platform.id)}
+                >
+                  <PlatformLogo id={platform.id} compact class="size-6" />
+                </button>
+              );
+            }}
+          </For>
+        </div>
+        <For each={choosing()}>
+          {(platform) => (
+            <div class="flex items-center gap-2 px-1.5 py-0.5">
+              <PlatformLogo id={platform.id} compact class="size-4" />
+              <AccountSelect
+                platform={platform.id}
+                value={props.accounts?.[platform.id]}
+                onChange={(ids) => apply([...props.value], { ...props.accounts, [platform.id]: ids })}
+              />
+            </div>
+          )}
+        </For>
       </div>
     );
   }
@@ -449,7 +493,7 @@ export function Segmented<T extends string>(props: {
             type="button"
             role="radio"
             aria-checked={props.value === option.id}
-            class="cap-trim h-6 truncate rounded-md px-2 text-xs font-medium press focus-ring"
+            class="cap-trim h-6 truncate rounded-md px-1 text-xs font-medium press focus-ring"
             classList={{
               "bg-background text-foreground shadow-xs": props.value === option.id,
               "text-muted-foreground hover:text-foreground": props.value !== option.id,
@@ -663,7 +707,7 @@ export function DropZone(props: {
   pickLabel: string;
   actions?: JSX.Element;
   class?: string;
-  handlers: {
+  handlers?: {
     onDragOver(event: DragEvent): void;
     onDragEnter(event: DragEvent): void;
     onDragLeave(event: DragEvent): void;

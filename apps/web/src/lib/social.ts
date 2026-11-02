@@ -245,7 +245,7 @@ export type PostCheckInput = {
   settings?: PlatformSettings;
 };
 
-function settingsIssues(id: PlatformId, settings: PlatformSettings, add: (level: PostIssue["level"], message: string) => void) {
+export function settingsIssues(id: PlatformId, settings: PlatformSettings, add: (level: PostIssue["level"], message: string) => void) {
   if (id === "tiktok") {
     if (settings.tiktok.inbox) return;
     const { disclose, yourBrand, brandedContent, privacy } = settings.tiktok;

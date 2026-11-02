@@ -19,6 +19,7 @@ export function MediaPicker(props: {
   kinds: readonly MediaItem["kind"][];
   max: number;
   onPick(files: File[]): void;
+  onClose?(): void;
   class?: string;
   label?: string;
   /** Off where opening the dashboard would leave the page, as in the editor. */
@@ -44,6 +45,7 @@ export function MediaPicker(props: {
     else {
       setQuery("");
       setChosen([]);
+      props.onClose?.();
     }
   };
 

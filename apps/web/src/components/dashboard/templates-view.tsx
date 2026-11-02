@@ -54,7 +54,7 @@ type Editing = { id: string | null; draft: TemplateDraft };
 const WHEN_OPTIONS: { id: TemplateWhen; label: string }[] = [
   { id: "none", label: msg("No set time") },
   { id: "time", label: msg("At a time") },
-  { id: "queue", label: msg("Auto-schedule") },
+  { id: "queue", label: msg({ message: "Auto-schedule", context: "short label" }) },
 ];
 
 function repeatLabel(repeat: string): string | null {
