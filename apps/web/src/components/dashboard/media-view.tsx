@@ -1089,6 +1089,12 @@ function MediaDetails(props: {
     <aside class="flex w-[22rem] shrink-0 flex-col border-l border-border-strong bg-background/40 animate-in fade-in-0 slide-in-from-right-2 duration-200">
       <div class="flex h-11 shrink-0 items-center gap-2 border-b border-border-strong pl-4 pr-1.5">
         <p class="min-w-0 flex-1 truncate text-xs text-muted-foreground">{props.item.kind === "video" ? t("Video") : t("Picture")}</p>
+        <Button size="icon-square" variant="ghost" aria-label={t("Download")} title={t("Download")} onClick={() => props.onDownload()}>
+          <Icon name="download" class="size-5 text-muted-foreground" />
+        </Button>
+        <Button size="icon-square" variant="ghost" aria-label={t("Delete")} title={t("Delete")} onClick={() => props.onDelete()}>
+          <Icon name="trash" class="size-5 text-muted-foreground" />
+        </Button>
         <Button size="icon-square" variant="ghost" aria-label={t("Close")} onClick={() => props.onClose()}>
           <Icon name="close-remove" class="text-foreground" />
         </Button>
@@ -1193,7 +1199,8 @@ function MediaDetails(props: {
         </section>
       </div>
 
-      <div class="flex shrink-0 items-center gap-1.5 border-t border-border-strong p-3">
+      {/* Tall enough to centre on the Assistant's button, and stops short of it. */}
+      <div class="flex h-18 shrink-0 items-center gap-1.5 border-t border-border-strong px-4 md:pr-18">
         <Button class="flex-1" onClick={() => props.onUse()}>
           {t("Use in post")}
         </Button>
@@ -1203,13 +1210,6 @@ function MediaDetails(props: {
             {t("Edit")}
           </Button>
         </Show>
-        <Button variant="secondary" class="gap-1 pl-1" onClick={() => props.onDownload()}>
-          <Icon name="download" class="size-5" />
-          {t("Download")}
-        </Button>
-        <Button variant="ghost" size="icon-square" aria-label={t("Delete")} onClick={() => props.onDelete()}>
-          <Icon name="trash" class="size-5 text-muted-foreground" />
-        </Button>
       </div>
     </aside>
   );
