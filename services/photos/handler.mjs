@@ -73,7 +73,7 @@ const BLUESKY_LIMIT = 1_000_000;
 async function forBluesky(bytes) {
   for (const side of [2000, 1600, 1200]) {
     for (const quality of [90, 80, 70]) {
-      const out = await sharp(bytes, LIMITS).rotate().resize({ width: side, height: side, fit: "inside", withoutEnlargement: true }).jpeg({ quality }).toBuffer();
+      const out = await sharp(bytes, LIMITS).rotate().resize({ width: side, height: side, fit: "inside", withoutEnlargement: true }).flatten({ background: "#ffffff" }).jpeg({ quality }).toBuffer();
       if (out.length <= BLUESKY_LIMIT) return out;
     }
   }

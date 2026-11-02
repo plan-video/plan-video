@@ -99,6 +99,11 @@ describe("encodeWithin", () => {
     expect((await encodeWithin(sized({ "1 image/png ": 12e6, "1 image/jpeg 0.92": 3e6 }), true, 8e6)).type).toBe("image/jpeg");
   });
 
+  it("shrinks a cutout rather than losing its transparency to a JPEG", async () => {
+    const blob = await encodeWithin(sized({ "1 image/png ": 12e6, "1 image/jpeg 0.92": 3e6, "0.75 image/png ": 7e6 }), true, 8e6, true);
+    expect(blob).toMatchObject({ type: "image/png", size: 7e6 });
+  });
+
   it("makes the picture smaller when no quality fits", async () => {
     const blob = await encodeWithin(sized({ "0.75 image/jpeg 0.85": 7e6 }), false, 8e6);
     expect(blob.size).toBe(7e6);

@@ -30,6 +30,14 @@ test("a TikTok picture is a JPEG of 1080p at most", async () => {
   assert.deepEqual(await shapeOf(await make("tiktok", await picture(800, 2000, "jpeg"))), { format: "jpeg", size: [768, 1920] });
 });
 
+test("a see-through picture goes out on white, as a JPEG would make it black", async () => {
+  const clear = await sharp({ create: { width: 64, height: 64, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } }).png().toBuffer();
+  for (const bytes of [await make("tiktok", clear), await make("feed", clear), (await maker.forBluesky(clear, "image/png", 1)).bytes]) {
+    const [red, green, blue] = await sharp(bytes).raw().toBuffer();
+    assert.ok(red > 250 && green > 250 && blue > 250, `came out ${red},${green},${blue}`);
+  }
+});
+
 test("a feed picture is cut to the shapes Instagram's feed takes, from its middle", async () => {
   const shapes = {};
   for (const [id, bytes] of Object.entries({

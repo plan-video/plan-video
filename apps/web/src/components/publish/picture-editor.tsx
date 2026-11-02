@@ -9,8 +9,17 @@ import { Icon } from "@/components/dashboard/dashboard-icon";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogPortal, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  cutoutError,
+  cutoutModelReady,
+  cutoutName,
+  isCancelled,
+  modelDownloadSize,
+  removeImageBackground,
+  type CutoutProgress,
+} from "@/lib/background-removal";
 import { cx } from "@/lib/cva";
-import { t } from "@/lib/i18n";
+import { msg, t } from "@/lib/i18n";
 import {
   SHAPES,
   dragCrop,
@@ -52,14 +61,31 @@ const CURSORS: Record<Handle, string> = {
 const toolButton =
   "grid size-10 place-items-center rounded-xl text-white/70 press transition-colors hover:bg-white/6 hover:text-white focus-ring";
 
+const tile = (on: boolean) =>
+  cx(
+    "flex h-12 min-w-14 shrink-0 flex-col items-center justify-center gap-1 rounded-xl px-1.5 text-xxs press transition-colors focus-ring",
+    on ? "bg-white/16 text-white" : "text-white/60 hover:bg-white/6 hover:text-white",
+  );
+
+const STARTING: CutoutProgress = { stage: "preparing", progress: 0.02, message: msg("Starting local model…") };
+
+/** Set in fixed colours: this screen is black in both themes. */
+const SEE_THROUGH: JSX.CSSProperties = {
+  "background-color": "#3a3a3a",
+  "background-image": "conic-gradient(#555 25%, transparent 0 50%, #555 0 75%, transparent 0)",
+  "background-size": "20px 20px",
+};
+
 export function PictureEditor(props: {
   /** The picture as it was before any edit, so an earlier crop can be widened again. */
   file: File;
   edit?: PictureEdit | null;
+  /** `file` with its background taken out by an earlier edit: same size, so the crop still fits. */
+  cutout?: File;
   suggest?: ShapeId;
   saveLabel?: string;
   /** `edit` is null when the picture is back to how it was. */
-  onSave(file: File, edit: PictureEdit | null): Promise<void> | void;
+  onSave(file: File, edit: PictureEdit | null, cutout?: File): Promise<void> | void;
   onClose(): void;
 }) {
   const url = URL.createObjectURL(props.file);
@@ -78,11 +104,59 @@ export function PictureEditor(props: {
   const [stage, setStage] = createSignal({ width: 0, height: 0 });
   const [dragging, setDragging] = createSignal<Handle | null>(null);
   const [saving, setSaving] = createSignal(false);
+  const [cut, setCut] = createSignal<{ file: File; url: string; image: HTMLImageElement } | null>(null);
+  const [removed, setRemoved] = createSignal(!!props.cutout);
+  const [removing, setRemoving] = createSignal<CutoutProgress | null>(null);
+  let cutUrl: string | undefined;
+  let job: AbortController | undefined;
   let stageEl: HTMLDivElement | undefined;
   let frameEl: HTMLDivElement | undefined;
   let content: HTMLDivElement | undefined;
 
+  const loadCut = async (file: File) => {
+    cutUrl = URL.createObjectURL(file);
+    setCut({ file, url: cutUrl, image: await loadPicture(cutUrl) });
+  };
+
+  const stopRemoving = () => {
+    job?.abort();
+    setRemoving(null);
+  };
+
+  const removeBackground = () => {
+    const current = (job = new AbortController());
+    setRemoving(STARTING);
+    removeImageBackground(props.file, { signal: current.signal, onProgress: setRemoving })
+      .then((cutout) => loadCut(new File([cutout.blob], cutoutName(props.file.name), { type: "image/png" })))
+      .then(
+        () => {
+          if (current.signal.aborted) return;
+          setRemoved(true);
+          setRemoving(null);
+        },
+        (error) => {
+          if (current.signal.aborted || isCancelled(error)) return;
+          console.error("[cutout]", error);
+          setRemoving(null);
+          toast.error(t("Couldn't remove the background"), { description: cutoutError(error) });
+        },
+      );
+  };
+
+  const toggleBackground = () => {
+    if (removing()) stopRemoving();
+    else if (removed()) setRemoved(false);
+    else if (cut()) setRemoved(true);
+    else removeBackground();
+  };
+
+  onCleanup(() => {
+    job?.abort();
+    if (cutUrl) URL.revokeObjectURL(cutUrl);
+  });
+
   onMount(() => {
+    if (props.cutout) void loadCut(props.cutout).catch(() => setRemoved(false));
     if (!stageEl) return;
     const observer = new ResizeObserver(([entry]) => entry && setStage({ width: entry.contentRect.width, height: entry.contentRect.height }));
     observer.observe(stageEl);
@@ -112,7 +186,7 @@ export function PictureEditor(props: {
   const changed = () => {
     const current = edit();
     const base = natural();
-    return !!current && !!base && !isUntouched(current, base);
+    return removed() || (!!current && !!base && !isUntouched(current, base));
   };
 
   const update = (next: (current: PictureEdit, base: { width: number; height: number }) => PictureEdit) => {
@@ -159,19 +233,23 @@ export function PictureEditor(props: {
     update((current) => ({ ...current, crop: dragCrop(current.crop, "move", step[0]! * by, step[1]! * by, box, null, 0) }));
   };
 
+  const shown = () => (removed() ? cut()?.image : picture());
+
   const save = async () => {
     const current = edit();
-    const image = picture();
+    const image = shown();
     const base = natural();
-    if (!current || !image || !base || saving()) return;
-    if (isUntouched(current, base) && !props.edit) {
+    if (!current || !image || !base || saving() || removing()) return;
+    const asItWas = !removed() && isUntouched(current, base);
+    if (asItWas && !props.edit) {
       props.onClose();
       return;
     }
     setSaving(true);
     try {
-      if (isUntouched(current, base)) await props.onSave(props.file, null);
-      else await props.onSave(await renderPicture(image, current, props.file, MEDIA_LIMITS.imageMaxBytes), current);
+      const cutout = removed() ? cut()?.file : undefined;
+      if (asItWas) await props.onSave(props.file, null);
+      else await props.onSave(await renderPicture(image, current, cutout ?? props.file, MEDIA_LIMITS.imageMaxBytes, !!cutout), current, cutout);
       props.onClose();
     } catch (error) {
       toast.error(t("Couldn't save the picture"), { description: (error as Error).message });
@@ -217,15 +295,19 @@ export function PictureEditor(props: {
             <Button
               variant="ghost"
               class="text-white hover:bg-white/10 hover:text-white"
-              disabled={!changed() || saving()}
-              onClick={() => update((_, base) => startEdit(base))}
+              disabled={(!changed() && !removing()) || saving()}
+              onClick={() => {
+                stopRemoving();
+                setRemoved(false);
+                update((_, base) => startEdit(base));
+              }}
             >
               {t("Reset")}
             </Button>
             <Button variant="ghost" class="text-white hover:bg-white/10 hover:text-white" disabled={saving()} onClick={() => props.onClose()}>
               {t("Cancel")}
             </Button>
-            <Button class="min-w-16 gap-1" disabled={!picture() || saving()} onClick={() => void save()}>
+            <Button class="min-w-16 gap-1" disabled={!shown() || saving() || !!removing()} onClick={() => void save()}>
               <Show when={saving()}>
                 <Icon name="spinner-loader" class="-ml-1 size-5 animate-spin" />
               </Show>
@@ -254,9 +336,9 @@ export function PictureEditor(props: {
                     height: px(box().height),
                   }}
                 >
-                  <div class="absolute inset-0 overflow-hidden">
+                  <div class="absolute inset-0 overflow-hidden" style={removed() ? SEE_THROUGH : undefined}>
                     <img
-                      src={url}
+                      src={removed() ? cut()?.url : url}
                       alt=""
                       draggable={false}
                       class="absolute top-1/2 left-1/2 max-w-none"
@@ -293,6 +375,15 @@ export function PictureEditor(props: {
                 </div>
               )}
             </Show>
+            <Show when={removing()}>
+              {(progress) => (
+                <div class="pointer-events-none absolute bottom-2 left-1/2 flex h-7 max-w-[calc(100%-1rem)] -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full bg-white/6 pl-2 pr-3 text-xs text-white">
+                  <Icon name="spinner-loader" class="size-4 shrink-0 animate-spin" />
+                  <span class="min-w-0 truncate">{t(progress().message)}</span>
+                  <span class="text-white/50 tabular-nums">{Math.round(progress().progress * 100)}%</span>
+                </div>
+              )}
+            </Show>
           </div>
 
           <footer class="flex shrink-0 justify-center px-3 pt-2 pb-5">
@@ -307,10 +398,7 @@ export function PictureEditor(props: {
                         role="radio"
                         aria-checked={edit()?.shape === shape.id}
                         disabled={!edit()}
-                        class={cx(
-                          "flex h-12 min-w-14 shrink-0 flex-col items-center justify-center gap-1 rounded-xl px-1.5 text-xxs press transition-colors focus-ring",
-                          edit()?.shape === shape.id ? "bg-white/16 text-white" : "text-white/60 hover:bg-white/6 hover:text-white",
-                        )}
+                        class={tile(edit()?.shape === shape.id)}
                         onClick={() => update((current, base) => withShape(current, shape.id, base))}
                       >
                         <ShapeGlyph id={shape.id} ratio={shape.ratio} />
@@ -326,6 +414,33 @@ export function PictureEditor(props: {
               <ToolButton label={t("Rotate right")} icon="rotate-right" onClick={() => update((current, base) => turnEdit(current, base, true))} />
               <ToolButton label={t("Flip horizontally")} icon="flip-horizontal" onClick={() => update((current, base) => flipEdit(current, base, "x"))} />
               <ToolButton label={t("Flip vertically")} icon="flip-vertical" onClick={() => update((current, base) => flipEdit(current, base, "y"))} />
+              <span class="mx-1 h-8 w-px shrink-0 bg-white/12" />
+              <Tooltip>
+                <TooltipTrigger
+                  as="button"
+                  type="button"
+                  aria-pressed={removed()}
+                  disabled={!picture()}
+                  class={tile(removed() || !!removing())}
+                  onClick={toggleBackground}
+                >
+                  <span class="grid size-[18px] place-items-center">
+                    <Show when={removing()} fallback={<Icon name="eraser" class="size-[22px]" />}>
+                      <Icon name="spinner-loader" class="size-[22px] animate-spin" />
+                    </Show>
+                  </span>
+                  <span class="leading-none">{t("Remove background")}</span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {removing()
+                    ? t("Cancel")
+                    : removed()
+                      ? t("Restore background")
+                      : cutoutModelReady()
+                        ? t("Runs on this device, so nothing is uploaded and it works offline.")
+                        : t("Runs on this device, so nothing is uploaded. The first picture downloads the model ({size}) once.", { size: modelDownloadSize() })}
+                </TooltipContent>
+              </Tooltip>
             </div>
           </footer>
         </DialogContent>

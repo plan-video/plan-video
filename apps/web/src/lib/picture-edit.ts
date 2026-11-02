@@ -156,12 +156,17 @@ export function suggestedShape(natural: Size, ranges: readonly { min: number; ma
 
 type Encode = (scale: number, type: "image/png" | "image/jpeg", quality?: number) => Promise<Blob>;
 
-/** A PNG stays a PNG where it can, as it may be see-through; anything over `maxBytes` steps down to a smaller JPEG. */
-export async function encodeWithin(encode: Encode, png: boolean, maxBytes: number): Promise<Blob> {
+/**
+ * A PNG stays a PNG where it can, as it may be see-through; anything over `maxBytes` steps down to a smaller JPEG.
+ * A cutout only ever shrinks: as a JPEG its background would be back, in white.
+ */
+export async function encodeWithin(encode: Encode, png: boolean, maxBytes: number, cutout = false): Promise<Blob> {
   for (const scale of [1, 0.75, 0.5]) {
-    const tries: [("image/png" | "image/jpeg"), number?][] = png
-      ? [["image/png"], ["image/jpeg", 0.92]]
-      : [["image/jpeg", 0.92], ["image/jpeg", 0.85], ["image/jpeg", 0.75]];
+    const tries: [("image/png" | "image/jpeg"), number?][] = cutout
+      ? [["image/png"]]
+      : png
+        ? [["image/png"], ["image/jpeg", 0.92]]
+        : [["image/jpeg", 0.92], ["image/jpeg", 0.85], ["image/jpeg", 0.75]];
     for (const [type, quality] of tries) {
       const blob = await encode(scale, type, quality);
       if (blob.size <= maxBytes) return blob;
@@ -180,7 +185,7 @@ export async function loadPicture(url: string): Promise<HTMLImageElement> {
   return image;
 }
 
-export async function renderPicture(image: HTMLImageElement, edit: PictureEdit, source: File, maxBytes: number): Promise<File> {
+export async function renderPicture(image: HTMLImageElement, edit: PictureEdit, source: File, maxBytes: number, cutout = false): Promise<File> {
   const natural = { width: image.naturalWidth, height: image.naturalHeight };
   const size = turnedSize(natural, edit.turns);
   const crop = pixelCrop(edit.crop, size);
@@ -208,7 +213,7 @@ export async function renderPicture(image: HTMLImageElement, edit: PictureEdit, 
     );
   };
 
-  const blob = await encodeWithin(encode, png, maxBytes);
+  const blob = await encodeWithin(encode, png, maxBytes, cutout);
   const base = source.name.replace(/\.[^.]+$/, "") || "picture";
   const extension = blob.type === "image/png" ? ".png" : ".jpg";
   return new File([blob], `${base}${extension}`, { type: blob.type, lastModified: Date.now() });
