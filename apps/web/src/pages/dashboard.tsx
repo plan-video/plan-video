@@ -609,6 +609,11 @@ export function DashboardPage() {
                     <Show when={rail() === "library"}>
                       <LibraryStorageMeter onOpen={() => setView("storage")} />
                     </Show>
+                    <Show when={rail() === "work"}>
+                      <div class="pt-2 pb-2.5">
+                        <PageLink view="queue" />
+                      </div>
+                    </Show>
                   </>
                 }
               >
@@ -616,7 +621,6 @@ export function DashboardPage() {
                   <DashboardSidebarSection>
                     <PageLink view="calendar" badge={sendingBadge()} />
                     <PageLink view="bulk-tools" />
-                    <PageLink view="queue" />
                     <div class="contents md:hidden">
                       <PageLink view="plugs" />
                     </div>

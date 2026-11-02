@@ -239,10 +239,9 @@ type DashboardSidebarNavProps = {
 
 export function DashboardSidebarNav(props: DashboardSidebarNavProps) {
   return (
-    <div class="relative z-[1] flex min-h-0 flex-1 flex-col gap-3 overflow-x-hidden overflow-y-auto px-3 pt-3 pb-0.5">
-      {props.children}
-      <div class="min-h-0 flex-1" />
-      {props.footer}
+    <div class="relative z-[1] flex min-h-0 flex-1 flex-col">
+      <div class="flex min-h-0 flex-1 flex-col gap-3 overflow-x-hidden overflow-y-auto px-3 pt-3 pb-0.5">{props.children}</div>
+      <div class="shrink-0 px-3">{props.footer}</div>
     </div>
   );
 }
