@@ -19,6 +19,7 @@ import CopyLucide from "lucide-solid/icons/copy";
 import CropLucide from "lucide-solid/icons/crop";
 import DownloadLucide from "lucide-solid/icons/download";
 import EllipsisLucide from "lucide-solid/icons/ellipsis";
+import EraserLucide from "lucide-solid/icons/eraser";
 import ExternalLinkLucide from "lucide-solid/icons/external-link";
 import EyeLucide from "lucide-solid/icons/eye";
 import FileTextLucide from "lucide-solid/icons/file-text";
@@ -100,6 +101,7 @@ const LUCIDE: Record<string, Glyph> = {
   crop: CropLucide,
   "dapi-cli": SquareTerminalLucide,
   document: FileTextLucide,
+  eraser: EraserLucide,
   download: DownloadLucide,
   "edit-video": ClapperboardLucide,
   email: MailLucide,

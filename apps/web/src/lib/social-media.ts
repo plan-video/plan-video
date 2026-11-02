@@ -18,7 +18,7 @@ export type PostMedia = {
   duration: number;
   poster: string;
   /** A picture cropped or turned here, kept with the file it came from so the edit can be changed or undone. */
-  edit?: { original: File; settings: PictureEdit };
+  edit?: { original: File; settings: PictureEdit; cutout?: File };
 };
 
 const VIDEO_EXTENSIONS = /\.(mp4|mov|m4v|webm|mkv)$/i;

@@ -303,10 +303,11 @@ function EditPicture(props: { item: PostMedia; suggest?: ShapeId; onReplace(next
     <PictureEditor
       file={original()}
       edit={props.item.edit?.settings}
+      cutout={props.item.edit?.cutout}
       suggest={props.suggest}
-      onSave={async (file, edit) => {
+      onSave={async (file, edit, cutout) => {
         const read = await readMedia(file);
-        if (!props.onReplace(edit ? { ...read, edit: { original: original(), settings: edit } } : read)) releaseMedia(read);
+        if (!props.onReplace(edit ? { ...read, edit: { original: original(), settings: edit, cutout } } : read)) releaseMedia(read);
       }}
       onClose={() => props.onClose()}
     />

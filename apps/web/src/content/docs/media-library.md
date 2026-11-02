@@ -20,6 +20,8 @@ A post carries one video or up to 35 pictures, 500 MB in all. Each network can h
 
 Click a picture in a post, or **Edit** on a picture in Media, to crop, rotate or flip it. Pick a shape like **1:1**, **4:5** or **9:16** to keep the crop in that shape, then drag it to choose what stays.
 
+**Remove background** takes the background out and leaves your subject on a see-through PNG. It runs on your device, so nothing is uploaded, and the first picture downloads the model once. Click it again to bring the background back. Facebook, Instagram, Threads and TikTok don't take see-through pictures, so there it goes out on white.
+
 - In a post, the edit only changes that post. While the post is open, click the picture again to change the crop, or **Reset** to go back to the picture as it was.
 - In Media, **Save copy** keeps the original and adds the edited picture next to it.
 
