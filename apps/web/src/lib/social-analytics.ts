@@ -410,7 +410,7 @@ export function sampleSources(): AnalyticsSource[] {
   return ANALYTICS_PLATFORMS.map(({ id: platform }) => ({ key: platform, platform }));
 }
 
-type NumbersAccount = { platform: string; youtube?: unknown; tiktok?: unknown; instagram?: unknown; facebook?: unknown; threads?: unknown; linkedin?: { organizationId?: string } };
+type NumbersAccount = { platform: string; youtube?: unknown; tiktok?: unknown; instagram?: unknown; facebook?: unknown; threads?: unknown; linkedin?: { organizationId?: string; personId?: string } };
 
 export function reportsNumbers(account: NumbersAccount) {
   const { platform } = account;
