@@ -376,7 +376,7 @@ test("a Page's sign-in starts at the Pages app with its scopes, and a person's s
   assert.equal(personal.searchParams.get("scope"), "openid profile w_member_social");
   const page = new URL((await start({ pages: true }, { clientId: "second" })).url);
   assert.equal(page.searchParams.get("client_id"), "second");
-  assert.equal(page.searchParams.get("scope"), "rw_organization_admin w_organization_social");
+  assert.equal(page.searchParams.get("scope"), "rw_organization_admin w_organization_social w_organization_social_feed");
   assert.match((await start({ pages: true }, { clientId: "" })).error, /aren't set up/);
   assert.deepEqual(answers, [200, 200, 503]);
 });

@@ -16,7 +16,8 @@ const VERSIONED = { "LinkedIn-Version": API_VERSION };
 // No email scope: plan.video has no use for it.
 const SCOPE = "openid profile w_member_social";
 // A company Page's login comes from a second LinkedIn app: LinkedIn keeps the Community Management API on an app of its own, versioned routes only.
-const PAGE_SCOPE = "rw_organization_admin w_organization_social";
+// Comments need their own _feed scope: w_organization_social alone gets a 403 from socialActions, whatever its description says.
+const PAGE_SCOPE = "rw_organization_admin w_organization_social w_organization_social_feed";
 const PAGE_ROLES = new Set(["ADMINISTRATOR", "CONTENT_ADMINISTRATOR"]);
 const MAX_PAGES = 25;
 const REST = "https://api.linkedin.com/rest";
