@@ -329,3 +329,39 @@ test("a login without the reading permission, or a role without numbers, is told
   t.mock.method(globalThis, "fetch", async () => { throw new TypeError("network down"); });
   assert.match((await pageNumbers("token", "42")).error, /Couldn't reach LinkedIn/);
 });
+
+test("short pages of a Page's posts are followed to the next, without asking forever", async (t) => {
+  const asked = [];
+  const pages = { 0: { elements: [{ id: "urn:li:share:1", lifecycleState: "PUBLISHED", createdAt: 1 }], paging: { links: [{ rel: "next", href: "/rest/posts?start=10&count=50" }] } }, 10: { elements: [{ id: "urn:li:share:2", lifecycleState: "PUBLISHED", createdAt: 2 }], paging: { links: [{ rel: "next", href: "/rest/posts?start=20&count=50" }] } }, 20: { elements: [{ id: "urn:li:share:3", lifecycleState: "PUBLISHED", createdAt: 3 }], paging: { links: [{ rel: "next", href: "/rest/posts?start=30&count=50" }] } }, 30: { elements: [{ id: "urn:li:share:4", lifecycleState: "PUBLISHED", createdAt: 4 }], paging: { links: [] } } };
+  t.mock.method(globalThis, "fetch", async (url) => {
+    const target = String(url);
+    if (!target.includes("/rest/posts?")) return Response.json({ elements: [] });
+    asked.push(target);
+    return Response.json(pages[new URL(target).searchParams.get("start")]);
+  });
+  const found = await pageNumbers("token", "42");
+  assert.deepEqual(found.videos.map((post) => post.id), ["urn:li:share:1", "urn:li:share:2", "urn:li:share:3"]);
+  assert.equal(asked.length, 3);
+});
+
+test("a later page of posts that fails keeps the posts already read", async (t) => {
+  t.mock.method(globalThis, "fetch", async (url) => {
+    const target = String(url);
+    if (!target.includes("/rest/posts?")) return Response.json({ elements: [] });
+    if (new URL(target).searchParams.get("start") !== "0") return Response.json({}, { status: 500 });
+    return Response.json({ elements: [{ id: "urn:li:share:1", lifecycleState: "PUBLISHED", createdAt: 1 }], paging: { links: [{ rel: "next", href: "/rest/posts?start=10" }] } });
+  });
+  assert.deepEqual((await pageNumbers("token", "42")).videos.map((post) => post.id), ["urn:li:share:1"]);
+});
+
+test("losing the follower count to a network failure keeps the post numbers", async (t) => {
+  t.mock.method(globalThis, "fetch", async (url) => {
+    const target = decodeURIComponent(String(url));
+    if (target.includes("/networkSizes/")) throw new TypeError("network down");
+    if (target.includes("/rest/posts?")) return Response.json({ elements: [{ id: "urn:li:share:1", lifecycleState: "PUBLISHED", createdAt: 1 }] });
+    return Response.json({ elements: [{ share: "urn:li:share:1", totalShareStatistics: { impressionCount: 9 } }] });
+  });
+  const found = await pageNumbers("token", "42");
+  assert.equal(found.followers, null);
+  assert.equal(found.videos[0].views, 9);
+});

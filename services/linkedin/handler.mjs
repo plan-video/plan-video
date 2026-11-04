@@ -229,8 +229,9 @@ export async function pagesFor(accessToken) {
   return { pages };
 }
 
-/** Every call counts against LinkedIn's daily limit, so one page of newest posts, asked about in one go. */
+/** Every call counts against LinkedIn's daily limit, so only the newest posts, asked about in one go. */
 const NUMBERED_POSTS = 50;
+const POST_PAGES = 3;
 const countOf = (value) => (typeof value === "number" && Number.isFinite(value) && value > 0 ? Math.round(value) : 0);
 
 /** A post's first line as people read it, without LinkedIn's markup. */
@@ -250,17 +251,34 @@ async function askStatistics(accessToken, org, field, urns) {
   return result.error ? { error: result.error } : { elements: result.payload?.elements ?? [] };
 }
 
+/** LinkedIn can send a short page with more behind it. Past the first page, what's already read is kept. */
+async function newestPosts(accessToken, org) {
+  const posts = [];
+  let start = 0;
+  for (let page = 0; page < POST_PAGES && posts.length < NUMBERED_POSTS; page++) {
+    const listed = await linkedin(`${REST}/posts?author=${org}&q=author&start=${start}&count=${NUMBERED_POSTS}&sortBy=CREATED`, accessToken, { headers: { ...VERSIONED, "X-RestLi-Method": "FINDER" } }).catch(() => ({
+      error: "Couldn't reach LinkedIn. Try again in a moment.",
+    }));
+    if (listed.error) return page ? { posts } : { error: listed.status === 403 ? "Click Add Page in Connections again, so plan.video can read this Page's numbers." : listed.error };
+    posts.push(...(listed.payload?.elements ?? []).filter((post) => typeof post?.id === "string" && post.lifecycleState === "PUBLISHED"));
+    const next = (listed.payload?.paging?.links ?? []).find((link) => link?.rel === "next")?.href;
+    const at = typeof next === "string" ? Number(new URL(next, REST).searchParams.get("start")) : NaN;
+    if (!(at > start)) break;
+    start = at;
+  }
+  return { posts: posts.slice(0, NUMBERED_POSTS) };
+}
+
 /** A Page's newest posts with their lifetime totals, shaped like the other networks' numbers. */
 export async function pageNumbers(accessToken, organizationId) {
   try {
     const org = encodeURIComponent(pageUrn(organizationId));
-    const listed = await linkedin(`${REST}/posts?author=${org}&q=author&count=${NUMBERED_POSTS}&sortBy=CREATED`, accessToken, { headers: { ...VERSIONED, "X-RestLi-Method": "FINDER" } });
-    if (listed.error) return { error: listed.status === 403 ? "Click Add Page in Connections again, so plan.video can read this Page's numbers." : listed.error };
-    const posts = (listed.payload?.elements ?? []).filter((post) => typeof post?.id === "string" && post.lifecycleState === "PUBLISHED");
+    const { posts, error } = await newestPosts(accessToken, org);
+    if (error) return { error };
     const [shares, ugcPosts, size] = await Promise.all([
       askStatistics(accessToken, org, "shares", posts.filter((post) => post.id.startsWith("urn:li:share:")).map((post) => post.id)),
       askStatistics(accessToken, org, "ugcPosts", posts.filter((post) => post.id.startsWith("urn:li:ugcPost:")).map((post) => post.id)),
-      linkedin(`${REST}/networkSizes/${org}?edgeType=COMPANY_FOLLOWED_BY_MEMBER`, accessToken, { headers: VERSIONED }),
+      linkedin(`${REST}/networkSizes/${org}?edgeType=COMPANY_FOLLOWED_BY_MEMBER`, accessToken, { headers: VERSIONED }).catch(() => ({ error: "unknown" })),
     ]);
     const failed = shares.error || ugcPosts.error;
     if (failed) return { error: failed };
