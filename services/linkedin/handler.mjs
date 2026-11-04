@@ -17,7 +17,7 @@ const VERSIONED = { "LinkedIn-Version": API_VERSION };
 const SCOPE = "openid profile w_member_social";
 // A company Page's login comes from a second LinkedIn app: LinkedIn keeps the Community Management API on an app of its own, versioned routes only.
 // Comments need their own _feed scope: w_organization_social alone gets a 403 from socialActions, whatever its description says.
-const PAGE_SCOPE = "rw_organization_admin w_organization_social w_organization_social_feed";
+const PAGE_SCOPE = "rw_organization_admin w_organization_social w_organization_social_feed r_organization_social";
 const PAGE_ROLES = new Set(["ADMINISTRATOR", "CONTENT_ADMINISTRATOR"]);
 const MAX_PAGES = 25;
 const REST = "https://api.linkedin.com/rest";
@@ -227,6 +227,63 @@ export async function pagesFor(accessToken) {
     }),
   );
   return { pages };
+}
+
+/** Every call counts against LinkedIn's daily limit, so one page of newest posts, asked about in one go. */
+const NUMBERED_POSTS = 50;
+const countOf = (value) => (typeof value === "number" && Number.isFinite(value) && value > 0 ? Math.round(value) : 0);
+
+/** A post's first line as people read it, without LinkedIn's markup. */
+function firstLine(commentary) {
+  if (typeof commentary !== "string") return "";
+  const line = commentary.trim().split("\n")[0];
+  return line.replace(/\{hashtag\|\\?#\|([^}]*)\}/g, "#$1").replace(/@\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/\\(.)/g, "$1").slice(0, 120);
+}
+
+async function askStatistics(accessToken, org, field, urns) {
+  if (!urns.length) return { elements: [] };
+  const list = urns.map(encodeURIComponent).join(",");
+  const result = await linkedin(`${REST}/organizationalEntityShareStatistics?q=organizationalEntity&organizationalEntity=${org}&${field}=List(${list})`, accessToken, { headers: VERSIONED });
+  // LinkedIn answers 400 when none of them has any activity yet.
+  if (result.status === 400) return { elements: [] };
+  if (result.status === 403) return { error: "LinkedIn only shares a Page's numbers with its administrators." };
+  return result.error ? { error: result.error } : { elements: result.payload?.elements ?? [] };
+}
+
+/** A Page's newest posts with their lifetime totals, shaped like the other networks' numbers. */
+export async function pageNumbers(accessToken, organizationId) {
+  try {
+    const org = encodeURIComponent(pageUrn(organizationId));
+    const listed = await linkedin(`${REST}/posts?author=${org}&q=author&count=${NUMBERED_POSTS}&sortBy=CREATED`, accessToken, { headers: { ...VERSIONED, "X-RestLi-Method": "FINDER" } });
+    if (listed.error) return { error: listed.status === 403 ? "Click Add Page in Connections again, so plan.video can read this Page's numbers." : listed.error };
+    const posts = (listed.payload?.elements ?? []).filter((post) => typeof post?.id === "string" && post.lifecycleState === "PUBLISHED");
+    const [shares, ugcPosts, size] = await Promise.all([
+      askStatistics(accessToken, org, "shares", posts.filter((post) => post.id.startsWith("urn:li:share:")).map((post) => post.id)),
+      askStatistics(accessToken, org, "ugcPosts", posts.filter((post) => post.id.startsWith("urn:li:ugcPost:")).map((post) => post.id)),
+      linkedin(`${REST}/networkSizes/${org}?edgeType=COMPANY_FOLLOWED_BY_MEMBER`, accessToken, { headers: VERSIONED }),
+    ]);
+    const failed = shares.error || ugcPosts.error;
+    if (failed) return { error: failed };
+    const totals = new Map([...shares.elements, ...ugcPosts.elements].map((row) => [row?.share ?? row?.ugcPost, row?.totalShareStatistics ?? {}]));
+    return {
+      followers: size.error || typeof size.payload?.firstDegreeSize !== "number" ? null : size.payload.firstDegreeSize,
+      videos: posts.map((post) => {
+        const numbers = totals.get(post.id) ?? {};
+        return {
+          id: post.id,
+          title: firstLine(post.commentary),
+          postedAt: post.publishedAt || post.createdAt || 0,
+          cover: "",
+          url: `https://www.linkedin.com/feed/update/${encodeURIComponent(post.id)}/`,
+          views: countOf(numbers.impressionCount),
+          likes: countOf(numbers.likeCount),
+          comments: countOf(numbers.commentCount),
+        };
+      }),
+    };
+  } catch {
+    return { error: "Couldn't reach LinkedIn. Try again in a moment." };
+  }
 }
 
 export async function register(accessToken, who, kind) {

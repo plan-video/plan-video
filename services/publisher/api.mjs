@@ -3,7 +3,7 @@
 // (a Bluesky app-password login is the one exception, via login/access). Connect-link routes need no sign-in.
 // With `team: { owner, workspace }`, a member reaches only that workspace; only owner and admins connect or remove.
 
-import { memberFor } from "../linkedin/handler.mjs";
+import { memberFor, pageNumbers } from "../linkedin/handler.mjs";
 import { creatorFor, profileFor, videosFor } from "../tiktok/handler.mjs";
 import { analyticsFor, analyticsProblem, channelFor } from "../youtube/handler.mjs";
 
@@ -29,6 +29,10 @@ const NETWORK_READS = {
   "/api/publisher/tiktok/videos": { platform: "tiktok", read: videosFor },
   "/api/publisher/tiktok/creator": { platform: "tiktok", read: creatorFor },
   "/api/publisher/linkedin/profile": { platform: "linkedin", read: memberFor },
+  "/api/publisher/linkedin/analytics": {
+    platform: "linkedin",
+    read: (token, session) => (session.organizationId ? pageNumbers(token, session.organizationId) : { error: "plan.video only reads numbers for LinkedIn company Pages so far." }),
+  },
 };
 
 export function json(res, status, body) {
@@ -463,7 +467,7 @@ export function createApi({ env, vault, worker, users, kick, bluesky, limits, db
       await mustBeListed(scope, connectionId);
       const login = await vault.fresh(scope.actor, connectionId);
       if (login.platform !== platform) throw new Refused(400, platform === "tiktok" ? "That isn't a TikTok account." : "That isn't a LinkedIn account.");
-      const result = await read(login.session.accessToken);
+      const result = await read(login.session.accessToken, login.session);
       json(res, result.error ? 400 : 200, result.error ? { error: result.error } : result);
       return;
     }

@@ -2,7 +2,9 @@
 
 ## Which networks
 
-Analytics has numbers for **TikTok, YouTube, Instagram, Facebook Pages and Threads**. X, LinkedIn and Bluesky don't show numbers here yet.
+Analytics has numbers for **TikTok, YouTube, Instagram, Facebook Pages, Threads and LinkedIn company Pages**. X, Bluesky and personal LinkedIn profiles don't show numbers here yet.
+
+A LinkedIn Page's views are its impressions, from its 50 newest posts, and only the Page's administrators can see them.
 
 ## What's in it
 

@@ -24,7 +24,7 @@ export const analytics = defineTool({
   name: "analytics",
   title: "Analytics",
   description:
-    "Read the person's numbers from the Analytics page: views, likes and comments for each connected account that reports them (TikTok, YouTube, Instagram, Facebook Pages and Threads), how posts did by the weekday and hour they went out, and their top posts. Call this before picking days or times from how their posts perform, or when they ask how they're doing. Days and hours are in the dashboard time zone. A post's numbers are its totals so far, so the newest posts have had less time.",
+    "Read the person's numbers from the Analytics page: views, likes and comments for each connected account that reports them (TikTok, YouTube, Instagram, Facebook Pages, Threads and LinkedIn Pages), how posts did by the weekday and hour they went out, and their top posts. Call this before picking days or times from how their posts perform, or when they ask how they're doing. Days and hours are in the dashboard time zone. A post's numbers are its totals so far, so the newest posts have had less time.",
   input: z.object({
     platform: z.enum(["tiktok", "youtube", "instagram", "facebook", "threads"]).optional().describe("One network. Omit for every account that reports numbers."),
     account: z.string().optional().describe("One account id, from social_accounts."),

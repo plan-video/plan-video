@@ -21,7 +21,7 @@ plan.video runs an MCP server at `https://plan.video/mcp`. Any agent that suppor
 
 - see your connected accounts, media library and calendar
 - write, schedule, move and delete posts
-- read your Analytics, for TikTok, YouTube, Instagram, Facebook Pages and Threads, and pick good times
+- read your Analytics, for TikTok, YouTube, Instagram, Facebook Pages, Threads and LinkedIn Pages, and pick good times
 - publish a post when you ask, once you've allowed it in your tab
 
 <Warning>
