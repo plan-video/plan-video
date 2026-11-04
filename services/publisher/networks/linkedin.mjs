@@ -3,7 +3,7 @@
 // whose uploads can't be asked after with this login, so they're given a minute before posting.
 // Follow-ups go as comments, in words alone.
 
-import { COMMENT_LIMIT, assetState, clip, createComment, createImagesPost, createPost, pageUrn, register, registerImage } from "../../linkedin/handler.mjs";
+import { COMMENT_LIMIT, assetState, clip, createComment, createImagesPost, createPost, finishVideo, pageUrn, register, registerImage, registerVideo, videoState } from "../../linkedin/handler.mjs";
 
 import { PublishError } from "../errors.mjs";
 import { captionOf } from "./text.mjs";
@@ -12,6 +12,7 @@ const TEXT_LIMIT = 3000;
 const MAX_VIDEO_BYTES = 200 * 1024 * 1024;
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const MAX_PICTURES = 20;
+const PART_TIMEOUT_MS = 120_000;
 const PROCESSING_MS = 60 * 60_000;
 /** Several pictures can't be asked after, so they're given this long after their upload before the post is made. */
 export const PICTURES_WAIT_MS = 60_000;
@@ -46,6 +47,42 @@ async function put(session, media, file, uploadUrl) {
   if (response.status !== 200 && response.status !== 201) throw new PublishError("LinkedIn didn't take the file. Trying again soon.", { retry: true });
 }
 
+/** LinkedIn picks each part's size, and the store's chunks rarely line up with them. A lost part means uploading again from the start. */
+async function uploadVideo(session, media, file) {
+  const plan = await registerVideo(session.accessToken, who(session), file.size);
+  if (plan.error) throw new PublishError(plan.error);
+  const stopped = () => new PublishError("The upload to LinkedIn stopped. Trying again soon.", { retry: true });
+  const reader = (await media.stream(file.key)).getReader();
+  const ids = [];
+  try {
+    let held = new Uint8Array(0);
+    for (const part of plan.parts) {
+      const bytes = Buffer.allocUnsafe(part.lastByte - part.firstByte + 1);
+      for (let at = 0; at < bytes.length; ) {
+        if (!held.length) {
+          const { done, value } = await reader.read();
+          if (done) throw stopped();
+          held = value;
+        }
+        const taken = held.subarray(0, bytes.length - at);
+        bytes.set(taken, at);
+        at += taken.length;
+        held = held.subarray(taken.length);
+      }
+      // These links carry their own permission, and LinkedIn's docs send no login with a video's.
+      const response = await fetch(part.uploadUrl, { method: "PUT", headers: { "Content-Type": "application/octet-stream" }, body: bytes, signal: AbortSignal.timeout(PART_TIMEOUT_MS) }).catch(() => null);
+      const id = response?.ok ? response.headers.get("etag")?.replace(/^"|"$/g, "") : "";
+      if (!id) throw stopped();
+      ids.push(id);
+    }
+  } finally {
+    await reader.cancel().catch(() => undefined);
+  }
+  const finished = await finishVideo(session.accessToken, plan, ids);
+  if (finished.error) throw new PublishError(finished.error, { retry: true });
+  return { state: "processing", publishId: `video:${plan.video}` };
+}
+
 /** The row keeps a post's one file as `kind:asset`. */
 function uploaded(delivery) {
   if (delivery.publish_id.startsWith(PICTURES)) return { pictures: delivery.publish_id.slice(PICTURES.length).split(",") };
@@ -69,7 +106,10 @@ export const linkedin = {
       throw new PublishError(chosen.length === 1 ? "That picture is too large for LinkedIn. It can be 10 MB." : "A picture is too large for LinkedIn. Each can be 10 MB.");
     }
 
-    if (chosen.length > 1) {
+    if (video && session.organizationId) return uploadVideo(session, media, video);
+
+    // LinkedIn's older uploads refuse a Page as the owner, so even its one picture comes this way.
+    if (chosen.length > 1 || session.organizationId) {
       const pictures = [];
       for (const file of chosen) {
         const plan = await registerImage(session.accessToken, who(session));
@@ -91,7 +131,7 @@ export const linkedin = {
   async check({ session, delivery }) {
     // Pictures LinkedIn can't be asked about. They're ready in seconds, and are given a minute from their upload, when processing started.
     if (uploaded(delivery).pictures) return Date.now() - Date.parse(delivery.updated_at) >= PICTURES_WAIT_MS ? { state: "ready" } : { state: "processing", publishId: delivery.publish_id };
-    const state = await assetState(session.accessToken, uploaded(delivery).asset, who(session));
+    const state = await (session.organizationId ? videoState(session.accessToken, uploaded(delivery).asset) : assetState(session.accessToken, uploaded(delivery).asset));
     if (state.error) throw new PublishError(state.error, { retry: true });
     if (state.state === "ready") return { state: "ready" };
     if (Date.now() - Date.parse(delivery.updated_at) > PROCESSING_MS) throw new PublishError("LinkedIn didn't finish processing the file. Try again.");
