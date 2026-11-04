@@ -76,7 +76,7 @@ The network's service and the publisher both read these. `meta.env` has no servi
 | --- | --- |
 | `tiktok.env` | `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`, and `TIKTOK_READ_VIDEOS=true` once your app has `video.list` |
 | `youtube.env` | `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET` |
-| `linkedin.env` | `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET` |
+| `linkedin.env` | `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET`, and for company Pages `LINKEDIN_PAGES_CLIENT_ID`, `LINKEDIN_PAGES_CLIENT_SECRET` |
 | `x.env` | `X_CLIENT_ID`, `X_CLIENT_SECRET` |
 | `meta.env` | `INSTAGRAM_APP_ID`, `INSTAGRAM_APP_SECRET`, `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET`, `FACEBOOK_CONFIG_ID`, `THREADS_APP_ID`, `THREADS_APP_SECRET` |
 

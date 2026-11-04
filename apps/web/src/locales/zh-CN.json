@@ -770,6 +770,8 @@
   "Sign in again to post on schedule": "重新登录才能按时发布",
   "Login runs out soon": "登录即将过期",
   "Couldn't start {network} login.": "无法开始 {network} 登录。",
+  "Reconnect Pages": "重新连接主页",
+  "Add Page": "添加主页",
   "Reconnect": "重新连接",
   "Add account": "添加账号",
   "Connect": "连接",

@@ -25,6 +25,15 @@ test("only the fields a login needs are kept", () => {
   });
   assert.equal(cleanSession("bluesky", { did: "did:plc:x", pds: "http://insecure", refreshJwt: "r" }), null);
   assert.equal(cleanSession("myspace", { accessToken: "a" }), null);
+  assert.deepEqual(cleanSession("linkedin", { organizationId: "42", personId: "p", accessToken: "a", refreshToken: "r", expiresAt: 5, scope: "s" }), {
+    organizationId: "42",
+    accessToken: "a",
+    refreshToken: "r",
+    expiresAt: 5,
+    scope: "s",
+  });
+  assert.equal(cleanSession("linkedin", { organizationId: "urn:li:person:x", accessToken: "a" }), null);
+  assert.equal(cleanSession("linkedin", { organizationId: "", personId: "p", accessToken: "a" }), null);
 });
 
 test("a login about to run out is refreshed once, and the new refresh token kept", async (t) => {
@@ -74,4 +83,19 @@ test("an account-name-only Bluesky login needs its ticket checked first", async 
   await assert.rejects(vault.put("u1", "c1", "bluesky", { oauth: true, did: "did:plc:x" }), /isn't a login/);
   await vault.put("u1", "c1", "bluesky", { oauth: true, did: "did:plc:x", owner: "u2" }, { allowOAuth: true });
   assert.deepEqual((await vault.read("u1", "c1")).session, { did: "did:plc:x", oauth: true, owner: "u1" });
+});
+
+test("a Page's login renews with the Pages app, and a person's with the first", async (t) => {
+  const clients = [];
+  t.mock.method(globalThis, "fetch", async (_url, init) => {
+    clients.push(new URLSearchParams(init.body).get("client_id"));
+    return Response.json({ access_token: "new", expires_in: 86400 });
+  });
+  const db = fakeDb();
+  const vault = createVault({ key: KEY, db, env: { linkedin: { clientId: "first", clientSecret: "s" }, linkedinPages: { clientId: "pages", clientSecret: "s" } } });
+  await vault.put("u1", "person", "linkedin", { personId: "p", accessToken: "old", refreshToken: "r", expiresAt: Date.now() });
+  await vault.put("u1", "page", "linkedin", { organizationId: "42", accessToken: "old", refreshToken: "r", expiresAt: Date.now() });
+  assert.equal((await vault.fresh("u1", "person")).session.accessToken, "new");
+  assert.equal((await vault.fresh("u1", "page")).session.accessToken, "new");
+  assert.deepEqual(clients, ["first", "pages"]);
 });

@@ -18,6 +18,11 @@ export const LINKEDIN_TEXT_LIMIT = 3000;
 export const LINKEDIN_RENEW_AHEAD_MS = 7 * 24 * 60 * 60 * 1000;
 
 const STATE_KEY = "plan.video.linkedin.state";
+/** Starts the state of a login for company Pages, so the callback knows which kind came back. */
+const PAGES_STATE = "pages-";
+
+/** Pages stay off until LinkedIn approves the Pages app beyond its test limits. */
+export const LINKEDIN_PAGES = import.meta.env.VITE_LINKEDIN_PAGES === "true";
 
 /** Must match a URL saved on the LinkedIn app exactly. */
 export function linkedinRedirect(): string {
@@ -36,8 +41,8 @@ type Exchanged = {
   ticket?: string;
 };
 
-export function rememberLinkedInState(): string {
-  const state = crypto.randomUUID();
+export function rememberLinkedInState(forPages = false): string {
+  const state = `${forPages ? PAGES_STATE : ""}${crypto.randomUUID()}`;
   keepForLogin(STATE_KEY, state);
   return state;
 }
@@ -46,8 +51,10 @@ export function takeLinkedInState(): string | null {
   return takeFromLogin(STATE_KEY);
 }
 
+export const isLinkedInPagesState = (state: string | null): boolean => !!state?.startsWith(PAGES_STATE);
+
 export async function linkedinAuthorizeUrl(state: string): Promise<string> {
-  const { url, error } = await post<{ url?: string; error?: string }>("/api/linkedin/authorize", { redirectUri: linkedinRedirect(), state });
+  const { url, error } = await post<{ url?: string; error?: string }>("/api/linkedin/authorize", { redirectUri: linkedinRedirect(), state, ...(isLinkedInPagesState(state) ? { pages: true } : {}) });
   if (!url) throw new Error(error || t("Couldn't start LinkedIn login."));
   return url;
 }
@@ -65,6 +72,24 @@ export async function exchangeLinkedInCode(code: string): Promise<LinkedInSessio
     expiresAt: found.expiresAt || 0,
     scope: found.scope || "",
   };
+}
+
+type ExchangedPages = {
+  accounts?: { organizationId?: string; displayName?: string; expiresAt?: number; renewable?: boolean; scope?: string; ticket?: string }[];
+};
+
+/** One account for each Page the member can post to, each with its own ticket. */
+export async function exchangeLinkedInPagesCode(code: string): Promise<(LinkedInSession & { handle: string; avatarUrl: string })[]> {
+  const found = await exchangeOnServer<ExchangedPages>("linkedin/pages/exchange", { code, redirectUri: linkedinRedirect() }, t("Couldn't reach LinkedIn. Try again in a moment."));
+  return (found.accounts ?? []).map((account) => ({
+    handle: account.displayName || "LinkedIn",
+    avatarUrl: "",
+    organizationId: account.organizationId,
+    ticket: account.ticket,
+    renewable: account.renewable === true,
+    expiresAt: account.expiresAt || 0,
+    scope: account.scope || "",
+  }));
 }
 
 /** LinkedIn gave a refresh token. Older logins kept it here. */

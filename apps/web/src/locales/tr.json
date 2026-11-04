@@ -770,6 +770,8 @@
   "Sign in again to post on schedule": "Planlı yayınlar için yeniden giriş yap",
   "Login runs out soon": "Oturumun süresi yakında doluyor",
   "Couldn't start {network} login.": "{network} girişi başlatılamadı.",
+  "Reconnect Pages": "Sayfaları yeniden bağla",
+  "Add Page": "Sayfa ekle",
   "Reconnect": "Yeniden bağla",
   "Add account": "Hesap ekle",
   "Connect": "Bağla",

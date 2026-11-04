@@ -2,12 +2,12 @@
 // so a browser that got one connecting for someone else's workspace could keep posting after leaving it.
 // The publisher swaps the code itself and hands back a ticket sealed and bound to person and workspace.
 
-import { redirectsFor, memberFor, tokenRequest } from "../linkedin/handler.mjs";
+import { redirectsFor, memberFor, pagesFor, tokenRequest } from "../linkedin/handler.mjs";
 
 import { Refused } from "./errors.mjs";
 import { openTicket, sealTicket, sealer } from "./vault.mjs";
 
-export function createLinkedInLogins({ key, env, now = () => Date.now(), token = tokenRequest, member = memberFor }) {
+export function createLinkedInLogins({ key, env, pagesEnv, now = () => Date.now(), token = tokenRequest, member = memberFor, pages = pagesFor }) {
   const box = sealer(key);
   return {
     /** Returns the member, when the login runs out and whether it renews on its own, and a ticket, never the tokens. */
@@ -29,6 +29,29 @@ export function createLinkedInLogins({ key, env, now = () => Date.now(), token =
         renewable: !!login.refreshToken,
         scope: login.scope,
         ticket: sealTicket(box, "linkedin", holder, session, now()),
+      };
+    },
+
+    /** One account and ticket per Page the member can post to, all sharing the one login. */
+    async exchangePages(holder, { code, redirectUri }) {
+      if (!pagesEnv?.clientId || !pagesEnv.clientSecret) throw new Refused(503, "LinkedIn Pages aren't set up on the server yet.");
+      if (!redirectsFor(pagesEnv.publicUrl).has(redirectUri)) throw new Refused(400, "That LinkedIn redirect address isn't allowed.");
+      if (!code) throw new Refused(400, "LinkedIn sent the login back without a code. Try again.");
+      const login = await token(pagesEnv, { grant_type: "authorization_code", code, redirect_uri: redirectUri }).catch(() => ({ error: "Couldn't reach LinkedIn. Try again in a moment." }));
+      if (login.error) throw new Refused(400, login.error);
+      const found = await pages(login.accessToken).catch(() => ({ error: "Couldn't reach LinkedIn. Try again in a moment." }));
+      if (found.error) throw new Refused(400, found.error);
+      if (!found.pages.length) throw new Refused(400, "LinkedIn didn't find a Page you can post to. Ask one of its admins to give you a role, then try again.");
+      const expiresAt = now() + (login.expiresIn || 0) * 1000;
+      return {
+        accounts: found.pages.map(({ organizationId, name }) => ({
+          organizationId,
+          displayName: name,
+          expiresAt,
+          renewable: !!login.refreshToken,
+          scope: login.scope,
+          ticket: sealTicket(box, "linkedin", holder, { organizationId, accessToken: login.accessToken, refreshToken: login.refreshToken, expiresAt, scope: login.scope }, now()),
+        })),
       };
     },
 

@@ -8,7 +8,7 @@ import { loadBlueskyProfile } from "@/lib/bluesky";
 import { finishBlueskySignIn } from "@/lib/bluesky-oauth";
 import { linkSignInFor } from "@/lib/connect-link";
 import { t } from "@/lib/i18n";
-import { exchangeLinkedInCode, takeLinkedInState } from "@/lib/linkedin";
+import { exchangeLinkedInCode, exchangeLinkedInPagesCode, isLinkedInPagesState, takeLinkedInState } from "@/lib/linkedin";
 import { exchangeMetaCode, isMetaNetwork, takeMetaState } from "@/lib/meta";
 import { connectBluesky, connectLinkedIn, connectMeta, connectTikTok, connectX, connectYouTube, loadSocialConnections } from "@/lib/social-connections";
 import { exchangeTikTokCode, takeTikTokState } from "@/lib/tiktok";
@@ -85,7 +85,22 @@ async function finish(network: ReturningNetwork, userId: string, params: URLSear
     return account.handle;
   }
   if (network === "linkedin") {
-    const account = await exchangeLinkedInCode(codeFrom(params, takeLinkedInState(), "LinkedIn"));
+    const state = takeLinkedInState();
+    const code = codeFrom(params, state, "LinkedIn");
+    if (isLinkedInPagesState(state)) {
+      const accounts = await exchangeLinkedInPagesCode(code);
+      const kept: string[] = [];
+      let problem: string | null = null;
+      for (const account of accounts) {
+        const refused = connectLinkedIn(userId, account);
+        if (refused) problem ??= refused;
+        else kept.push(account.handle);
+      }
+      if (!kept.length) throw new Error(problem ?? t("{network} didn't return an account.", { network: NAMES[network] }));
+      if (problem) toast.error(t("Some Pages weren't connected"), { description: problem });
+      return kept.join(", ");
+    }
+    const account = await exchangeLinkedInCode(code);
     const problem = connectLinkedIn(userId, account);
     if (problem) throw new Error(problem);
     return account.handle;

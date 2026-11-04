@@ -39,7 +39,9 @@ export type YouTubeSession = {
 
 /** Tokens kept on the server. `expiresAt` is when LinkedIn wants the member to sign in again. */
 export type LinkedInSession = {
-  personId: string;
+  /** Who posts: a person, or a company Page, never both. */
+  personId?: string;
+  organizationId?: string;
   /** Attaches the login the server got while connecting, once. */
   ticket?: string;
   /** The server renews the login without the member. */
@@ -132,10 +134,10 @@ function withId(value: SocialConnection): SocialConnection {
   return rest.id ? rest : { ...rest, id: crypto.randomUUID() };
 }
 
-/** A Facebook Page goes by its own name rather than "@handle". */
-export function accountLabel(account: { platform: string; handle?: string }) {
+/** A Facebook or LinkedIn Page goes by its own name rather than "@handle". */
+export function accountLabel(account: { platform: string; handle?: string; linkedin?: LinkedInSession }) {
   if (!account.handle) return "";
-  return account.platform === "facebook" ? account.handle : `@${account.handle}`;
+  return account.platform === "facebook" || account.linkedin?.organizationId ? account.handle : `@${account.handle}`;
 }
 
 export function socialConnections() {
@@ -480,22 +482,22 @@ export function connectYouTube(userId: string, account: { handle: string; avatar
 }
 
 
-/** The same member replaces the old login. */
+/** The same member or Page replaces the old login. */
 export function connectLinkedIn(userId: string, account: { handle: string; avatarUrl?: string } & LinkedInSession): string | null {
   const clean = cleanHandle(account.handle) || "LinkedIn";
-  if (!userId || !account.ticket || !account.personId) return t("LinkedIn didn't return an account.");
+  if (!userId || !account.ticket || !(account.personId || account.organizationId)) return t("LinkedIn didn't return an account.");
   loadSocialConnections(userId);
   const linkedin: LinkedInSession = {
-    personId: account.personId,
+    ...(account.organizationId ? { organizationId: account.organizationId } : { personId: account.personId }),
     ticket: account.ticket,
     ...(account.renewable ? { renewable: true } : {}),
     expiresAt: account.expiresAt,
     scope: account.scope,
   };
   const placeholders = connections().filter((item) => item.platform === "linkedin" && !item.linkedin);
-  const existing =
-    connections().find((item) => item.platform === "linkedin" && item.linkedin?.personId === account.personId) ??
-    (placeholders.length === 1 ? placeholders[0] : undefined);
+  const existing = account.organizationId
+    ? connections().find((item) => item.platform === "linkedin" && item.linkedin?.organizationId === account.organizationId)
+    : (connections().find((item) => item.platform === "linkedin" && item.linkedin?.personId === account.personId) ?? (placeholders.length === 1 ? placeholders[0] : undefined));
   if (!existing) {
     const full = noRoomFor(userId);
     if (full) return full;

@@ -32,6 +32,7 @@ const env = {
   publicUrl: linkedin.PUBLIC_URL || shared.PUBLIC_URL || "https://plan.video",
   clientId: linkedin.LINKEDIN_CLIENT_ID || "",
   clientSecret: linkedin.LINKEDIN_CLIENT_SECRET || "",
+  pages: { clientId: linkedin.LINKEDIN_PAGES_CLIENT_ID || "" },
   supabaseUrl: shared.SUPABASE_URL || linkedin.SUPABASE_URL || "",
   supabaseAnonKey: shared.SUPABASE_ANON_KEY || linkedin.SUPABASE_ANON_KEY || "",
   requireInvite: (linkedin.REQUIRE_INVITE || shared.REQUIRE_INVITE) !== "false",

@@ -15,6 +15,7 @@ export function handleLinkedIn(
     supabaseUrl: string;
     supabaseAnonKey: string;
     requireInvite: boolean;
+    pages?: { clientId: string };
   },
 ): Promise<void>;
 

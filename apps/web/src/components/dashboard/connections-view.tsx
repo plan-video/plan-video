@@ -32,7 +32,7 @@ import {
   loginReady,
   socialConnections,
 } from "@/lib/social-connections";
-import { linkedinAuthorizeUrl, linkedinNeedsRenewal, rememberLinkedInState } from "@/lib/linkedin";
+import { LINKEDIN_PAGES, linkedinAuthorizeUrl, linkedinNeedsRenewal, rememberLinkedInState } from "@/lib/linkedin";
 import { META_NAMES, isMetaNetwork, metaAuthorizeUrl, rememberMetaState, type MetaNetwork } from "@/lib/meta";
 import { forgetLogin } from "@/lib/publishing";
 import { rememberXState, xAuthorizeUrl } from "@/lib/x";
@@ -133,8 +133,8 @@ export function DashboardConnectionsView() {
     window.location.assign(url);
   };
 
-  const beginLinkedIn = async () => {
-    const url = await linkedinAuthorizeUrl(rememberLinkedInState());
+  const beginLinkedIn = async (forPages = false) => {
+    const url = await linkedinAuthorizeUrl(rememberLinkedInState(forPages));
     window.location.assign(url);
   };
 
@@ -240,7 +240,9 @@ export function DashboardConnectionsView() {
               {(item) => {
                 const accounts = () => connectionsFor(item.id);
                 /** LinkedIn logins run out after 60 days and can't be renewed in the background. */
-                const renew = () => accounts().some((account) => account.linkedin && linkedinNeedsRenewal(account.linkedin));
+                const renewing = (forPages: boolean) => accounts().some((account) => account.linkedin && !!account.linkedin.organizationId === forPages && linkedinNeedsRenewal(account.linkedin));
+                const renew = () => renewing(false);
+                const hasPages = () => accounts().some((account) => account.linkedin?.organizationId);
                 /**
                  * An older "Sign in with Bluesky" stays in the browser that made it, and an Instagram, Facebook or
                  * Threads account added by name before it could sign in has no login, so posts can't go out from the server.
@@ -258,7 +260,7 @@ export function DashboardConnectionsView() {
                         <p class="flex items-center gap-1.5 text-xs leading-4 text-muted-foreground">
                           <Show when={accounts().length > 0} fallback={locked(item.id) ? t("Paid plans only") : t("Not connected")}>
                             <Show
-                              when={renew() || moved()}
+                              when={renew() || renewing(true) || moved()}
                               fallback={
                                 <>
                                   <span class="size-1.5 rounded-full bg-meter-green" />
@@ -287,6 +289,21 @@ export function DashboardConnectionsView() {
                           </Button>
                         }
                       >
+                        <Show when={item.id === "linkedin" && (LINKEDIN_PAGES || hasPages())}>
+                          <Button
+                            variant="secondary"
+                            class="mr-2"
+                            onClick={() => {
+                              if (auth.isGuest()) return askForAccount({ reason: "connect", platform: item.id });
+                              if (!renewing(true) && refuseWhenFull()) return;
+                              void beginLinkedIn(true).catch((error: unknown) => {
+                                toast.error(error instanceof Error ? error.message : t("Couldn't start {network} login.", { network: "LinkedIn" }));
+                              });
+                            }}
+                          >
+                            {renewing(true) ? t("Reconnect Pages") : t("Add Page")}
+                          </Button>
+                        </Show>
                         <Button
                           variant="secondary"
                           onClick={() => {
@@ -353,8 +370,8 @@ export function DashboardConnectionsView() {
                               .then(() => forgetLogin(accountId, team))
                               .then((revoked) => {
                                 if (revoked) return;
-                                // Meta has no way for an app to end its own access to one account: the login is deleted, and the rest is the person's to do.
-                                if (removed && isMetaNetwork(removed.platform)) {
+                                // Meta has no way for an app to end its own access to one account, and a LinkedIn Page shares its login with its member's other Pages: the login is deleted here, and the rest is the person's to do.
+                                if (removed && (isMetaNetwork(removed.platform) || removed.linkedin?.organizationId)) {
                                   toast(t("Disconnected {network}", { network }), {
                                     description: t("plan.video deleted its login. To remove plan.video from {network} too, remove it from the apps connected in {network}'s settings.", { network }),
                                   });
