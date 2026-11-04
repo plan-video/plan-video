@@ -116,43 +116,105 @@ test("a Page posts as itself through the versioned API, and a person's post does
   assert.equal(calls[1].body.author, "urn:li:person:p1");
 });
 
-for (const [kind, type, urn] of [["video", "video/mp4", "urn:li:video:abc"], ["image", "image/jpeg", "urn:li:image:abc"]]) {
-  test(`a Page's ${kind} uploads and goes out under the Page`, async (t) => {
-    const calls = [];
-    t.mock.method(globalThis, "fetch", async (url, init = {}) => {
-      calls.push({ url: String(url), method: init.method ?? "GET", headers: init.headers, body: typeof init.body === "string" ? JSON.parse(init.body) : null });
-      if (String(url).includes("registerUpload")) {
-        return Response.json({
-          value: {
-            asset: "urn:li:digitalmediaAsset:abc",
-            uploadMechanism: { "com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest": { uploadUrl: "https://www.linkedin.com/dms-uploads/abc/0" } },
-          },
-        });
+test("a Page's one picture uses the Images API, since LinkedIn's older uploads refuse a Page", async (t) => {
+  const calls = [];
+  t.mock.method(globalThis, "fetch", async (url, init = {}) => {
+    calls.push({ url: String(url), method: init.method ?? "GET", headers: init.headers, body: typeof init.body === "string" ? JSON.parse(init.body) : null });
+    if (String(url).includes("/rest/images")) return Response.json({ value: { uploadUrl: "https://www.linkedin.com/dms-uploads/pic/uploaded-image/0", image: "urn:li:image:pic" } });
+    if (String(url).includes("/dms-uploads/")) return new Response(null, { status: 201 });
+    return new Response(null, { status: 201, headers: { "x-restli-id": "urn:li:share:8" } });
+  });
+  const media = { stream: async () => new Blob(["x"]).stream() };
+  const files = [{ id: "f", key: "posts/u1/f", size: 1, type: "image/jpeg", kind: "image" }];
+
+  const sent = await linkedin.send({ post: { description: "Hi" }, session: PAGE, files, media });
+  assert.deepEqual(sent, { state: "processing", publishId: "images:urn:li:image:pic" });
+  assert.equal(calls.some((call) => call.url.includes("/assets")), false);
+  assert.equal(calls[0].body.initializeUploadRequest.owner, PAGE_URN);
+
+  const delivery = { publish_id: sent.publishId, updated_at: new Date(Date.now() - PICTURES_WAIT_MS).toISOString() };
+  assert.deepEqual(await linkedin.check({ session: PAGE, delivery }), { state: "ready" });
+  await linkedin.publish({ post: { description: "Hi" }, session: PAGE, delivery });
+  assert.equal(calls.at(-1).url, "https://api.linkedin.com/rest/posts");
+  assert.equal(calls.at(-1).body.author, PAGE_URN);
+  assert.deepEqual(calls.at(-1).body.content, { media: { id: "urn:li:image:pic" } });
+});
+
+test("a Page's video uploads part by part, finalizes, waits for LinkedIn, and goes out under the Page", async (t) => {
+  const calls = [];
+  const parts = [];
+  let status = "PROCESSING";
+  t.mock.method(globalThis, "fetch", async (url, init = {}) => {
+    const href = String(url);
+    calls.push({ url: href, method: init.method ?? "GET", headers: init.headers, body: typeof init.body === "string" ? JSON.parse(init.body) : null });
+    if (href.includes("action=initializeUpload")) {
+      return Response.json({
+        value: {
+          video: "urn:li:video:vid",
+          uploadToken: "tok",
+          uploadInstructions: [
+            { uploadUrl: "https://www.linkedin.com/dms-uploads/vid/uploadedVideo?pn=1", firstByte: 0, lastByte: 3 },
+            { uploadUrl: "https://www.linkedin.com/dms-uploads/vid/uploadedVideo?pn=2", firstByte: 4, lastByte: 5 },
+          ],
+        },
+      });
+    }
+    if (href.includes("/dms-uploads/")) {
+      parts.push(Buffer.from(init.body).toString());
+      return new Response(null, { status: 200, headers: { etag: `"part-${parts.length}"` } });
+    }
+    if (href.includes("action=finalizeUpload")) return new Response(null, { status: 200 });
+    if (href.includes("/rest/videos/")) return Response.json({ status });
+    return new Response(null, { status: 201, headers: { "x-restli-id": "urn:li:ugcPost:8" } });
+  });
+  // Chunks that don't line up with LinkedIn's parts.
+  const media = { stream: async () => new Blob(["ab", "cde", "f"]).stream() };
+  const files = [{ id: "f", key: "posts/u1/f", size: 6, type: "video/mp4", kind: "video" }];
+
+  const sent = await linkedin.send({ post: { description: "Hi" }, session: PAGE, files, media });
+  assert.deepEqual(sent, { state: "processing", publishId: "video:urn:li:video:vid" });
+  assert.deepEqual(calls[0].body, { initializeUploadRequest: { owner: PAGE_URN, fileSizeBytes: 6, uploadCaptions: false, uploadThumbnail: false } });
+  assert.equal(calls[0].headers["LinkedIn-Version"], "202609");
+  assert.deepEqual(parts, ["abcd", "ef"]);
+  assert.equal(calls.filter((call) => call.url.includes("/dms-uploads/")).some((call) => call.headers.Authorization), false);
+  const finalize = calls.find((call) => call.url.includes("action=finalizeUpload"));
+  assert.deepEqual(finalize.body, { finalizeUploadRequest: { video: "urn:li:video:vid", uploadToken: "tok", uploadedPartIds: ["part-1", "part-2"] } });
+
+  const delivery = { publish_id: sent.publishId, updated_at: new Date().toISOString() };
+  assert.deepEqual(await linkedin.check({ session: PAGE, delivery }), { state: "processing", publishId: sent.publishId });
+  assert.equal(calls.at(-1).url, "https://api.linkedin.com/rest/videos/urn%3Ali%3Avideo%3Avid");
+  status = "AVAILABLE";
+  assert.deepEqual(await linkedin.check({ session: PAGE, delivery }), { state: "ready" });
+  status = "PROCESSING_FAILED";
+  await assert.rejects(linkedin.check({ session: PAGE, delivery }), /couldn't process/);
+
+  await linkedin.publish({ post: { description: "Hi" }, session: PAGE, delivery });
+  assert.equal(calls.at(-1).body.author, PAGE_URN);
+  assert.deepEqual(calls.at(-1).body.content, { media: { id: "urn:li:video:vid" } });
+});
+
+test("a Page's video that loses a part, or gets no receipt for one, is tried again whole", async (t) => {
+  for (const answer of [() => new Response(null, { status: 500 }), () => new Response(null, { status: 200 })]) {
+    t.mock.method(globalThis, "fetch", async (url) => {
+      if (String(url).includes("initializeUpload")) {
+        return Response.json({ value: { video: "urn:li:video:vid", uploadToken: "", uploadInstructions: [{ uploadUrl: "https://www.linkedin.com/dms-uploads/vid/uploadedVideo", firstByte: 0, lastByte: 0 }] } });
       }
-      if (String(url).includes("/dms-uploads/")) return new Response(null, { status: 201 });
-      if (String(url).includes("/rest/assets/")) return Response.json({ recipes: [{ status: "AVAILABLE" }] });
-      return new Response(null, { status: 201, headers: { "x-restli-id": "urn:li:ugcPost:8" } });
+      if (String(url).includes("/dms-uploads/")) return answer();
+      throw new Error(`nothing else should be asked: ${url}`);
     });
     const media = { stream: async () => new Blob(["x"]).stream() };
-    const files = [{ id: "f", key: "posts/u1/f", size: 1, type, kind }];
+    const files = [{ id: "f", key: "k", size: 1, type: "video/mp4", kind: "video" }];
+    await assert.rejects(linkedin.send({ post: { description: "Hi" }, session: PAGE, files, media }), (error) => error.retry === true);
+    t.mock.restoreAll();
+  }
+});
 
-    const sent = await linkedin.send({ post: { description: "Hi" }, session: PAGE, files, media });
-    assert.deepEqual(sent, { state: "processing", publishId: `${kind}:urn:li:digitalmediaAsset:abc` });
-    assert.equal(calls[0].url, "https://api.linkedin.com/rest/assets?action=registerUpload");
-    assert.equal(calls[0].headers["LinkedIn-Version"], "202609");
-    assert.equal(calls[0].body.registerUploadRequest.owner, PAGE_URN);
-
-    const delivery = { publish_id: sent.publishId, updated_at: new Date().toISOString() };
-    assert.deepEqual(await linkedin.check({ session: PAGE, delivery }), { state: "ready" });
-    assert.equal(calls.at(-1).url, "https://api.linkedin.com/rest/assets/abc");
-    assert.equal(calls.at(-1).headers["LinkedIn-Version"], "202609");
-
-    await linkedin.publish({ post: { description: "Hi" }, session: PAGE, delivery });
-    assert.equal(calls.at(-1).url, "https://api.linkedin.com/rest/posts");
-    assert.equal(calls.at(-1).body.author, PAGE_URN);
-    assert.deepEqual(calls.at(-1).body.content, { media: { id: urn } });
-  });
-}
+test("LinkedIn's own reason for refusing a request is what people see", async (t) => {
+  t.mock.method(globalThis, "fetch", async () =>
+    Response.json({ message: "Multiple errors occurred during param validation. Please see errorDetails for more information.", errorDetails: { inputErrors: [{ description: "Commentary is too long" }] } }, { status: 400 }),
+  );
+  await assert.rejects(linkedin.send({ post: { description: "Hi" }, session: PAGE, files: [], media: {} }), /Commentary is too long/);
+});
 
 test("a Page's several pictures are owned by the Page, and its follow-ups comment as the Page", async (t) => {
   const calls = [];

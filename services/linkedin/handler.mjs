@@ -123,7 +123,9 @@ export function allowedUpload(value) {
 export function explain(status, payload) {
   const code = typeof payload?.code === "string" ? payload.code : "";
   const error = typeof payload?.error === "string" ? payload.error : "";
-  const message = typeof payload?.message === "string" ? payload.message : typeof payload?.error_description === "string" ? payload.error_description : "";
+  // A refused request says why here, under a message that only points to it.
+  const detail = payload?.errorDetails?.inputErrors?.[0]?.description;
+  const message = typeof detail === "string" ? detail : typeof payload?.message === "string" ? payload.message : typeof payload?.error_description === "string" ? payload.error_description : "";
   if (status === 401 || code === "EXPIRED_ACCESS_TOKEN" || code === "REVOKED_ACCESS_TOKEN" || error === "invalid_token") {
     return "LinkedIn login expired. Connect the account again.";
   }
@@ -196,6 +198,10 @@ function isImage(value) {
   return typeof value === "string" && /^urn:li:image:[\w-]{1,128}$/.test(value);
 }
 
+function isVideo(value) {
+  return typeof value === "string" && /^urn:li:video:[\w-]{1,128}$/.test(value);
+}
+
 /** Who acts: a person's id, or the URN of a company Page. */
 export const pageUrn = (organizationId) => `urn:li:organization:${organizationId}`;
 const isPage = (who) => /^urn:li:organization:\d+$/.test(who);
@@ -223,9 +229,8 @@ export async function pagesFor(accessToken) {
 }
 
 export async function register(accessToken, who, kind) {
-  const result = await linkedin(isPage(who) ? `${REST}/assets?action=registerUpload` : REGISTER_URL, accessToken, {
+  const result = await linkedin(REGISTER_URL, accessToken, {
     method: "POST",
-    ...versionedFor(who),
     body: JSON.stringify({
       registerUploadRequest: {
         recipes: [`urn:li:digitalmediaRecipe:feedshare-${kind}`],
@@ -241,9 +246,9 @@ export async function register(accessToken, who, kind) {
   return { uploadUrl, asset: value.asset };
 }
 
-export async function assetState(accessToken, asset, who = "") {
+export async function assetState(accessToken, asset) {
   const id = asset.slice("urn:li:digitalmediaAsset:".length);
-  const result = await linkedin(`${isPage(who) ? REST : "https://api.linkedin.com/v2"}/assets/${encodeURIComponent(id)}`, accessToken, versionedFor(who));
+  const result = await linkedin(`https://api.linkedin.com/v2/assets/${encodeURIComponent(id)}`, accessToken);
   if (result.error) return { error: result.error };
   const states = (result.payload?.recipes ?? []).map((recipe) => recipe?.status).filter((state) => typeof state === "string");
   if (states.some((state) => state === "CLIENT_ERROR" || state === "SERVER_ERROR")) return { error: "LinkedIn couldn't process this file." };
@@ -252,11 +257,7 @@ export async function assetState(accessToken, asset, who = "") {
 }
 
 export async function createPost(accessToken, who, text, media) {
-  if (isPage(who)) {
-    // An upload's id names it in the versioned API too, as LinkedIn's Assets API docs set out.
-    const id = media?.asset.slice("urn:li:digitalmediaAsset:".length);
-    return createVersionedPost(accessToken, who, text, media ? { media: { id: `urn:li:${media.kind === "video" ? "video" : "image"}:${id}` } } : undefined);
-  }
+  if (isPage(who)) return createVersionedPost(accessToken, who, text, media ? { media: { id: media.asset } } : undefined);
   const content = {
     shareCommentary: { text },
     shareMediaCategory: media ? (media.kind === "video" ? "VIDEO" : "IMAGE") : "NONE",
@@ -318,7 +319,38 @@ export function littleText(text) {
 }
 
 export function createImagesPost(accessToken, who, text, images) {
-  return createVersionedPost(accessToken, who, text, { multiImage: { images: images.map((id) => ({ id })) } });
+  return createVersionedPost(accessToken, who, text, images.length === 1 ? { media: { id: images[0] } } : { multiImage: { images: images.map((id) => ({ id })) } });
+}
+
+// LinkedIn's older uploads refuse a Page as the owner, whatever their docs say, so a Page's video comes through here.
+export async function registerVideo(accessToken, who, size) {
+  const result = await linkedin(`${REST}/videos?action=initializeUpload`, accessToken, {
+    method: "POST",
+    headers: VERSIONED,
+    body: JSON.stringify({ initializeUploadRequest: { owner: urnOf(who), fileSizeBytes: size, uploadCaptions: false, uploadThumbnail: false } }),
+  });
+  if (result.error) return { error: result.error };
+  const value = result.payload?.value ?? {};
+  const parts = value.uploadInstructions;
+  const usable = Array.isArray(parts) && parts.length > 0 && parts.every((part) => allowedUpload(part?.uploadUrl) && Number.isInteger(part.firstByte) && part.lastByte >= part.firstByte);
+  if (!usable || !isVideo(value.video)) return { error: "LinkedIn didn't start the upload." };
+  return { video: value.video, uploadToken: typeof value.uploadToken === "string" ? value.uploadToken : "", parts };
+}
+
+export async function finishVideo(accessToken, { video, uploadToken }, uploadedPartIds) {
+  const result = await linkedin(`${REST}/videos?action=finalizeUpload`, accessToken, {
+    method: "POST",
+    headers: VERSIONED,
+    body: JSON.stringify({ finalizeUploadRequest: { video, uploadToken, uploadedPartIds } }),
+  });
+  return result.error ? { error: result.error } : {};
+}
+
+export async function videoState(accessToken, video) {
+  const result = await linkedin(`${REST}/videos/${encodeURIComponent(video)}`, accessToken, { headers: VERSIONED });
+  if (result.error) return { error: result.error };
+  if (result.payload?.status === "PROCESSING_FAILED") return { error: "LinkedIn couldn't process this file." };
+  return { state: result.payload?.status === "AVAILABLE" ? "ready" : "processing" };
 }
 
 async function createVersionedPost(accessToken, who, text, content) {
