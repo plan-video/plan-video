@@ -92,6 +92,7 @@ const networkEnv = {
   tiktok: { publicUrl, clientKey: tiktokEnv.TIKTOK_CLIENT_KEY || "", clientSecret: tiktokEnv.TIKTOK_CLIENT_SECRET || "", readVideos: tiktokEnv.TIKTOK_READ_VIDEOS === "true" },
   youtube: { publicUrl, clientId: youtubeEnv.YOUTUBE_CLIENT_ID || "", clientSecret: youtubeEnv.YOUTUBE_CLIENT_SECRET || "" },
   linkedin: { publicUrl, clientId: linkedinEnv.LINKEDIN_CLIENT_ID || "", clientSecret: linkedinEnv.LINKEDIN_CLIENT_SECRET || "" },
+  linkedinPages: { publicUrl, clientId: linkedinEnv.LINKEDIN_PAGES_CLIENT_ID || "", clientSecret: linkedinEnv.LINKEDIN_PAGES_CLIENT_SECRET || "" },
   x: { publicUrl, clientId: xEnv.X_CLIENT_ID || "", clientSecret: xEnv.X_CLIENT_SECRET || "" },
   // Instagram's and Threads' logins have app ids of their own, apart from the Facebook app's.
   instagram: { appId: metaEnv.INSTAGRAM_APP_ID || "", appSecret: metaEnv.INSTAGRAM_APP_SECRET || "" },
@@ -177,7 +178,7 @@ const logins = {
   youtube: createYouTubeLogins({ key: own.TOKEN_KEY, env: networkEnv.youtube }),
   x: createXLogins({ key: own.TOKEN_KEY, env: networkEnv.x }),
   tiktok: createTikTokLogins({ key: own.TOKEN_KEY, env: networkEnv.tiktok }),
-  linkedin: createLinkedInLogins({ key: own.TOKEN_KEY, env: networkEnv.linkedin }),
+  linkedin: createLinkedInLogins({ key: own.TOKEN_KEY, env: networkEnv.linkedin, pagesEnv: networkEnv.linkedinPages }),
   meta: createMetaLogins({ key: own.TOKEN_KEY, env: networkEnv, publicUrl }),
 };
 const api = createApi({

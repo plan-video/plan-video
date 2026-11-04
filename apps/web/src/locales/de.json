@@ -770,6 +770,8 @@
   "Sign in again to post on schedule": "Melde dich neu an, damit geplante Posts rausgehen",
   "Login runs out soon": "Anmeldung läuft bald ab",
   "Couldn't start {network} login.": "{network}-Anmeldung konnte nicht gestartet werden.",
+  "Reconnect Pages": "Seiten neu verbinden",
+  "Add Page": "Seite hinzufügen",
   "Reconnect": "Neu verbinden",
   "Add account": "Konto hinzufügen",
   "Connect": "Verbinden",

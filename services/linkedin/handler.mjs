@@ -12,8 +12,14 @@ const IMAGES_URL = "https://api.linkedin.com/rest/images?action=initializeUpload
 const REST_POSTS_URL = "https://api.linkedin.com/rest/posts";
 /** The versioned API's month. LinkedIn keeps each one for a year. */
 const API_VERSION = "202609";
+const VERSIONED = { "LinkedIn-Version": API_VERSION };
 // No email scope: plan.video has no use for it.
 const SCOPE = "openid profile w_member_social";
+// A company Page's login comes from a second LinkedIn app: LinkedIn keeps the Community Management API on an app of its own, versioned routes only.
+const PAGE_SCOPE = "rw_organization_admin w_organization_social";
+const PAGE_ROLES = new Set(["ADMINISTRATOR", "CONTENT_ADMINISTRATOR"]);
+const MAX_PAGES = 25;
+const REST = "https://api.linkedin.com/rest";
 const TEXT_LIMIT = 3000;
 const MAX_VIDEO_BYTES = 200 * 1024 * 1024;
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -27,13 +33,13 @@ export function redirectsFor(site = "https://plan.video") {
   return new Set([`${own.origin}/linkedin/callback`, `${www.origin}/linkedin/callback`, "http://localhost:5173/linkedin/callback"]);
 }
 
-export function authorizeUrl(env, { redirectUri, state }) {
+export function authorizeUrl(env, { redirectUri, state, scope = SCOPE }) {
   const url = new URL(AUTH_URL);
   url.searchParams.set("response_type", "code");
   url.searchParams.set("client_id", env.clientId);
   url.searchParams.set("redirect_uri", redirectUri);
   url.searchParams.set("state", state);
-  url.searchParams.set("scope", SCOPE);
+  url.searchParams.set("scope", scope);
   return url.toString();
 }
 
@@ -190,13 +196,40 @@ function isImage(value) {
   return typeof value === "string" && /^urn:li:image:[\w-]{1,128}$/.test(value);
 }
 
-export async function register(accessToken, personId, kind) {
-  const result = await linkedin(REGISTER_URL, accessToken, {
+/** Who acts: a person's id, or the URN of a company Page. */
+export const pageUrn = (organizationId) => `urn:li:organization:${organizationId}`;
+const isPage = (who) => /^urn:li:organization:\d+$/.test(who);
+const urnOf = (who) => (isPage(who) ? who : `urn:li:person:${who}`);
+const versionedFor = (who) => (isPage(who) ? { headers: VERSIONED } : {});
+
+/** The Pages this member may post to. One LinkedIn won't name still counts: not every role may read a Page's details. */
+export async function pagesFor(accessToken) {
+  const roles = await linkedin(`${REST}/organizationAcls?q=roleAssignee&state=APPROVED&count=100`, accessToken, { headers: VERSIONED });
+  if (roles.error) return { error: roles.error };
+  const ids = new Set();
+  for (const row of roles.payload?.elements ?? []) {
+    if (!PAGE_ROLES.has(row?.role) || row?.state !== "APPROVED") continue;
+    const id = /^urn:li:organization:(\d{1,40})$/.exec(row.organization ?? row.organizationTarget ?? "")?.[1];
+    if (id) ids.add(id);
+  }
+  const pages = await Promise.all(
+    [...ids].slice(0, MAX_PAGES).map(async (organizationId) => {
+      const found = await linkedin(`${REST}/organizations/${organizationId}`, accessToken, { headers: VERSIONED }).catch(() => null);
+      const name = found?.payload?.localizedName;
+      return { organizationId, name: typeof name === "string" && name.trim() ? name.trim() : "LinkedIn Page" };
+    }),
+  );
+  return { pages };
+}
+
+export async function register(accessToken, who, kind) {
+  const result = await linkedin(isPage(who) ? `${REST}/assets?action=registerUpload` : REGISTER_URL, accessToken, {
     method: "POST",
+    ...versionedFor(who),
     body: JSON.stringify({
       registerUploadRequest: {
         recipes: [`urn:li:digitalmediaRecipe:feedshare-${kind}`],
-        owner: `urn:li:person:${personId}`,
+        owner: urnOf(who),
         serviceRelationships: [{ relationshipType: "OWNER", identifier: "urn:li:userGeneratedContent" }],
       },
     }),
@@ -208,9 +241,9 @@ export async function register(accessToken, personId, kind) {
   return { uploadUrl, asset: value.asset };
 }
 
-export async function assetState(accessToken, asset) {
+export async function assetState(accessToken, asset, who = "") {
   const id = asset.slice("urn:li:digitalmediaAsset:".length);
-  const result = await linkedin(`https://api.linkedin.com/v2/assets/${encodeURIComponent(id)}`, accessToken);
+  const result = await linkedin(`${isPage(who) ? REST : "https://api.linkedin.com/v2"}/assets/${encodeURIComponent(id)}`, accessToken, versionedFor(who));
   if (result.error) return { error: result.error };
   const states = (result.payload?.recipes ?? []).map((recipe) => recipe?.status).filter((state) => typeof state === "string");
   if (states.some((state) => state === "CLIENT_ERROR" || state === "SERVER_ERROR")) return { error: "LinkedIn couldn't process this file." };
@@ -218,7 +251,12 @@ export async function assetState(accessToken, asset) {
   return { state: "processing" };
 }
 
-export async function createPost(accessToken, personId, text, media) {
+export async function createPost(accessToken, who, text, media) {
+  if (isPage(who)) {
+    // An upload's id names it in the versioned API too, as LinkedIn's Assets API docs set out.
+    const id = media?.asset.slice("urn:li:digitalmediaAsset:".length);
+    return createVersionedPost(accessToken, who, text, media ? { media: { id: `urn:li:${media.kind === "video" ? "video" : "image"}:${id}` } } : undefined);
+  }
   const content = {
     shareCommentary: { text },
     shareMediaCategory: media ? (media.kind === "video" ? "VIDEO" : "IMAGE") : "NONE",
@@ -227,7 +265,7 @@ export async function createPost(accessToken, personId, text, media) {
   const result = await linkedin(POSTS_URL, accessToken, {
     method: "POST",
     body: JSON.stringify({
-      author: `urn:li:person:${personId}`,
+      author: urnOf(who),
       lifecycleState: "PUBLISHED",
       specificContent: { "com.linkedin.ugc.ShareContent": content },
       visibility: { "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC" },
@@ -241,21 +279,22 @@ export async function createPost(accessToken, personId, text, media) {
 
 export const COMMENT_LIMIT = 1250;
 
-export async function createComment(accessToken, personId, target, text) {
-  const result = await linkedin(`https://api.linkedin.com/v2/socialActions/${encodeURIComponent(target)}/comments`, accessToken, {
+export async function createComment(accessToken, who, target, text) {
+  const result = await linkedin(`${isPage(who) ? REST : "https://api.linkedin.com/v2"}/socialActions/${encodeURIComponent(target)}/comments`, accessToken, {
     method: "POST",
-    body: JSON.stringify({ actor: `urn:li:person:${personId}`, object: target, message: { text } }),
+    ...versionedFor(who),
+    body: JSON.stringify({ actor: urnOf(who), object: target, message: { text } }),
   });
   if (result.error) return { error: result.error };
   const id = result.response.headers.get("x-restli-id") || result.payload?.$URN || result.payload?.id || "";
   return { id: typeof id === "string" ? id : String(id) };
 }
 
-export async function registerImage(accessToken, personId) {
+export async function registerImage(accessToken, who) {
   const result = await linkedin(IMAGES_URL, accessToken, {
     method: "POST",
-    headers: { "LinkedIn-Version": API_VERSION },
-    body: JSON.stringify({ initializeUploadRequest: { owner: `urn:li:person:${personId}` } }),
+    headers: VERSIONED,
+    body: JSON.stringify({ initializeUploadRequest: { owner: urnOf(who) } }),
   });
   if (result.error) return { error: result.error };
   const value = result.payload?.value ?? {};
@@ -278,16 +317,20 @@ export function littleText(text) {
   return out + escapeLittle(text.slice(from));
 }
 
-export async function createImagesPost(accessToken, personId, text, images) {
+export function createImagesPost(accessToken, who, text, images) {
+  return createVersionedPost(accessToken, who, text, { multiImage: { images: images.map((id) => ({ id })) } });
+}
+
+async function createVersionedPost(accessToken, who, text, content) {
   const result = await linkedin(REST_POSTS_URL, accessToken, {
     method: "POST",
-    headers: { "LinkedIn-Version": API_VERSION },
+    headers: VERSIONED,
     body: JSON.stringify({
-      author: `urn:li:person:${personId}`,
+      author: urnOf(who),
       commentary: littleText(text),
       visibility: "PUBLIC",
       distribution: { feedDistribution: "MAIN_FEED", targetEntities: [], thirdPartyDistributionChannels: [] },
-      content: { multiImage: { images: images.map((id) => ({ id })) } },
+      ...(content ? { content } : {}),
       lifecycleState: "PUBLISHED",
       isReshareDisabledByAuthor: false,
     }),
@@ -352,6 +395,14 @@ export async function handleLinkedIn(req, res, path, env) {
     const state = text(body, "state");
     if (!redirectsFor(env.publicUrl).has(redirectUri) || !state) {
       json(res, 400, { error: "That LinkedIn redirect address isn't allowed." });
+      return;
+    }
+    if (body.pages === true) {
+      if (!env.pages?.clientId) {
+        json(res, 503, { error: "LinkedIn Pages aren't set up on the server yet." });
+        return;
+      }
+      json(res, 200, { url: authorizeUrl(env.pages, { redirectUri, state, scope: PAGE_SCOPE }) });
       return;
     }
     json(res, 200, { url: authorizeUrl(env, { redirectUri, state }) });

@@ -770,6 +770,8 @@
   "Sign in again to post on schedule": "予約どおりに投稿するには再ログインしてください",
   "Login runs out soon": "ログインの有効期限がまもなく切れます",
   "Couldn't start {network} login.": "{network}のログインを開始できませんでした。",
+  "Reconnect Pages": "ページを再接続",
+  "Add Page": "ページを追加",
   "Reconnect": "再連携",
   "Add account": "アカウントを追加",
   "Connect": "連携",

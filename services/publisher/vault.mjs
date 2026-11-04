@@ -81,6 +81,10 @@ export function cleanSession(platform, value, { allowOAuth = false } = {}) {
     return session.accessToken || session.refreshToken ? session : null;
   }
   if (platform === "linkedin") {
+    if (value.organizationId !== undefined) {
+      const page = { organizationId: str(value.organizationId, 40), accessToken: str(value.accessToken), refreshToken: str(value.refreshToken), expiresAt: num(value.expiresAt), scope: str(value.scope, 1000) };
+      return page.accessToken && /^\d{1,40}$/.test(page.organizationId) ? page : null;
+    }
     const session = { personId: str(value.personId, 200), accessToken: str(value.accessToken), refreshToken: str(value.refreshToken), expiresAt: num(value.expiresAt), scope: str(value.scope, 1000) };
     return session.accessToken && /^[\w-]{1,64}$/.test(session.personId) ? session : null;
   }
@@ -153,7 +157,7 @@ async function refreshed(platform, session, env) {
       if (session.expiresAt > Date.now()) return null;
       throw new PublishError(EXPIRED.linkedin, { expired: true });
     }
-    const token = await linkedinToken(env.linkedin, { grant_type: "refresh_token", refresh_token: session.refreshToken });
+    const token = await linkedinToken(session.organizationId ? env.linkedinPages : env.linkedin, { grant_type: "refresh_token", refresh_token: session.refreshToken });
     if (token.error) throw new PublishError(EXPIRED.linkedin, { expired: true });
     return { ...session, accessToken: token.accessToken, refreshToken: token.refreshToken || session.refreshToken, expiresAt: Date.now() + token.expiresIn * 1000, scope: token.scope || session.scope };
   }

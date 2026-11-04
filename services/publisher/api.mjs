@@ -85,6 +85,8 @@ export async function revoke(platform, session, env, bluesky) {
     const response = await form("https://oauth2.googleapis.com/revoke", { token: session.refreshToken || session.accessToken });
     return !!response && (response.ok || response.status === 400);
   }
+  // One login holds every Page its member connected, and revoking it would stop them all.
+  if (platform === "linkedin" && session.organizationId) return false;
   if (platform === "linkedin") {
     const response = await form("https://www.linkedin.com/oauth/v2/revoke", { client_id: env.linkedin.clientId, client_secret: env.linkedin.clientSecret, token: session.accessToken });
     return !!response && (response.ok || response.status === 400);
@@ -388,6 +390,15 @@ export function createApi({ env, vault, worker, users, kick, bluesky, limits, db
       mustManage(scope);
       const text = (key) => (typeof body[key] === "string" ? body[key].slice(0, 4000) : "");
       json(res, 200, await logins.exchange(holderOf(user, scope), { code: text("code"), redirectUri: text("redirectUri"), codeVerifier: text("codeVerifier") }));
+      return;
+    }
+
+    if (path === "/api/publisher/linkedin/pages/exchange") {
+      if (!linkedin) throw new Refused(503, "LinkedIn isn't set up on the server yet.");
+      limit(`linkedin-connect:${user.id}`, 20, 600);
+      mustManage(scope);
+      const text = (key) => (typeof body[key] === "string" ? body[key].slice(0, 4000) : "");
+      json(res, 200, await linkedin.exchangePages(holderOf(user, scope), { code: text("code"), redirectUri: text("redirectUri") }));
       return;
     }
 

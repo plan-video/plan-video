@@ -6,7 +6,7 @@ import { Readable } from "node:stream";
 import { handleLinkedIn } from "../linkedin/handler.mjs";
 import { handleTikTok } from "../tiktok/handler.mjs";
 
-import { createApi } from "./api.mjs";
+import { createApi, revoke } from "./api.mjs";
 import { createBlueskyOAuth, makeBlueskyKey } from "./bluesky-oauth.mjs";
 import { fakeDb } from "./fake-db.mjs";
 import { createLinkedInLogins } from "./linkedin-logins.mjs";
@@ -76,12 +76,22 @@ async function setup(t, { clock = { now: T0 } } = {}) {
     token: async (_env, fields) => (asked.push(fields), { accessToken: "act.tiktok-access", refreshToken: "rft.tiktok-refresh", expiresIn: 86400, openId: "open-1", scope: "video.publish" }),
     profile: async () => ({ openId: "open-1", displayName: "maker", avatarUrl: "data:image/jpeg;base64,AA" }),
   });
+  let lastCode = "";
+  const pageCode = () => lastCode;
   const linkedin = createLinkedInLogins({
     key: KEY,
     env: { clientId: "id", clientSecret: "s" },
     now,
-    token: async (_env, fields) => (asked.push(fields), { accessToken: "AQV-linkedin-access", refreshToken: "AQX-linkedin-refresh", expiresIn: 5_184_000, scope: "w_member_social" }),
+    token: async (tokenEnv, fields) => {
+      asked.push(fields);
+      lastCode = fields.code;
+      return tokenEnv.clientId === "pages-id"
+        ? { accessToken: "AQV-pages-access", refreshToken: "AQX-pages-refresh", expiresIn: 5_184_000, scope: "w_organization_social" }
+        : { accessToken: "AQV-linkedin-access", refreshToken: "AQX-linkedin-refresh", expiresIn: 5_184_000, scope: "w_member_social" };
+    },
     member: async () => ({ personId: "person-1", name: "Maker", avatarUrl: "https://media.licdn.test/a.jpg" }),
+    pagesEnv: { clientId: "pages-id", clientSecret: "pages-s", publicUrl: "https://plan.video" },
+    pages: async () => ({ pages: pageCode() === "no-pages" ? [] : [{ organizationId: "1", name: "Acme" }, { organizationId: "2", name: "Beta" }] }),
   });
   const youtube = createYouTubeLogins({
     key: KEY,
@@ -319,6 +329,66 @@ test("linkedin: the browser learns whether the login renews itself, without the 
   const { ask } = await setup(t);
   const answer = await ask(OWNER, "linkedin/exchange", NETWORKS.linkedin.code);
   assert.equal(answer.renewable, true);
+});
+
+test("linkedin pages: each Page comes with its own ticket, kept under the Page and never as the member", async (t) => {
+  const { ask, vault, linkedin, save } = await setup(t);
+  const answer = await ask(OWNER, "linkedin/pages/exchange", NETWORKS.linkedin.code);
+  assert.deepEqual(answer.accounts.map((account) => [account.organizationId, account.displayName]), [["1", "Acme"], ["2", "Beta"]]);
+  const text = JSON.stringify(answer);
+  for (const token of ["AQV-pages-access", "AQX-pages-refresh"]) assert.ok(!text.includes(token), `${token} reached the browser`);
+
+  assert.equal(linkedin.open({ person: "someone-else", owner: "someone-else", workspace: "" }, answer.accounts[0].ticket), null);
+  assert.equal(await save("linkedin", OWNER, "page-1", { ticket: answer.accounts[0].ticket }), 200);
+  assert.equal(await save("linkedin", OWNER, "page-2", { ticket: answer.accounts[1].ticket }), 200);
+  const { session } = await vault.read(OWNER, "page-2");
+  assert.equal(session.organizationId, "2");
+  assert.equal(session.accessToken, "AQV-pages-access");
+  assert.equal("personId" in session, false);
+});
+
+test("linkedin pages: a member with no Page is told so, and a server without the app says it isn't set up", async (t) => {
+  const { ask } = await setup(t);
+  const none = await ask(OWNER, "linkedin/pages/exchange", { ...NETWORKS.linkedin.code, code: "no-pages" });
+  assert.equal(none.status, 400);
+  assert.match(none.error, /didn't find a Page/);
+  const bare = createLinkedInLogins({ key: KEY, env: { clientId: "id", clientSecret: "s" } });
+  await assert.rejects(bare.exchangePages({}, NETWORKS.linkedin.code), /aren't set up/);
+});
+
+test("a Page's sign-in starts at the Pages app with its scopes, and a person's stays at the first app", async (t) => {
+  const answers = [];
+  t.mock.method(globalThis, "fetch", async () => Response.json({ id: OWNER }));
+  const start = async (body, pages) => {
+    const req = Object.assign(new Readable({ read() {} }), { method: "POST", headers: { authorization: `Bearer ${OWNER}` } });
+    req.push(JSON.stringify({ redirectUri: "https://plan.video/linkedin/callback", state: "s1", ...body }));
+    req.push(null);
+    let status = 0;
+    let text = "";
+    await handleLinkedIn(req, { writableEnded: false, writeHead: (code) => (status = code), end: (value) => (text = value) }, "/api/linkedin/authorize", {
+      clientId: "first", clientSecret: "s", publicUrl: "https://plan.video", supabaseUrl: "https://db.test", supabaseAnonKey: "a", pages,
+    });
+    answers.push(status);
+    return JSON.parse(text);
+  };
+  const personal = new URL((await start({}, { clientId: "second" })).url);
+  assert.equal(personal.searchParams.get("client_id"), "first");
+  assert.equal(personal.searchParams.get("scope"), "openid profile w_member_social");
+  const page = new URL((await start({ pages: true }, { clientId: "second" })).url);
+  assert.equal(page.searchParams.get("client_id"), "second");
+  assert.equal(page.searchParams.get("scope"), "rw_organization_admin w_organization_social");
+  assert.match((await start({ pages: true }, { clientId: "" })).error, /aren't set up/);
+  assert.deepEqual(answers, [200, 200, 503]);
+});
+
+test("disconnecting a Page leaves its shared login alone at LinkedIn", async (t) => {
+  const asked = [];
+  t.mock.method(globalThis, "fetch", async (url) => (asked.push(String(url)), new Response("{}")));
+  const env = { linkedin: { clientId: "i", clientSecret: "s" } };
+  assert.equal(await revoke("linkedin", { organizationId: "1", accessToken: "a" }, env), false);
+  assert.equal(asked.length, 0);
+  assert.equal(await revoke("linkedin", { personId: "p", accessToken: "a" }, env), true);
+  assert.equal(asked.length, 1);
 });
 
 test("the network services no longer swap codes or refresh logins for a browser", async () => {

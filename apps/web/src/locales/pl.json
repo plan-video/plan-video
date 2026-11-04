@@ -770,6 +770,8 @@
   "Sign in again to post on schedule": "Zaloguj się ponownie, żeby publikować zgodnie z harmonogramem",
   "Login runs out soon": "Logowanie wkrótce wygaśnie",
   "Couldn't start {network} login.": "Nie udało się rozpocząć logowania ({network}).",
+  "Reconnect Pages": "Połącz strony ponownie",
+  "Add Page": "Dodaj stronę",
   "Reconnect": "Połącz ponownie",
   "Add account": "Dodaj konto",
   "Connect": "Połącz",

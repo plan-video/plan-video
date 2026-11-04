@@ -88,7 +88,7 @@ export async function askYouTube<T>(
 
 /** The publisher swaps the code and keeps the login; the browser gets a ticket, never the tokens. */
 export async function exchangeOnServer<T>(
-  route: "tiktok/exchange" | "linkedin/exchange",
+  route: "tiktok/exchange" | "linkedin/exchange" | "linkedin/pages/exchange",
   body: object,
   fallback: string,
   team: TeamScope | null = activeScope(),

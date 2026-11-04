@@ -770,6 +770,8 @@
   "Sign in again to post on schedule": "예약대로 게시하려면 다시 로그인하세요",
   "Login runs out soon": "로그인이 곧 만료돼요",
   "Couldn't start {network} login.": "{network} 로그인을 시작하지 못했어요.",
+  "Reconnect Pages": "페이지 다시 연결",
+  "Add Page": "페이지 추가",
   "Reconnect": "다시 연결",
   "Add account": "계정 추가",
   "Connect": "연결",
