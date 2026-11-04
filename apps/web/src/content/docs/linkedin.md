@@ -1,4 +1,4 @@
-Post to your LinkedIn profile with text, pictures or a video.
+Post to your LinkedIn profile or a company Page with text, pictures or a video.
 
 ## What you can post
 
@@ -10,5 +10,9 @@ Post to your LinkedIn profile with text, pictures or a video.
 
 ## Good to know
 
-- Posts go to your **personal profile**. Company pages aren't supported yet.
-- LinkedIn logins run out after about **60 days**. plan.video warns you a week before; reconnect in **Settings** → **Connections** so your scheduled posts still go out.
+- To post as a company Page, click **Add Page** on the LinkedIn row in **Settings** → **Connections**. You need to be an admin or content admin of the Page.
+- **Add Page** adds every Page you manage, and each one counts as an account on your plan. Remove any you don't want.
+- Links you send to clients connect personal profiles, not Pages.
+- Follow-ups go out as comments from the same profile or Page, in words only.
+- A picture post to a Page takes about a minute to go out.
+- LinkedIn logins run out after about **60 days**. plan.video warns you a week before; reconnect in **Settings** → **Connections** so your scheduled posts still go out. Pages use **Reconnect Pages**.
