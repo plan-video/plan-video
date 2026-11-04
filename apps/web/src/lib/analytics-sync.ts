@@ -3,12 +3,13 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 // Only YouTube sends daily numbers; the others send post totals, counted on the day the post went out.
+// On LinkedIn only company Pages have numbers so far.
 
 import { createSignal } from "solid-js";
 
 import { t } from "@/lib/i18n";
 import { isMetaNetwork, type MetaNetwork } from "@/lib/meta";
-import { askMeta } from "@/lib/publishing";
+import { askMeta, askNetwork } from "@/lib/publishing";
 import { DAY_MS, HISTORY_DAYS, dayKeyOf, dayOfKey, setSyncedNumbers, type AnalyticsPost, type Totals } from "@/lib/social-analytics";
 import { socialConnections, type SocialConnection } from "@/lib/social-connections";
 import { loadTikTokVideos, tiktokAllows } from "@/lib/tiktok";
@@ -82,13 +83,20 @@ function onPostingDays(posts: readonly (Totals & { postedAt: number })[]) {
   return days;
 }
 
-type MetaNumbers = { followers?: number | null; videos?: (Totals & { id: string; title: string; postedAt: number; cover?: string; url?: string })[] };
+type PostNumbers = { followers?: number | null; videos?: (Totals & { id: string; title: string; postedAt: number; cover?: string; url?: string })[] };
+
+function keepPostNumbers(key: string, found: PostNumbers) {
+  const posts = (found.videos ?? []).filter((post) => post.postedAt > 0);
+  setSyncedNumbers(key, { days: onPostingDays(posts), posts, followers: found.followers ?? null });
+}
 
 /** Read by the publisher. */
 async function syncMeta(account: SocialConnection, network: MetaNetwork) {
-  const found = await askMeta<MetaNumbers>(network, "analytics", { connectionId: account.id }, t("Couldn't load its numbers. Try again later."));
-  const posts = (found.videos ?? []).filter((post) => post.postedAt > 0);
-  setSyncedNumbers(`${network}:${account.id}`, { days: onPostingDays(posts), posts, followers: found.followers ?? null });
+  keepPostNumbers(`${network}:${account.id}`, await askMeta<PostNumbers>(network, "analytics", { connectionId: account.id }, t("Couldn't load its numbers. Try again later.")));
+}
+
+async function syncLinkedInPage(account: SocialConnection) {
+  keepPostNumbers(`linkedin:${account.id}`, await askNetwork<PostNumbers>("linkedin/analytics", account.id, t("Couldn't load its numbers. Try again later.")));
 }
 
 /** Only YouTube counts a post's days. */
@@ -106,7 +114,7 @@ export function syncAnalytics(userId: string | undefined, accounts: readonly Soc
     const key = `${account.platform}:${account.id}`;
     const platform = account.platform;
     const meta = isMetaNetwork(platform) ? account[platform] : undefined;
-    const scope = account.youtube?.scope ?? account.tiktok?.scope ?? meta?.scope ?? "";
+    const scope = account.youtube?.scope ?? account.tiktok?.scope ?? meta?.scope ?? account.linkedin?.scope ?? "";
     if (asked.get(key)?.scope === scope) continue;
     const run =
       account.platform === "youtube" && account.youtube
@@ -115,7 +123,9 @@ export function syncAnalytics(userId: string | undefined, accounts: readonly Soc
           ? syncTikTok(account, account.tiktok)
           : isMetaNetwork(platform) && meta
             ? syncMeta(account, platform)
-            : null;
+            : account.platform === "linkedin" && account.linkedin?.organizationId
+              ? syncLinkedInPage(account)
+              : null;
     if (!run) continue;
     mark(key, "loading");
     asked.set(key, {

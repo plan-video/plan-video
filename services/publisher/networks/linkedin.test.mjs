@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { littleText, pagesFor } from "../../linkedin/handler.mjs";
+import { littleText, pageNumbers, pagesFor } from "../../linkedin/handler.mjs";
 import { PICTURES_WAIT_MS, linkedin } from "./linkedin.mjs";
 
 test("checking on a file only asks LinkedIn about it, and publish makes the post with it", async (t) => {
@@ -258,4 +258,110 @@ test("only Pages the member has an approved posting role on are found, each once
 
   assert.deepEqual(await pagesFor("a"), { pages: [{ organizationId: "1", name: "Acme" }, { organizationId: "2", name: "LinkedIn Page" }] });
   assert.equal(asked[0], "https://api.linkedin.com/rest/organizationAcls?q=roleAssignee&state=APPROVED&count=100");
+});
+
+const pagePosts = () => [
+  { id: "urn:li:share:1", lifecycleState: "PUBLISHED", publishedAt: 1000, createdAt: 900, commentary: "Hello \\(world\\) {hashtag|\\#|launch}\nSecond line" },
+  { id: "urn:li:ugcPost:2", lifecycleState: "PUBLISHED", createdAt: 2000, commentary: "Thanks @[Acme](urn:li:organization:9)" },
+  { id: "urn:li:share:3", lifecycleState: "DRAFT", createdAt: 3000, commentary: "Not out yet" },
+  { id: "urn:li:share:4", lifecycleState: "PUBLISHED", createdAt: 4000, commentary: "Nobody saw this one" },
+];
+
+function fakePageApi(t, { posts = pagePosts(), stats = {}, followers = { status: 200, body: { firstDegreeSize: 12 } } } = {}) {
+  const asked = [];
+  t.mock.method(globalThis, "fetch", async (url, init = {}) => {
+    const target = decodeURIComponent(String(url));
+    asked.push({ target, headers: init.headers });
+    if (target.includes("/rest/posts?")) return posts.status ? Response.json({}, { status: posts.status }) : Response.json({ elements: posts });
+    if (target.includes("/networkSizes/")) return Response.json(followers.body, { status: followers.status });
+    const kind = target.includes("&shares=") ? "shares" : "ugcPosts";
+    const answer = stats[kind] ?? { status: 200, body: { elements: [] } };
+    return Response.json(answer.body ?? {}, { status: answer.status });
+  });
+  return asked;
+}
+
+test("a Page's numbers join each published post to its own statistics, and a post with none counts zero", async (t) => {
+  const asked = fakePageApi(t, {
+    stats: {
+      shares: { status: 200, body: { elements: [{ share: "urn:li:share:1", totalShareStatistics: { impressionCount: 500, likeCount: 7, commentCount: 2 } }] } },
+      ugcPosts: { status: 200, body: { elements: [{ ugcPost: "urn:li:ugcPost:2", totalShareStatistics: { impressionCount: 80, likeCount: -1, commentCount: 0 } }] } },
+    },
+  });
+  const found = await pageNumbers("token", "42");
+  assert.equal(found.followers, 12);
+  assert.deepEqual(found.videos, [
+    { id: "urn:li:share:1", title: "Hello (world) #launch", postedAt: 1000, cover: "", url: "https://www.linkedin.com/feed/update/urn%3Ali%3Ashare%3A1/", views: 500, likes: 7, comments: 2 },
+    { id: "urn:li:ugcPost:2", title: "Thanks Acme", postedAt: 2000, cover: "", url: "https://www.linkedin.com/feed/update/urn%3Ali%3AugcPost%3A2/", views: 80, likes: 0, comments: 0 },
+    { id: "urn:li:share:4", title: "Nobody saw this one", postedAt: 4000, cover: "", url: "https://www.linkedin.com/feed/update/urn%3Ali%3Ashare%3A4/", views: 0, likes: 0, comments: 0 },
+  ]);
+  const list = asked.find((call) => call.target.includes("/rest/posts?"));
+  assert.match(list.target, /author=urn:li:organization:42&q=author/);
+  assert.equal(list.headers["X-RestLi-Method"], "FINDER");
+  assert.ok(asked.some((call) => call.target.includes("&shares=List(urn:li:share:1,urn:li:share:4)")));
+  assert.ok(asked.some((call) => call.target.includes("&ugcPosts=List(urn:li:ugcPost:2)")));
+  assert.equal(asked.length, 4);
+});
+
+test("posts LinkedIn has no activity for yet still show, at zero", async (t) => {
+  fakePageApi(t, { stats: { shares: { status: 400 }, ugcPosts: { status: 400 } } });
+  const found = await pageNumbers("token", "42");
+  assert.equal(found.videos.length, 3);
+  assert.ok(found.videos.every((post) => post.views === 0 && post.likes === 0));
+});
+
+test("a Page with no posts makes no statistics calls, and followers LinkedIn won't give stay unknown", async (t) => {
+  const asked = fakePageApi(t, { posts: [], followers: { status: 403, body: {} } });
+  assert.deepEqual(await pageNumbers("token", "42"), { followers: null, videos: [] });
+  assert.equal(asked.filter((call) => call.target.includes("ShareStatistics")).length, 0);
+});
+
+test("a login without the reading permission, or a role without numbers, is told what to do", async (t) => {
+  fakePageApi(t, { posts: { status: 403 } });
+  assert.match((await pageNumbers("token", "42")).error, /Add Page/);
+  t.mock.restoreAll();
+  fakePageApi(t, { stats: { shares: { status: 403 } } });
+  assert.match((await pageNumbers("token", "42")).error, /administrators/);
+  t.mock.restoreAll();
+  fakePageApi(t, { stats: { ugcPosts: { status: 500 } } });
+  assert.ok((await pageNumbers("token", "42")).error);
+  t.mock.restoreAll();
+  t.mock.method(globalThis, "fetch", async () => { throw new TypeError("network down"); });
+  assert.match((await pageNumbers("token", "42")).error, /Couldn't reach LinkedIn/);
+});
+
+test("short pages of a Page's posts are followed to the next, without asking forever", async (t) => {
+  const asked = [];
+  const pages = { 0: { elements: [{ id: "urn:li:share:1", lifecycleState: "PUBLISHED", createdAt: 1 }], paging: { links: [{ rel: "next", href: "/rest/posts?start=10&count=50" }] } }, 10: { elements: [{ id: "urn:li:share:2", lifecycleState: "PUBLISHED", createdAt: 2 }], paging: { links: [{ rel: "next", href: "/rest/posts?start=20&count=50" }] } }, 20: { elements: [{ id: "urn:li:share:3", lifecycleState: "PUBLISHED", createdAt: 3 }], paging: { links: [{ rel: "next", href: "/rest/posts?start=30&count=50" }] } }, 30: { elements: [{ id: "urn:li:share:4", lifecycleState: "PUBLISHED", createdAt: 4 }], paging: { links: [] } } };
+  t.mock.method(globalThis, "fetch", async (url) => {
+    const target = String(url);
+    if (!target.includes("/rest/posts?")) return Response.json({ elements: [] });
+    asked.push(target);
+    return Response.json(pages[new URL(target).searchParams.get("start")]);
+  });
+  const found = await pageNumbers("token", "42");
+  assert.deepEqual(found.videos.map((post) => post.id), ["urn:li:share:1", "urn:li:share:2", "urn:li:share:3"]);
+  assert.equal(asked.length, 3);
+});
+
+test("a later page of posts that fails keeps the posts already read", async (t) => {
+  t.mock.method(globalThis, "fetch", async (url) => {
+    const target = String(url);
+    if (!target.includes("/rest/posts?")) return Response.json({ elements: [] });
+    if (new URL(target).searchParams.get("start") !== "0") return Response.json({}, { status: 500 });
+    return Response.json({ elements: [{ id: "urn:li:share:1", lifecycleState: "PUBLISHED", createdAt: 1 }], paging: { links: [{ rel: "next", href: "/rest/posts?start=10" }] } });
+  });
+  assert.deepEqual((await pageNumbers("token", "42")).videos.map((post) => post.id), ["urn:li:share:1"]);
+});
+
+test("losing the follower count to a network failure keeps the post numbers", async (t) => {
+  t.mock.method(globalThis, "fetch", async (url) => {
+    const target = decodeURIComponent(String(url));
+    if (target.includes("/networkSizes/")) throw new TypeError("network down");
+    if (target.includes("/rest/posts?")) return Response.json({ elements: [{ id: "urn:li:share:1", lifecycleState: "PUBLISHED", createdAt: 1 }] });
+    return Response.json({ elements: [{ share: "urn:li:share:1", totalShareStatistics: { impressionCount: 9 } }] });
+  });
+  const found = await pageNumbers("token", "42");
+  assert.equal(found.followers, null);
+  assert.equal(found.videos[0].views, 9);
 });

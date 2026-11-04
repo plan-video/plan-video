@@ -59,7 +59,7 @@ export async function readAnalytics(args: Args, userId: string): Promise<Output>
 
   let note: string | undefined;
   if (!sources.length) {
-    note = "No connected account sends its numbers. plan.video reads TikTok, YouTube, Instagram, Facebook Pages and Threads: they can connect one in Connections.";
+    note = "No connected account sends its numbers. plan.video reads TikTok, YouTube, Instagram, Facebook Pages, Threads and LinkedIn Pages: they can connect one in Connections.";
   } else if (posts.length < ENOUGH_POSTS) {
     note = `Only ${posts.length} ${posts.length === 1 ? "post" : "posts"} went out in these days: too few to tell which days or hours do best. Look further back with days, or say so.`;
   }

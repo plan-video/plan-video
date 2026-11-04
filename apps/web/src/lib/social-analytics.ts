@@ -11,7 +11,7 @@ import { intlLocale, localized, msg, t } from "@/lib/i18n";
 import type { PlatformId } from "@/lib/social";
 import { zonedParts, zonedTime } from "@/lib/time-zone";
 
-export type AnalyticsPlatformId = Extract<PlatformId, "tiktok" | "youtube" | "instagram" | "facebook" | "threads">;
+export type AnalyticsPlatformId = Extract<PlatformId, "tiktok" | "youtube" | "instagram" | "facebook" | "threads" | "linkedin">;
 export type AnalyticsMetric = "views" | "likes" | "comments";
 
 export type AnalyticsPlatform = {
@@ -27,6 +27,7 @@ export const ANALYTICS_PLATFORMS: readonly AnalyticsPlatform[] = [
   { id: "instagram", name: "Instagram", color: "#d65cf0" },
   { id: "facebook", name: "Facebook", color: "#4a8cff" },
   { id: "threads", name: "Threads", color: "#b8bcc6" },
+  { id: "linkedin", name: "LinkedIn", color: "#70b5f9" },
 ];
 
 export const ANALYTICS_METRICS: readonly { id: AnalyticsMetric; label: string }[] = [
@@ -135,6 +136,7 @@ const PROFILES: Record<AnalyticsPlatformId, Profile> = {
   instagram: { views: 7700, growth: 0.0024, likeRate: 0.057, commentRate: 0.0025, weekend: 1.08, postRate: 0.34, peak: 19.5 },
   facebook: { views: 2300, growth: -0.0018, likeRate: 0.025, commentRate: 0.0019, weekend: 0.92, postRate: 0.22, peak: 13 },
   threads: { views: 3100, growth: 0.0042, likeRate: 0.048, commentRate: 0.0062, weekend: 1.02, postRate: 0.5, peak: 21 },
+  linkedin: { views: 1900, growth: 0.0031, likeRate: 0.022, commentRate: 0.0028, weekend: 0.55, postRate: 0.2, peak: 9 },
 };
 
 const TITLES = [
@@ -408,10 +410,11 @@ export function sampleSources(): AnalyticsSource[] {
   return ANALYTICS_PLATFORMS.map(({ id: platform }) => ({ key: platform, platform }));
 }
 
-type NumbersAccount = { platform: string; youtube?: unknown; tiktok?: unknown; instagram?: unknown; facebook?: unknown; threads?: unknown };
+type NumbersAccount = { platform: string; youtube?: unknown; tiktok?: unknown; instagram?: unknown; facebook?: unknown; threads?: unknown; linkedin?: { organizationId?: string; personId?: string } };
 
 export function reportsNumbers(account: NumbersAccount) {
   const { platform } = account;
+  if (platform === "linkedin") return !!account.linkedin?.organizationId;
   return (
     (platform === "youtube" || platform === "tiktok" || platform === "instagram" || platform === "facebook" || platform === "threads") &&
     !!account[platform]

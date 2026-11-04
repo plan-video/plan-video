@@ -69,7 +69,7 @@ export async function saveLogin(
 
 /** Tokens stay on the server, so someone taken out of a workspace has none left to post with. */
 export async function askNetwork<T>(
-  route: "tiktok/profile" | "tiktok/videos" | "tiktok/creator" | "linkedin/profile",
+  route: "tiktok/profile" | "tiktok/videos" | "tiktok/creator" | "linkedin/profile" | "linkedin/analytics",
   connectionId: string,
   fallback: string,
   team: TeamScope | null = activeScope(),

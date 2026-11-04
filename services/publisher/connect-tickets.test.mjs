@@ -347,6 +347,27 @@ test("linkedin pages: each Page comes with its own ticket, kept under the Page a
   assert.equal("personId" in session, false);
 });
 
+test("linkedin pages: a connected Page's numbers come back without its token, and a person's profile has none", async (t) => {
+  const { ask, vault } = await setup(t);
+  await vault.put(OWNER, "page-1", "linkedin", { organizationId: "1", accessToken: "AQV-page-token", refreshToken: "", expiresAt: Date.now() + 86_400_000, scope: "r_organization_social" });
+  await vault.put(OWNER, "me", "linkedin", { personId: "p1", accessToken: "AQV-person-token", refreshToken: "", expiresAt: Date.now() + 86_400_000, scope: "w_member_social" });
+  const real = globalThis.fetch;
+  const asked = [];
+  t.mock.method(globalThis, "fetch", async (url, init) => {
+    if (!String(url).startsWith("https://api.linkedin.com/")) return real(url, init);
+    asked.push(String(url));
+    return String(url).includes("/rest/posts?") ? Response.json({ elements: [{ id: "urn:li:share:1", lifecycleState: "PUBLISHED", createdAt: 5, commentary: "Hi" }] }) : Response.json({ elements: [], firstDegreeSize: 3 });
+  });
+  const answer = await ask(OWNER, "linkedin/analytics", { connectionId: "page-1" });
+  assert.equal(answer.videos[0].id, "urn:li:share:1");
+  assert.equal(answer.followers, 3);
+  assert.ok(!JSON.stringify(answer).includes("AQV-page-token"));
+  const before = asked.length;
+  const person = await ask(OWNER, "linkedin/analytics", { connectionId: "me" });
+  assert.equal(person.status, 400);
+  assert.equal(asked.length, before);
+});
+
 test("linkedin pages: a member with no Page is told so, and a server without the app says it isn't set up", async (t) => {
   const { ask } = await setup(t);
   const none = await ask(OWNER, "linkedin/pages/exchange", { ...NETWORKS.linkedin.code, code: "no-pages" });
@@ -376,7 +397,7 @@ test("a Page's sign-in starts at the Pages app with its scopes, and a person's s
   assert.equal(personal.searchParams.get("scope"), "openid profile w_member_social");
   const page = new URL((await start({ pages: true }, { clientId: "second" })).url);
   assert.equal(page.searchParams.get("client_id"), "second");
-  assert.equal(page.searchParams.get("scope"), "rw_organization_admin w_organization_social w_organization_social_feed");
+  assert.equal(page.searchParams.get("scope"), "rw_organization_admin w_organization_social w_organization_social_feed r_organization_social");
   assert.match((await start({ pages: true }, { clientId: "" })).error, /aren't set up/);
   assert.deepEqual(answers, [200, 200, 503]);
 });
