@@ -1,4 +1,10 @@
 {
+  "Cloud storage stopped sending the post's file.": "云存储已停止发送此帖子的文件。",
+  "LinkedIn is limiting posts from this account for today. Trying again tomorrow.": "LinkedIn 今天正在限制此账号发帖。明天会再试一次。",
+  "That X community link isn't right. Use one like x.com/i/communities/123…, or leave it empty.": "这个 X 社群链接不正确。请使用类似 x.com/i/communities/123… 的链接，或留空。",
+  "TikTok didn't renew the login. Trying again soon.": "TikTok 未能续期登录。很快会再试一次。",
+  "LinkedIn didn't renew the login. Trying again soon.": "LinkedIn 未能续期登录。很快会再试一次。",
+  "This follow-up's time passed over a day ago while the network was limiting posts, so it didn't go out.": "网络限制发帖期间，这条后续内容的时间已过去超过一天，因此没有发布。",
   "Drop files or folders here": "将文件或文件夹拖到这里",
   "Remove {name}": "移除 {name}",
   "FILE": "文件",

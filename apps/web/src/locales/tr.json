@@ -1,4 +1,10 @@
 {
+  "Cloud storage stopped sending the post's file.": "Bulut depolama, gönderinin dosyasını göndermeyi durdurdu.",
+  "LinkedIn is limiting posts from this account for today. Trying again tomorrow.": "LinkedIn bugün bu hesabın gönderilerini sınırlıyor. Yarın yeniden denenecek.",
+  "That X community link isn't right. Use one like x.com/i/communities/123…, or leave it empty.": "Bu X topluluk bağlantısı doğru değil. x.com/i/communities/123… gibi bir bağlantı kullan ya da boş bırak.",
+  "TikTok didn't renew the login. Trying again soon.": "TikTok oturumu yenilemedi. Yakında yeniden denenecek.",
+  "LinkedIn didn't renew the login. Trying again soon.": "LinkedIn oturumu yenilemedi. Yakında yeniden denenecek.",
+  "This follow-up's time passed over a day ago while the network was limiting posts, so it didn't go out.": "Bu devam gönderisinin zamanı, ağ gönderileri sınırlarken bir günden uzun süre önce geçti, bu yüzden paylaşılmadı.",
   "Drop files or folders here": "Dosya veya klasörleri buraya bırak",
   "Remove {name}": "Kaldır: {name}",
   "FILE": "DOSYA",
