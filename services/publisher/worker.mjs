@@ -9,7 +9,7 @@ import { fileIdsOf } from "./media.mjs";
 import { OVER_SCHEDULED, isWaiting, startOf, waitingUntil } from "./plans.mjs";
 import { createMemoryGate, createPool } from "./pool.mjs";
 import { createReplies } from "./replies.mjs";
-import { pause } from "./retry.mjs";
+import { SETTLE_WAITS_MS, pause, withRetries } from "./retry.mjs";
 import { dayAt, dueAtOf, nextRunAfter, runsBetween, zoneOrUtc } from "./schedule.mjs";
 
 /** Runs that came due longer ago than this (publisher down) fail with LATE instead of sending. */
@@ -452,8 +452,11 @@ export function createWorker({
     return rows.find((other) => other.occurrence !== row.occurrence && other.attempts > 0) ?? null;
   }
 
+  // Trying the same write again is safe: while this runs the row's lane is held, so nothing else takes it.
+  const keep = (filter, values) => withRetries(() => db.update("post_deliveries", filter, values()), SETTLE_WAITS_MS, wait);
+
   async function settle(row, values) {
-    return db.update("post_deliveries", { id: row.id }, { ...values, updated_at: iso(now()) });
+    return keep({ id: row.id }, () => ({ ...values, updated_at: iso(now()) }));
   }
 
   async function failed(row, error, about = {}) {
@@ -662,14 +665,14 @@ export function createWorker({
         return;
       }
       if (error instanceof PublishError && error.until && !error.retry) {
-        await db.update("post_deliveries", { id: row.id, state: claimed ? "sending" : "processing" }, { state: "processing", error: error.message, next_at: iso(Math.max(error.until, now() + CHECK_EVERY_MS)) });
+        await keep({ id: row.id, state: claimed ? "sending" : "processing" }, () => ({ state: "processing", error: error.message, next_at: iso(Math.max(error.until, now() + CHECK_EVERY_MS)) }));
         return;
       }
       // Nothing was made: publish says to try again only when the network turned the post down.
       // Before the claim nothing can have been, so any failure to ask looks again. Once claimed, a plain error may be a cut-off publish.
       const again = error instanceof PublishError ? error.retry : !claimed;
       if (again && waited < CHECK_LIMIT_MS) {
-        await db.update("post_deliveries", { id: row.id, state: claimed ? "sending" : "processing" }, { state: "processing", next_at: iso(now() + lookAgainIn(waited)) });
+        await keep({ id: row.id, state: claimed ? "sending" : "processing" }, () => ({ state: "processing", next_at: iso(now() + lookAgainIn(waited)) }));
         return;
       }
       await failed({ ...row, attempts: MAX_ATTEMPTS }, error, { post, zone });

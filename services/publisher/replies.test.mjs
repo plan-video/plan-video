@@ -173,6 +173,31 @@ function insertsFail(db, fails) {
   };
 }
 
+test("a database blip right after a follow-up is claimed leaves it free to go on its next try", async () => {
+  const { db, worker, replied, advance } = setup({ thread: [{ id: "a", text: "First", delay: 5 }] });
+  await worker.tick();
+  advance(5 * MINUTE);
+  const { selectOne, update } = db;
+  let down = true;
+  db.selectOne = async function (table, filter) {
+    if (down && table === "post_deliveries") throw new PublishError("The database didn't answer.", { retry: true });
+    return selectOne.call(this, table, filter);
+  };
+  let blips = 2;
+  db.update = async function (table, filter, values) {
+    if (table === "post_replies" && values.state !== "sending" && blips-- > 0) throw new PublishError("The database didn't answer.", { retry: true });
+    return update.call(this, table, filter, values);
+  };
+  await worker.dispatch();
+  await worker.pool.idle();
+  assert.equal(db.tables.post_replies[0].state, "queued");
+  assert.equal(replied.length, 0);
+  down = false;
+  advance(5 * MINUTE);
+  await worker.tick();
+  assert.equal(replied.length, 1);
+});
+
 test("a database blip making a post's first follow-up doesn't lose the thread", async () => {
   const { db, worker, replied, advance } = setup({ thread: [{ id: "a", text: "First", delay: 0 }] });
   let blips = 2;

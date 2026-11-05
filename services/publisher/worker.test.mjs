@@ -10,7 +10,7 @@ const T0 = Date.parse("2026-10-12T16:00:00Z");
 const VIDEO = { key: "posts/u1/p1", size: 10, type: "video/mp4", kind: "video" };
 const picture = (id) => ({ key: `posts/u1/${id}`, size: 10, type: "image/jpeg", kind: "image" });
 
-function setup({ posts, send, check, publish, file = VIDEO, sendFrom = 0 } = {}) {
+function setup({ posts, send, check, publish, file = VIDEO, sendFrom = 0, wait = async () => {} } = {}) {
   let clock = T0;
   const stored = new Map([["p1", file]]);
   const looked = [];
@@ -53,6 +53,7 @@ function setup({ posts, send, check, publish, file = VIDEO, sendFrom = 0 } = {})
       media,
       networks: { tiktok: network("tiktok"), youtube: network("youtube"), bluesky: network("bluesky"), linkedin },
       sendFrom,
+      wait,
       now: () => clock,
       log: { error() {} },
     });
@@ -390,6 +391,79 @@ test("a plain error once a post is claimed isn't looked at again: a cut-off publ
   assert.equal(published.length, 1);
 });
 
+test("a database blip right after the claim leaves a post free to go on its next try, not as one that may have gone out", async () => {
+  let down = false;
+  let blips = 1;
+  const waits = [];
+  const { db, worker, calls, advance } = setup({
+    posts: [scheduled({ platforms: ["youtube"] })],
+    wait: async (ms) => {
+      waits.push(ms);
+      if (waits.length === 2) down = false;
+    },
+  });
+  await worker.pass();
+  const { rpc, update } = db;
+  db.rpc = async function (name, args) {
+    if (down && name === "publisher_post") throw new PublishError("The database didn't answer.", { retry: true });
+    return rpc.call(this, name, args);
+  };
+  db.update = async function (table, filter, values) {
+    if (down && values.state !== "sending") throw new PublishError("The database didn't answer.", { retry: true });
+    const rows = await update.call(this, table, filter, values);
+    if (values.state === "sending" && blips-- > 0) down = true;
+    return rows;
+  };
+  await worker.dispatch();
+  await worker.pool.idle();
+  assert.equal(calls.length, 0);
+  const [row] = db.tables.post_deliveries;
+  assert.equal(row.state, "queued");
+  assert.match(row.error, /didn't answer/);
+  assert.ok(waits.slice(0, 2).every((ms) => ms > 0));
+
+  advance(31 * 60_000);
+  await worker.tick();
+  assert.equal(db.tables.post_deliveries[0].state, "sent");
+  assert.equal(calls.length, 1);
+});
+
+test("a row that still can't be kept after about a minute is left, without trying for ever", async () => {
+  const waits = [];
+  const { db, worker } = setup({
+    posts: [scheduled({ platforms: ["youtube"] })],
+    wait: async (ms) => waits.push(ms),
+  });
+  await worker.pass();
+  const { update } = db;
+  db.update = async function (table, filter, values) {
+    if (values.state !== "sending") throw new PublishError("The database didn't answer.", { retry: true });
+    return update.call(this, table, filter, values);
+  };
+  await worker.dispatch();
+  await worker.pool.idle();
+  assert.equal(db.tables.post_deliveries[0].state, "sending");
+  const total = waits.reduce((sum, ms) => sum + ms, 0);
+  assert.ok(total >= 45_000 && total <= 90_000, `${total} ms`);
+});
+
+test("a refusal of the row by the database isn't tried again", async () => {
+  const waits = [];
+  const { db, worker } = setup({
+    posts: [scheduled({ platforms: ["youtube"] })],
+    wait: async (ms) => waits.push(ms),
+  });
+  await worker.pass();
+  const { update } = db;
+  db.update = async function (table, filter, values) {
+    if (values.state !== "sending") throw new PublishError("The database refused PATCH post_deliveries: no.");
+    return update.call(this, table, filter, values);
+  };
+  await worker.dispatch();
+  await worker.pool.idle();
+  assert.deepEqual(waits, []);
+});
+
 test("a video still uploading to storage is waited for", async () => {
   const { db, worker } = setup({ posts: [scheduled({ platforms: ["youtube"] })], file: null });
   await worker.tick();
@@ -598,7 +672,7 @@ test("a send the network took, whose keeping failed, is never sent again", async
   const update = db.update.bind(db);
   let updates = 0;
   db.update = async (...args) => {
-    if (++updates === 2) throw new Error("connection lost");
+    if (++updates >= 2) throw new Error("connection lost");
     return update(...args);
   };
   await worker.tick();
@@ -610,6 +684,20 @@ test("a send the network took, whose keeping failed, is never sent again", async
   assert.equal(calls.length, 1);
   assert.equal(db.tables.post_deliveries[0].state, "failed");
   assert.match(db.tables.post_deliveries[0].error, /may have gone out/);
+});
+
+test("a blip keeping a send the network took doesn't leave it reading as one that may have gone out", async () => {
+  const { db, worker, calls } = setup({ posts: [scheduled({ platforms: ["youtube"] })] });
+  await worker.plan();
+  const update = db.update.bind(db);
+  let updates = 0;
+  db.update = async (...args) => {
+    if (++updates === 2) throw new Error("connection lost");
+    return update(...args);
+  };
+  await worker.tick();
+  assert.equal(calls.length, 1);
+  assert.equal(db.tables.post_deliveries[0].state, "sent");
 });
 
 // LinkedIn with a file: uploaded on send, made into a post once LinkedIn has it ready.

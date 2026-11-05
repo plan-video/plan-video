@@ -3,7 +3,7 @@
 // the one before went out, so a failed follow-up stops the rest. Words are read from the post as it goes.
 
 import { PublishError } from "./errors.mjs";
-import { pause, withRetries } from "./retry.mjs";
+import { SETTLE_WAITS_MS, pause, withRetries } from "./retry.mjs";
 import { zoneOrUtc } from "./schedule.mjs";
 
 /** Follow-ups one post can have, as New post allows. */
@@ -103,7 +103,7 @@ export function createReplies({ db, vault, networks, media, notices, postIn, mem
     if (first) await queueNext(delivery, 0, first.delay, { post, zone });
   }
 
-  const settle = (row, values) => db.update("post_replies", { id: row.id }, { ...values, updated_at: iso(now()) });
+  const settle = (row, values) => withRetries(() => db.update("post_replies", { id: row.id }, { ...values, updated_at: iso(now()) }), SETTLE_WAITS_MS, wait);
 
   async function failed(row, error, { post, zone, delivery } = {}) {
     const message = error instanceof PublishError ? error.message : "Something went wrong on plan.video's side. Trying again soon.";
