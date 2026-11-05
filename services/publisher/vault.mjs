@@ -297,7 +297,6 @@ export function createVault({ db, key, env, wait = pause, log = console }) {
 
     async remove(userId, connectionId) {
       await db.delete("social_tokens", { user_id: userId, connection_id: connectionId });
-      unsaved.delete(binding(userId, connectionId));
     },
 
     fresh,

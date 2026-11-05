@@ -50,11 +50,16 @@ test("a big file that keeps coming, however slowly, isn't cut off", async (t) =>
   const reader = (await media.stream("posts/u1/p1")).getReader();
   t.mock.timers.enable({ apis: ["setTimeout"] });
   assert.equal(Buffer.from((await reader.read()).value).toString(), "12345");
-  const next = reader.read();
+  let next = reader.read();
   await turn();
   t.mock.timers.tick(59_000);
-  client.end("67890");
-  assert.equal(Buffer.from((await next).value).toString(), "67890");
+  client.write("678");
+  assert.equal(Buffer.from((await next).value).toString(), "678");
+  next = reader.read();
+  await turn();
+  t.mock.timers.tick(59_000);
+  client.end("90");
+  assert.equal(Buffer.from((await next).value).toString(), "90");
   assert.equal((await reader.read()).done, true);
 });
 

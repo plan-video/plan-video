@@ -88,6 +88,7 @@ function setup(t) {
 
   const version = (code, unit = UNIT, dropIn = "[Service]\nExecStart=\nExecStart=/bin/true\n") => {
     write(join(repo, "services", "publisher", "server.mjs"), `// ${code}\n`);
+    write(join(repo, "services", "publisher", "gateway-link.mjs"), "export {};\n");
     write(join(repo, "services", "publisher", "plan-video-publisher.service"), unit);
     if (dropIn) write(join(repo, "services", "publisher", "plan-video-publisher.service.d", "node.conf"), dropIn);
     git("add", "-A");
@@ -149,9 +150,9 @@ test("rolling back puts the old unit files back too, and reloads them before the
   assert.equal(dropIn(), dropInBefore);
   const list = calls();
   const restart = list.lastIndexOf("restart plan-video-publisher");
+  const onNew = list.indexOf("restart plan-video-publisher");
   const reload = list.lastIndexOf("daemon-reload");
-  assert.ok(reload !== -1 && reload < restart, list.join(" | "));
-  assert.ok(list.indexOf("restart plan-video-publisher") < restart, "restarted on the old unit after the new one failed");
+  assert.ok(onNew < reload && reload < restart, `reloaded between the failed start and the restart on the old unit: ${list.join(" | ")}`);
 });
 
 test("rolling back takes away a unit file the old version didn't have", (t) => {
