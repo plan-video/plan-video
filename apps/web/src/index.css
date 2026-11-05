@@ -435,6 +435,53 @@ html.no-fades *::after {
   animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
 }
 
+/* The site's sky (.royal-sky in the site's own stylesheet), which the app can't import. The grain is drawn, so it needs no file. */
+.onboarding-sky {
+  background-color: #2563eb;
+  background-image: linear-gradient(to bottom, #2563eb, #7aa7f8);
+  isolation: isolate;
+}
+
+html[data-dashboard-theme="dark"] .onboarding-sky {
+  background-color: #08133a;
+  background-image: linear-gradient(to bottom, #050c26, #0c1d58 40%, #173eb0 80%, #1f52d8);
+}
+
+.onboarding-sky::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='384' height='384'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.55' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 0 0 0 0 1'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='2.4' intercept='-.7'/%3E%3CfeFuncG type='linear' slope='2.4' intercept='-.7'/%3E%3CfeFuncB type='linear' slope='2.4' intercept='-.7'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='384' height='384' filter='url(%23p)'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+  opacity: 0.11;
+}
+
+/* Between setup guide steps the old words leave before the new ones arrive, so they never overlap. The page behind stays a plain crossfade, which keeps its colour exact. */
+html.moving-step .step-heading {
+  view-transition-name: step-heading;
+}
+
+html.moving-step .step-body {
+  view-transition-name: step-body;
+}
+
+html.moving-step .step-actions {
+  view-transition-name: step-actions;
+}
+
+::view-transition-old(step-heading),
+::view-transition-old(step-body) {
+  animation-duration: 80ms;
+}
+
+::view-transition-new(step-heading),
+::view-transition-new(step-body) {
+  animation-delay: 70ms;
+  animation-duration: 130ms;
+  animation-fill-mode: both;
+}
+
 /* Fallbacks, so a duration-* or ease-* class on the element wins. */
 @layer base {
   :where([class*="animate-in"], [class*="animate-out"]) {

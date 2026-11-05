@@ -6,10 +6,10 @@ Want a look first? [The demo](/try) opens the dashboard and editor with sample p
 
 <Steps>
   <Step title="Sign in">
-    Go to [plan.video](https://plan.video) and sign in with your email. You'll land on your dashboard.
+    Go to [plan.video](https://plan.video) and sign in with your email. A short setup guide helps you name your workspace, choose your look, connect your accounts and set your posting times. You can skip any of it, and open it again under **Settings** → **Help**.
   </Step>
   <Step title="Connect a network">
-    Open **Settings**, then **Connections**, and click **Connect** next to the network you want to post to. You'll sign in on the network's own page and come back to plan.video. See [Connect accounts](/docs/connect-accounts).
+    If you skipped this in the setup guide, open **Settings**, then **Connections**, and click **Connect** next to the network you want to post to. You'll sign in on the network's own page and come back to plan.video. See [Connect accounts](/docs/connect-accounts).
   </Step>
   <Step title="Write your post">
     Click **New post**, pick the accounts to post to, add a video or pictures, and write a caption. Each network gets its own preview, and you can change the caption for one network without touching the others.

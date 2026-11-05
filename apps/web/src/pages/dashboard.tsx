@@ -34,6 +34,7 @@ const DashboardStorageView = lazy(() => import("@/components/dashboard/storage-v
 const DashboardWorkspaceView = lazy(() => import("@/components/dashboard/workspace-view").then((module) => ({ default: module.DashboardWorkspaceView })));
 const DashboardNotificationsView = lazy(() => import("@/components/dashboard/notifications-view").then((module) => ({ default: module.DashboardNotificationsView })));
 const DashboardAnalyticsAccounts = lazy(() => import("@/components/dashboard/analytics-accounts").then((module) => ({ default: module.AnalyticsAccounts })));
+const DashboardOnboardingView = lazy(() => import("@/components/dashboard/onboarding-view").then((module) => ({ default: module.DashboardOnboardingView })));
 const DashboardCalendarSidebar = lazy(() => import("@/components/calendar/calendar-sidebar").then((module) => ({ default: module.CalendarSidebar })));
 import { createNotifications, needsAttention } from "@/components/dashboard/notifications";
 import {
@@ -49,7 +50,7 @@ import { DashboardSidebarSearch } from "@/components/dashboard/sidebar-search";
 import { DashboardSidebarFolders } from "@/components/dashboard/sidebar-folders";
 import { loadProjectFolders, moveProjectsToFolder, projectFolder } from "@/lib/project-folders";
 import { PageSkeleton, skeletonFor } from "@/components/dashboard/page-skeleton";
-import { playEnter } from "@/lib/motion";
+import { playEnter, smoothly } from "@/lib/motion";
 import { LibraryStorageMeter } from "@/components/dashboard/sidebar-usage";
 import { loadMediaLibrary, mediaItems } from "@/lib/media-library";
 import { loadTemplates, postTemplates } from "@/lib/post-templates";
@@ -61,6 +62,7 @@ import { useDeliveries } from "@/components/publish/deliveries";
 import { hasFailed, isGoingOut } from "@/components/publish/publisher";
 import { WorkspaceSwitcher } from "@/components/dashboard/workspace-switcher";
 import { useAuth } from "@/context/auth";
+import { finishOnboarding, onboardingDue, onboardingStep } from "@/lib/onboarding";
 import { refreshTeam, showInvite, teamInvites } from "@/lib/team";
 import { beginSyncing } from "@/lib/sync-start";
 import { activeWorkspaceId, firstNameFrom, loadWorkspaces, setWorkspaceOwnerName, sharedWorkspaces, switchWorkspace } from "@/lib/workspaces";
@@ -336,6 +338,25 @@ export function DashboardPage() {
 
   const openProfile = () => setView("account");
 
+  /** Read now: the invite effect takes it off the address. Someone joining a team has that team's accounts already. */
+  const cameByInvite = !!params.invite;
+  const onboarding = () => {
+    const user = auth.user();
+    if (!user || auth.isGuest()) return false;
+    if (onboardingStep(user.id)) return true;
+    return !cameByInvite && !sharedWorkspaces().length && !teamInvites().length && onboardingDue(user);
+  };
+  const leaveOnboarding = (next?: DashboardView) =>
+    smoothly(async () => {
+      if (next) {
+        setView(next);
+        // The router commits a moment later: closing first would show the page they were on.
+        await new Promise((done) => setTimeout(done));
+      }
+      const id = auth.user()?.id;
+      if (id) finishOnboarding(id);
+    });
+
   onMount(() => void hydrateCalendar());
 
   createEffect(() => {
@@ -472,7 +493,7 @@ export function DashboardPage() {
     />
   );
 
-  return (
+  const shell = () => (
     <div
       class={cx("dashboard-shell flex w-full min-h-0 flex-col overflow-hidden", auth.isGuest() ? "h-full" : "h-dvh")}
       // Wide enough that the longest name ("Analytics") keeps room on both sides.
@@ -845,5 +866,13 @@ export function DashboardPage() {
       </div>
       <TeamInviteDialog />
     </div>
+  );
+
+  return (
+    <Show when={onboarding()} fallback={shell()}>
+      <Suspense fallback={<div class="h-dvh bg-(--plane-canvas)" />}>
+        <DashboardOnboardingView onDone={leaveOnboarding} />
+      </Suspense>
+    </Show>
   );
 }
