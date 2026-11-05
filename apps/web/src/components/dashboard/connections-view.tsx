@@ -34,6 +34,7 @@ import {
 } from "@/lib/social-connections";
 import { LINKEDIN_PAGES, linkedinAuthorizeUrl, linkedinNeedsRenewal, rememberLinkedInState } from "@/lib/linkedin";
 import { META_NAMES, isMetaNetwork, metaAuthorizeUrl, rememberMetaState, type MetaNetwork } from "@/lib/meta";
+import { pinterestAuthorizeUrl, rememberPinterestState } from "@/lib/pinterest";
 import { forgetLogin } from "@/lib/publishing";
 import { rememberXState, xAuthorizeUrl } from "@/lib/x";
 import { rememberTikTokState, tiktokAuthorizeUrl } from "@/lib/tiktok";
@@ -148,6 +149,11 @@ export function DashboardConnectionsView() {
     window.location.assign(url);
   };
 
+  const beginPinterest = async () => {
+    const url = await pinterestAuthorizeUrl(rememberPinterestState());
+    window.location.assign(url);
+  };
+
   createEffect(() => {
     loadSocialConnections(auth.user()?.id);
   });
@@ -244,12 +250,12 @@ export function DashboardConnectionsView() {
                 const renew = () => renewing(false);
                 const hasPages = () => accounts().some((account) => account.linkedin?.organizationId);
                 /**
-                 * An older "Sign in with Bluesky" stays in the browser that made it, and an Instagram, Facebook or
-                 * Threads account added by name before it could sign in has no login, so posts can't go out from the server.
+                 * An older "Sign in with Bluesky" stays in the browser that made it, and an Instagram, Facebook,
+                 * Threads or Pinterest account added by name before it could sign in has no login, so posts can't go out from the server.
                  */
                 const moved = () =>
                   accounts().some(
-                    (account) => (account.bluesky?.oauth && !account.bluesky.server) || (!auth.isGuest() && isMetaNetwork(account.platform) && !account[account.platform]),
+                    (account) => (account.bluesky?.oauth && !account.bluesky.server) || (!auth.isGuest() && (isMetaNetwork(account.platform) || account.platform === "pinterest") && !account[account.platform as MetaNetwork | "pinterest"]),
                   );
                 return (
                   <div class="flex flex-col gap-2 py-3">
@@ -342,6 +348,12 @@ export function DashboardConnectionsView() {
                               });
                               return;
                             }
+                            if (network === "pinterest") {
+                              void beginPinterest().catch((error: unknown) => {
+                                toast.error(error instanceof Error ? error.message : t("Couldn't start {network} login.", { network: "Pinterest" }));
+                              });
+                              return;
+                            }
                             setHandle("");
                             setPlatform(item.id);
                           }}
@@ -370,8 +382,8 @@ export function DashboardConnectionsView() {
                               .then(() => forgetLogin(accountId, team))
                               .then((revoked) => {
                                 if (revoked) return;
-                                // Meta has no way for an app to end its own access to one account, and a LinkedIn Page shares its login with its member's other Pages: the login is deleted here, and the rest is the person's to do.
-                                if (removed && (isMetaNetwork(removed.platform) || removed.linkedin?.organizationId)) {
+                                // Meta and Pinterest have no way for an app to end its own access to one account, and a LinkedIn Page shares its login with its member's other Pages: the login is deleted here, and the rest is the person's to do.
+                                if (removed && (isMetaNetwork(removed.platform) || removed.platform === "pinterest" || removed.linkedin?.organizationId)) {
                                   toast(t("Disconnected {network}", { network }), {
                                     description: t("plan.video deleted its login. To remove plan.video from {network} too, remove it from the apps connected in {network}'s settings.", { network }),
                                   });

@@ -13,6 +13,7 @@ import { redirectsFor as youtubeRedirects, authorizeUrl as youtubeAuthorize } fr
 import { connectWithin } from "./accounts.mjs";
 import { PublishError, Refused } from "./errors.mjs";
 import { META_NAMES, configured, isMetaNetwork } from "./meta.mjs";
+import { configured as pinterestConfigured } from "./pinterest.mjs";
 
 export const LINK_DAYS = 7;
 const DAY_MS = 24 * 60 * 60_000;
@@ -23,13 +24,13 @@ const STATE = /^[\w-]{8,200}$/;
 const CHALLENGE = /^[\w-]{43,128}$/;
 const NAME_MAX = 80;
 
-/** Networks a client can connect through a link, in the order the page shows them. Pinterest has no sign-in yet. */
-export const LINK_NETWORKS = ["x", "instagram", "tiktok", "youtube", "linkedin", "facebook", "threads", "bluesky"];
+/** Networks a client can connect through a link, in the order the page shows them. */
+export const LINK_NETWORKS = ["x", "instagram", "tiktok", "youtube", "linkedin", "facebook", "threads", "pinterest", "bluesky"];
 
-const NAMES = { x: "X", tiktok: "TikTok", youtube: "YouTube", linkedin: "LinkedIn", bluesky: "Bluesky", ...META_NAMES };
+const NAMES = { x: "X", tiktok: "TikTok", youtube: "YouTube", linkedin: "LinkedIn", bluesky: "Bluesky", pinterest: "Pinterest", ...META_NAMES };
 
 /** The field each network's login names its account by, in the connection the dashboard keeps. */
-const IDENTITY = { tiktok: "openId", youtube: "channelId", linkedin: "personId", x: "xUserId", instagram: "accountId", facebook: "accountId", threads: "accountId", bluesky: "did" };
+const IDENTITY = { tiktok: "openId", youtube: "channelId", linkedin: "personId", x: "xUserId", instagram: "accountId", facebook: "accountId", threads: "accountId", pinterest: "accountId", bluesky: "did" };
 
 const GONE = "This link has run out or was turned off. Ask the person who sent it for a new one.";
 
@@ -49,7 +50,7 @@ async function blueskyProfile(did) {
   }
 }
 
-export function createConnectLinks({ db, key, vault, limits, env, youtube, tiktok, linkedin, x, meta, bluesky, profile = blueskyProfile, now = () => Date.now() }) {
+export function createConnectLinks({ db, key, vault, limits, env, youtube, tiktok, linkedin, x, meta, pinterest, bluesky, profile = blueskyProfile, now = () => Date.now() }) {
   const mac = hkdfSync("sha256", Buffer.from(key || "", "base64"), Buffer.alloc(0), "plan.video connect link", 32);
   const sign = (id) => createHmac("sha256", Buffer.from(mac)).update(id).digest().subarray(0, 16).toString("base64url");
   const linkFor = (id) => `${id}${sign(id)}`;
@@ -87,6 +88,7 @@ export function createConnectLinks({ db, key, vault, limits, env, youtube, tikto
       linkedin: !!(linkedin && env.linkedin?.clientId),
       facebook: !!meta && configured("facebook", env),
       threads: !!meta && configured("threads", env),
+      pinterest: !!pinterest && pinterestConfigured(env.pinterest),
       bluesky: !!bluesky,
     };
     return LINK_NETWORKS.filter((network) => ready[network]);
@@ -183,6 +185,11 @@ export function createConnectLinks({ db, key, vault, limits, env, youtube, tikto
         details: { accountId: account.accountId, expiresAt: account.expiresAt, scope: account.scope },
       }));
     }
+    if (network === "pinterest") {
+      const found = await pinterest.exchange(holder, code);
+      const session = unseal(found.ticket, (ticket) => pinterest.open(holder, ticket));
+      return [{ handle: found.handle, avatarUrl: found.avatarUrl, session, details: { accountId: found.accountId, expiresAt: found.expiresAt, scope: found.scope } }];
+    }
     // Sign in with Bluesky: the session stays the owner's own, in bluesky_sessions; the login names the account.
     const query = typeof body.query === "string" ? body.query.slice(0, 4000) : "";
     const { did, ticket } = await bluesky.callback(holder, query);
@@ -254,6 +261,7 @@ export function createConnectLinks({ db, key, vault, limits, env, youtube, tikto
         return { url: await bluesky.authorize(row.owner_id, handle) };
       }
       if (isMetaNetwork(network)) return meta.authorize(network, { redirectUri, state });
+      if (network === "pinterest") return pinterest.authorize({ redirectUri, state });
       if (!STATE.test(state)) throw new Refused(400, "That login state isn't valid.");
       const codeChallenge = text("codeChallenge");
       const allowed = { youtube: youtubeRedirects, tiktok: tiktokRedirects, linkedin: linkedinRedirects, x: xRedirects }[network](env[network]?.publicUrl);

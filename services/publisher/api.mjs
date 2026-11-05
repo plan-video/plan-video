@@ -12,6 +12,7 @@ import { PublishError, Refused } from "./errors.mjs";
 import { analyticsFor as metaAnalyticsFor } from "./meta-analytics.mjs";
 import { META_NAMES, isMetaNetwork, profileFor as metaProfileFor } from "./meta.mjs";
 import { pdsFetch } from "./pds-fetch.mjs";
+import { boardsOf as pinterestBoards, profileFor as pinterestProfileFor } from "./pinterest.mjs";
 import { clientIp } from "./support.mjs";
 import { xBasic } from "./vault.mjs";
 import { clearYouTubeConnection } from "./youtube-check.mjs";
@@ -19,10 +20,11 @@ import { clearYouTubeConnection } from "./youtube-check.mjs";
 const JSON_MAX = 64 * 1024;
 const ID = /^[A-Za-z0-9_-]{1,100}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const PLATFORMS = new Set(["tiktok", "youtube", "linkedin", "bluesky", "x", "instagram", "facebook", "threads"]);
+const PLATFORMS = new Set(["tiktok", "youtube", "linkedin", "bluesky", "x", "instagram", "facebook", "threads", "pinterest"]);
 /** Networks whose tokens no browser is given: the publisher makes their calls itself. */
-const SERVER_ONLY = new Set(["youtube", "x", "tiktok", "linkedin", "instagram", "facebook", "threads"]);
+const SERVER_ONLY = new Set(["youtube", "x", "tiktok", "linkedin", "instagram", "facebook", "threads", "pinterest"]);
 const META_ROUTE = /^\/api\/publisher\/(instagram|facebook|threads)\/(authorize|exchange|profile|analytics)$/;
+const PINTEREST_ROUTE = /^\/api\/publisher\/pinterest\/(authorize|exchange|profile|boards)$/;
 const LINK_ROUTE = /^\/api\/publisher\/connect-link\/(open|authorize|exchange)$/;
 const NETWORK_READS = {
   "/api/publisher/tiktok/profile": { platform: "tiktok", read: profileFor },
@@ -73,7 +75,8 @@ function forBrowser(platform, session) {
 /** True when the network confirmed it, or the access was already gone. */
 export async function revoke(platform, session, env, bluesky) {
   // Meta has no way for an app to end its own access to one account: the login is dropped, and the person removes the app in the network's settings.
-  if (isMetaNetwork(platform)) return false;
+  // Nor has Pinterest.
+  if (isMetaNetwork(platform) || platform === "pinterest") return false;
   if (platform === "bluesky" && session.oauth) {
     await bluesky?.revoke(session.owner, session.did);
     return true;
@@ -118,7 +121,7 @@ export async function revoke(platform, session, env, bluesky) {
   return false;
 }
 
-export function createApi({ env, vault, worker, users, kick, bluesky, limits, db, mailer, deletion, youtube, x, tiktok, linkedin, meta, links, now = () => Date.now() }) {
+export function createApi({ env, vault, worker, users, kick, bluesky, limits, db, mailer, deletion, youtube, x, tiktok, linkedin, meta, pinterest, links, now = () => Date.now() }) {
   const windows = new Map();
 
   function limit(name, max, seconds) {
@@ -307,6 +310,11 @@ export function createApi({ env, vault, worker, users, kick, bluesky, limits, db
         if (!ticket) throw new Refused(403, `Connect ${META_NAMES[platform]} again to keep this account's login.`);
         session = ticket.session;
       }
+      if (platform === "pinterest") {
+        ticket = typeof session?.ticket === "string" ? (pinterest?.open(holder, session.ticket) ?? null) : null;
+        if (!ticket) throw new Refused(403, "Connect Pinterest again to keep this account's login.");
+        session = ticket.session;
+      }
       // A new account counts against the plan's social accounts; a login for one already connected doesn't.
       const save = () =>
         connectWithin({ vault, limits, userId: scope.actor, connectionId }, () =>
@@ -438,6 +446,34 @@ export function createApi({ env, vault, worker, users, kick, bluesky, limits, db
       const login = await vault.fresh(scope.actor, connectionId);
       if (login.platform !== network) throw new Refused(400, `That isn't a ${META_NAMES[network]} account.`);
       const result = action === "profile" ? await metaProfileFor(network, login.session) : await metaAnalyticsFor(network, login.session);
+      json(res, result.error ? 400 : 200, result.error ? { error: result.error } : result);
+      return;
+    }
+
+    const pinterestRoute = PINTEREST_ROUTE.exec(path);
+    if (pinterestRoute) {
+      const [, action] = pinterestRoute;
+      if (!pinterest) throw new Refused(503, "Pinterest isn't set up on the server yet.");
+      const text = (key) => (typeof body[key] === "string" ? body[key].slice(0, 4000) : "");
+      if (action === "authorize" || action === "exchange") {
+        limit(`pinterest-connect:${user.id}`, 20, 600);
+        mustManage(scope);
+        json(res, 200, action === "authorize"
+          ? pinterest.authorize({ redirectUri: text("redirectUri"), state: text("state") })
+          : await pinterest.exchange(holderOf(user, scope), { code: text("code"), redirectUri: text("redirectUri") }));
+        return;
+      }
+      // Anyone in the workspace may read these; the answer never carries a token.
+      const connectionId = connectionOf(body);
+      limit(`pinterest:${user.id}`, 120, 600);
+      await mustBeListed(scope, connectionId);
+      const login = await vault.fresh(scope.actor, connectionId);
+      if (login.platform !== "pinterest") throw new Refused(400, "That isn't a Pinterest account.");
+      if (action === "boards") {
+        json(res, 200, { boards: (await pinterestBoards(env.pinterest, login.session)).map((board) => board.name) });
+        return;
+      }
+      const result = await pinterestProfileFor(env.pinterest, login.session);
       json(res, result.error ? 400 : 200, result.error ? { error: result.error } : result);
       return;
     }

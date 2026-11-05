@@ -1,4 +1,4 @@
-plan.video posts to eight networks today. Pinterest is [coming soon](/docs/coming-soon).
+plan.video posts to nine networks.
 
 <CardGroup cols={3}>
   <Card title="TikTok" network="tiktok" href="/docs/tiktok">Videos and photo posts.</Card>
@@ -9,7 +9,7 @@ plan.video posts to eight networks today. Pinterest is [coming soon](/docs/comin
   <Card title="Instagram" network="instagram" href="/docs/instagram">Pictures, Reels, carousels and stories.</Card>
   <Card title="Facebook" network="facebook" href="/docs/facebook">Posts and stories on your Pages.</Card>
   <Card title="Threads" network="threads" href="/docs/threads">Text, pictures and video.</Card>
-  <Card title="Coming soon" icon="calendar-clock" href="/docs/coming-soon">Pinterest.</Card>
+  <Card title="Pinterest" network="pinterest" href="/docs/pinterest">Pins with pictures or a video.</Card>
 </CardGroup>
 
 ## At a glance
@@ -24,6 +24,7 @@ plan.video posts to eight networks today. Pinterest is [coming soon](/docs/comin
 | Instagram | No | Up to 10 | Yes | 2,200 |
 | Facebook | Yes | Up to 10 | Yes | 63,206 |
 | Threads | Yes | Up to 20 | Yes | 500 |
+| Pinterest | No | Up to 5 | Yes | 500 + title |
 
 ## Videos on every network
 
@@ -39,3 +40,4 @@ plan.video takes videos between **3 seconds and 5 minutes** long, up to **500 MB
 | Instagram | 3 minutes | 300 MB |
 | Facebook | 5 minutes | 500 MB |
 | Threads | 5 minutes | 500 MB |
+| Pinterest | 5 minutes | 500 MB |

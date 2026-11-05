@@ -38,5 +38,5 @@ A link works for 7 days, and **Client link** shows how many accounts have connec
 
 - **Turn off** ends the link early, and **New link** replaces it. Accounts already connected stay.
 - Each account counts toward your plan's limit, and X is only offered if your plan includes it.
-- Pinterest isn't offered, and Bluesky uses **Sign in with Bluesky**, not an app password.
+- Bluesky uses **Sign in with Bluesky**, not an app password.
 - To remove an account later, click its **×** in **Connections**. Your client can also remove plan.video in the network's own settings.

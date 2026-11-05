@@ -70,7 +70,7 @@ Read by every service except `mcp`, `monitor` and `photos`.
 
 ## Network files
 
-The network's service and the publisher both read these. `meta.env` has no service of its own: only the publisher reads it.
+The network's service and the publisher both read these. `meta.env` and `pinterest.env` have no service of their own: only the publisher reads them.
 
 | File | Keys |
 | --- | --- |
@@ -79,6 +79,7 @@ The network's service and the publisher both read these. `meta.env` has no servi
 | `linkedin.env` | `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET`, and for company Pages `LINKEDIN_PAGES_CLIENT_ID`, `LINKEDIN_PAGES_CLIENT_SECRET` |
 | `x.env` | `X_CLIENT_ID`, `X_CLIENT_SECRET` |
 | `meta.env` | `INSTAGRAM_APP_ID`, `INSTAGRAM_APP_SECRET`, `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET`, `FACEBOOK_CONFIG_ID`, `THREADS_APP_ID`, `THREADS_APP_SECRET` |
+| `pinterest.env` | `PINTEREST_APP_ID`, `PINTEREST_APP_SECRET`, and `PINTEREST_SANDBOX=true` while your app has Trial access |
 
 [Network apps](/docs/network-apps) shows where to get each one.
 

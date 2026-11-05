@@ -47,7 +47,8 @@ import type { ToolHandler, ToolContext } from "../handler";
 import type { PostPatch } from "@/components/calendar/store";
 import type { StoredEvent } from "@/components/calendar/types";
 import type { AccountChoices, SocialConnection } from "@/lib/social-connections";
-import type { MediaSummary, PlatformId, PostKind, SocialPlatform, TikTokPostSettings, YouTubePostSettings } from "@/lib/social";
+import { cleanBoardName } from "@/lib/pinterest-boards";
+import type { MediaSummary, PinterestPostSettings, PlatformId, PostKind, SocialPlatform, TikTokPostSettings, YouTubePostSettings } from "@/lib/social";
 
 const SIGN_IN = "Sign in to Plan Video before scheduling posts.";
 
@@ -55,11 +56,11 @@ const CAPTION_NOTE =
   "One caption is stored for every platform on a post. If it is over a platform's limit, shorten it or leave that platform off.";
 
 const PUBLISHES = new Set<string>(PUBLISHING_PLATFORMS);
-// YouTube needs a video, TikTok and Instagram a video or pictures; the others can post words alone.
-const NEEDS_FILE = new Set<string>(["tiktok", "youtube", "instagram"]);
+// YouTube needs a video, TikTok, Instagram and Pinterest a video or pictures; the others can post words alone.
+const NEEDS_FILE = new Set<string>(["tiktok", "youtube", "instagram", "pinterest"]);
 
 const hasLogin = (account: ReturnType<typeof socialConnections>[number]) =>
-  !!(account.tiktok || account.youtube || account.bluesky || account.linkedin || account.x || account.instagram || account.facebook || account.threads);
+  !!(account.tiktok || account.youtube || account.bluesky || account.linkedin || account.x || account.instagram || account.facebook || account.threads || account.pinterest);
 
 type RepeatInput = {
   every?: number;
@@ -347,6 +348,13 @@ async function checkCreators(choices: AccountChoices | undefined, tiktok: TikTok
   return { tiktok: settings, warnings };
 }
 
+const NO_BOARD = "Pinterest needs a board. Pass pinterest.board with the name of the board it goes on.";
+
+function pinterestOf(input: { board?: string; title?: string } | undefined, existing: PinterestPostSettings | undefined, platforms: readonly PlatformId[]): PinterestPostSettings | undefined {
+  if (!platforms.includes("pinterest")) return undefined;
+  return { board: input?.board !== undefined ? cleanBoardName(input.board) : (existing?.board ?? ""), title: input?.title !== undefined ? input.title.trim() : (existing?.title ?? "") };
+}
+
 // Networks with words of their own (`own`) are checked by those instead of the caption.
 function assertFits(input: {
   kind: PostKind;
@@ -513,7 +521,9 @@ function platformNotes(platform: SocialPlatform): string {
         ? "Plan Video can upload a video here while the app is open."
         : platform.id === "tiktok"
           ? `Plan Video can post here while the app is open: a video, or up to ${pictures} pictures as a photo post.`
-          : `Plan Video can post here while the app is open: the words, with the post's video or up to ${pictures} of its pictures.`
+          : platform.id === "pinterest"
+            ? `Plan Video can post here while the app is open: a video, or up to ${pictures} pictures as one Pin, on the board named in pinterest.board.`
+            : `Plan Video can post here while the app is open: the words, with the post's video or up to ${pictures} of its pictures.`
       : "Kept on the calendar. Plan Video does not send to this platform.",
   ];
   if (platform.title?.required) parts.push("A title is required.");
@@ -618,6 +628,8 @@ async function savePost(
   const youtube = youtubeOf(args.youtube, undefined, platforms, caption, media("youtube"));
   let tiktok = platforms.includes("tiktok") ? tiktokOf(args.tiktok) : undefined;
   requireTikTok(platforms, tiktok, scheduling);
+  const pinterest = pinterestOf(args.pinterest, undefined, platforms);
+  if (scheduling && pinterest && !pinterest.board) throw new DapiError("invalid-input", NO_BOARD);
   const warnings = assertFits({ kind: kindOf(attached, own), platforms, caption, title: youtube?.title || title, media });
   const profile = scheduling && toProfile(platforms, tiktok);
   if (scheduling && toProfile(platforms, tiktok)) {
@@ -660,6 +672,7 @@ async function savePost(
     link: args.link,
     tiktok,
     youtube,
+    pinterest,
     thread,
     when,
     untimed: !scheduling && !time,
@@ -718,6 +731,7 @@ export const copyPost: ToolHandler<"copy_post"> = async (args, ctx) => {
       link: original.link || undefined,
       thread: args.thread ?? (original.thread ?? []).map((reply) => ({ text: reply.text, delayMinutes: reply.delay })),
       youtube: youtube ? { title: youtube.title, privacy: youtube.privacy, madeForKids: youtube.madeForKids, tags: youtube.tags } : undefined,
+      pinterest: original.pinterest,
       tiktok:
         tiktok || args.tiktok
           ? {
@@ -849,6 +863,9 @@ export const updatePost: ToolHandler<"update_post"> = async (args, ctx) => {
   else if (tiktok) patch.tiktok = tiktok;
   if (!platforms.includes("youtube")) patch.youtube = null;
   else if (youtube) patch.youtube = youtube;
+  const pinterest = pinterestOf(args.pinterest, existing.pinterest, platforms);
+  if (status === "scheduled" && pinterest && !pinterest.board) throw new DapiError("invalid-input", NO_BOARD);
+  patch.pinterest = pinterest ?? null;
   if (args.repeat === null) {
     patch.repeat = null;
     patch.repeatEnd = null;
@@ -924,6 +941,7 @@ export const publishPost: ToolHandler<"publish_post"> = async ({ id, agreed }, c
   if (post.platforms.includes("youtube") && !(post.youtube?.title || post.title).trim()) {
     throw new DapiError("invalid-input", "Add a YouTube title, then publish.");
   }
+  if (post.platforms.includes("pinterest") && !post.pinterest?.board.trim()) throw new DapiError("invalid-input", NO_BOARD);
   // YouTube needs a video, TikTok a video or pictures. Bluesky, LinkedIn and X also take pictures, or the words alone.
   for (const platform of post.platforms.filter((item) => NEEDS_FILE.has(item))) {
     const files = await postFiles(post, platform);

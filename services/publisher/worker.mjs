@@ -63,7 +63,7 @@ export function nextUuid(id) {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
-const NAMES = { tiktok: "TikTok", youtube: "YouTube", bluesky: "Bluesky", linkedin: "LinkedIn", x: "X", instagram: "Instagram", facebook: "Facebook", threads: "Threads" };
+const NAMES = { tiktok: "TikTok", youtube: "YouTube", bluesky: "Bluesky", linkedin: "LinkedIn", x: "X", instagram: "Instagram", facebook: "Facebook", threads: "Threads", pinterest: "Pinterest" };
 
 function namedOn(post, platform) {
   const raw = post.accounts?.[platform];

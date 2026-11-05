@@ -114,6 +114,11 @@ export async function askMeta<T>(
   return call<T>(`${network}/${action}`, withTeam(body, team), fallback);
 }
 
+/** Their tokens stay on the publisher. */
+export async function askPinterest<T>(action: "authorize" | "exchange" | "profile" | "boards", body: object, fallback: string, team: TeamScope | null = activeScope()): Promise<T> {
+  return call<T>(`pinterest/${action}`, withTeam(body, team), fallback);
+}
+
 /** Says whether the network confirmed it. */
 export async function forgetLogin(connectionId: string, team: TeamScope | null = activeScope()): Promise<boolean> {
   const result = await call<{ revoked: boolean }>("login/forget", withTeam({ connectionId }, team));

@@ -54,7 +54,7 @@ export type SocialPlatform = {
 };
 
 /** The rest can be planned for, and go out once they're added. */
-export const PUBLISHING_PLATFORMS: readonly string[] = ["tiktok", "youtube", "bluesky", "linkedin", "x", "instagram", "facebook", "threads"];
+export const PUBLISHING_PLATFORMS: readonly string[] = ["tiktok", "youtube", "bluesky", "linkedin", "x", "instagram", "facebook", "threads", "pinterest"];
 
 export const SOCIAL_PLATFORMS: readonly SocialPlatform[] = [
   {

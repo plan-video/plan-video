@@ -20,8 +20,8 @@ import { Icon } from "@/components/dashboard/dashboard-icon";
 import { useAuth } from "@/context/auth";
 import { cx } from "@/lib/cva";
 import { localized, msg, rich, t } from "@/lib/i18n";
-import { cleanBoardName, loadPinterestBoards, pinterestBoards } from "@/lib/pinterest-boards";
-import { accountLabel, type SocialConnection } from "@/lib/social-connections";
+import { BOARD_NAME_MAX, cleanBoardName, loadAccountBoards, loadPinterestBoards, pinterestBoards } from "@/lib/pinterest-boards";
+import { accountLabel, socialConnections, type SocialConnection } from "@/lib/social-connections";
 import { loadTikTokCreator, type TikTokCreator } from "@/lib/tiktok";
 import {
   captionLength,
@@ -387,13 +387,20 @@ export function PlatformSettingsFields(props: {
   const auth = useAuth();
   const creator = useTikTokCreator(() => (props.platforms.includes("tiktok") ? props.tiktokAccount?.() : undefined));
   createEffect(() => loadPinterestBoards(auth.user()?.id));
+  createEffect(() => {
+    if (props.platforms.includes("pinterest")) loadAccountBoards(socialConnections().filter((account) => account.pinterest).map((account) => account.id));
+  });
   const shown = () => platformsWithSettings(props.kind, props.platforms).filter((id) => !props.only || id === props.only);
   const hasVideo = () => props.kind === "video" || !!props.mixed;
   const hasPictures = () => props.kind === "image" || !!props.mixed;
   const set = props.onChange;
   const communityBad = () => !!props.settings.x.community.trim() && !xCommunityId(props.settings.x.community);
-  const otherBoards = () =>
-    pinterestBoards().filter((board) => board.toLowerCase() !== props.settings.pinterest.board.trim().toLowerCase());
+  const otherBoards = () => {
+    const typed = props.settings.pinterest.board.trim().toLowerCase();
+    return pinterestBoards()
+      .filter((board) => board.toLowerCase() !== typed && board.toLowerCase().includes(typed))
+      .slice(0, 12);
+  };
 
   const fields = (id: PlatformId) => (
     <Switch>
@@ -519,7 +526,7 @@ export function PlatformSettingsFields(props: {
             aria-label={t("Pinterest board")}
             class={fieldControl}
             placeholder={t("Which board does it go on?")}
-            maxLength={50}
+            maxLength={BOARD_NAME_MAX}
             value={props.settings.pinterest.board}
             onInput={(event) => set("pinterest", "board", event.currentTarget.value)}
             onBlur={(event) => set("pinterest", "board", cleanBoardName(event.currentTarget.value))}

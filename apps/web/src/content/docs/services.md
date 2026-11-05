@@ -43,7 +43,7 @@ The services read these files themselves, once, when they start:
 - A `#` starts a comment only at the start of a line.
 - After changing a file, restart the services that read it.
 
-Make each file owned by `root` and by the group of the service that reads it, with mode `640`: `<name>.env` by `planvideo-<name>`, `meta.env` by `planvideo-publisher`, and `r2.env`, which most services share, by `planvideo-r2`. `monitor` runs as root, so `monitor.env` needs no group of its own. Then a bug in one service can't read another's keys. [Environment variables](/docs/configuration) lists every key.
+Make each file owned by `root` and by the group of the service that reads it, with mode `640`: `<name>.env` by `planvideo-<name>`, `meta.env` and `pinterest.env` by `planvideo-publisher`, and `r2.env`, which most services share, by `planvideo-r2`. `monitor` runs as root, so `monitor.env` needs no group of its own. Then a bug in one service can't read another's keys. [Environment variables](/docs/configuration) lists every key.
 
 ## Install a service
 

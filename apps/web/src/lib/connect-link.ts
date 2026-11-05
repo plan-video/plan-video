@@ -16,7 +16,7 @@ export type OpenedLink = { workspace: string; from: string; expiresAt: string; n
 
 export type LinkedAccount = { platform: string; handle: string; avatarUrl: string };
 
-export type LinkNetwork = "x" | "instagram" | "tiktok" | "youtube" | "linkedin" | "facebook" | "threads" | "bluesky";
+export type LinkNetwork = "x" | "instagram" | "tiktok" | "youtube" | "linkedin" | "facebook" | "threads" | "pinterest" | "bluesky";
 
 const SIGN_IN_KEY = "plan.video.connect-link.sign-in";
 

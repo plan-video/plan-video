@@ -28,6 +28,10 @@ X charges for posting through its API, so X is available on paid plans.
 
 Instagram needs a business or creator account. Facebook asks which of your Pages to share, and each Page becomes its own account. Meta doesn't let apps end their own access, so when you remove one of these accounts, plan.video deletes its login and you remove plan.video in the network's settings yourself if you want to.
 
+### Pinterest
+
+Each post names the board it goes on. Pinterest doesn't let apps end their own access either, so when you remove the account, plan.video deletes its login and you remove plan.video in Pinterest's settings yourself if you want to.
+
 ## Reconnect an account
 
 Networks sometimes end a login, for example after you change your password. The next post to that account fails and says so. Click **Add account** next to the network and sign in to the same account: the new login replaces the old one, and your scheduled posts stay as they are. If you've used every account on your plan, you'll be asked to free one up first.

@@ -11,6 +11,7 @@ import { createBlueskyOAuth, makeBlueskyKey } from "./bluesky-oauth.mjs";
 import { fakeDb } from "./fake-db.mjs";
 import { createLinkedInLogins } from "./linkedin-logins.mjs";
 import { createMetaLogins } from "./meta-logins.mjs";
+import { createPinterestLogins } from "./pinterest-logins.mjs";
 import { createTikTokLogins } from "./tiktok-logins.mjs";
 import { createVault, sealer } from "./vault.mjs";
 import { createXLogins } from "./x-logins.mjs";
@@ -55,6 +56,7 @@ const EVERY = {
   instagram: { route: "instagram/exchange", code: { code: "c", redirectUri: "https://plan.video/instagram/callback" }, token: "instagram-token" },
   facebook: { route: "facebook/exchange", code: { code: "c", redirectUri: "https://plan.video/facebook/callback" }, token: "facebook-token" },
   threads: { route: "threads/exchange", code: { code: "c", redirectUri: "https://plan.video/threads/callback" }, token: "threads-token" },
+  pinterest: { route: "pinterest/exchange", code: { code: "c", redirectUri: "https://plan.video/pinterest/callback" }, token: "pina-pinterest" },
   bluesky: { route: "bluesky/callback", code: { query: "code=c&state=s" } },
 };
 
@@ -115,6 +117,17 @@ async function setup(t, { clock = { now: T0 } } = {}) {
       { accountId: "17841400000000001", handle: "maker", avatarUrl: "", session: { accountId: "17841400000000001", accessToken: `${network}-token`, expiresAt: clock.now + 60 * 24 * 60 * MINUTE, renewedAt: clock.now, scope: "s" } },
     ],
   });
+  const pinterest = createPinterestLogins({
+    key: KEY,
+    env: { appId: "pin-app", appSecret: "pin-secret" },
+    now,
+    exchange: async () => ({
+      accountId: "77",
+      handle: "maker",
+      avatarUrl: "",
+      session: { accountId: "77", accessToken: "pina-pinterest", refreshToken: "pinr-pinterest", expiresAt: clock.now + 30 * 24 * 60 * MINUTE, renewedAt: clock.now, scope: "pins:write" },
+    }),
+  });
   // The real Bluesky tickets, made as its callback makes them, without a Bluesky server to sign in at.
   const real = await createBlueskyOAuth({ db, sealKey: KEY, privateJwk: await makeBlueskyKey(), publicUrl: "https://plan.video" });
   const ticketKey = createHmac("sha256", Buffer.from(KEY, "base64")).update("bluesky-ticket").digest();
@@ -147,6 +160,7 @@ async function setup(t, { clock = { now: T0 } } = {}) {
     youtube,
     x,
     meta,
+    pinterest,
     bluesky,
     now,
   });

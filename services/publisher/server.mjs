@@ -21,6 +21,7 @@ import { createBluesky, useBlueskyOAuth } from "./networks/bluesky.mjs";
 import { createFacebook } from "./networks/facebook.mjs";
 import { createInstagram } from "./networks/instagram.mjs";
 import { linkedin } from "./networks/linkedin.mjs";
+import { createPinterest } from "./networks/pinterest.mjs";
 import { createThreads } from "./networks/threads.mjs";
 import { createTikTok } from "./networks/tiktok.mjs";
 import { createX } from "./networks/x.mjs";
@@ -28,6 +29,8 @@ import { youtube } from "./networks/youtube.mjs";
 import { META_NETWORKS, configured } from "./meta.mjs";
 import { createMetaLogins } from "./meta-logins.mjs";
 import { createPhotoMaker } from "./photo-maker.mjs";
+import { configured as pinterestConfigured } from "./pinterest.mjs";
+import { createPinterestLogins } from "./pinterest-logins.mjs";
 import { PHOTO_PATH, VIDEO_PATH, createPhotos } from "./photos.mjs";
 import { X_LINK_POSTS_BY_LEVEL, X_POSTS_BY_LEVEL, byLevel, createPlanLimits, uploadsPerDay } from "./plans.mjs";
 import { plugs } from "./plugs.mjs";
@@ -79,6 +82,7 @@ const youtubeEnv = loadEnv(`${dir}/youtube.env`);
 const linkedinEnv = loadEnv(`${dir}/linkedin.env`);
 const xEnv = loadEnv(`${dir}/x.env`);
 const metaEnv = loadEnv(`${dir}/meta.env`);
+const pinterestEnv = loadEnv(`${dir}/pinterest.env`);
 
 const supabaseUrl = own.SUPABASE_URL || shared.SUPABASE_URL;
 const serviceKey = own.SUPABASE_SERVICE_ROLE_KEY;
@@ -98,6 +102,7 @@ const networkEnv = {
   instagram: { appId: metaEnv.INSTAGRAM_APP_ID || "", appSecret: metaEnv.INSTAGRAM_APP_SECRET || "" },
   facebook: { appId: metaEnv.FACEBOOK_APP_ID || "", appSecret: metaEnv.FACEBOOK_APP_SECRET || "", configId: metaEnv.FACEBOOK_CONFIG_ID || "" },
   threads: { appId: metaEnv.THREADS_APP_ID || "", appSecret: metaEnv.THREADS_APP_SECRET || "" },
+  pinterest: { appId: pinterestEnv.PINTEREST_APP_ID || "", appSecret: pinterestEnv.PINTEREST_APP_SECRET || "", sandbox: pinterestEnv.PINTEREST_SANDBOX === "true" },
 };
 
 // Runs that came due before this aren't sent, so posts that waited in the
@@ -130,6 +135,7 @@ const networks = {
   bluesky: createBluesky({ maker }),
   ...(networkEnv.x.clientId ? { x: createX({ limits: planLimits }) } : {}),
   ...Object.fromEntries(META_NETWORKS.filter((network) => configured(network, networkEnv)).map((network) => [network, metaNetworks[network]])),
+  ...(pinterestConfigured(networkEnv.pinterest) ? { pinterest: createPinterest({ photos, app: networkEnv.pinterest }) } : {}),
 };
 // Failed posts and LinkedIn logins running out are emailed through Resend, once its key is set.
 const notices = own.RESEND_API_KEY
@@ -180,6 +186,7 @@ const logins = {
   tiktok: createTikTokLogins({ key: own.TOKEN_KEY, env: networkEnv.tiktok }),
   linkedin: createLinkedInLogins({ key: own.TOKEN_KEY, env: networkEnv.linkedin, pagesEnv: networkEnv.linkedinPages }),
   meta: createMetaLogins({ key: own.TOKEN_KEY, env: networkEnv, publicUrl }),
+  pinterest: createPinterestLogins({ key: own.TOKEN_KEY, env: networkEnv.pinterest, publicUrl }),
 };
 const api = createApi({
   bluesky: blueskyOAuth,

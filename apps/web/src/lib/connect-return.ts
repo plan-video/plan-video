@@ -10,6 +10,7 @@ import { linkSignInFor } from "@/lib/connect-link";
 import { t } from "@/lib/i18n";
 import { exchangeLinkedInCode, exchangeLinkedInPagesCode, isLinkedInPagesState, takeLinkedInState } from "@/lib/linkedin";
 import { exchangeMetaCode, isMetaNetwork, takeMetaState } from "@/lib/meta";
+import { exchangePinterestCode, takePinterestState } from "@/lib/pinterest";
 import { connectBluesky, connectLinkedIn, connectMeta, connectTikTok, connectX, connectYouTube, loadSocialConnections } from "@/lib/social-connections";
 import { exchangeTikTokCode, takeTikTokState } from "@/lib/tiktok";
 import { exchangeXCode, takeXState } from "@/lib/x";
@@ -17,7 +18,7 @@ import { exchangeYouTubeCode, takeYouTubeState } from "@/lib/youtube";
 
 const KEY = "plan.video.connect-return";
 
-export type ReturningNetwork = "tiktok" | "youtube" | "bluesky" | "linkedin" | "x" | "instagram" | "facebook" | "threads";
+export type ReturningNetwork = "tiktok" | "youtube" | "bluesky" | "linkedin" | "x" | "instagram" | "facebook" | "threads" | "pinterest";
 
 const NAMES: Record<ReturningNetwork, string> = {
   tiktok: "TikTok",
@@ -28,6 +29,7 @@ const NAMES: Record<ReturningNetwork, string> = {
   instagram: "Instagram",
   facebook: "Facebook",
   threads: "Threads",
+  pinterest: "Pinterest",
 };
 
 export function handOffConnection(network: ReturningNetwork, search: string): string {
@@ -124,6 +126,12 @@ async function finish(network: ReturningNetwork, userId: string, params: URLSear
     if (!kept.length) throw new Error(problem ?? t("{network} didn't return an account.", { network: NAMES[network] }));
     if (problem) toast.error(t("Some Pages weren't connected"), { description: problem });
     return kept.join(", ");
+  }
+  if (network === "pinterest") {
+    const account = await exchangePinterestCode(codeFrom(params, takePinterestState(), "Pinterest"));
+    const problem = connectMeta(userId, "pinterest", account);
+    if (problem) throw new Error(problem);
+    return account.handle;
   }
   const { did, ticket } = await finishBlueskySignIn(params);
   const profile = await loadBlueskyProfile(did).catch(() => ({ handle: did, avatarUrl: "" }));
