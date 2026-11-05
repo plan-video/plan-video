@@ -22,3 +22,5 @@ Post to X with text, pictures or a video.
   These count every X account you've connected together, and follow-ups count too. A post past either limit isn't sent, and its error says when there's room again. To send one past the link limit, take the link out and post it again.
 - **Links include bare addresses.** A post counts as having a link when it has a web address in it, with or without `https://`, such as `plan.video`.
 - **50 posts a day.** You can post to X up to 50 times in any 24 hours. A post past that waits, and goes out on its own once there's room. Rarely, a video that finds the day used up only after its upload fails after 2 hours; click **Retry**.
+- **Who can reply.** Choose **Everyone**, **Following** or **Mentioned** in the post's X settings. It applies to the post, not its follow-ups.
+- **Communities.** Paste a community's link to post there instead of your timeline. You have to be a member, and its members can reply.

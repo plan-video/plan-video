@@ -213,3 +213,58 @@ test("the worker holds a post past today's limit until one frees up, without usi
   assert.equal(row.error, "Today's are used.");
   assert.equal(Date.parse(row.next_at), until);
 });
+
+test("who can reply and the community go out with the post, on every path it can be made", async (t) => {
+  const tweets = [];
+  t.mock.method(globalThis, "fetch", async (url, init = {}) => {
+    if (String(url).endsWith("/initialize")) return Response.json({ data: { id: "55" } });
+    if (String(url).endsWith("/finalize")) return Response.json({ data: { processing_info: { state: "pending" } } });
+    if (String(url).includes("/append")) return Response.json({});
+    tweets.push(JSON.parse(init.body));
+    return Response.json({ data: { id: "202" } });
+  });
+  const x = createX({ limits: { xAllowed: async () => {}, countX: async () => {} } });
+  const session = { accessToken: "a" };
+  const delivery = { user_id: "u1", publish_id: "55" };
+  const words = (settings) => x.send({ post: { description: "Hi", x: settings }, session, files: [], delivery });
+
+  await words(undefined);
+  await words({ replies: "everyone", community: "" });
+  await words({ replies: "__proto__", community: "" });
+  await words({ replies: "following", community: "" });
+  await words({ replies: "mentioned", community: "" });
+  await words({ replies: "everyone", community: "https://x.com/i/communities/1234567890" });
+  await words({ replies: "following", community: "1234567890" });
+  assert.deepEqual(tweets, [
+    { text: "Hi" },
+    { text: "Hi" },
+    { text: "Hi" },
+    { text: "Hi", reply_settings: "following" },
+    { text: "Hi", reply_settings: "mentionedUsers" },
+    { text: "Hi", community_id: "1234567890" },
+    { text: "Hi", community_id: "1234567890" },
+  ]);
+
+  tweets.length = 0;
+  await x.publish({ post: { description: "Video", x: { replies: "following", community: "" } }, session, delivery });
+  assert.deepEqual(tweets, [{ text: "Video", media: { media_ids: ["55"] }, reply_settings: "following" }]);
+
+  tweets.length = 0;
+  await x.reply({ session, text: "More", root: "100", parent: "101", delivery });
+  assert.deepEqual(tweets, [{ text: "More", reply: { in_reply_to_tweet_id: "101" } }]);
+});
+
+test("a community X wouldn't recognise fails the post instead of sending it to the timeline", async (t) => {
+  const asked = t.mock.method(globalThis, "fetch", async () => Response.json({ data: { id: "1" } }));
+  const x = createX({ limits: { xAllowed: async () => {}, countX: async () => {} } });
+  const post = { description: "Hi", x: { replies: "everyone", community: "x.com/somewhere" } };
+  const file = { kind: "video", size: 1, type: "video/mp4", key: "k" };
+  const delivery = { user_id: "u1", publish_id: "55" };
+  await assert.rejects(x.send({ post, session: { accessToken: "a" }, files: [], delivery }), /community/);
+  await assert.rejects(x.send({ post, session: { accessToken: "a" }, files: [file], delivery }), /community/);
+  await assert.rejects(x.publish({ post, session: { accessToken: "a" }, delivery }), /community/);
+  for (const community of ["https://x.com/i/communities/12345oops", "https://x.com/i/communities/12345/extra", "https://netflix.com/i/communities/12345", "x.com/i/communities/12345 and more"]) {
+    await assert.rejects(x.send({ post: { description: "Hi", x: { replies: "everyone", community } }, session: { accessToken: "a" }, files: [], delivery }), /community/, community);
+  }
+  assert.equal(asked.mock.callCount(), 0);
+});
