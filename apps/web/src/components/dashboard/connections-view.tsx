@@ -110,13 +110,13 @@ function AccountList(props: { accounts: ConnectedAccount[]; onRemove?(accountId:
   );
 }
 
-export function DashboardConnectionsView() {
+/** What Connections and the setup guide share, so an account connects the same way from both. */
+export function createConnectFlow(options: { onUpgrade?(): void } = {}) {
   const auth = useAuth();
   const [, setParams] = useSearchParams();
+  const upgrade = () => (options.onUpgrade ? options.onUpgrade() : setParams({ dashboard: "billing" }));
   /** A shared workspace is on its owner's plan, which has a team, so it's paid. */
   const locked = (id: string) => PAID_NETWORKS.has(id) && !auth.isPro() && !activeScope();
-  /** In a workspace someone shared, only its admins connect and remove accounts. */
-  const canManage = () => activeShared()?.role !== "member";
   const [platform, setPlatform] = createSignal<string | null>(null);
   const [handle, setHandle] = createSignal("");
   /** Bluesky's app password, held only until the sign-in finishes. */
@@ -171,7 +171,7 @@ export function DashboardConnectionsView() {
     if (!id || activeScope() || !accountsFull(id)) return false;
     toast.error(t("All your social accounts are in use"), {
       description: t("Your plan connects {count} social accounts. Disconnect one, or get more to connect another.", { count: accountsLimit()! }),
-      action: { label: auth.accessLevel() >= 4 ? t("Add accounts") : t("Upgrade"), onClick: () => setParams({ dashboard: "billing" }) },
+      action: { label: auth.accessLevel() >= 4 ? t("Add accounts") : t("Upgrade"), onClick: upgrade },
     });
     return true;
   };
@@ -222,6 +222,152 @@ export function DashboardConnectionsView() {
     }
     close();
   };
+
+  /** `again` signs in again to an account already here, which doesn't take another. */
+  const start = (id: string, again = false) => {
+    // A guest has no account to keep the login.
+    if (auth.isGuest()) return askForAccount({ reason: "connect", platform: id });
+    if (!again && refuseWhenFull()) return;
+    if (id === "tiktok") {
+      void beginTikTok().catch((error: unknown) => {
+        toast.error(error instanceof Error ? error.message : t("Couldn't start {network} login.", { network: "TikTok" }));
+      });
+      return;
+    }
+    if (id === "youtube") {
+      void beginYouTube().catch((error: unknown) => {
+        toast.error(error instanceof Error ? error.message : t("Couldn't start {network} login.", { network: "YouTube" }));
+      });
+      return;
+    }
+    if (id === "linkedin") {
+      void beginLinkedIn().catch((error: unknown) => {
+        toast.error(error instanceof Error ? error.message : t("Couldn't start {network} login.", { network: "LinkedIn" }));
+      });
+      return;
+    }
+    if (id === "x") {
+      void beginX().catch((error: unknown) => {
+        toast.error(error instanceof Error ? error.message : t("Couldn't start {network} login.", { network: "X" }));
+      });
+      return;
+    }
+    if (isMetaNetwork(id)) {
+      void beginMeta(id).catch((error: unknown) => {
+        toast.error(error instanceof Error ? error.message : t("Couldn't start {network} login.", { network: META_NAMES[id] }));
+      });
+      return;
+    }
+    setHandle("");
+    setPlatform(id);
+  };
+
+  const modal = () => (
+    <DashboardFormModal
+      open={platform() !== null}
+      title={open() ? t("Add {network} account", { network: open()!.name }) : t("Connect")}
+      onClose={close}
+      footer={
+        <Button
+          disabled={
+            signingIn() ||
+            (platform() === "bluesky" ? withAppPassword() && (!handle().trim() || !appPassword().trim()) : !handle().trim())
+          }
+          onClick={save}
+        >
+          {signingIn() ? t("Connecting…") : platform() === "bluesky" && !withAppPassword() ? t("Sign in with Bluesky") : t("Connect")}
+        </Button>
+      }
+    >
+      <div class="flex flex-col gap-3 px-2">
+        <Show
+          when={platform() === "bluesky"}
+          fallback={
+            <p class="text-xs text-muted-foreground">
+              {t("A post that includes {network} goes out from one of these accounts.", { network: open()?.name ?? t("this network") })}
+            </p>
+          }
+        >
+          <Show
+            when={withAppPassword()}
+            fallback={
+              <p class="text-xs text-muted-foreground">
+                {t(
+                  "You'll approve plan.video on Bluesky and come back here. Enter your handle if your account isn't on bsky.social, or leave it empty.",
+                )}
+              </p>
+            }
+          >
+            <p class="text-xs text-muted-foreground">
+              {rich(
+                "Sign in with an app password, not your Bluesky password. Make one in <link>Bluesky's settings</link>. plan.video keeps the login Bluesky gives back, not the password.",
+                {
+                  link: (text) => (
+                    <a class="text-foreground underline" href="https://bsky.app/settings/app-passwords" target="_blank" rel="noreferrer">
+                      {text}
+                    </a>
+                  ),
+                },
+              )}
+            </p>
+          </Show>
+        </Show>
+        <TextField>
+          <TextFieldLabel uiSize="compact" class="text-muted-foreground">
+            {platform() === "bluesky" ? (withAppPassword() ? t("Handle") : t("Handle (optional)")) : t("Account name")}
+          </TextFieldLabel>
+          <TextFieldInput
+            uiSize="compact"
+            value={handle()}
+            placeholder={platform() === "bluesky" ? "yourname.bsky.social" : "yourname"}
+            onInput={(event) => setHandle(event.currentTarget.value)}
+            onKeyDown={(event) => {
+              event.stopPropagation();
+              if (event.key === "Enter") save();
+            }}
+          />
+        </TextField>
+        <Show when={platform() === "bluesky" && withAppPassword()}>
+          <TextField>
+            <TextFieldLabel uiSize="compact" class="text-muted-foreground">
+              {t("App password")}
+            </TextFieldLabel>
+            <TextFieldInput
+              uiSize="compact"
+              type="password"
+              autocomplete="off"
+              value={appPassword()}
+              placeholder="xxxx-xxxx-xxxx-xxxx"
+              onInput={(event) => setAppPassword(event.currentTarget.value)}
+              onKeyDown={(event) => {
+                event.stopPropagation();
+                if (event.key === "Enter") save();
+              }}
+            />
+          </TextField>
+        </Show>
+        <Show when={platform() === "bluesky" && blueskySignInAvailable()}>
+          <button
+            type="button"
+            class="self-start text-xs text-muted-foreground underline hover:text-foreground focus-ring"
+            onClick={() => setWithAppPassword((on) => !on)}
+          >
+            {withAppPassword() ? t("Sign in with Bluesky instead") : t("Use an app password instead")}
+          </button>
+        </Show>
+      </div>
+    </DashboardFormModal>
+  );
+
+  return { locked, start, upgrade, modal, beginLinkedIn, refuseWhenFull };
+}
+
+export function DashboardConnectionsView() {
+  const auth = useAuth();
+  const flow = createConnectFlow();
+  const { locked, start, upgrade, beginLinkedIn, refuseWhenFull } = flow;
+  /** In a workspace someone shared, only its admins connect and remove accounts. */
+  const canManage = () => activeShared()?.role !== "member";
 
   return (
     <div class="flex min-h-0 flex-1 flex-col">
@@ -281,7 +427,7 @@ export function DashboardConnectionsView() {
                         fallback={
                           <Button
                             class="gap-0 pl-0 pr-2"
-                            onClick={() => (auth.isGuest() ? askForAccount({ reason: "account" }) : setParams({ dashboard: "billing" }))}
+                            onClick={() => (auth.isGuest() ? askForAccount({ reason: "account" }) : upgrade())}
                           >
                             <span class="grid h-7 w-6 place-items-center overflow-clip">
                               <Icon name="upgrade" class="size-6" />
@@ -309,43 +455,7 @@ export function DashboardConnectionsView() {
                         <Button
                           variant="secondary"
                           onClick={() => {
-                            // A guest has no account to keep the login.
-                            if (auth.isGuest()) return askForAccount({ reason: "connect", platform: item.id });
-                            // Signing in again to an account already here doesn't take another.
-                            if (!renew() && !moved() && refuseWhenFull()) return;
-                            if (item.id === "tiktok") {
-                              void beginTikTok().catch((error: unknown) => {
-                                toast.error(error instanceof Error ? error.message : t("Couldn't start {network} login.", { network: "TikTok" }));
-                              });
-                              return;
-                            }
-                            if (item.id === "youtube") {
-                              void beginYouTube().catch((error: unknown) => {
-                                toast.error(error instanceof Error ? error.message : t("Couldn't start {network} login.", { network: "YouTube" }));
-                              });
-                              return;
-                            }
-                            if (item.id === "linkedin") {
-                              void beginLinkedIn().catch((error: unknown) => {
-                                toast.error(error instanceof Error ? error.message : t("Couldn't start {network} login.", { network: "LinkedIn" }));
-                              });
-                              return;
-                            }
-                            if (item.id === "x") {
-                              void beginX().catch((error: unknown) => {
-                                toast.error(error instanceof Error ? error.message : t("Couldn't start {network} login.", { network: "X" }));
-                              });
-                              return;
-                            }
-                            const network = item.id;
-                            if (isMetaNetwork(network)) {
-                              void beginMeta(network).catch((error: unknown) => {
-                                toast.error(error instanceof Error ? error.message : t("Couldn't start {network} login.", { network: META_NAMES[network] }));
-                              });
-                              return;
-                            }
-                            setHandle("");
-                            setPlatform(item.id);
+                            start(item.id, renew() || moved());
                           }}
                         >
                           {renew() || moved() ? t("Reconnect") : accounts().length ? t("Add account") : t("Connect")}
@@ -402,100 +512,7 @@ export function DashboardConnectionsView() {
         <AccountGroupsSection />
       </DashboardScrollView>
 
-      <DashboardFormModal
-        open={platform() !== null}
-        title={open() ? t("Add {network} account", { network: open()!.name }) : t("Connect")}
-        onClose={close}
-        footer={
-          <Button
-            disabled={
-              signingIn() ||
-              (platform() === "bluesky" ? withAppPassword() && (!handle().trim() || !appPassword().trim()) : !handle().trim())
-            }
-            onClick={save}
-          >
-            {signingIn() ? t("Connecting…") : platform() === "bluesky" && !withAppPassword() ? t("Sign in with Bluesky") : t("Connect")}
-          </Button>
-        }
-      >
-        <div class="flex flex-col gap-3 px-2">
-          <Show
-            when={platform() === "bluesky"}
-            fallback={
-              <p class="text-xs text-muted-foreground">
-                {t("A post that includes {network} goes out from one of these accounts.", { network: open()?.name ?? t("this network") })}
-              </p>
-            }
-          >
-            <Show
-              when={withAppPassword()}
-              fallback={
-                <p class="text-xs text-muted-foreground">
-                  {t(
-                    "You'll approve plan.video on Bluesky and come back here. Enter your handle if your account isn't on bsky.social, or leave it empty.",
-                  )}
-                </p>
-              }
-            >
-              <p class="text-xs text-muted-foreground">
-                {rich(
-                  "Sign in with an app password, not your Bluesky password. Make one in <link>Bluesky's settings</link>. plan.video keeps the login Bluesky gives back, not the password.",
-                  {
-                    link: (text) => (
-                      <a class="text-foreground underline" href="https://bsky.app/settings/app-passwords" target="_blank" rel="noreferrer">
-                        {text}
-                      </a>
-                    ),
-                  },
-                )}
-              </p>
-            </Show>
-          </Show>
-          <TextField>
-            <TextFieldLabel uiSize="compact" class="text-muted-foreground">
-              {platform() === "bluesky" ? (withAppPassword() ? t("Handle") : t("Handle (optional)")) : t("Account name")}
-            </TextFieldLabel>
-            <TextFieldInput
-              uiSize="compact"
-              value={handle()}
-              placeholder={platform() === "bluesky" ? "yourname.bsky.social" : "yourname"}
-              onInput={(event) => setHandle(event.currentTarget.value)}
-              onKeyDown={(event) => {
-                event.stopPropagation();
-                if (event.key === "Enter") save();
-              }}
-            />
-          </TextField>
-          <Show when={platform() === "bluesky" && withAppPassword()}>
-            <TextField>
-              <TextFieldLabel uiSize="compact" class="text-muted-foreground">
-                {t("App password")}
-              </TextFieldLabel>
-              <TextFieldInput
-                uiSize="compact"
-                type="password"
-                autocomplete="off"
-                value={appPassword()}
-                placeholder="xxxx-xxxx-xxxx-xxxx"
-                onInput={(event) => setAppPassword(event.currentTarget.value)}
-                onKeyDown={(event) => {
-                  event.stopPropagation();
-                  if (event.key === "Enter") save();
-                }}
-              />
-            </TextField>
-          </Show>
-          <Show when={platform() === "bluesky" && blueskySignInAvailable()}>
-            <button
-              type="button"
-              class="self-start text-xs text-muted-foreground underline hover:text-foreground focus-ring"
-              onClick={() => setWithAppPassword((on) => !on)}
-            >
-              {withAppPassword() ? t("Sign in with Bluesky instead") : t("Use an app password instead")}
-            </button>
-          </Show>
-        </div>
-      </DashboardFormModal>
+      {flow.modal()}
     </div>
   );
 }
