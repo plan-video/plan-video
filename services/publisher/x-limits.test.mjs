@@ -230,11 +230,13 @@ test("who can reply and the community go out with the post, on every path it can
 
   await words(undefined);
   await words({ replies: "everyone", community: "" });
+  await words({ replies: "__proto__", community: "" });
   await words({ replies: "following", community: "" });
   await words({ replies: "mentioned", community: "" });
   await words({ replies: "everyone", community: "https://x.com/i/communities/1234567890" });
   await words({ replies: "following", community: "1234567890" });
   assert.deepEqual(tweets, [
+    { text: "Hi" },
     { text: "Hi" },
     { text: "Hi" },
     { text: "Hi", reply_settings: "following" },

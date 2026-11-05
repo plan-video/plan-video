@@ -126,8 +126,7 @@ function audienceOf(post) {
     if (!found) throw new PublishError("That X community link isn't right. Use one like x.com/i/communities/123…, or leave it empty.");
     return { community_id: found[1] ?? found[0] };
   }
-  const replies = REPLY_SETTINGS[post.x?.replies];
-  return replies ? { reply_settings: replies } : {};
+  return Object.hasOwn(REPLY_SETTINGS, post.x?.replies ?? "") ? { reply_settings: REPLY_SETTINGS[post.x.replies] } : {};
 }
 
 const uploads = (delivery) => String(delivery.publish_id ?? "").split(",").filter((id) => /^\d{1,30}$/.test(id));
