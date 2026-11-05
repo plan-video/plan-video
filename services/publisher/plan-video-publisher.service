@@ -36,6 +36,8 @@ WorkingDirectory=/opt/plan-video-publisher/publisher
 ExecStart=/opt/node-v22.22.1/bin/node server.mjs
 Restart=always
 RestartSec=2
+# A stop lets the sends going finish, for up to 15 minutes (DRAIN_MS in server.mjs). Cut off, they'd fail as ones that may have gone out.
+TimeoutStopSec=16min
 # Up to 16 sends go at once (worker.mjs): the ones holding files share 256 MB, beside two pictures on their way to and from services/photos.
 MemoryMax=1G
 NoNewPrivileges=true

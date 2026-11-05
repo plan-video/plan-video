@@ -48,8 +48,8 @@ const PASS_MS = 30_000;
 const DISPATCH_MS = 5_000;
 /** A run is planned this long after its moment, so the clock is surely past it. */
 const WAKE_AFTER_MS = 250;
-/** A stop gives the sends going this long to finish, inside systemd's 90 seconds. */
-const DRAIN_MS = 30_000;
+/** A stop gives the sends going this long to finish, inside the unit's TimeoutStopSec. Long uploads take minutes; nothing new starts meanwhile. */
+const DRAIN_MS = 15 * 60_000;
 /** Without a finished pass for this long, the sending is stuck and health says so (services/monitor watches it). */
 const STUCK_MS = 15 * 60_000;
 
