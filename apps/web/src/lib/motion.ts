@@ -11,6 +11,21 @@ function prefersLessMotion() {
   return typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
+/** Crossfades the window to what `change` does. Colour fades wait it out: they'd start from the old colours, over the new ones. */
+export function smoothly(change: () => void | Promise<void>, rootClass?: string) {
+  const root = document.documentElement;
+  const classes = rootClass ? ["no-fades", rootClass] : ["no-fades"];
+  // Before the transition starts: it photographs the old page straight away.
+  root.classList.add(...classes);
+  const release = () => root.classList.remove(...classes);
+  if (prefersLessMotion() || !document.startViewTransition) {
+    const settle = () => requestAnimationFrame(() => requestAnimationFrame(release));
+    void Promise.resolve(change()).then(settle, settle);
+    return;
+  }
+  void document.startViewTransition(change).finished.then(release, release);
+}
+
 const entering = new WeakMap<Element, Animation>();
 
 /** Cancelled once it ends or another starts, so an entrance can never leave content invisible at its first frame. */

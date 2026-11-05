@@ -4,6 +4,8 @@
 
 import { createSignal } from "solid-js";
 
+import { smoothly } from "@/lib/motion";
+
 export type DashboardTheme = "dark" | "light";
 
 const STORAGE_KEY = "plan.dashboard-theme";
@@ -33,7 +35,8 @@ export function setThemeSurface(next: ThemeSurface) {
 export const dashboardTheme = (): DashboardTheme => choice() ?? (surface() === "site" ? "light" : "dark");
 
 export function setDashboardTheme(next: DashboardTheme) {
-  setChoice(next);
+  if (next === dashboardTheme()) setChoice(next);
+  else smoothly(() => void setChoice(next));
   try {
     localStorage.setItem(STORAGE_KEY, next);
   } catch {

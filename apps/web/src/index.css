@@ -422,6 +422,19 @@
   }
 }
 
+html.no-fades *,
+html.no-fades *::before,
+html.no-fades *::after {
+  transition: none !important;
+}
+
+::view-transition-group(*),
+::view-transition-old(*),
+::view-transition-new(*) {
+  animation-duration: 200ms;
+  animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
 /* Fallbacks, so a duration-* or ease-* class on the element wins. */
 @layer base {
   :where([class*="animate-in"], [class*="animate-out"]) {
