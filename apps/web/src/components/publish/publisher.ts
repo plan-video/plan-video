@@ -10,6 +10,7 @@ import type { Delivery, StoredEvent } from "@/components/calendar/types";
 import { deliveryRows, rememberRows, settled, type DeliveryRow } from "@/components/publish/deliveries";
 import { flushAccountSync } from "@/lib/account-sync";
 import { flushPostSync, postSyncProblem, refusedPosts, unsyncedPosts } from "@/lib/post-sync";
+import { TOO_MANY_POSTS } from "@/lib/post-sync-core";
 import { msg, t } from "@/lib/i18n";
 import { requestSend } from "@/lib/publishing";
 import { flushTeamSync } from "@/lib/team-sync";
@@ -37,6 +38,8 @@ export const isGoingOut = (post: StoredEvent) => deliveriesOf(post).some(({ deli
 export type HeldBack = { label: string; detail: string };
 
 export function heldBack(post: Pick<StoredEvent, "id" | "status">): HeldBack | null {
+  // A draft too: none of these reach the account until there's room.
+  if (refusedPosts().get(post.id) === TOO_MANY_POSTS) return { label: t("Not synced"), detail: t(TOO_MANY_POSTS) };
   if (post.status !== "scheduled") return null;
   if ((postSyncProblem() || refusedPosts().has(post.id)) && unsyncedPosts().has(post.id)) {
     return { label: t("Not synced"), detail: t("Your account doesn't have this version yet, so it won't go out as it shows. plan.video keeps trying.") };
@@ -88,6 +91,7 @@ export async function sendPost(postId: string, userId: string | undefined, capti
     }
     // The publisher reads the post, accounts and file from the server, so they must be synced first.
     if (!(await (team ? flushTeamSync() : flushAccountSync())) || !(await flushPostSync(postId))) {
+      if (refusedPosts().get(postId) === TOO_MANY_POSTS) throw new Error(TOO_MANY_POSTS);
       throw new Error(msg("This post isn't saved to your account yet, so plan.video can't send it. Check the connection and try again."));
     }
     if (!(await ensurePostInCloud(postId))) throw new Error(msg("The post's media didn't reach plan.video's storage. Check the connection and try again."));

@@ -178,6 +178,43 @@ test("wavSeconds measures from the header and the file's whole length", () => {
   assert.equal(wavSeconds(Buffer.from("not a wav at all, not a wav at all, not a wav")), null);
 });
 
+test("wavSeconds bills every byte, whatever chunks a file is cut into", () => {
+  const { head } = wavHeader(0);
+  const chunk = (id, bytes) => {
+    const header = Buffer.alloc(8);
+    header.write(id, 0, "ascii");
+    header.writeUInt32LE(bytes, 4);
+    return Buffer.concat([header, Buffer.alloc(bytes + (bytes % 2))]);
+  };
+  const fmt = head.subarray(12, 36);
+  const riff = head.subarray(0, 12);
+  const hour = 3600 * RATE * 2;
+
+  // Audio past a short `data` chunk would be heard but not counted.
+  assert.equal(wavSeconds(Buffer.concat([riff, fmt, chunk("data", 2), chunk("data", hour)])), null);
+  assert.equal(wavSeconds(Buffer.concat([riff, fmt, chunk("data", 2), chunk("LIST", 40)])), null);
+  // A second `fmt ` could tell a decoder another rate than the one billed.
+  assert.equal(wavSeconds(Buffer.concat([riff, fmt, fmt, chunk("data", 32000)])), null);
+  // What a decoder skips over is billed too.
+  assert.equal(wavSeconds(Buffer.concat([riff, fmt, chunk("LIST", 32000), chunk("data", 32000)])), 2.00025);
+
+  for (const size of [0, 0xffffffff]) {
+    const streamed = Buffer.concat([head, Buffer.alloc(32000)]);
+    streamed.writeUInt32LE(size, 40);
+    assert.equal(wavSeconds(streamed), 1);
+    // Measured from the start of the file, as the upload gives it.
+    assert.equal(wavSeconds(streamed.subarray(0, 44), 44 + hour), 3600);
+  }
+
+  const odd = Buffer.concat([riff, fmt, chunk("data", 32001)]);
+  assert.equal(odd.length, 44 + 32002);
+  assert.ok(wavSeconds(odd) > 1);
+  // A size past what arrived is a file cut short: only what arrived counts.
+  const cut = Buffer.concat([head, Buffer.alloc(32000)]);
+  cut.writeUInt32LE(64000, 40);
+  assert.equal(wavSeconds(cut), 1);
+});
+
 test("a burst of clips sent at once can't each pass on the same old total", async () => {
   const run = await setup();
   try {

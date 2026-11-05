@@ -14,7 +14,7 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprot
 import { WebSocket, WebSocketServer } from "ws";
 
 import { bearer, createAuth } from "./auth.mjs";
-import { Relay, RelayError } from "./relay.mjs";
+import { Relay, RelayError, tooManyValues } from "./relay.mjs";
 
 const HOST = "127.0.0.1";
 const PORT = Number(process.env.MCP_PORT) || 8791;
@@ -29,8 +29,12 @@ const MiB = 1024 * KiB;
 const BODY_MAX = 512 * KiB;
 /** Six 720p frames, base64, with room to spare. */
 const TAB_MESSAGE_MAX = 24 * MiB;
-/** All a tab may send before its hello is accepted: the hello, a sign-in token in JSON. */
+/** All a tab may send before its hello is accepted (a sign-in token in JSON), or at a time when no call is waiting on it. */
 const HELLO_MAX = 16 * KiB;
+/** Of frames past HELLO_MAX on their way, across all tabs, so a few accounts can't fill the process. */
+const BIG_FRAMES_MAX = 128 * MiB;
+/** An empty pong from a browser: a two-byte header and a four-byte mask. */
+const PONG_FRAME = 6;
 const MAX_UNVERIFIED = 500;
 const MAX_UNVERIFIED_PER_IP = 20;
 const MAX_TABS = 5000;
@@ -200,6 +204,7 @@ const tabs = new WebSocketServer({ noServer: true, maxPayload: TAB_MESSAGE_MAX }
 
 const unverified = new Map();
 let unverifiedTotal = 0;
+let arriving = 0;
 
 // The first message must be `{ type: "hello", token }`; then `call` / `result` messages
 // by id, and `{ type: "active" }` when the user comes back to the tab.
@@ -208,24 +213,32 @@ function onTab(ws, socket, ip) {
   let greeting = false;
   let alive = true;
 
-  // Until its hello is accepted the socket could be anyone's: past a hello's worth of bytes it
-  // is cut off before ws buffers the rest, or big frames from unsigned sockets fill the process.
+  // Past a hello's worth of bytes a socket is cut off before ws buffers the rest, or big frames
+  // fill the process, unless it's signed in and answering a call. Added up ahead of ws's own
+  // listener and judged after it, so only a frame still unfinished counts: ended ones are forgotten.
   let waiting = true;
   let received = 0;
   const count = (chunk) => {
     received += chunk.length;
-    if (received > HELLO_MAX) ws.terminate();
+    arriving += chunk.length;
+  };
+  const judge = () => {
+    if (received > HELLO_MAX && (!tab || !relay.waitingOn(tab) || arriving > BIG_FRAMES_MAX)) ws.terminate();
+  };
+  const forget = (bytes) => {
+    received -= bytes;
+    arriving -= bytes;
   };
   const verified = () => {
     if (!waiting) return;
     waiting = false;
-    socket.off("data", count);
     unverifiedTotal -= 1;
     const left = unverified.get(ip) - 1;
     if (left > 0) unverified.set(ip, left);
     else unverified.delete(ip);
   };
-  socket.on("data", count);
+  socket.prependListener("data", count);
+  socket.on("data", judge);
   unverifiedTotal += 1;
   unverified.set(ip, (unverified.get(ip) ?? 0) + 1);
 
@@ -235,14 +248,17 @@ function onTab(ws, socket, ip) {
     alive = false;
     ws.ping();
   }, HEARTBEAT_MS);
-  ws.on("pong", () => {
+  // No message ends a pong. Forgiven by its own size only, or pongs could hide a big frame's pieces.
+  ws.on("pong", (data) => {
     alive = true;
+    forget(PONG_FRAME + data.length);
   });
 
   ws.on("message", async (data, isBinary) => {
+    if (tab) forget(received);
     let message;
     try {
-      if (isBinary) throw new Error();
+      if (isBinary || tooManyValues(data)) throw new Error();
       message = JSON.parse(data.toString("utf8"));
     } catch {
       ws.close(1003, "Expected JSON.");
@@ -263,6 +279,7 @@ function onTab(ws, socket, ip) {
         return;
       }
       verified();
+      forget(received);
       tab = relay.attach(who.userId, { send: (text) => ws.send(text), close: (code, reason) => ws.close(code, reason) });
       ws.send(JSON.stringify({ type: "ready" }));
       return;
@@ -273,6 +290,7 @@ function onTab(ws, socket, ip) {
   });
 
   ws.on("close", () => {
+    forget(received);
     verified();
     clearTimeout(hello);
     clearInterval(heartbeat);

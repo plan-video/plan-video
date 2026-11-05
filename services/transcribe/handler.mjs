@@ -23,6 +23,7 @@ const PERSON_SLOTS = 3;
 const SERVER_SLOTS = 12;
 const QUEUE_MAX = 40;
 const HEADER_BYTES = 64 * 1024;
+const WAV_HEADER_BYTES = 44;
 
 const sessions = new Map();
 const windows = new Map();
@@ -230,15 +231,18 @@ function resetDay() {
 
 // The editor only sends 16-bit PCM mono, so anything else is refused rather than measured.
 // `audio` can be the start of the file, with `total` its whole length in bytes.
+// Billed by the file's size past a plain header: a decoder may hear any byte, wherever a chunk says it ends.
 export function wavSeconds(audio, total = audio.length) {
-  if (audio.length < 44 || audio.toString("ascii", 0, 4) !== "RIFF" || audio.toString("ascii", 8, 12) !== "WAVE") return null;
+  if (audio.length < WAV_HEADER_BYTES || audio.toString("ascii", 0, 4) !== "RIFF" || audio.toString("ascii", 8, 12) !== "WAVE") return null;
   let byteRate = 0;
   let offset = 12;
   while (offset + 8 <= audio.length) {
     const id = audio.toString("ascii", offset, offset + 4);
     const size = audio.readUInt32LE(offset + 4);
     const body = offset + 8;
-    if (id === "fmt " && body + 16 <= audio.length) {
+    const end = body + size + (size % 2);
+    if (id === "fmt ") {
+      if (byteRate || size < 16 || body + 16 > audio.length) return null;
       const format = audio.readUInt16LE(body);
       const channels = audio.readUInt16LE(body + 2);
       const sampleRate = audio.readUInt32LE(body + 4);
@@ -247,11 +251,11 @@ export function wavSeconds(audio, total = audio.length) {
       byteRate = sampleRate * 2;
     } else if (id === "data") {
       if (!byteRate) return null;
-      // A streamed WAV can leave the size at 0 or all ones: count what arrived.
-      const bytes = Math.min(size || Infinity, total - body);
-      return bytes / byteRate;
+      // A streamed WAV can leave the size at 0 or all ones. Any other must reach the end of the file.
+      if (size !== 0 && end < total) return null;
+      return (total - WAV_HEADER_BYTES) / byteRate;
     }
-    offset = body + size + (size % 2);
+    offset = end;
   }
   return null;
 }

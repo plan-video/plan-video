@@ -3145,6 +3145,7 @@
   "This preview couldn't be loaded.": "이 미리보기를 불러오지 못했어요.",
   "Comments aren't available here.": "여기서는 댓글을 쓸 수 없어요.",
   "Could not post the comment.": "댓글을 올리지 못했어요.",
+  "This account has reached its limit of 100,000 posts. Delete some old posts to make room for new ones.": "이 계정은 게시물 한도인 100,000개에 도달했어요. 새 게시물을 올리려면 오래된 게시물을 삭제하세요.",
   "plan.video can't reach {workspace} right now": "지금 plan.video가 {workspace} 워크스페이스에 연결할 수 없어요",
   "Give the template a name.": "템플릿 이름을 입력하세요.",
   "Pick where it goes or write a caption.": "게시할 곳을 고르거나 캡션을 쓰세요.",

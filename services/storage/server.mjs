@@ -5,7 +5,7 @@
 // The R2 secret never leaves this server, and every key it signs sits under the
 // caller's own id, or a shared workspace owner's (see teamActor).
 // Waiting post files (posts/) count against the plan; sent/ ones only against a much larger
-// ceiling, and only a post the publisher says went out can put files there (see sentFiles).
+// ceiling, and only a post the publisher says went out can put the files it lists there (see sentFiles).
 
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
@@ -363,25 +363,35 @@ async function deleteKeys(keys) {
   }
 }
 
-function postsOf(id) {
+function parentOf(id) {
   const cut = id.lastIndexOf("_");
-  return cut > 0 && isFileOf(id.slice(0, cut), id) ? [id, id.slice(0, cut)] : [id];
+  return cut > 0 && isFileOf(id.slice(0, cut), id) ? id.slice(0, cut) : null;
 }
 
-// Only the publisher writes `sent` post_deliveries rows. Asked with the caller's own token,
-// so Supabase answers only about posts they may see.
-async function sentFiles(req, ownerId, ids) {
-  const asked = [...new Set(ids.flatMap(postsOf))];
-  const went = new Set();
-  // A few at a time, to keep the address short.
-  for (let start = 0; start < asked.length; start += 50) {
-    const posts = asked.slice(start, start + 50).join(",");
-    const res = await supabaseCall(`/rest/v1/post_deliveries?select=post_id&state=eq.sent&user_id=eq.${ownerId}&post_id=in.(${posts})`, tokenOf(req));
-    const rows = res.ok ? await res.json().catch(() => null) : null;
-    if (!Array.isArray(rows)) throw new Refused(503, "Cloud storage can't check this post right now.");
-    for (const row of rows) if (typeof row?.post_id === "string") went.add(row.post_id);
+/** A few posts at a time, to keep the address short. */
+async function rowsAbout(req, posts, pathFor) {
+  const rows = [];
+  for (let start = 0; start < posts.length; start += 50) {
+    const res = await supabaseCall(pathFor(posts.slice(start, start + 50).join(",")), tokenOf(req));
+    const found = res.ok ? await res.json().catch(() => null) : null;
+    if (!Array.isArray(found)) throw new Refused(503, "Cloud storage can't check this post right now.");
+    rows.push(...found);
   }
-  return new Set(ids.filter((id) => postsOf(id).some((post) => went.has(post))));
+  return rows;
+}
+
+// Only the publisher writes `sent` post_deliveries rows, and a name proves nothing: `P_x` is P's
+// file only if P lists it. Asked with the caller's own token, so Supabase answers only about
+// posts they may see.
+async function sentFiles(req, ownerId, ids) {
+  const parents = new Map(ids.map((id) => [id, parentOf(id)]));
+  const asked = [...new Set(ids.flatMap((id) => [id, parents.get(id) ?? id]))];
+  const deliveries = await rowsAbout(req, asked, (posts) => `/rest/v1/post_deliveries?select=post_id&state=eq.sent&user_id=eq.${ownerId}&post_id=in.(${posts})`);
+  const went = new Set(deliveries.map((row) => row?.post_id));
+  const wentParents = [...new Set(ids.map((id) => parents.get(id)).filter((post) => went.has(post)))];
+  const rows = await rowsAbout(req, wentParents, (posts) => `/rest/v1/posts?select=id,file_ids&owner_id=eq.${ownerId}&id=in.(${posts})`);
+  const listed = new Map(rows.map((row) => [row?.id, Array.isArray(row?.file_ids) ? row.file_ids : []]));
+  return new Set(ids.filter((id) => went.has(id) || listed.get(parents.get(id))?.includes(id)));
 }
 
 async function uploadUrl(user, body, req) {
