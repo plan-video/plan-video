@@ -302,6 +302,37 @@ test("an upload the network is still processing is checked until it's up", async
   assert.equal(db.tables.post_deliveries[0].publish_id, "pub1");
 });
 
+test("a post a network's limit stops once its file is up waits for the limit, then goes out once", async () => {
+  const until = T0 + 20 * 60 * 60_000;
+  let limited = true;
+  const { db, worker, advance, published } = setup({
+    posts: [{ ...scheduled({ platforms: ["linkedin"] }), connections: [{ id: "li1", platform: "linkedin" }] }],
+    send: () => ({ state: "processing", publishId: "image:a" }),
+    check: () => ({ state: "ready" }),
+    publish: () => {
+      if (limited) throw new PublishError("Limited for today.", { until });
+      return { state: "sent", publishId: "linkedin-id" };
+    },
+  });
+  await worker.tick();
+  advance(60_000);
+  await worker.tick();
+  const [row] = db.tables.post_deliveries;
+  assert.equal(row.state, "processing");
+  assert.equal(row.error, "Limited for today.");
+  assert.equal(Date.parse(row.next_at), until);
+  advance(60_000);
+  await worker.tick();
+  assert.equal(published.length, 1);
+
+  limited = false;
+  advance(until - T0);
+  await worker.tick();
+  assert.equal(db.tables.post_deliveries[0].state, "sent");
+  assert.equal(db.tables.post_deliveries[0].error, null);
+  assert.equal(published.length, 2);
+});
+
 test("a video still uploading to storage is waited for", async () => {
   const { db, worker } = setup({ posts: [scheduled({ platforms: ["youtube"] })], file: null });
   await worker.tick();

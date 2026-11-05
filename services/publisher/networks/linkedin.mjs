@@ -3,7 +3,7 @@
 // whose uploads can't be asked after with this login, so they're given a minute before posting.
 // Follow-ups go as comments, in words alone.
 
-import { COMMENT_LIMIT, assetState, clip, createComment, createImagesPost, createPost, finishVideo, pageUrn, register, registerImage, registerVideo, videoState } from "../../linkedin/handler.mjs";
+import { COMMENT_LIMIT, LIMITED, assetState, clip, createComment, createImagesPost, createPost, finishVideo, pageUrn, register, registerImage, registerVideo, videoState } from "../../linkedin/handler.mjs";
 
 import { PublishError } from "../errors.mjs";
 import { captionOf } from "./text.mjs";
@@ -23,6 +23,14 @@ const who = (session) => (session.organizationId ? pageUrn(session.organizationI
 
 const postUrl = (id) => `https://www.linkedin.com/feed/update/${encodeURIComponent(id)}/`;
 
+/** LinkedIn's daily limits reset at midnight UTC, and a request it limited made nothing, so the post waits for then. */
+function refused(error, options) {
+  if (error !== LIMITED) return new PublishError(error, options);
+  const until = new Date();
+  until.setUTCHours(24, 0, 0, 0);
+  return new PublishError("LinkedIn is limiting posts from this account for today. Trying again tomorrow.", { until: until.getTime() });
+}
+
 /** Makes the post. When LinkedIn's answer is lost, it may have made it anyway, so that's never tried again on its own. */
 async function makePost(session, text, media) {
   const made = await (media?.pictures
@@ -30,7 +38,7 @@ async function makePost(session, text, media) {
     : createPost(session.accessToken, who(session), text, media)
   ).catch(() => ({ lost: true }));
   if (made.lost) throw new PublishError("LinkedIn didn't confirm the post. Check LinkedIn, and post it again if it isn't there.");
-  if (made.error) throw new PublishError(made.error);
+  if (made.error) throw refused(made.error);
   return { state: "sent", publishId: made.id, url: postUrl(made.id) };
 }
 
@@ -50,7 +58,7 @@ async function put(session, media, file, uploadUrl) {
 /** LinkedIn picks each part's size, and the store's chunks rarely line up with them. A lost part means uploading again from the start. */
 async function uploadVideo(session, media, file) {
   const plan = await registerVideo(session.accessToken, who(session), file.size);
-  if (plan.error) throw new PublishError(plan.error);
+  if (plan.error) throw refused(plan.error);
   const stopped = () => new PublishError("The upload to LinkedIn stopped. Trying again soon.", { retry: true });
   const reader = (await media.stream(file.key)).getReader();
   const ids = [];
@@ -79,7 +87,7 @@ async function uploadVideo(session, media, file) {
     await reader.cancel().catch(() => undefined);
   }
   const finished = await finishVideo(session.accessToken, plan, ids);
-  if (finished.error) throw new PublishError(finished.error, { retry: true });
+  if (finished.error) throw refused(finished.error, { retry: true });
   return { state: "processing", publishId: `video:${plan.video}` };
 }
 
@@ -113,7 +121,7 @@ export const linkedin = {
       const pictures = [];
       for (const file of chosen) {
         const plan = await registerImage(session.accessToken, who(session));
-        if (plan.error) throw new PublishError(plan.error);
+        if (plan.error) throw refused(plan.error);
         await put(session, media, file, plan.uploadUrl);
         pictures.push(plan.image);
       }
@@ -122,7 +130,7 @@ export const linkedin = {
 
     const [file] = chosen;
     const plan = await register(session.accessToken, who(session), file.kind);
-    if (plan.error) throw new PublishError(plan.error);
+    if (plan.error) throw refused(plan.error);
     await put(session, media, file, plan.uploadUrl);
     return { state: "processing", publishId: `${file.kind}:${plan.asset}` };
   },
@@ -132,7 +140,7 @@ export const linkedin = {
     // Pictures LinkedIn can't be asked about. They're ready in seconds, and are given a minute from their upload, when processing started.
     if (uploaded(delivery).pictures) return Date.now() - Date.parse(delivery.updated_at) >= PICTURES_WAIT_MS ? { state: "ready" } : { state: "processing", publishId: delivery.publish_id };
     const state = await (session.organizationId ? videoState(session.accessToken, uploaded(delivery).asset) : assetState(session.accessToken, uploaded(delivery).asset));
-    if (state.error) throw new PublishError(state.error, { retry: true });
+    if (state.error) throw refused(state.error, { retry: true });
     if (state.state === "ready") return { state: "ready" };
     if (Date.now() - Date.parse(delivery.updated_at) > PROCESSING_MS) throw new PublishError("LinkedIn didn't finish processing the file. Try again.");
     return { state: "processing", publishId: delivery.publish_id };
@@ -150,7 +158,7 @@ export const linkedin = {
     if ([...body].length > COMMENT_LIMIT) throw new PublishError(`A comment on LinkedIn can be ${COMMENT_LIMIT} characters. Shorten the follow-up in the post's thread.`);
     const made = await createComment(session.accessToken, who(session), root, body).catch(() => ({ lost: true }));
     if (made.lost) throw new PublishError("LinkedIn didn't confirm the follow-up. Check the post's comments, and add it there if it isn't.");
-    if (made.error) throw new PublishError(made.error);
+    if (made.error) throw refused(made.error);
     return { state: "sent", publishId: made.id || root, url: postUrl(root) };
   },
 };

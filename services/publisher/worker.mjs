@@ -645,6 +645,11 @@ export function createWorker({
         result = await network.publish({ post, session: login.session, delivery: claimed });
       }
     } catch (error) {
+      // A limit that frees up later, with the file already at the network: it waits for then. X's asks to try again, since its upload expires.
+      if (error instanceof PublishError && error.until && !error.retry) {
+        await db.update("post_deliveries", { id: row.id, state: claimed ? "sending" : "processing" }, { state: "processing", error: error.message, next_at: iso(Math.max(error.until, now() + CHECK_EVERY_MS)) });
+        return;
+      }
       // Nothing was made: publish says to try again only when the network turned the post down.
       if (error instanceof PublishError && error.retry && waited < CHECK_LIMIT_MS) {
         await db.update("post_deliveries", { id: row.id, state: claimed ? "sending" : "processing" }, { state: "processing", next_at: iso(now() + lookAgainIn(waited)) });
