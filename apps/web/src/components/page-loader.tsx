@@ -8,6 +8,7 @@ import { Show, createEffect, onCleanup, onMount, untrack } from "solid-js";
 import { useAuth } from "@/context/auth";
 import { isEditorPath } from "@/hooks/use-project-route";
 import { dashboardTheme } from "@/lib/dashboard-theme";
+import { site } from "@/lib/site";
 
 const html = document.documentElement;
 /** Must match index.html's loop: the mark is drawn by 900ms and held to 1296ms of every 1.8s. */
@@ -72,9 +73,9 @@ function hide() {
 // index.html opens a dashboard on the loader; it stays until the app knows who is signed in (LoadingScreen).
 let releaseBoot = html.dataset.boot ? holdPageLoader() : undefined;
 
-/** Must pick the same pages as index.html. Signed out, /dashboard is the sign-in page. */
+/** Must pick the same pages as index.html. Signed out, /dashboard is the sign-in page; `/` is the dashboard only without a site. */
 function opensDashboard(path: string, signedIn: boolean): boolean {
-  return /^\/try\/?$/.test(path) || (signedIn && /^\/(dashboard\/?)?$/.test(path));
+  return /^\/try\/?$/.test(path) || (signedIn && (/^\/dashboard\/?$/.test(path) || (!site && path === "/")));
 }
 
 export function PageLoader() {

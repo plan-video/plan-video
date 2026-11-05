@@ -254,7 +254,7 @@ function HomeRoute() {
   onCleanup(() => setArrivingFromSignIn(false));
 
   return (
-    <Show when={!arrivingFromSignIn()} fallback={<PageLoader />}>
+    <Show when={!arrivingFromSignIn()}>
       {site && <site.HomePage />}
     </Show>
   );
