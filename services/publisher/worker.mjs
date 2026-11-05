@@ -461,8 +461,9 @@ export function createWorker({
     if (retry && row.attempts < MAX_ATTEMPTS) {
       await settle(row, { state: "queued", error: message, next_at: iso(now() + BACKOFF_MS[row.attempts - 1]) });
     } else {
-      await settle(row, { state: "failed", error: message, next_at: iso(now()) });
-      await notices?.failed(row, { ...about, message: error instanceof PublishError ? message : "Something went wrong on plan.video's side." });
+      const final = message.replace(/ Trying again soon\.$/, "");
+      await settle(row, { state: "failed", error: final, next_at: iso(now()) });
+      await notices?.failed(row, { ...about, message: final });
     }
   }
 
@@ -663,7 +664,9 @@ export function createWorker({
         return;
       }
       // Nothing was made: publish says to try again only when the network turned the post down.
-      if (error instanceof PublishError && error.retry && waited < CHECK_LIMIT_MS) {
+      // Before the claim nothing can have been, so any failure to ask looks again. Once claimed, a plain error may be a cut-off publish.
+      const again = error instanceof PublishError ? error.retry : !claimed;
+      if (again && waited < CHECK_LIMIT_MS) {
         await db.update("post_deliveries", { id: row.id, state: claimed ? "sending" : "processing" }, { state: "processing", next_at: iso(now() + lookAgainIn(waited)) });
         return;
       }

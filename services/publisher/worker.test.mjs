@@ -333,6 +333,63 @@ test("a post a network's limit stops once its file is up waits for the limit, th
   assert.equal(published.length, 2);
 });
 
+test("a network blip on a status check, before anything is claimed, looks again until the check limit", async () => {
+  let blip = true;
+  const { db, worker, advance, published } = setup({
+    posts: [{ ...scheduled({ platforms: ["linkedin"] }), connections: [{ id: "li1", platform: "linkedin" }] }],
+    send: () => ({ state: "processing", publishId: "image:a" }),
+    check: () => {
+      if (blip) throw new TypeError("fetch failed");
+      return { state: "ready" };
+    },
+  });
+  await worker.tick();
+  advance(60_000);
+  await worker.tick();
+  assert.equal(db.tables.post_deliveries[0].state, "processing");
+  assert.equal(published.length, 0);
+
+  blip = false;
+  advance(60_000);
+  await worker.tick();
+  assert.equal(db.tables.post_deliveries[0].state, "sent");
+  assert.equal(published.length, 1);
+});
+
+test("a status check that keeps failing gives up at the limit, without saying it'll try again", async () => {
+  const { db, worker, advance } = setup({
+    posts: [{ ...scheduled({ platforms: ["linkedin"] }), connections: [{ id: "li1", platform: "linkedin" }] }],
+    send: () => ({ state: "processing", publishId: "image:a" }),
+    check: () => {
+      throw new TypeError("fetch failed");
+    },
+  });
+  await worker.tick();
+  advance(2 * 60 * 60_000 + 1);
+  await worker.tick();
+  const [row] = db.tables.post_deliveries;
+  assert.equal(row.state, "failed");
+  assert.doesNotMatch(row.error, /Trying again/);
+});
+
+test("a plain error once a post is claimed isn't looked at again: a cut-off publish must not double", async () => {
+  const { db, worker, advance, published } = setup({
+    posts: [{ ...scheduled({ platforms: ["linkedin"] }), connections: [{ id: "li1", platform: "linkedin" }] }],
+    send: () => ({ state: "processing", publishId: "image:a" }),
+    check: () => ({ state: "ready" }),
+    publish: () => {
+      throw new TypeError("socket hang up");
+    },
+  });
+  await worker.tick();
+  advance(60_000);
+  await worker.tick();
+  assert.equal(db.tables.post_deliveries[0].state, "failed");
+  advance(60 * 60_000);
+  await worker.tick();
+  assert.equal(published.length, 1);
+});
+
 test("a video still uploading to storage is waited for", async () => {
   const { db, worker } = setup({ posts: [scheduled({ platforms: ["youtube"] })], file: null });
   await worker.tick();
