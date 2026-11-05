@@ -420,16 +420,6 @@
     transition-duration: var(--tw-duration, 150ms);
     transition-timing-function: var(--tw-ease, cubic-bezier(0.2, 0, 0, 1));
   }
-
-  .press:active:not(:disabled, [aria-disabled="true"], [data-disabled]) {
-    scale: 0.97;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .press:active {
-    scale: none !important;
-  }
 }
 
 /* Fallbacks, so a duration-* or ease-* class on the element wins. */
@@ -953,10 +943,6 @@ html.dashboard-theme .depth-card.depth-unlit:hover {
 
 html.dashboard-theme .depth-card:hover:not(:focus-visible) {
   transform: translateY(-1px);
-}
-
-html.dashboard-theme .depth-card:hover:active {
-  transform: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
