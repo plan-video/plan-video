@@ -749,6 +749,11 @@ export function timeHasPassed(post: StoredEvent) {
 
 const isUploadOf = (name: string, id: string) => name === `posts:${id}` || name.startsWith(`posts:${id}_`);
 
+/** Unlike `timeHasPassed`, with no grace: a post given this minute's time counts at once. */
+export function timeIsUp(post: StoredEvent) {
+  return !post.recurrence && (momentOf(post.day, post.allDay ? "00:00" : post.start)?.getTime() ?? 0) <= Date.now();
+}
+
 export function uploadProblem(id: string): string | undefined {
   for (const [name, problem] of cloudHoldUps()) {
     if (isUploadOf(name, id)) return problem;

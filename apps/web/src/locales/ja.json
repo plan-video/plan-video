@@ -1877,6 +1877,7 @@
   "The post's media didn't reach plan.video's storage. Check the connection and try again.": "投稿のメディアがplan.videoのストレージに届きませんでした。接続を確認して、もう一度お試しください。",
   "plan.video couldn't send it.": "plan.videoから送信できませんでした。",
   "Didn't post it": "投稿できませんでした",
+  "It's saved as a draft, so it won't go out by itself.": "下書きとして保存したので、自動では投稿されません。",
   "{count, plural, one {week} other {weeks}}": "{count, plural, other {週間}}",
   "{count, plural, one {month} other {months}}": "{count, plural, other {か月}}",
   "Does not repeat": "繰り返さない",

@@ -1877,6 +1877,7 @@
   "The post's media didn't reach plan.video's storage. Check the connection and try again.": "게시물의 미디어가 plan.video 저장소에 올라가지 않았어요. 연결을 확인하고 다시 시도하세요.",
   "plan.video couldn't send it.": "plan.video가 보내지 못했어요.",
   "Didn't post it": "게시하지 못했어요",
+  "It's saved as a draft, so it won't go out by itself.": "임시 보관함에 저장했으니 저절로 올라가지 않아요.",
   "{count, plural, one {week} other {weeks}}": "{count, plural, other {주}}",
   "{count, plural, one {month} other {months}}": "{count, plural, other {개월}}",
   "Does not repeat": "반복 안 함",

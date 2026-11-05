@@ -1877,6 +1877,7 @@
   "The post's media didn't reach plan.video's storage. Check the connection and try again.": "Les médias de la publication ne sont pas parvenus au stockage de plan.video. Vérifiez la connexion et réessayez.",
   "plan.video couldn't send it.": "plan.video n’a pas pu l’envoyer.",
   "Didn't post it": "Non publiée",
+  "It's saved as a draft, so it won't go out by itself.": "Elle est enregistrée comme brouillon et ne partira donc pas toute seule.",
   "{count, plural, one {week} other {weeks}}": "{count, plural, one {semaine} many {semaines} other {semaines}}",
   "{count, plural, one {month} other {months}}": "{count, plural, one {mois} many {mois} other {mois}}",
   "Does not repeat": "Ne se répète pas",

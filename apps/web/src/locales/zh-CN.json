@@ -1877,6 +1877,7 @@
   "The post's media didn't reach plan.video's storage. Check the connection and try again.": "帖子的媒体文件没有传到 plan.video 的存储空间。请检查网络连接后重试。",
   "plan.video couldn't send it.": "plan.video 无法发送。",
   "Didn't post it": "未能发布",
+  "It's saved as a draft, so it won't go out by itself.": "已存为草稿，不会自动发出。",
   "{count, plural, one {week} other {weeks}}": "{count, plural, other {周}}",
   "{count, plural, one {month} other {months}}": "{count, plural, other {个月}}",
   "Does not repeat": "不重复",

@@ -1877,6 +1877,7 @@
   "The post's media didn't reach plan.video's storage. Check the connection and try again.": "Die Medien des Posts sind nicht im Speicher von plan.video angekommen. Prüfe die Verbindung und versuch es erneut.",
   "plan.video couldn't send it.": "plan.video konnte ihn nicht senden.",
   "Didn't post it": "Nicht gepostet",
+  "It's saved as a draft, so it won't go out by itself.": "Er ist als Entwurf gespeichert und geht nicht von selbst raus.",
   "{count, plural, one {week} other {weeks}}": "{count, plural, one {Woche} other {Wochen}}",
   "{count, plural, one {month} other {months}}": "{count, plural, one {Monat} other {Monate}}",
   "Does not repeat": "Keine Wiederholung",

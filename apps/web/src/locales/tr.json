@@ -1877,6 +1877,7 @@
   "The post's media didn't reach plan.video's storage. Check the connection and try again.": "Gönderinin medyası plan.video'nun depolama alanına ulaşmadı. Bağlantını kontrol edip tekrar dene.",
   "plan.video couldn't send it.": "plan.video bunu gönderemedi.",
   "Didn't post it": "Yayınlanamadı",
+  "It's saved as a draft, so it won't go out by itself.": "Taslak olarak kaydedildi, bu yüzden kendiliğinden yayınlanmaz.",
   "{count, plural, one {week} other {weeks}}": "{count, plural, other {hafta}}",
   "{count, plural, one {month} other {months}}": "{count, plural, other {ay}}",
   "Does not repeat": "Tekrarlanmaz",

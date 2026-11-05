@@ -1877,6 +1877,7 @@
   "The post's media didn't reach plan.video's storage. Check the connection and try again.": "I media del post non sono arrivati allo spazio di archiviazione di plan.video. Controlla la connessione e riprova.",
   "plan.video couldn't send it.": "plan.video non è riuscito a inviarlo.",
   "Didn't post it": "Non pubblicato",
+  "It's saved as a draft, so it won't go out by itself.": "È salvato come bozza, quindi non uscirà da solo.",
   "{count, plural, one {week} other {weeks}}": "{count, plural, one {settimana} many {settimane} other {settimane}}",
   "{count, plural, one {month} other {months}}": "{count, plural, one {mese} many {mesi} other {mesi}}",
   "Does not repeat": "Non si ripete",

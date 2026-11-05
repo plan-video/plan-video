@@ -1877,6 +1877,7 @@
   "The post's media didn't reach plan.video's storage. Check the connection and try again.": "De media van de post zijn niet in de opslag van plan.video aangekomen. Controleer de verbinding en probeer het opnieuw.",
   "plan.video couldn't send it.": "plan.video kon hem niet versturen.",
   "Didn't post it": "Niet gepost",
+  "It's saved as a draft, so it won't go out by itself.": "Het is opgeslagen als concept, dus het gaat niet vanzelf de deur uit.",
   "{count, plural, one {week} other {weeks}}": "{count, plural, one {week} other {weken}}",
   "{count, plural, one {month} other {months}}": "{count, plural, one {maand} other {maanden}}",
   "Does not repeat": "Herhaalt niet",
