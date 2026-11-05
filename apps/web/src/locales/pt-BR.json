@@ -3575,5 +3575,9 @@
   "This post has already gone out.": "Esta publicação já saiu.",
   "None of this post's networks can publish from plan.video.": "Nenhuma das redes desta publicação pode publicar pelo plan.video.",
   "The project's video didn't export, so the post has no video. Open it, retry the export or attach a video, then post it again.": "O vídeo do projeto não foi exportado, então a publicação está sem vídeo. Abra-a, tente exportar de novo ou anexe um vídeo e publique de novo.",
-  "The post's media never reached plan.video's storage. Open plan.video in the browser it was made in, then post it again.": "A mídia da publicação nunca chegou ao armazenamento do plan.video. Abra o plan.video no navegador em que ela foi criada e publique de novo."
+  "The post's media never reached plan.video's storage. Open plan.video in the browser it was made in, then post it again.": "A mídia da publicação nunca chegou ao armazenamento do plan.video. Abra o plan.video no navegador em que ela foi criada e publique de novo.",
+  "Client links come with a paid plan.": "Os links para clientes vêm com um plano pago.",
+  "Couldn't check you're a person. Refresh the page and try again.": "Não foi possível confirmar que você é uma pessoa. Atualize a página e tente de novo.",
+  "Client connect links": "Links de conexão para clientes",
+  "On the Free plan, Post now can send up to 100 times a day across your accounts, and today's are used. Give this post a time, or upgrade for no limit.": "No plano Grátis, Publicar agora pode enviar até 100 vezes por dia entre todas as suas contas, e os envios de hoje acabaram. Dê um horário a esta publicação ou faça upgrade para não ter limite."
 }

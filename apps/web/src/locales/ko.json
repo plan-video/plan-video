@@ -3575,5 +3575,9 @@
   "This post has already gone out.": "이 게시물은 이미 올라갔어요.",
   "None of this post's networks can publish from plan.video.": "이 게시물의 네트워크 중 plan.video에서 올릴 수 있는 곳이 없어요.",
   "The project's video didn't export, so the post has no video. Open it, retry the export or attach a video, then post it again.": "프로젝트 동영상을 내보내지 못해 게시물에 동영상이 없어요. 게시물을 열고 내보내기를 다시 시도하거나 동영상을 첨부한 뒤 다시 올리세요.",
-  "The post's media never reached plan.video's storage. Open plan.video in the browser it was made in, then post it again.": "게시물의 미디어가 plan.video 저장 공간에 도착하지 않았어요. 작성한 브라우저에서 plan.video를 열고 다시 올리세요."
+  "The post's media never reached plan.video's storage. Open plan.video in the browser it was made in, then post it again.": "게시물의 미디어가 plan.video 저장 공간에 도착하지 않았어요. 작성한 브라우저에서 plan.video를 열고 다시 올리세요.",
+  "Client links come with a paid plan.": "클라이언트 링크는 유료 요금제에서 사용할 수 있습니다.",
+  "Couldn't check you're a person. Refresh the page and try again.": "사람인지 확인하지 못했습니다. 페이지를 새로고침하고 다시 시도해 주세요.",
+  "Client connect links": "클라이언트용 연결 링크",
+  "On the Free plan, Post now can send up to 100 times a day across your accounts, and today's are used. Give this post a time, or upgrade for no limit.": "무료 요금제에서 지금 게시는 모든 계정을 합쳐 하루 최대 100번까지 보낼 수 있으며, 오늘 횟수를 모두 사용했습니다. 이 게시물에 시간을 지정하거나 제한 없이 쓰려면 업그레이드하세요."
 }
