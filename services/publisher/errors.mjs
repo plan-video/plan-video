@@ -1,3 +1,6 @@
+/** A failed row keeps the network's words, without a promise of another go. */
+export const finalWords = (message) => message.replace(/ (Trying again soon|Carrying on soon)\.$/, "");
+
 /** Why a post didn't go out, worded for the person whose post it is. */
 export class PublishError extends Error {
   /**

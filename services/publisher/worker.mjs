@@ -4,7 +4,7 @@
 // it fails with a note to check the network. Making a post once its file is ready is claimed the same way.
 
 import { connectWithin } from "./accounts.mjs";
-import { PublishError } from "./errors.mjs";
+import { PublishError, finalWords } from "./errors.mjs";
 import { fileIdsOf } from "./media.mjs";
 import { OVER_SCHEDULED, isWaiting, startOf, waitingUntil } from "./plans.mjs";
 import { createMemoryGate, createPool } from "./pool.mjs";
@@ -477,7 +477,7 @@ export function createWorker({
     if (retry && row.attempts < MAX_ATTEMPTS) {
       await settle(row, { state: "queued", error: message, next_at: iso(now() + BACKOFF_MS[row.attempts - 1]) });
     } else {
-      const final = message.replace(/ Trying again soon\.$/, "");
+      const final = finalWords(message);
       await settle(row, { state: "failed", error: final, next_at: iso(now()) });
       await notices?.failed(row, { ...about, message: final });
     }
@@ -881,6 +881,8 @@ export function createWorker({
     let timer;
     await Promise.race([idle(), new Promise((resolve) => (timer = setTimeout(resolve, ms)))]);
     clearTimeout(timer);
+    // Passes have stopped, and a renewed login not yet saved is lost with this process.
+    await vault.saveRenewed?.().catch((error) => log.error("[publisher] couldn't save a renewed login on the way out", error));
     return !pool.going;
   }
 

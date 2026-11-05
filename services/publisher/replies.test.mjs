@@ -335,3 +335,24 @@ test("a follow-up the network is still processing is looked at again, and posted
   assert.equal(db.tables.post_replies[0].state, "sent");
   assert.equal(db.tables.post_replies[0].attempts, 1);
 });
+
+test("a follow-up held by a limit for over a day fails and says so, without promising another go", async () => {
+  const told = [];
+  const { db, worker, advance } = setup({
+    thread: [{ text: "two", delay: 5 }],
+    notices: { failed: async (row, about) => told.push(about.message) },
+    reply: () => {
+      throw new PublishError("Limited for today. Trying again soon.", { until: T0 + 10 * MINUTE });
+    },
+  });
+  await worker.tick();
+  advance(5 * MINUTE);
+  await worker.tick();
+  assert.equal(db.tables.post_replies[0].state, "queued");
+  advance(24 * 60 * MINUTE + 10 * MINUTE);
+  await worker.tick();
+  const [row] = db.tables.post_replies;
+  assert.equal(row.state, "failed");
+  assert.match(row.error, /over a day ago/);
+  assert.equal(told.length, 1);
+});

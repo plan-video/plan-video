@@ -2,12 +2,13 @@
 // Each follow-up gets a post_replies row before it's sent, so none goes out twice; a row is made only once
 // the one before went out, so a failed follow-up stops the rest. Words are read from the post as it goes.
 
-import { PublishError } from "./errors.mjs";
+import { PublishError, finalWords } from "./errors.mjs";
 import { SETTLE_WAITS_MS, pause, withRetries } from "./retry.mjs";
 import { zoneOrUtc } from "./schedule.mjs";
 
 /** Follow-ups one post can have, as New post allows. */
 export const MAX_REPLIES = 10;
+const LIMIT_WAIT_MS = 24 * 60 * 60_000;
 /** Files one follow-up can carry: 4 pictures, or a video. */
 const MAX_FILES = 4;
 const FILE_WAIT_MS = 30 * 60_000;
@@ -113,8 +114,8 @@ export function createReplies({ db, vault, networks, media, notices, postIn, mem
       await settle(row, { state: "queued", error: message, next_at: iso(now() + BACKOFF_MS[row.attempts - 1]) });
       return;
     }
-    await settle(row, { state: "failed", error: message });
-    const said = error instanceof PublishError ? message : "Something went wrong on plan.video's side.";
+    await settle(row, { state: "failed", error: finalWords(message) });
+    const said = error instanceof PublishError ? finalWords(message) : "Something went wrong on plan.video's side.";
     await notices
       ?.failed(
         { ...row, requested: false, due_at: delivery?.due_at ?? row.created_at },
@@ -175,7 +176,11 @@ export function createReplies({ db, vault, networks, media, notices, postIn, mem
         return;
       }
     } catch (error) {
-      // A limit that frees up later, like X's posts a day: it waits for then, and that wasn't a try.
+      // A limit that frees up later, like X's posts a day: it waits for then, and that wasn't a try. Not without end.
+      if (error instanceof PublishError && error.until && !error.retry && now() - (Date.parse(claimed.created_at) + (thread[row.step]?.delay ?? 0)) > LIMIT_WAIT_MS) {
+        await failed({ ...claimed, attempts: MAX_ATTEMPTS }, new PublishError("This follow-up's time passed over a day ago while the network was limiting posts, so it didn't go out."), { post, zone, delivery });
+        return;
+      }
       if (error instanceof PublishError && error.until) {
         await settle(claimed, { state: "queued", attempts: row.attempts, error: error.message, next_at: iso(Math.max(error.until, now() + CHECK_EVERY_MS)) });
         return;

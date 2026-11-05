@@ -1369,3 +1369,28 @@ test("Post now on a post that failed long ago waits out a limit, instead of call
   assert.equal(row.state, "queued");
   assert.equal(row.error, "Limited for today.");
 });
+
+test("a failed post's words don't promise another go, however the network worded it", async () => {
+  const { db, worker, advance } = setup({
+    posts: [onLinkedIn()],
+    send: () => {
+      throw new PublishError("The upload stopped. Carrying on soon.", { retry: true });
+    },
+  });
+  for (let i = 0; i < 12; i++) {
+    await worker.tick();
+    advance(6 * 60 * 60_000);
+    if (db.tables.post_deliveries[0]?.state === "failed") break;
+  }
+  const [row] = db.tables.post_deliveries;
+  assert.equal(row.state, "failed");
+  assert.equal(row.error, "The upload stopped.");
+});
+
+test("stopping saves a renewed login that couldn't be saved earlier, and survives a failure to", async () => {
+  let saved = 0;
+  const stopWith = (vault) => createWorker({ db: fakeDb(), vault, networks: {}, media: {}, log: { error() {}, warn() {}, info() {} } }).stop(10);
+  assert.equal(await stopWith({ saveRenewed: async () => saved++ }), true);
+  assert.equal(saved, 1);
+  assert.equal(await stopWith({ saveRenewed: async () => { throw new Error("database down"); } }), true);
+});
