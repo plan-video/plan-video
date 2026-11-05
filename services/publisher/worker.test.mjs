@@ -1258,7 +1258,7 @@ function planned(posts) {
     db,
     vault: { fresh: async () => ({ platform: "bluesky", session: {} }) },
     media: { postFile: async () => null },
-    networks: { bluesky },
+    networks: { bluesky, threads: bluesky },
     planLimits: createPlanLimits({ db, now: () => T0, log: { error() {} } }),
     now: () => T0,
     log: { error: (...args) => errors.push(args) },
@@ -1277,8 +1277,8 @@ const onBluesky = (user, post) => ({
 const SOMEONE = "11111111-1111-4111-8111-111111111111";
 const EVERYONE_ELSE = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
 
-function postedNow(user, level, times, age) {
-  const { db, worker, sent } = planned([onBluesky(user, { id: "fresh" })]);
+function postedNow(user, level, times, age, post) {
+  const { db, worker, sent } = planned([onBluesky(user, { id: "fresh", ...post })]);
   db.tables.user_data.push({ id: user, access_level: level });
   for (let index = 0; index < times; index++) {
     db.tables.post_deliveries.push({ id: `old-${index}`, user_id: user, workspace_id: "w1", post_id: `old-${index}`, occurrence: "once", platform: "bluesky", connection_id: "bs1", state: "sent", attempts: 1, requested: true, due_at: new Date(T0 - age).toISOString(), next_at: new Date(T0 - age).toISOString(), created_at: new Date(T0 - age).toISOString() });
@@ -1313,6 +1313,14 @@ test("a new account on a post that already has a run is held to Post now's limit
   const { db, worker } = postedNow(SOMEONE, 1, FREE_POST_NOW_PER_DAY, 60_000);
   db.tables.post_deliveries.push({ id: "other", user_id: SOMEONE, workspace_id: "w1", post_id: "fresh", occurrence: "once", platform: "bluesky", connection_id: "gone", state: "failed", error: "busy", attempts: 5, requested: false, due_at: new Date(T0 - 60_000).toISOString(), next_at: new Date(T0 - 60_000).toISOString(), created_at: new Date(T0 - 60_000).toISOString() });
   await assert.rejects(worker.request(SOMEONE, "fresh"), { message: /Post now can send up to/ });
+});
+
+test("a retry isn't refused at the limit because the post also names a network with no account", async () => {
+  const { db, worker, sent } = postedNow(SOMEONE, 1, FREE_POST_NOW_PER_DAY, 60_000, { platforms: ["bluesky", "threads"] });
+  db.tables.post_deliveries.push({ id: "failed", user_id: SOMEONE, workspace_id: "w1", post_id: "fresh", occurrence: "once", platform: "bluesky", connection_id: "bs1", state: "failed", error: "busy", attempts: 5, requested: false, due_at: new Date(T0 - 60_000).toISOString(), next_at: new Date(T0 - 60_000).toISOString(), created_at: new Date(T0 - 60_000).toISOString() });
+  await worker.request(SOMEONE, "fresh");
+  await worker.tick();
+  assert.deepEqual(sent, [`${SOMEONE}/fresh`]);
 });
 
 test("failed sends don't use up Post now's limit", async () => {
