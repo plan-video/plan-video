@@ -125,10 +125,11 @@ export async function savePosts(posts: readonly PlannedPost[]): Promise<string |
     const draft = draftOf(post, calendarId);
     const error = await createEvent({ ...draft, ...(plan ? { files: plan.files, ownFiles: plan.ownFiles, thread: withThreadFiles(draft.thread, plan) } : {}) });
     if (error) return error;
-    const unkept = post.id && plan ? await keepPostFiles(post.id, plan, { stored: true }) : undefined;
-    if (unkept) return unkept;
+    // Before the files: keeping them waits on the cloud, and the post can sync and go out meanwhile.
     const uncaptioned = post.id && post.captions ? await setPostCaptions(post.id, post.captions) : undefined;
     if (uncaptioned) return uncaptioned;
+    const unkept = post.id && plan ? await keepPostFiles(post.id, plan, { stored: true }) : undefined;
+    if (unkept) return unkept;
   }
 }
 

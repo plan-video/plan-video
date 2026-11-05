@@ -289,10 +289,13 @@ async function pruneMedia(kept: ReadonlySet<string>, run: number) {
   const database = await db();
   const ids = await database.getAllKeys("media");
   if (run !== generation) return;
-  const gone = ids.filter((id) => !kept.has(id));
+  if (!ids.some((id) => !kept.has(id))) return;
+  // Read again in the write: another tab of this browser can have listed a file since this tab's read.
+  const tx = database.transaction(["events", "media"], "readwrite");
+  const listed = new Set((await tx.objectStore("events").getAll()).flatMap(everyFileOf));
+  const gone = ids.filter((id) => !kept.has(id) && !listed.has(id));
+  await Promise.all([...gone.map((id) => tx.objectStore("media").delete(id)), tx.done]);
   if (!gone.length) return;
-  const tx = database.transaction("media", "readwrite");
-  await Promise.all([...gone.map((id) => tx.store.delete(id)), tx.done]);
   queueCloud(`posts-delete:${gone.join(",")}`, () => deleteFromCloud("posts", gone, team));
   queueAccountSync();
 }
@@ -1214,8 +1217,13 @@ export async function keepPostFiles(postId: string, plan: FilesPlan, { stored = 
     if (!next.thread) delete next.thread;
     putEvent(next);
   }
-  // Every file it keeps, not just new ones: a try that stopped after storing them never got to upload them.
-  for (const id of new Set([...plan.write.map((item) => item.id), ...plan.files, ...Object.values(plan.ownFiles ?? {}).flat(), ...Object.values(plan.threadFiles ?? {}).flat()])) if (id) backUpFile(id);
+  // Every file it keeps still without a copy, not just new ones: a try that stopped after storing them never got to upload them.
+  const database = await db();
+  for (const id of new Set([...plan.write.map((item) => item.id), ...plan.files, ...Object.values(plan.ownFiles ?? {}).flat(), ...Object.values(plan.threadFiles ?? {}).flat()])) {
+    if (!id) continue;
+    const record = await database.get("media", id);
+    if (record && needsCopy(record.cloud)) backUpFile(id);
+  }
   // A guest's files never went to cloud storage.
   if (!plan.drop.length || !cloudEnabled || inGuestMode()) return;
   // Gone now, and again after any upload of them still running, which would put them back.
