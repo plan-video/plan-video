@@ -44,10 +44,10 @@ const DELETED_KEPT_MS = 90 * 24 * 60 * 60_000;
 export function lookAgainIn(waited) {
   return waited < 15_000 ? 5_000 : waited < 45_000 ? 10_000 : waited < 2 * 60_000 ? 20_000 : CHECK_EVERY_MS;
 }
-/** Under PostgREST's cap of 1000 rows an answer. */
-export const PAGE = 500;
+/** Under PostgREST's cap of 1000 rows an answer, and small enough that a page of the largest posts (256 KB each) stays about 25 MB. */
+export const PAGE = 100;
 /** Bounds a pass (10 million rows) so no answer can keep it reading for ever. */
-const MAX_PAGES = 20_000;
+const MAX_PAGES = 100_000;
 
 /** Ids post_deliveries accepts; posts with other ids are skipped, not sent. */
 const ID = /^[A-Za-z0-9_-]{1,100}$/;

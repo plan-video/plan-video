@@ -1104,7 +1104,7 @@ test("the hourly look reads every scheduled post, past the database's 1000 rows 
     return name === "publisher_posts" ? rows.slice(0, 1000) : rows;
   };
   await worker.sweep();
-  assert.deepEqual(asked, [500, 500, 201]);
+  assert.deepEqual(asked, [...Array(12).fill(100), 1]);
 });
 
 test("the hourly look reads a database from before the paged functions in one call", async () => {
@@ -1120,17 +1120,17 @@ test("the hourly look reads a database from before the paged functions in one ca
 test("logins in account state are read a page at a time", async () => {
   const db = fakeDb();
   const asked = [];
-  const logins = Array.from({ length: 600 }, (_, index) => ({ user_id: "u1", workspace_id: "w1", connection_id: `c${String(index).padStart(3, "0")}`, platform: "tiktok", session: { accessToken: "a" } }));
+  const logins = Array.from({ length: 150 }, (_, index) => ({ user_id: "u1", workspace_id: "w1", connection_id: `c${String(index).padStart(3, "0")}`, platform: "tiktok", session: { accessToken: "a" } }));
   db.rpc = async (name, args) => {
     asked.push({ name, after: args?.after_connection ?? null });
     return logins.filter((row) => row.connection_id > (args.after_connection ?? "")).slice(0, args.size);
   };
   const kept = [];
   const worker = createWorker({ db, vault: { put: async (...args) => kept.push(args[1]) }, media: {}, networks: {} });
-  assert.equal(await worker.adopt(), 600);
+  assert.equal(await worker.adopt(), 150);
   assert.deepEqual(asked, [
     { name: "publisher_legacy_logins_after", after: null },
-    { name: "publisher_legacy_logins_after", after: "c499" },
+    { name: "publisher_legacy_logins_after", after: "c099" },
   ]);
 });
 
