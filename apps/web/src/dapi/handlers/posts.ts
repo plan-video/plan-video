@@ -134,6 +134,12 @@ function clock(value: string): string {
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 }
 
+/** One already on a post can stay, as a person can take it off in their own time. */
+function refuseSoon(platforms: readonly PlatformId[], existing: readonly string[] = []) {
+  const soon = platforms.filter((id) => !PUBLISHES.has(id) && !existing.includes(id)).map((id) => socialPlatform(id).name);
+  if (soon.length) throw new DapiError("unsupported", `${soon.join(", ")} ${soon.length === 1 ? "is" : "are"} coming soon, so Plan Video can't post there yet. Leave ${soon.length === 1 ? "it" : "them"} off the post.`);
+}
+
 function accountsForPost(platforms: readonly PlatformId[], requested: readonly string[] | undefined): AccountChoices {
   const result = chooseAccounts(
     platforms,
@@ -597,6 +603,7 @@ async function savePost(
   tool: Extract<ConfirmTool, "schedule_post" | "copy_post"> = "schedule_post",
 ) {
   const platforms = sortPlatforms(args.platforms);
+  refuseSoon(platforms);
   const choices = accountsForPost(platforms, args.accounts);
   const day = args.day ?? localDateKey(new Date());
   if (!isDateKey(day)) throw new DapiError("invalid-input", "Day is YYYY-MM-DD.");
@@ -762,6 +769,7 @@ export const updatePost: ToolHandler<"update_post"> = async (args, ctx) => {
 
   const platforms = args.platforms ? sortPlatforms(args.platforms) : sortPlatforms(existing.platforms.filter(isPlatform));
   if (platforms.length === 0) throw new DapiError("invalid-input", "Pick at least one platform.");
+  refuseSoon(platforms, existing.platforms);
   const choices = mergeAccounts(platforms, args.accounts, existing.accounts);
   const saved = args.media ? { shared: await loadMedia(ctx, args.media), own: {} } : await savedMedia(existing);
   const caption = args.caption ?? existing.description ?? "";

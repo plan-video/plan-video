@@ -12,7 +12,7 @@ import { Switch, SwitchControl, SwitchInput, SwitchLabel, SwitchThumb } from "@/
 import { cx } from "@/lib/cva";
 import { intlLocale, msg, t } from "@/lib/i18n";
 import { Popover, PopoverContent, PopoverPortal, PopoverTrigger } from "@/components/ui/popover";
-import { POST_KINDS, SOCIAL_PLATFORMS, platformsFor, socialPlatform, sortPlatforms, type PlatformId, type PostKind } from "@/lib/social";
+import { POST_KINDS, PUBLISHING_PLATFORMS, SOCIAL_PLATFORMS, platformsFor, socialPlatform, sortPlatforms, type PlatformId, type PostKind } from "@/lib/social";
 import { accountLabel, accountsFor, accountsForPlatforms, connectionsFor, toggleAccount, type AccountChoices } from "@/lib/social-connections";
 
 export const fieldControlBase =
@@ -304,10 +304,13 @@ export function PlatformPicker(props: {
     props.onChange(sortPlatforms(ids), accountsForPlatforms(ids, accounts, { keepRemoved: true }));
   };
 
+  // One already on a post stays pickable, so it can be taken off.
+  const soon = (id: PlatformId) => !PUBLISHING_PLATFORMS.includes(id) && !props.value.includes(id);
+
   const toggle = (id: PlatformId) => {
     const picked = new Set(props.value);
     if (picked.has(id)) picked.delete(id);
-    else picked.add(id);
+    else if (!soon(id)) picked.add(id);
     apply([...picked]);
   };
 
@@ -328,19 +331,22 @@ export function PlatformPicker(props: {
                   class="group flex min-w-0 flex-col items-center rounded-md border press"
                   classList={{
                     "border-primary/70 bg-primary/10": on(),
-                    "border-transparent hover:bg-accent": !on(),
+                    "border-transparent": !on(),
+                    "hover:bg-accent": !on() && !soon(platform.id),
                   }}
                 >
                   <button
                     type="button"
                     aria-pressed={on()}
+                    aria-label={soon(platform.id) ? t("{network}: soon", { network: platform.name }) : undefined}
+                    disabled={soon(platform.id)}
                     class="flex w-full min-w-0 flex-col items-center gap-2 rounded-md px-1 pt-3 pb-2.5 focus-ring"
                     title={accounts().length === 1 ? accountLabel(accounts()[0]!) : undefined}
                     onClick={() => toggle(platform.id)}
                   >
                     <PlatformLogo id={platform.id} class="size-8 rounded-lg" />
                     <span class="max-w-full truncate text-xs" classList={{ "text-foreground": on(), "text-muted-foreground group-hover:text-foreground": !on() }}>
-                      {platform.name}
+                      {soon(platform.id) ? t("Soon") : platform.name}
                     </span>
                   </button>
                   <Show when={(accounts().length > 1 && on()) || unpicked()}>
@@ -379,9 +385,11 @@ export function PlatformPicker(props: {
                 <button
                   type="button"
                   aria-pressed={on()}
-                  aria-label={platform.name}
+                  aria-label={soon(platform.id) ? t("{network}: soon", { network: platform.name }) : platform.name}
+                  title={soon(platform.id) ? t("{network}: soon", { network: platform.name }) : undefined}
+                  disabled={soon(platform.id)}
                   class="grid h-10 min-w-0 place-items-center rounded-md border press focus-ring"
-                  classList={{ "border-primary/70 bg-primary/10": on(), "border-transparent hover:bg-accent": !on() }}
+                  classList={{ "border-primary/70 bg-primary/10": on(), "border-transparent": !on(), "hover:bg-accent": !on() && !soon(platform.id) }}
                   onClick={() => toggle(platform.id)}
                 >
                   <PlatformLogo id={platform.id} compact class="size-6" />
@@ -418,12 +426,14 @@ export function PlatformPicker(props: {
               class="group flex min-w-0 flex-col justify-center rounded-md border press"
               classList={{
                 "border-primary/70 bg-primary/10": on(),
-                "border-(--border-input) hover:bg-accent": !on(),
+                "border-(--border-input)": !on(),
+                "hover:bg-accent": !on() && !soon(platform.id),
               }}
             >
               <button
                 type="button"
                 aria-pressed={on()}
+                disabled={soon(platform.id)}
                 class="flex min-h-10 min-w-0 items-center gap-2 rounded-md px-2.5 py-1.5 text-left focus-ring"
                 onClick={() => toggle(platform.id)}
               >
@@ -432,6 +442,9 @@ export function PlatformPicker(props: {
                   <span class="truncate text-xs" classList={{ "text-foreground": on(), "text-muted-foreground group-hover:text-foreground": !on() }}>
                     {platform.name}
                   </span>
+                  <Show when={soon(platform.id)}>
+                    <span class="truncate text-xs leading-3 text-muted-foreground">{t("Soon")}</span>
+                  </Show>
                   <Show when={accounts().length === 1 && !unpicked()}>
                     <span class="truncate text-xs leading-3 text-muted-foreground">@{accounts()[0]!.handle}</span>
                   </Show>
@@ -439,14 +452,16 @@ export function PlatformPicker(props: {
                     <span class="truncate text-xs leading-3 text-muted-foreground">{t("{count, plural, one {# account} other {# accounts}}", { count: accounts().length })}</span>
                   </Show>
                 </span>
-                <span
-                  class="grid size-4 shrink-0 place-items-center rounded-full border transition-colors"
-                  classList={{ "border-primary bg-primary text-primary-foreground": on(), "border-(--border-input)": !on() }}
-                >
-                  <Show when={on()}>
-                    <CheckMark class="size-2.5" />
-                  </Show>
-                </span>
+                <Show when={!soon(platform.id)}>
+                  <span
+                    class="grid size-4 shrink-0 place-items-center rounded-full border transition-colors"
+                    classList={{ "border-primary bg-primary text-primary-foreground": on(), "border-(--border-input)": !on() }}
+                  >
+                    <Show when={on()}>
+                      <CheckMark class="size-2.5" />
+                    </Show>
+                  </span>
+                </Show>
               </button>
               <Show when={(accounts().length > 1 && on()) || unpicked()}>
                 <div class="-mt-1 pr-2.5 pb-1.5 pl-[42px]">

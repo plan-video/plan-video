@@ -124,9 +124,7 @@ function normalizeTime(value: string | undefined): string | undefined {
 function readPlatforms(value: string | undefined): PlatformId[] | undefined {
   if (!value?.trim()) return undefined;
   const words = value.toLowerCase().split(/[\s,;|/+]+/).filter(Boolean);
-  const found = SOCIAL_PLATFORMS.filter(
-    (platform) => words.includes(platform.id) || words.includes(platform.name.toLowerCase()) || (platform.id === "x" && words.includes("twitter")),
-  );
+  const found = SOCIAL_PLATFORMS.filter((platform) => words.includes(platform.id) || words.includes(platform.name.toLowerCase()) || (platform.id === "x" && words.includes("twitter")));
   return found.length ? found.map((platform) => platform.id) : undefined;
 }
 

@@ -9,7 +9,7 @@
 
 # plan.video
 
-The all-in-one social media scheduler. Schedule posts to 9 networks, with a video editor built in.
+The all-in-one social media scheduler. Schedule posts to 8 networks, with a video editor built in. Pinterest is coming soon.
 
 **[Start free at plan.video](https://plan.video)**: the hosted version runs this same code, with the networks' developer apps already registered, so there's nothing to set up.
 
@@ -20,7 +20,7 @@ The all-in-one social media scheduler. Schedule posts to 9 networks, with a vide
 
 ## What's in it
 
-- **A calendar and posting queue** for YouTube, TikTok, X, LinkedIn, Bluesky, Instagram, Facebook, Threads and Pinterest.
+- **A calendar and posting queue** for YouTube, TikTok, X, LinkedIn, Bluesky, Instagram, Facebook and Threads, with Pinterest coming soon.
 - **A video editor in the browser**, with captions, transcript cutting and transitions.
 - **Analytics** for what you've posted.
 - **Workspaces and team members**, with shared posts and comments.
@@ -28,7 +28,7 @@ The all-in-one social media scheduler. Schedule posts to 9 networks, with a vide
 
 <table>
   <tr>
-    <td width="50%"><a href="https://plan.video/features/cross-posting"><img src=".github/assets/cross-posting.jpg" alt="Write it once, post it to nine networks"></a></td>
+    <td width="50%"><a href="https://plan.video/features/cross-posting"><img src=".github/assets/cross-posting.jpg" alt="Write it once, post it to eight networks"></a></td>
     <td width="50%"><a href="https://plan.video/features/posting-queue"><img src=".github/assets/posting-queue.jpg" alt="Set your times once, and keep posting"></a></td>
   </tr>
   <tr>
