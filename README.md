@@ -20,7 +20,7 @@ The all-in-one social media scheduler. Schedule posts to 8 networks, with a vide
 
 ## What's in it
 
-- **A calendar and posting queue** for YouTube, TikTok, X, LinkedIn, Bluesky, Instagram, Facebook, Threads and Pinterest.
+- **A calendar and posting queue** for YouTube, TikTok, X, LinkedIn, Bluesky, Instagram, Facebook and Threads, with Pinterest coming soon.
 - **A video editor in the browser**, with captions, transcript cutting and transitions.
 - **Analytics** for what you've posted.
 - **Workspaces and team members**, with shared posts and comments.

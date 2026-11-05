@@ -1359,6 +1359,7 @@ async function importCsv() {
   }
   const byName = new Map(rows.map((row) => [fileMatchKey(row.file), row]));
   let matched = 0;
+  const soon = new Set<PlatformId>();
   setBulk(
     "posts",
     produce((list) => {
@@ -1374,7 +1375,8 @@ async function importCsv() {
         if (row.time) post.time = row.time;
         if (row.day || row.time) post.ownTime = true;
         if (row.platforms) {
-          post.platforms = row.platforms.filter((id) => takes(post, id));
+          for (const id of row.platforms) if (!PUBLISHING_PLATFORMS.includes(id)) soon.add(id);
+          post.platforms = row.platforms.filter((id) => PUBLISHING_PLATFORMS.includes(id) && takes(post, id));
           post.accounts = accountsForPlatforms(post.platforms, post.accounts);
         }
       }
@@ -1382,8 +1384,10 @@ async function importCsv() {
   );
   track("bulk_csv_imported", { rows: rows.length, matched });
   if (matched) {
+    const skipped = matched < rows.length ? t("Rows without a matching file were skipped.") : "";
+    const left = soon.size ? t("Left out {networks}, which can't post yet.", { networks: [...soon].map((id) => socialPlatform(id).name).join(", ") }) : "";
     toast.success(t("Matched {count} of {total} rows", { count: matched, total: rows.length }), {
-      description: matched < rows.length ? t("Rows without a matching file were skipped.") : undefined,
+      description: [skipped, left].filter(Boolean).join(" ") || undefined,
     });
   } else {
     toast.error(t("No rows matched a file"), {

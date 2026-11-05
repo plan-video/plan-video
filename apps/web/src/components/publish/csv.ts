@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { PUBLISHING_PLATFORMS, SOCIAL_PLATFORMS, type PlatformId } from "@/lib/social";
+import { SOCIAL_PLATFORMS, type PlatformId } from "@/lib/social";
 
 export type CaptionRow = {
   file: string;
@@ -124,9 +124,7 @@ function normalizeTime(value: string | undefined): string | undefined {
 function readPlatforms(value: string | undefined): PlatformId[] | undefined {
   if (!value?.trim()) return undefined;
   const words = value.toLowerCase().split(/[\s,;|/+]+/).filter(Boolean);
-  const found = SOCIAL_PLATFORMS.filter(
-    (platform) => PUBLISHING_PLATFORMS.includes(platform.id) && (words.includes(platform.id) || words.includes(platform.name.toLowerCase()) || (platform.id === "x" && words.includes("twitter"))),
-  );
+  const found = SOCIAL_PLATFORMS.filter((platform) => words.includes(platform.id) || words.includes(platform.name.toLowerCase()) || (platform.id === "x" && words.includes("twitter")));
   return found.length ? found.map((platform) => platform.id) : undefined;
 }
 
