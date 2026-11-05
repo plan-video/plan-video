@@ -19,7 +19,7 @@
     Videos, photos and text posts, with several photos to a post where the network takes them, and stories on Instagram and Facebook. Each network gets its own caption and settings, and plan.video checks every post against the network's limits, so a video or caption that's too long is flagged before it's scheduled. On TikTok you can also send a video to your inbox, then add a trending sound and post it from the app. See [Create a post](/docs/create-a-post).
   </Accordion>
   <Accordion title="Do I need to keep plan.video open for my posts to go out?">
-    No. Scheduled posts go out from plan.video's servers at their time, even with your computer off. Each post then shows that it went out, or why a network turned it down. See [Failed posts](/docs/failed-posts).
+    Only until its files have uploaded. A post with a video or pictures uploads them from your browser, and shows Uploading until that's done, so keep the tab open until then. After that, it goes out from plan.video's servers at its time, even with your computer off. Each post then shows that it went out, or why a network turned it down. See [Failed posts](/docs/failed-posts).
   </Accordion>
   <Accordion title="Can I repeat posts or keep a posting queue?">
     Both. A post can repeat every weekday or every few days, weeks or months, and stop on a date or after a number of posts. Or use Auto-schedule: set the days and times you post once, and each new post can take the next free time. On paid plans, bulk scheduling fills those times with a whole batch of videos at once. See [Schedule and repeat](/docs/scheduling).

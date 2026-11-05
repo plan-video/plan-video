@@ -53,7 +53,7 @@ import {
 } from "@/components/publish/save";
 import { VaultPicker } from "@/components/publish/vault-picker";
 import { WhenOptions, untilLabel } from "@/components/publish/when-fields";
-import { hydrateCalendar, isOnCalendar, setPostThumbnail } from "@/components/calendar/store";
+import { hydrateCalendar, isOnCalendar, isUploading, setPostThumbnail } from "@/components/calendar/store";
 import { BULK_DATABASE, clearBatchFiles, dropBatchFiles, readBatchFiles, writeBatchFile, type BatchFile } from "@/lib/bulk-batch";
 import { thumbnailFromFile } from "@/lib/post-thumbnail";
 import { cadencePhrase, formatDay as formatCalendarDay, localDateKey, newId, resolveRepeatEnd, shiftDay } from "@/components/calendar/utils";
@@ -714,7 +714,12 @@ function BulkTools() {
           ? t("{count, plural, one {Saved # draft} other {Saved # drafts}}", { count })
           : t("{count, plural, one {Scheduled # post} other {Scheduled # posts}}", { count }),
         {
-          description: t("Starting {date}. They wait on your calendar until you post them.", { date: formatWhen(first) }),
+          description: [
+            status === "scheduled" && planned.some((post) => isUploading(post.id)) ? t("Uploading now. Keep this tab open until it's done.") : null,
+            t("Starting {date}. They wait on your calendar until you post them.", { date: formatWhen(first) }),
+          ]
+            .filter(Boolean)
+            .join(" "),
           action: { label: t("Open calendar"), onClick: () => setParams({ dashboard: "calendar", date: localDateKey(first), view: undefined }) },
         },
       );

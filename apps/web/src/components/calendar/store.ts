@@ -11,6 +11,7 @@ import {
   CloudError,
   cloudHoldUps,
   cloudReadUrl,
+  cloudUploads,
   deleteFromCloud,
   isSentCopy,
   queueCloud,
@@ -736,11 +737,19 @@ export function timeHasPassed(post: StoredEvent) {
   return !post.recurrence && hasPassed(post.day, post.start, post.allDay);
 }
 
+const isUploadOf = (name: string, id: string) => name === `posts:${id}` || name.startsWith(`posts:${id}_`);
+
 export function uploadProblem(id: string): string | undefined {
   for (const [name, problem] of cloudHoldUps()) {
-    if (name === `posts:${id}` || name.startsWith(`posts:${id}_`)) return problem;
+    if (isUploadOf(name, id)) return problem;
   }
 }
+
+export function isUploading(id: string) {
+  return [...cloudUploads()].some((name) => isUploadOf(name, id));
+}
+
+export const postUploadsWaiting = () => [...cloudUploads()].some((name) => name.startsWith("posts:"));
 
 export function eventsInDays(days: string[], includeFollowingDay = false): CalendarEvent[] {
   const last = days.at(-1);

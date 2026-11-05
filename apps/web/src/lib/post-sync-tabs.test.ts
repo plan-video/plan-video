@@ -13,6 +13,7 @@ const shared = vi.hoisted(() => ({
   idb: null as unknown as import("./fake-idb").FakeIdb,
   rows: new Map<string, PostRow>(),
   clock: 0,
+  refuse: null as string | null,
 }));
 
 const saved = new Map<string, string>();
@@ -31,7 +32,7 @@ function writeRow(id: string, values: Partial<PostRow>): PostRow {
 
 vi.mock("idb", () => ({ openDB: async () => shared.idb.open() }));
 vi.mock("somoto", () => ({ toast: { error: () => {}, success: () => {} } }));
-vi.mock("@/lib/cloud-storage", () => ({ cloudEnabled: false, cloudHoldUps: () => new Map(), queueCloud: () => {} }));
+vi.mock("@/lib/cloud-storage", () => ({ cloudEnabled: false, cloudHoldUps: () => new Map(), cloudUploads: () => new Set(), queueCloud: () => {} }));
 vi.mock("@/lib/guest", () => ({ inGuestMode: () => false, ownerOf: (id?: string) => id }));
 vi.mock("@/lib/account-sync", () => ({
   onePostsCalendar: (_calendars: unknown, events: unknown) => ({ events }),
@@ -41,8 +42,9 @@ vi.mock("@/lib/account-sync", () => ({
 vi.mock("@/lib/team-sync", () => ({ readTeamCopyPosts: async () => null }));
 vi.mock("@/lib/post-rows", () => ({
   POST_COLUMNS: "*",
-  readPostRows: async (_db: unknown, _owner: string, _workspace: string, since: string | null) =>
+  readPostRows: vi.fn(async (_db: unknown, _owner: string, _workspace: string, since: string | null) =>
     [...shared.rows.values()].filter((row) => !since || row.updated_at >= since).map((row) => structuredClone(row)),
+  ),
 }));
 vi.mock("@/lib/supabase", () => {
   const posts = {
@@ -50,7 +52,12 @@ vi.mock("@/lib/supabase", () => {
       match: ({ id }: { id: string }) => ({ maybeSingle: async () => ({ data: structuredClone(shared.rows.get(id) ?? null), error: null }) }),
     }),
     insert: ({ id, data }: { id: string; data: PostRow["data"] }) => ({
-      select: () => ({ maybeSingle: async () => (shared.rows.has(id) ? { data: null, error: { code: "23505" } } : { data: writeRow(id, { data }), error: null }) }),
+      select: () => ({
+        maybeSingle: async () => {
+          if (shared.refuse === id) return { data: null, error: { code: "23514", message: "Turned down" } };
+          return shared.rows.has(id) ? { data: null, error: { code: "23505" } } : { data: writeRow(id, { data }), error: null };
+        },
+      }),
     }),
     update: (change: { data?: PostRow["data"]; deleted_at?: string | null }) => ({
       match: ({ id, version }: { id: string; version: number }) => ({
@@ -83,7 +90,7 @@ async function openTab({ hydrate = true } = {}) {
     await saves();
     await sync.flushPostSync();
   };
-  return { store, sync: sync_, saves, flush: sync.flushPostSync };
+  return { store, sync: sync_, saves, flush: sync.flushPostSync, unsaved: sync.postsNotOnServer };
 }
 
 function draft(change: Partial<EventDraft> = {}): EventDraft {
@@ -112,6 +119,7 @@ beforeEach(async () => {
   const { FakeIdb } = await import("./fake-idb");
   shared.idb = new FakeIdb();
   shared.rows.clear();
+  shared.refuse = null;
   saved.clear();
 });
 
@@ -226,5 +234,41 @@ describe("two tabs of one browser", () => {
     await c.sync();
     expect(c.store.loaded()).toBe(false);
     expect(c.store.allPosts()).toEqual([]);
+  });
+});
+
+describe("a save that hasn't reached the account yet", () => {
+  test("counts from the save until a run has sent it", async () => {
+    const a = await openTab();
+    await a.sync();
+    expect(a.unsaved()).toBe(false);
+    a.store.createEvent(draft());
+    await a.saves();
+    expect(a.unsaved()).toBe(true);
+    await a.flush();
+    expect(a.unsaved()).toBe(false);
+  });
+
+  test("still counts when the run couldn't reach the server", async () => {
+    const a = await openTab();
+    await a.sync();
+    a.store.createEvent(draft());
+    await a.saves();
+    const { readPostRows } = await import("@/lib/post-rows");
+    vi.mocked(readPostRows).mockRejectedValueOnce(new Error("Failed to fetch"));
+    await a.flush();
+    expect(a.unsaved()).toBe(true);
+    await a.flush();
+    expect(a.unsaved()).toBe(false);
+  });
+
+  test("a post the server turned down doesn't count: staying wouldn't send it", async () => {
+    const a = await openTab();
+    await a.sync();
+    shared.refuse = "p1";
+    a.store.createEvent(draft());
+    await a.saves();
+    await a.flush();
+    expect(a.unsaved()).toBe(false);
   });
 });

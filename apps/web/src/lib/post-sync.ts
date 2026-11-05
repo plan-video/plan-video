@@ -8,11 +8,13 @@
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { createSignal } from "solid-js";
 
-import { everyFileOf, readCalendarSnapshot, readPostSync, refreshPostsFromStorage, writePostSync, writeWorkspacePosts, type CalendarRead } from "@/components/calendar/store";
+import { everyFileOf, postUploadsWaiting, readCalendarSnapshot, readPostSync, refreshPostsFromStorage, saving, writePostSync, writeWorkspacePosts, type CalendarRead } from "@/components/calendar/store";
 import type { StoredEvent } from "@/components/calendar/types";
 import { legacyFingerprint, legacyKnownPosts, onePostsCalendar } from "@/lib/account-sync";
 import { onAccountEdited, setAccountApplying, setPostSyncPending } from "@/lib/account-sync-bus";
+import { inGuestMode } from "@/lib/guest";
 import { t } from "@/lib/i18n";
+import { warnBeforeLeaving } from "@/lib/leave-guard";
 import { changedSince, syncPosts, type PostData, type PostRow, type Sent, type SyncIO } from "@/lib/post-sync-core";
 import { POST_COLUMNS, readPostRows } from "@/lib/post-rows";
 import { supabase } from "@/lib/supabase";
@@ -51,6 +53,8 @@ const unsyncedBy = new Map<string, Set<string>>();
 const refusedBy = new Map<string, Map<string, string>>();
 const channels = new Map<string, RealtimeChannel>();
 let channelSerial = 0;
+/** Saves here per workspace that no finished run has sent yet. */
+const edited = new Map<string, number>();
 
 function scopes(): Scope[] {
   const userId = person;
@@ -74,6 +78,7 @@ export function beginPostSync(userId: string | undefined) {
   wrote.clear();
   unsyncedBy.clear();
   refusedBy.clear();
+  edited.clear();
   for (const timer of retries.values()) clearTimeout(timer);
   retries.clear();
   failures.clear();
@@ -99,8 +104,18 @@ onWorkspaceChange(() => {
 
 onAccountEdited(() => {
   const open = activeScope();
-  if (person && open) schedule(open, PUSH_MS);
+  if (!person || !open) return;
+  edited.set(open.key, (edited.get(open.key) ?? 0) + 1);
+  schedule(open, PUSH_MS);
 });
+
+/** Saved in this browser, but the publisher sends the server's copy. One the server turned down won't go by staying. */
+export function postsNotOnServer() {
+  if (!person || !supabase) return false;
+  return scopes().some((scope) => edited.has(scope.key)) || [...unsynced()].some((id) => !refused().has(id));
+}
+
+warnBeforeLeaving(() => !inGuestMode() && (saving() || postUploadsWaiting() || postsNotOnServer()));
 
 if (typeof window !== "undefined") {
   const now = () => {
@@ -229,10 +244,12 @@ async function run(userId: string, scope: Scope): Promise<boolean> {
 
 async function exchange(userId: string, scope: Scope): Promise<boolean> {
   lastRead = Date.now();
+  const editsSeen = edited.get(scope.key);
   try {
     const result = await syncPosts(io(userId, scope));
     if (person !== userId) return false;
     if (result.again) again.add(scope.key);
+    if (result.ok && edited.get(scope.key) === editsSeen) edited.delete(scope.key);
     note(scope, result.unsynced, result.refused);
     settled(scope);
     return result.ok;

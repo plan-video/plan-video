@@ -5,7 +5,7 @@
 import { createSignal } from "solid-js";
 import { toast } from "somoto";
 
-import { allPosts, ensurePostInCloud, hydrateCalendar, postFileIds, postFileStates, setDelivery, setPostCaptions, uploadProblem } from "@/components/calendar/store";
+import { allPosts, ensurePostInCloud, hydrateCalendar, isUploading, postFileIds, postFileStates, setDelivery, setPostCaptions, uploadProblem } from "@/components/calendar/store";
 import type { Delivery, StoredEvent } from "@/components/calendar/types";
 import { rememberRows, settled, type DeliveryRow } from "@/components/publish/deliveries";
 import { flushAccountSync } from "@/lib/account-sync";
@@ -43,6 +43,7 @@ export function heldBack(post: Pick<StoredEvent, "id" | "status">): HeldBack | n
   }
   const upload = uploadProblem(post.id);
   if (upload) return { label: t("Not uploaded"), detail: t("Its file hasn't uploaded, so it can't go out with it. {problem}", { problem: t(upload) }) };
+  if (isUploading(post.id)) return { label: t("Uploading"), detail: t("Keep this tab open until it's uploaded. The post can't go out without its files.") };
   return null;
 }
 

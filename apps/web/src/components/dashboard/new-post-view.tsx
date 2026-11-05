@@ -61,7 +61,7 @@ import {
   timeOf,
   timeZoneName,
 } from "@/components/publish/save";
-import { allPosts, loadPostFiles, ownCaptions as savedCaptions, setPostThumbnail, type PostFiles } from "@/components/calendar/store";
+import { allPosts, isUploading, loadPostFiles, ownCaptions as savedCaptions, setPostThumbnail, type PostFiles } from "@/components/calendar/store";
 import { shrinkToThumbnail, thumbnailFromFile } from "@/lib/post-thumbnail";
 import type { StoredEvent } from "@/components/calendar/types";
 import {
@@ -996,6 +996,7 @@ export function DashboardNewPostView() {
     const names = listNames(live);
     toast(inbox && live.length === 1 ? t("Sending to your TikTok inbox") : t("Publishing to {platforms}", { platforms: names }), {
       description: [
+        isUploading(saved.id) ? t("Uploading now. Keep this tab open until it's done.") : null,
         inbox && live.length === 1 ? t("Open the notification in TikTok to edit it and post it.") : null,
         inbox && live.length > 1 ? t("TikTok sends it to your inbox.") : null,
         staying.length ? t("{count, plural, one {{names} stays a draft.} other {{names} stay a draft.}}", { count: staying.length, names: listNames(staying) }) : null,
@@ -1056,9 +1057,12 @@ export function DashboardNewPostView() {
         const end = cadence ? resolveRepeatEnd(post.repeatEnd, post.repeat, localDateKey(when)) : null;
         const repeats = cadence && (end ? t("{cadence} until {date}", { cadence, date: formatCalendarDay(end) }) : cadence);
         toast.success(t("Scheduled for {date}", { date: formatWhen(shown) }), {
-          description: [repeats ? t("Then {repeats}", { repeats }) : null, post.platforms.map((id) => socialPlatform(id).name).join(", ")]
+          description: [
+            isUploading(saved.id) ? t("Uploading now. Keep this tab open until it's done.") : null,
+            [repeats ? t("Then {repeats}", { repeats }) : null, post.platforms.map((id) => socialPlatform(id).name).join(", ")].filter(Boolean).join(". "),
+          ]
             .filter(Boolean)
-            .join(". "),
+            .join(" "),
           icon: <StashMark />,
           action: { label: t("Open calendar"), onClick: () => openCalendar(shown) },
         });

@@ -15,7 +15,7 @@ import {
   type ToolArgs,
 } from "@plan.video/dapi";
 import { getAssetFile } from "@plan.video/runtime";
-import { allPosts, deleteEvent, hydrateCalendar, loadError, loadPostFiles, ownCaptions, postFileIds, postFiles, revisePost, setPostFiles } from "@/components/calendar/store";
+import { allPosts, deleteEvent, hydrateCalendar, isUploading, loadError, loadPostFiles, ownCaptions, postFileIds, postFiles, revisePost, setPostFiles } from "@/components/calendar/store";
 import { everyRecurrence, isDateKey, localDateKey, newId, parseRecurrence, resolveRepeatEnd } from "@/components/calendar/utils";
 import { atLocal, postTitle, savePosts, scheduleProblem, timeOf } from "@/components/publish/save";
 import { hasFailed, PUBLISHING_PLATFORMS, sendPost } from "@/components/publish/publisher";
@@ -679,6 +679,7 @@ async function savePost(
     },
   }]);
   if (error) throw new DapiError("invalid-input", error);
+  if (scheduling && isUploading(id)) warnings.push("Its files are still uploading from this browser tab. Keep the tab open until they finish: the post can't go out without them.");
   return postView(readBack(id), warnings);
 }
 
