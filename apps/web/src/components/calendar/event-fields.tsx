@@ -286,7 +286,7 @@ export function StatusMark(props: { event: Pick<CalendarEvent, "delivery" | "wai
       </Match>
       <Match when={props.event.delivery === "sending"}>
         <span title={t("Sending")} class="grid size-3.5 shrink-0 place-items-center">
-          <Icon name="spinner-loader" class="size-6 shrink-0 animate-spin text-primary" />
+          <Icon name="spinner-loader" class="-m-[5px] size-6 shrink-0 animate-spin text-primary" />
         </span>
       </Match>
       <Match when={props.event.delivery === "failed"}>
