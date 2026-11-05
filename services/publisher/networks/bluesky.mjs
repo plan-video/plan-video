@@ -150,6 +150,8 @@ export function createBluesky({ maker } = {}) {
         }
         throw error;
       });
+      // It took the post without saying where it is: trying again would make a second one.
+      if (typeof reply.uri !== "string") throw new PublishError("Bluesky didn't confirm the post. Check your profile, and post it again if it isn't there.");
       return { state: "sent", publishId: reply.uri, url: postUrl(reply.uri) };
     },
 
@@ -198,6 +200,7 @@ export function createBluesky({ maker } = {}) {
         }
         throw error;
       });
+      if (typeof made.uri !== "string") throw new PublishError("Bluesky didn't confirm the follow-up. Check the thread on your profile, and post it there if it isn't.");
       return { state: "sent", publishId: made.uri, url: postUrl(made.uri) };
     },
   };

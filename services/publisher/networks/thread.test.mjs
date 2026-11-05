@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { PublishError } from "../errors.mjs";
 import { createBluesky } from "./bluesky.mjs";
 import { linkedin } from "./linkedin.mjs";
 import { createX } from "./x.mjs";
@@ -168,4 +169,14 @@ test("LinkedIn leaves off a follow-up with media and no words, without asking Li
   assert.equal(fetch.mock.callCount(), 0);
   assert.equal(sent.publishId, "urn:li:share:1");
   assert.match(sent.note, /words only/);
+});
+
+test("an answer of 200 that doesn't say where the post is isn't tried again: it may have made it", async (t) => {
+  const session = { did: "did:plc:me", pds: "https://bsky.social", accessJwt: "a" };
+  for (const answer of [{}, { cid: "c" }, { uri: 5 }]) {
+    t.mock.method(globalThis, "fetch", async (url) => (String(url?.url ?? url).includes("getRecord") ? Response.json({ cid: "c" }) : Response.json(answer)));
+    const notRetried = (error) => error instanceof PublishError && error.retry === false && /didn't confirm/.test(error.message);
+    await assert.rejects(bluesky.send({ post: { description: "Hi" }, session, files: [], media: {} }), notRetried);
+    await assert.rejects(bluesky.reply({ session, text: "More", root: "at://did:plc:me/app.bsky.feed.post/1", parent: "at://did:plc:me/app.bsky.feed.post/1" }), notRetried);
+  }
 });
