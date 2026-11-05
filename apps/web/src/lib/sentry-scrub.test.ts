@@ -42,6 +42,12 @@ describe("what goes to the error reports", () => {
     expect(event.request?.url).toBe("https://plan.video/x/callback");
   });
 
+  test("a console breadcrumb loses them from what was logged", () => {
+    const crumb = scrubBreadcrumb({ message: "failed", data: { arguments: ["failed", "https://r2.test/a?X-Amz-Signature=secret", { url: "https://r2.test/b?token=secret" }, 7] } });
+    expect(JSON.stringify(crumb)).not.toContain("secret");
+    expect(crumb.data?.arguments).toContain("https://r2.test/a");
+  });
+
   test("a breadcrumb loses them from where it went and what it fetched", () => {
     const crumb = scrubBreadcrumb({ category: "navigation", data: { from: "/connect/s3cret-link", to: "/x/callback?code=abc" } });
     expect(crumb.data).toEqual({ from: "/connect/[id]", to: "/x/callback" });

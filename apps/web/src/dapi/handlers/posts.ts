@@ -870,7 +870,7 @@ export const updatePost: ToolHandler<"update_post"> = async (args, ctx) => {
   if (error) throw mapped(error);
   if (args.media && saved.shared) {
     const unsaved = await setPostFiles(existing.id, { shared: saved.shared.files });
-    if (unsaved) throw new DapiError("invalid-input", unsaved);
+    if (unsaved) throw new DapiError("invalid-input", `The post's other changes were saved, but its files weren't replaced. ${unsaved}`);
   }
   return postView(readBack(existing.id), warnings);
 };

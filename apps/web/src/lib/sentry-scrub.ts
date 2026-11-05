@@ -14,6 +14,14 @@ export function scrubUrl(url: string): string {
 
 const scrubWords = (words: string) => words.replace(ADDRESS, scrubUrl);
 
+/** What was logged can be anything, so it keeps only its addresses' safe parts, at any depth. */
+function scrubLogged(value: unknown): unknown {
+  if (typeof value === "string") return scrubWords(value);
+  if (Array.isArray(value)) return value.map(scrubLogged);
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, scrubLogged(item)]));
+  return value;
+}
+
 type Frame = { filename?: string };
 type Scrubbable = {
   request?: { url?: string; query_string?: unknown; headers?: Record<string, string> };
@@ -41,5 +49,6 @@ export function scrubBreadcrumb<T extends { message?: string; data?: Record<stri
     const value = crumb.data?.[key];
     if (typeof value === "string") crumb.data![key] = scrubUrl(value);
   }
+  if (crumb.data?.arguments) crumb.data.arguments = scrubLogged(crumb.data.arguments);
   return crumb;
 }

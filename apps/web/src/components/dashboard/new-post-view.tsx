@@ -860,6 +860,7 @@ export function DashboardNewPostView() {
     for (const item of [...allMedia(), ...threadMedia()]) releaseMedia(item);
     setPost(reconcile(freshComposer([...post.platforms], post.kind)));
     setEditing("all");
+    savedMark = null;
   };
 
   const openCalendar = (when: Date) => setParams({ dashboard: "calendar", date: localDateKey(when), view: undefined });
