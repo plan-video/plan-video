@@ -14,6 +14,7 @@ import { dayAt, dueAtOf, nextRunAfter, runsBetween, zoneOrUtc } from "./schedule
 
 /** Runs that came due longer ago than this (publisher down) fail with LATE instead of sending. */
 export const GRACE_MS = 24 * 60 * 60_000;
+const LIMIT_SLACK_MS = 60 * 60_000;
 export const LATE = "This post's time passed over a day ago while plan.video couldn't send it, so it didn't go out. Post it now, or give it a new time.";
 /** Slack for a post saved as due "now" whose time was given a few moments after its minute. */
 const TIMED_SLACK_MS = 5 * 60_000;
@@ -230,7 +231,8 @@ export function createWorker({
   }
 
   // LinkedIn can keep a limit up for days and a wait never counts as a try, so past the grace it ends like any post that late.
-  const limitOutlasted = (error, dueAt) => error instanceof PublishError && !!error.until && !error.retry && now() - Date.parse(dueAt) > GRACE_MS;
+  // An hour's slack, so a post due just before midnight and picked up just after still gets its one wait.
+  const limitOutlasted = (error, dueAt) => error instanceof PublishError && !!error.until && !error.retry && Math.max(now(), error.until - LIMIT_SLACK_MS) - Date.parse(dueAt) > GRACE_MS;
 
   const sendable = (post) => post.status === "scheduled" && !post.paused && (post.platforms ?? []).some((platform) => networks[platform]);
 

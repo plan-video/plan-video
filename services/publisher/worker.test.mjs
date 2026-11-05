@@ -1331,6 +1331,30 @@ test("a limit that lasts for days ends in a failed post with an email, not a wai
   assert.equal(row.error, LATE);
 });
 
+test("a limit that would wait past the post's day fails then, rather than sending it two days late", async () => {
+  const { db, worker } = setup({
+    posts: [onLinkedIn()],
+    send: () => {
+      throw new PublishError("Limited for today.", { until: T0 + GRACE_MS + 2 * 60 * 60_000 });
+    },
+  });
+  await worker.tick();
+  const [row] = db.tables.post_deliveries;
+  assert.equal(row.state, "failed");
+  assert.equal(row.error, LATE);
+});
+
+test("a post due just before midnight still gets its wait when it's picked up just after", async () => {
+  const { db, worker } = setup({
+    posts: [onLinkedIn()],
+    send: () => {
+      throw new PublishError("Limited for today.", { until: T0 + GRACE_MS + 60_000 });
+    },
+  });
+  await worker.tick();
+  assert.equal(db.tables.post_deliveries[0].state, "queued");
+});
+
 test("a limit met at the publish step after the post's day has gone by fails too", async () => {
   const { db, worker, advance } = setup({
     posts: [onLinkedIn()],
