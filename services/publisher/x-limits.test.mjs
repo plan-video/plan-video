@@ -261,5 +261,8 @@ test("a community X wouldn't recognise fails the post instead of sending it to t
   await assert.rejects(x.send({ post, session: { accessToken: "a" }, files: [], delivery }), /community/);
   await assert.rejects(x.send({ post, session: { accessToken: "a" }, files: [file], delivery }), /community/);
   await assert.rejects(x.publish({ post, session: { accessToken: "a" }, delivery }), /community/);
+  for (const community of ["https://x.com/i/communities/12345oops", "https://x.com/i/communities/12345/extra", "https://netflix.com/i/communities/12345", "x.com/i/communities/12345 and more"]) {
+    await assert.rejects(x.send({ post: { description: "Hi", x: { replies: "everyone", community } }, session: { accessToken: "a" }, files: [], delivery }), /community/, community);
+  }
   assert.equal(asked.mock.callCount(), 0);
 });

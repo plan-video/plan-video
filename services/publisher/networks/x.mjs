@@ -115,7 +115,7 @@ export function hasLink(text) {
 const textOf = (post) => [...captionOf(post, "x").trim()].slice(0, TEXT_LIMIT).join("");
 
 /** From `x.com/i/communities/123…`, or the number on its own, as the composer takes it. */
-const COMMUNITY = /^\d{5,19}$|(?:twitter|x)\.com\/i\/communities\/(\d{5,19})(?!\d)/i;
+const COMMUNITY = /^\d{5,19}$|^(?:https?:\/\/)?(?:www\.|mobile\.)?(?:twitter|x)\.com\/i\/communities\/(\d{5,19})\/?(?:[?#]\S*)?$/i;
 const REPLY_SETTINGS = { following: "following", mentioned: "mentionedUsers" };
 
 /** A post in a community can be answered by its members, so who can reply only applies to the timeline. */

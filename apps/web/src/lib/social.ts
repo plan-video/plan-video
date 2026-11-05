@@ -507,7 +507,7 @@ export function youtubeTagsLength(tags: readonly string[]): number {
 export function xCommunityId(raw: string): string | null {
   const text = raw.trim();
   if (/^\d{5,19}$/.test(text)) return text;
-  return text.match(/(?:twitter|x)\.com\/i\/communities\/(\d{5,19})(?!\d)/i)?.[1] ?? null;
+  return text.match(/^(?:https?:\/\/)?(?:www\.|mobile\.)?(?:twitter|x)\.com\/i\/communities\/(\d{5,19})\/?(?:[?#]\S*)?$/i)?.[1] ?? null;
 }
 
 export function platformTitle(settings: PlatformSettings, id: PlatformId): string {
