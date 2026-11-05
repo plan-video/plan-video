@@ -321,26 +321,10 @@ function TryProjectRoute() {
 
 function EnvironmentOverlays() {
   const location = useLocation();
-  const anywhere = () => {
-    const path = location.pathname;
-    if (path.startsWith('/checkout')) return true;
-    if (path === '/' || path === '/login' || path === '/signup' || path === '/login/reviewer' || path === '/auth/confirm' || path === '/terms' || path === '/privacy' || path === '/data-deletion' || path === '/integrations' || path === '/pricing' || path === '/about' || path === '/support') return true;
-    if (path.startsWith('/p/') || path.startsWith('/connect/')) return true;
-    if (path.startsWith('/integrations/') || path === '/features' || path.startsWith('/features/') || path === '/docs' || path.startsWith('/docs/')) return true;
-    if (path === '/alternatives' || path.startsWith('/alternatives/') || path === '/character-limits' || path.startsWith('/character-limits/') || path === '/roadmap' || path.startsWith('/roadmap/') || path === '/changelog' || path === '/blog' || path.startsWith('/blog/')) return true;
-    if (path === '/agents' || path.startsWith('/agents/')) return true;
-    if (path === '/tools' || path.startsWith('/tools/')) return true;
-    if (path === DASHBOARD_PATH || path === TRY_PATH) return true;
-    // Signing in, connecting a network and approving an AI connector land back
-    // here in whatever browser started them, often the AI app's own.
-    if (path === '/auth/callback' || path === '/oauth/consent' || /^\/(tiktok|youtube|bluesky|linkedin|x|instagram|facebook|threads)\/callback$/.test(path)) return true;
-    return false;
-  };
-
   return (
     <>
       {/* Last, so a phone hears about its screen rather than being told to switch browsers. */}
-      <Show when={!anywhere()}>
+      <Show when={isEditorPath(location.pathname)}>
         <UnsupportedBrowser />
         <ScreenTooSmall />
       </Show>
