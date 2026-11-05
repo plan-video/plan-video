@@ -6,7 +6,7 @@
 --    deleting and saving again can't fill the database.
 -- 2. Profile pictures have a size and type limit. The dashboard sends a 256 px
 --    square, so 2 MiB is far more than one can be.
--- 3. One owner keeps up to 20,000 posts that aren't deleted, whichever workspace
+-- 3. One owner keeps up to 100,000 posts that aren't deleted, whichever workspace
 --    and whoever in it writes them. Deleting posts makes room again.
 
 -- 1. Safety net --------------------------------------------------------------
@@ -90,10 +90,10 @@ begin
   end if;
   if new.data is not null and (tg_op = 'INSERT' or old.data is null) and (
     select count(*) from (
-      select 1 from public.posts p where p.owner_id = new.owner_id and p.deleted_at is null limit 20000
+      select 1 from public.posts p where p.owner_id = new.owner_id and p.deleted_at is null limit 100000
     ) live
-  ) >= 20000 then
-    raise exception 'This account has reached its limit of 20,000 posts. Delete some old posts to make room for new ones.' using errcode = '54000';
+  ) >= 100000 then
+    raise exception 'This account has reached its limit of 100,000 posts. Delete some old posts to make room for new ones.' using errcode = '54000';
   end if;
   if new.data is not null and public.post_files_elsewhere(new.owner_id, new.workspace_id, public.post_file_ids(new.id, new.data)) then
     raise exception 'This post names a file of another workspace.' using errcode = '42501';

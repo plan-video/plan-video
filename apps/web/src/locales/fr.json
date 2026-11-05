@@ -3134,7 +3134,7 @@
   "This preview couldn't be loaded.": "Impossible de charger cet aperçu.",
   "Comments aren't available here.": "Les commentaires ne sont pas disponibles ici.",
   "Could not post the comment.": "Impossible de publier le commentaire.",
-  "This account has reached its limit of 20,000 posts. Delete some old posts to make room for new ones.": "Ce compte a atteint sa limite de 20 000 publications. Supprimez d’anciennes publications pour faire de la place aux nouvelles.",
+  "This account has reached its limit of 100,000 posts. Delete some old posts to make room for new ones.": "Ce compte a atteint sa limite de 100 000 publications. Supprimez d’anciennes publications pour faire de la place aux nouvelles.",
   "plan.video can't reach {workspace} right now": "plan.video ne peut pas joindre {workspace} pour le moment",
   "Give the template a name.": "Donnez un nom au modèle.",
   "Pick where it goes or write a caption.": "Choisissez une destination ou rédigez une légende.",

@@ -11,7 +11,7 @@ import type { StoredEvent } from "@/components/calendar/types";
 import { msg } from "@/lib/i18n";
 
 /** Word for word the refusal in the posts table's trigger (post-sync-core.test.ts checks), so it shows translated. */
-export const TOO_MANY_POSTS = msg("This account has reached its limit of 20,000 posts. Delete some old posts to make room for new ones.");
+export const TOO_MANY_POSTS = msg("This account has reached its limit of 100,000 posts. Delete some old posts to make room for new ones.");
 
 /** `data` is null once it's deleted. */
 export type PostRow = {

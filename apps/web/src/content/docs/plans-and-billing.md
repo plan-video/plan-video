@@ -18,7 +18,7 @@ Every plan includes the calendar and the built-in video editor. Paid plans add u
 
 Paying yearly saves 20%, paid up front. Prices are in US dollars.
 
-On every plan, an account and its workspaces can keep up to 20,000 posts. A new post past that isn't saved or sent, and it's marked **Not synced** until you delete some old posts to make room.
+On every plan, an account and its workspaces can keep up to 100,000 posts. A new post past that isn't saved or sent, and it's marked **Not synced** until you delete some old posts to make room.
 
 ### Paid plans also include
 
