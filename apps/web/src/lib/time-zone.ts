@@ -133,7 +133,8 @@ export function zonedTime(year: number, month: number, date = 1, hours = 0, minu
   const wall = Date.UTC(year, month, date, hours, minutes);
   const first = wall - offsetAt(wall, zone);
   const second = wall - offsetAt(first, zone);
-  return second;
+  // West of UTC the second guess lands an hour before a skipped time, and east of it after, so the later is the one past the change.
+  return second + offsetAt(second, zone) === wall ? second : Math.max(first, second);
 }
 
 const pad = (value: number) => String(value).padStart(2, "0");

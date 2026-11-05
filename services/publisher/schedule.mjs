@@ -78,7 +78,9 @@ export function momentOf(day, time, zone) {
   const [hours, minutes] = time.split(":").map(Number);
   const wall = Date.UTC(year, month - 1, date, hours, minutes);
   const first = wall - offsetAt(wall, zone);
-  return wall - offsetAt(first, zone);
+  const second = wall - offsetAt(first, zone);
+  // West of UTC the second guess lands an hour before a skipped time, and east of it after, so the later is the one past the change.
+  return second + offsetAt(second, zone) === wall ? second : Math.max(first, second);
 }
 
 export function dayAt(time, zone) {
