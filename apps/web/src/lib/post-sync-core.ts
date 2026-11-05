@@ -8,6 +8,10 @@
 
 import type { AccountMedia } from "@/components/calendar/store";
 import type { StoredEvent } from "@/components/calendar/types";
+import { msg } from "@/lib/i18n";
+
+/** Word for word the refusal in the posts table's trigger (post-sync-core.test.ts checks), so it shows translated. */
+export const TOO_MANY_POSTS = msg("This account has reached its limit of 20,000 posts. Delete some old posts to make room for new ones.");
 
 /** `data` is null once it's deleted. */
 export type PostRow = {
@@ -29,8 +33,8 @@ export type Base = {
   /** The thumbnail's server time when last had here, and its fingerprint as last sent or read. */
   thumbnailAt: string | null;
   thumbnail: string | null;
-  /** Not sent again until it changes. */
-  refused?: { mark: string; reason: string };
+  /** Not sent again until it changes, or, turned down at the limit of posts, until a post is deleted after `at`. */
+  refused?: { mark: string; reason: string; at?: string | null };
 };
 
 export type Snapshot<Read = unknown> = {
@@ -150,6 +154,9 @@ export async function syncPosts<Read>(io: SyncIO<Read>): Promise<SyncResult> {
   // Read in order of change, so the newest of a post read twice is the one kept.
   const remote = new Map(rows.map((row) => [row.id, row]));
   let seenUntil = rows.reduce<string | null>((newest, row) => later(newest, row.updated_at), cursor);
+  const lastDeleted = rows.reduce<string | null>((newest, row) => (row.deleted_at ? later(newest, row.updated_at) : newest), null);
+  /** One refusal says the limit still holds: the rest wait for a later run, so a deletion doesn't cost a request per post. */
+  let stillFull = false;
   // A first run with nothing agreed: the old account copy's fingerprints say which posts this browser changed since.
   const known = bases.size === 0 ? await io.legacyKnown() : null;
 
@@ -192,7 +199,8 @@ export async function syncPosts<Read>(io: SyncIO<Read>): Promise<SyncResult> {
     for (let attempt = 0; attempt < TRIES; attempt++) {
       const previous = baseFor(id);
       const sentMark = mark(ours);
-      if (previous?.refused && previous.refused.mark === sentMark) {
+      const roomMade = previous?.refused?.reason === TOO_MANY_POSTS && !stillFull && !!lastDeleted && lastDeleted > (previous.refused.at ?? "");
+      if (previous?.refused && previous.refused.mark === sentMark && !roomMade) {
         refused.set(id, previous.refused.reason);
         unsynced.add(id);
         return;
@@ -213,7 +221,8 @@ export async function syncPosts<Read>(io: SyncIO<Read>): Promise<SyncResult> {
       if ("refused" in answer) {
         refused.set(id, answer.refused);
         unsynced.add(id);
-        if (sentMark) changes.set(id, { ...(previous ?? { version: against ?? 0, data: null, thumbnailAt: null, thumbnail: null }), refused: { mark: sentMark, reason: answer.refused } });
+        if (answer.refused === TOO_MANY_POSTS) stillFull = true;
+        if (sentMark) changes.set(id, { ...(previous ?? { version: against ?? 0, data: null, thumbnailAt: null, thumbnail: null }), refused: { mark: sentMark, reason: answer.refused, at: seenUntil } });
         return;
       }
       const row = await io.fetchRow(id);

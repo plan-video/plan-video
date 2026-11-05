@@ -3134,6 +3134,7 @@
   "This preview couldn't be loaded.": "Bu önizleme yüklenemedi.",
   "Comments aren't available here.": "Yorumlar burada kullanılamıyor.",
   "Could not post the comment.": "Yorum gönderilemedi.",
+  "This account has reached its limit of 20,000 posts. Delete some old posts to make room for new ones.": "Bu hesap 20.000 gönderi sınırına ulaştı. Yenilerine yer açmak için bazı eski gönderileri sil.",
   "plan.video can't reach {workspace} right now": "plan.video şu anda {workspace} çalışma alanına ulaşamıyor",
   "Give the template a name.": "Şablona bir ad ver.",
   "Pick where it goes or write a caption.": "Nerede yayınlanacağını seç ya da bir açıklama yaz.",

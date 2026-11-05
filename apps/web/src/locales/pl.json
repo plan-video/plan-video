@@ -3134,6 +3134,7 @@
   "This preview couldn't be loaded.": "Nie udało się wczytać tego podglądu.",
   "Comments aren't available here.": "Komentarze nie są tu dostępne.",
   "Could not post the comment.": "Nie udało się dodać komentarza.",
+  "This account has reached its limit of 20,000 posts. Delete some old posts to make room for new ones.": "To konto osiągnęło limit 20 000 postów. Usuń kilka starych postów, aby zrobić miejsce na nowe.",
   "plan.video can't reach {workspace} right now": "plan.video nie może teraz połączyć się z przestrzenią {workspace}",
   "Give the template a name.": "Nadaj szablonowi nazwę.",
   "Pick where it goes or write a caption.": "Wybierz, gdzie ma trafić, albo napisz opis.",

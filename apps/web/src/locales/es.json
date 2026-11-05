@@ -3134,6 +3134,7 @@
   "This preview couldn't be loaded.": "No se pudo cargar esta vista previa.",
   "Comments aren't available here.": "Los comentarios no están disponibles aquí.",
   "Could not post the comment.": "No se pudo publicar el comentario.",
+  "This account has reached its limit of 20,000 posts. Delete some old posts to make room for new ones.": "Esta cuenta ha alcanzado su límite de 20.000 publicaciones. Elimina algunas publicaciones antiguas para dejar espacio a las nuevas.",
   "plan.video can't reach {workspace} right now": "plan.video no puede acceder a {workspace} en este momento",
   "Give the template a name.": "Ponle un nombre a la plantilla.",
   "Pick where it goes or write a caption.": "Elige dónde se publica o escribe un texto.",

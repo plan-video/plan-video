@@ -3134,6 +3134,7 @@
   "This preview couldn't be loaded.": "无法加载此预览。",
   "Comments aren't available here.": "此处不支持评论。",
   "Could not post the comment.": "无法发布评论。",
+  "This account has reached its limit of 20,000 posts. Delete some old posts to make room for new ones.": "此账号已达到 20,000 条帖子的上限。请删除一些旧帖子，为新帖子腾出空间。",
   "plan.video can't reach {workspace} right now": "plan.video 暂时无法连接“{workspace}”",
   "Give the template a name.": "请为模板命名。",
   "Pick where it goes or write a caption.": "请选择发布平台或撰写文案。",
