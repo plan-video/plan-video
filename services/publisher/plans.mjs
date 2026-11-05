@@ -1,6 +1,6 @@
 // Plan limits are checked here too, so someone writing their account straight to the database gets no
 // more than the dashboard gives. Numbers follow apps/web/src/lib/plans.ts. A post already waiting stays
-// allowed after a plan gets smaller, and Post now always works. YouTube uploads share one daily app quota,
+// allowed after a plan gets smaller, and Post now skips those limits but has a daily one on Free. YouTube uploads share one daily app quota,
 // and X bills plan.video for every post, so Free doesn't post to X and paid owners are capped.
 
 import { PublishError } from "./errors.mjs";
@@ -21,6 +21,9 @@ const MONTH_MS = 30 * DAY_MS;
 /** The most any of the counts above can be: rows are counted by reading them, and PostgREST answers with up to 1000. */
 const MOST_COUNTED = 1000;
 const PAGE = 500;
+
+/** What Post now can send in a day on Free, across a person's accounts, far past real use and short of spam. */
+export const FREE_POST_NOW_PER_DAY = 100;
 
 export const OVER_SCHEDULED = `On the Free plan, each account can have ${FREE_SCHEDULED_PER_ACCOUNT} scheduled posts waiting at a time, so this one wasn't sent. Upgrade for unlimited posts, or post it now.`;
 
@@ -229,6 +232,12 @@ export function createPlanLimits({ db, now = () => Date.now(), log = console, yo
     await db.insert("publisher_uploads", [{ user_id: userId, platform, at: new Date(now()).toISOString() }]);
   }
 
+  async function postNowAllowed(userId) {
+    if ((await levels([userId])).get(userId) > 1) return;
+    const used = await db.postNowSince(userId, new Date(now() - DAY_MS).toISOString(), FREE_POST_NOW_PER_DAY);
+    if (used.length >= FREE_POST_NOW_PER_DAY) throw new PublishError("On the Free plan, Post now can send up to 100 times a day across your accounts, and today's are used. Give this post a time, or upgrade for no limit.");
+  }
+
   /**
    * On Free, or past the plan's 30-day posts or links, the post fails. Past 50 today it waits (`until`).
    * A count that can't be read stops the post too, since X bills for it either way.
@@ -274,5 +283,5 @@ export function createPlanLimits({ db, now = () => Date.now(), log = console, yo
     await db.pruneUploads(new Date(now() - MONTH_MS - DAY_MS).toISOString(), ["x", "xlink"]);
   }
 
-  return { review, upgraded, over, uploadWait, countUpload, xAllowed, countX, prune };
+  return { review, upgraded, over, uploadWait, countUpload, xAllowed, countX, postNowAllowed, prune };
 }

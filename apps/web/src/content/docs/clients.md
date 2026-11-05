@@ -20,7 +20,7 @@ Show a client a post before it goes out, and let them comment. Making a preview 
 
 ## Client link
 
-Have a client connect their own social accounts to a workspace, without sharing a password with you.
+Have a client connect their own social accounts to a workspace, without sharing a password with you. Making a client link is on paid plans. If you move to Free, a link you already made keeps working until it runs out.
 
 <Steps>
   <Step title="Make the link">

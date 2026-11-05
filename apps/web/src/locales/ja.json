@@ -3576,5 +3576,9 @@
   "This post has already gone out.": "この投稿はすでに公開されています。",
   "None of this post's networks can publish from plan.video.": "この投稿のネットワークはどれもplan.videoから投稿できません。",
   "The project's video didn't export, so the post has no video. Open it, retry the export or attach a video, then post it again.": "プロジェクトの動画が書き出されなかったため、投稿に動画がありません。投稿を開いて書き出しをやり直すか動画を添付してから、もう一度投稿してください。",
-  "The post's media never reached plan.video's storage. Open plan.video in the browser it was made in, then post it again.": "投稿のメディアがplan.videoのストレージに届きませんでした。作成したブラウザーでplan.videoを開き、もう一度投稿してください。"
+  "The post's media never reached plan.video's storage. Open plan.video in the browser it was made in, then post it again.": "投稿のメディアがplan.videoのストレージに届きませんでした。作成したブラウザーでplan.videoを開き、もう一度投稿してください。",
+  "Client links come with a paid plan.": "クライアントリンクは有料プランでご利用いただけます。",
+  "Couldn't check you're a person. Refresh the page and try again.": "人間であることを確認できませんでした。ページを再読み込みして、もう一度お試しください。",
+  "Client connect links": "クライアント用の接続リンク",
+  "On the Free plan, Post now can send up to 100 times a day across your accounts, and today's are used. Give this post a time, or upgrade for no limit.": "無料プランでは、「今すぐ投稿」はすべてのアカウントを合わせて 1 日 100 回まで送信でき、本日分は使い切りました。この投稿に時間を設定するか、アップグレードして制限をなくしてください。"
 }

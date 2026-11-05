@@ -3576,5 +3576,9 @@
   "This post has already gone out.": "Deze post is al geplaatst.",
   "None of this post's networks can publish from plan.video.": "Geen van de netwerken van deze post kan vanuit plan.video posten.",
   "The project's video didn't export, so the post has no video. Open it, retry the export or attach a video, then post it again.": "De video van het project is niet geëxporteerd, dus de post heeft geen video. Open hem, probeer de export opnieuw of voeg een video toe en plaats de post opnieuw.",
-  "The post's media never reached plan.video's storage. Open plan.video in the browser it was made in, then post it again.": "De media van de post zijn nooit in de opslag van plan.video aangekomen. Open plan.video in de browser waarin hij is gemaakt en plaats hem opnieuw."
+  "The post's media never reached plan.video's storage. Open plan.video in the browser it was made in, then post it again.": "De media van de post zijn nooit in de opslag van plan.video aangekomen. Open plan.video in de browser waarin hij is gemaakt en plaats hem opnieuw.",
+  "Client links come with a paid plan.": "Klantlinks horen bij een betaald abonnement.",
+  "Couldn't check you're a person. Refresh the page and try again.": "We konden niet controleren of je een mens bent. Ververs de pagina en probeer het opnieuw.",
+  "Client connect links": "Koppellinks voor klanten",
+  "On the Free plan, Post now can send up to 100 times a day across your accounts, and today's are used. Give this post a time, or upgrade for no limit.": "Met het Free-abonnement kan Nu posten tot 100 keer per dag verzenden over al je accounts, en die van vandaag zijn op. Geef deze post een tijd, of upgrade voor geen limiet."
 }

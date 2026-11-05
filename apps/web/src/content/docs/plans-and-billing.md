@@ -25,6 +25,7 @@ On every plan, an account and its workspaces can keep up to 100,000 posts. A new
 - Bulk and CSV scheduling, up to 50 posts at a time
 - Templates and saved captions
 - Client preview links, which anyone can open and comment on without an account
+- Client connect links, so a client can connect their own accounts to a workspace
 
 In a workspace someone shared with you, these follow the owner's plan.
 

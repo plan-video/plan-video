@@ -3576,5 +3576,9 @@
   "This post has already gone out.": "这条帖子已经发出。",
   "None of this post's networks can publish from plan.video.": "这条帖子的平台都无法从 plan.video 发布。",
   "The project's video didn't export, so the post has no video. Open it, retry the export or attach a video, then post it again.": "项目的视频没有导出，所以这条帖子没有视频。打开它，重试导出或添加视频，然后再发一次。",
-  "The post's media never reached plan.video's storage. Open plan.video in the browser it was made in, then post it again.": "这条帖子的媒体没有到达 plan.video 的存储。请在创建它的浏览器中打开 plan.video，然后再发一次。"
+  "The post's media never reached plan.video's storage. Open plan.video in the browser it was made in, then post it again.": "这条帖子的媒体没有到达 plan.video 的存储。请在创建它的浏览器中打开 plan.video，然后再发一次。",
+  "Client links come with a paid plan.": "客户链接仅限付费方案使用。",
+  "Couldn't check you're a person. Refresh the page and try again.": "无法确认你是真人。请刷新页面后重试。",
+  "Client connect links": "客户连接链接",
+  "On the Free plan, Post now can send up to 100 times a day across your accounts, and today's are used. Give this post a time, or upgrade for no limit.": "在免费版中,“立即发布”每天最多可在你的所有账号中发送 100 次,今天的次数已用完。请为这篇帖子设定时间,或升级以取消限制。"
 }

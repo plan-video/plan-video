@@ -159,6 +159,9 @@ export function fakeDb({ posts = [], users = [], recipients = {}, accounts = {} 
     async uploadsSince(userId, platform, since, limit) {
       return tables.publisher_uploads.filter((row) => row.user_id === userId && row.platform === platform && row.at >= since).sort((a, b) => a.at.localeCompare(b.at)).slice(0, limit).map(copy);
     },
+    async postNowSince(userId, since, limit) {
+      return tables.post_deliveries.filter((row) => row.user_id === userId && row.requested && row.state !== "failed" && row.created_at >= since).slice(0, limit).map(copy);
+    },
     async pruneUploads(before, platforms) {
       tables.publisher_uploads = tables.publisher_uploads.filter((row) => row.at >= before || !platforms.includes(row.platform));
     },

@@ -3576,5 +3576,9 @@
   "This post has already gone out.": "Bu gönderi zaten yayınlandı.",
   "None of this post's networks can publish from plan.video.": "Bu gönderinin ağlarından hiçbiri plan.video'dan yayın yapamıyor.",
   "The project's video didn't export, so the post has no video. Open it, retry the export or attach a video, then post it again.": "Projenin videosu dışa aktarılmadı, bu yüzden gönderide video yok. Gönderiyi aç, dışa aktarmayı yeniden dene veya video ekle, sonra yeniden yayınla.",
-  "The post's media never reached plan.video's storage. Open plan.video in the browser it was made in, then post it again.": "Gönderinin medyası plan.video depolamasına hiç ulaşmadı. plan.video'yu gönderinin oluşturulduğu tarayıcıda aç, sonra yeniden yayınla."
+  "The post's media never reached plan.video's storage. Open plan.video in the browser it was made in, then post it again.": "Gönderinin medyası plan.video depolamasına hiç ulaşmadı. plan.video'yu gönderinin oluşturulduğu tarayıcıda aç, sonra yeniden yayınla.",
+  "Client links come with a paid plan.": "Müşteri bağlantıları ücretli planlarda bulunur.",
+  "Couldn't check you're a person. Refresh the page and try again.": "İnsan olduğunuzu doğrulayamadık. Sayfayı yenileyip tekrar deneyin.",
+  "Client connect links": "Müşteriler için bağlantı linkleri",
+  "On the Free plan, Post now can send up to 100 times a day across your accounts, and today's are used. Give this post a time, or upgrade for no limit.": "Ücretsiz planda Şimdi yayınla, tüm hesaplarınızda günde en fazla 100 kez gönderebilir ve bugünkü hakkınız doldu. Bu gönderiye bir saat verin veya sınırsız kullanım için planınızı yükseltin."
 }
