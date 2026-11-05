@@ -5,5 +5,5 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   resolve: { alias: { "@site": resolve(__dirname, "site/src"), "@": resolve(__dirname, "src") } },
-  test: { include: ["src/**/*.test.ts", "*.test.ts"], environment: "node" },
+  test: { include: ["src/**/*.test.ts", "site/src/**/*.test.ts", "*.test.ts"], environment: "node" },
 });
