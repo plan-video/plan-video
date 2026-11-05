@@ -78,7 +78,7 @@
   },
   {
     "name": "schedule_post",
-    "description": "Save a post on the Plan Video calendar. This does not publish. Pass platforms and a caption, then either a future day and time or draft true. Call social_accounts first, and pass account ids when a platform has more than one account. Attach a video, or pictures for a carousel, from the library with media. TikTok, YouTube, Bluesky, LinkedIn and X are sent only by publish_post, and only while Plan Video is open. Other platforms are stored on the calendar and are not sent.",
+    "description": "Save a post on the Plan Video calendar. A scheduled post goes out on its own at its day and time, from Plan Video's servers, even with the app closed, once it has synced to the account, so the app has to stay open until then. A draft stays until the user schedules it. Pass platforms and a caption, then either a future day and time or draft true. Call social_accounts first, and pass account ids when a platform has more than one account. Attach a video, or pictures for a carousel, from the library with media. A platform whose publishes is false in social_schema is only kept on the calendar.",
     "input_schema": {
       "type": "object",
       "properties": {
@@ -221,7 +221,7 @@
           }
         },
         "repeat": {
-          "description": "Repeat from the first day. Scheduling still does not publish.",
+          "description": "Repeat from the first day, for as long as the post stays scheduled.",
           "type": "object",
           "properties": {
             "every": {
@@ -702,7 +702,7 @@
   },
   {
     "name": "publish_post",
-    "description": "Send a saved post now. TikTok, YouTube, Bluesky, LinkedIn and X publish from Plan Video, and every platform on the post has to be one of them. YouTube needs a video attached, and TikTok a video or pictures; Bluesky, LinkedIn and X also send pictures, or the words alone. This cannot be undone. Do not call it unless the user asked to publish now. Plan Video has to stay open until the send finishes. Call it again to retry a failed send. A post to the TikTok profile needs tiktok_creator first and agreed true.",
+    "description": "Send a saved post now. Every platform on the post has to be one Plan Video sends to, with publishes true in social_schema, which also says what media each needs. This cannot be undone. Do not call it unless the user asked to publish now. Plan Video has to stay open until this answers. Call it again to retry a failed send. A post to the TikTok profile needs tiktok_creator first and agreed true.",
     "input_schema": {
       "type": "object",
       "properties": {

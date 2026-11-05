@@ -68,7 +68,7 @@ const PostAccount = z.object({
   platform: PlatformId,
   accountId: z.string().describe("Empty when the post names a platform but no account."),
   handle: z.string().describe("Account name. Empty when that account is no longer connected."),
-  publishes: z.boolean().describe("True when Plan Video can send to this platform. TikTok, YouTube, Bluesky, LinkedIn and X can."),
+  publishes: z.boolean().describe("True when Plan Video can send to this platform."),
 });
 
 const PostDelivery = z.object({
@@ -107,7 +107,7 @@ const postFields = {
   link: z.string().optional().describe("A destination link stored on the post."),
   youtube: YouTubeSettings.optional(),
   tiktok: TikTokSettings.optional(),
-  repeat: Repeat.optional().describe("Repeat from the first day. Scheduling still does not publish."),
+  repeat: Repeat.optional().describe("Repeat from the first day, for as long as the post stays scheduled."),
   thread: Thread.optional(),
 };
 
@@ -124,7 +124,7 @@ export const socialAccounts = defineTool({
       platform: PlatformId,
       handle: z.string(),
       publishes: z.boolean().describe("True when Plan Video can send to this platform."),
-      ready: z.boolean().describe("A TikTok, YouTube, Bluesky, LinkedIn or X login is stored, so publish_post can send. False for a name saved without that login, and false for every other platform."),
+      ready: z.boolean().describe("A login is stored for a platform Plan Video sends to, so posts to it can go out. False for a name saved without that login, and for a platform Plan Video doesn't send to yet."),
     })),
   }),
 });
@@ -180,7 +180,7 @@ export const schedulePost = defineTool({
   name: "schedule_post",
   title: "Schedule post",
   description:
-    "Save a post on the Plan Video calendar. This does not publish. Pass platforms and a caption, then either a future day and time or draft true. Call social_accounts first, and pass account ids when a platform has more than one account. Attach one local video, or pictures for a carousel, with media. TikTok, YouTube, Bluesky, LinkedIn and X are sent only by publish_post, and only while Plan Video is open. Other platforms are stored on the calendar and are not sent.",
+    "Save a post on the Plan Video calendar. A scheduled post goes out on its own at its day and time, from Plan Video's servers, even with the app closed, once it has synced to the account, so the app has to stay open until then. A draft stays until the user schedules it. Pass platforms and a caption, then either a future day and time or draft true. Call social_accounts first, and pass account ids when a platform has more than one account. Attach one local video, or pictures for a carousel, with media. A platform whose publishes is false in social_schema is only kept on the calendar.",
   input: z.object(postFields),
   output: ScheduledPost,
 });
@@ -259,7 +259,7 @@ export const publishPost = defineTool({
   name: "publish_post",
   title: "Publish post",
   description:
-    "Send a saved post now. TikTok, YouTube, Bluesky, LinkedIn and X publish from Plan Video, and every platform on the post has to be one of them. YouTube needs a video attached, and TikTok a video or pictures; Bluesky, LinkedIn and X also send pictures, or the words alone. This cannot be undone. Do not call it unless the user asked to publish now. Plan Video has to stay open until the send finishes. Call it again to retry a failed send. A post to the TikTok profile needs tiktok_creator first and agreed true.",
+    "Send a saved post now. Every platform on the post has to be one Plan Video sends to, with publishes true in social_schema, which also says what media each needs. This cannot be undone. Do not call it unless the user asked to publish now. Plan Video has to stay open until this answers. Call it again to retry a failed send. A post to the TikTok profile needs tiktok_creator first and agreed true.",
   input: z.object({
     id: z.string().min(1),
     agreed: z
