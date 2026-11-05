@@ -26,18 +26,45 @@ const startsThenStalls = (_req, res) => {
 
 const retryable = (error) => error instanceof PublishError && error.retry === true;
 
+/** Moves the clock on until `work` settles, past each timer as it comes up. */
+async function settled(t, work, ms) {
+  let done = false;
+  const watched = work.finally(() => {
+    done = true;
+  });
+  watched.catch(() => {});
+  for (let index = 0; !done && index < 10_000; index++) {
+    await turn();
+    if (!done) t.mock.timers.tick(ms);
+  }
+  return watched;
+}
+
 test("a download that stops halfway fails, to be tried again, instead of holding the send for ever", async (t) => {
-  const media = await store(t, startsThenStalls, { idleMs: 20 });
-  await assert.rejects(media.bytes("posts/u1/p1", 0, 9), retryable);
+  const media = await store(t, startsThenStalls, { idleMs: 60_000 });
   const reader = (await media.stream("posts/u1/p1")).getReader();
   assert.equal(Buffer.from((await reader.read()).value).toString(), "12345");
-  await assert.rejects(reader.read(), retryable);
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  await assert.rejects(settled(t, reader.read(), 60_001), retryable);
+  await assert.rejects(settled(t, media.bytes("posts/u1/p1", 0, 9), 60_001), retryable);
 });
 
 test("a store that takes the request and never answers fails too", async (t) => {
-  const media = await store(t, () => {}, { requestMs: 20 });
-  await assert.rejects(media.postFile("u1", "p1"), retryable);
-  await assert.rejects(media.bytes("posts/u1/p1", 0, 9), retryable);
+  const asked = [];
+  let heard;
+  const media = await store(t, (req) => {
+    asked.push(req.url);
+    heard?.();
+  }, { requestMs: 60_000 });
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  for (const start of [() => media.postFile("u1", "p1"), () => media.bytes("posts/u1/p1", 0, 9)]) {
+    const reached = new Promise((resolve) => (heard = resolve));
+    const work = start();
+    work.catch(() => {});
+    await reached;
+    await assert.rejects(settled(t, work, 60_001), retryable);
+  }
+  assert.ok(asked.length >= 2);
 });
 
 test("a big file that keeps coming, however slowly, isn't cut off", async (t) => {
