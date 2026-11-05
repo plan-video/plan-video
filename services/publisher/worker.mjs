@@ -199,28 +199,28 @@ export function createWorker({
   // Falls back to the one-call function (max 1000 rows) on a database without the paged one.
   // When `after` can't give a row's key exactly (a numeric post id the db orders as text "1.0"),
   // the next page starts past that person's rows, so pages always move on.
-  async function everyRow(paged, whole, after) {
-    const rows = [];
+  async function eachPage(paged, whole, after, visit) {
     let last = null;
     for (let from = {}, pages = 0; ; pages++) {
       if (pages >= MAX_PAGES) {
         log.error("[publisher] stopped reading pages: too many", paged);
-        return rows;
+        return;
       }
       let page;
       try {
         page = (await db.rpc(paged, { ...from, size: PAGE })) ?? [];
       } catch (error) {
-        if (rows.length || !/PGRST202/.test(String(error?.message))) throw error;
-        return (await db.rpc(whole)) ?? [];
+        if (pages || !/PGRST202/.test(String(error?.message))) throw error;
+        await visit((await db.rpc(whole)) ?? []);
+        return;
       }
-      rows.push(...page);
-      if (page.length < PAGE) return rows;
+      await visit(page);
+      if (page.length < PAGE) return;
       const end = page.at(-1);
       let next = after(end);
       if (!next || JSON.stringify(next) === last) {
         const user = nextUuid(end?.user_id);
-        if (!user) return rows;
+        if (!user) return;
         log.error("[publisher] skipped the rest of an account's rows that can't be paged past", paged, end.user_id);
         next = { after_user: user };
       }
@@ -325,27 +325,32 @@ export function createWorker({
 
   // Hourly: recounts Free's waiting posts and fixes any next look later than its next run (a lost write).
   // Runs beside planning: skips waiting posts kept after `readAt`, fixes a look only over the version it read.
+  // A post can be a quarter of a megabyte and anyone can save thousands, so only these small notes outlive a page.
   async function sweep() {
     const at = now();
-    const found = await everyRow("publisher_posts_after", "publisher_posts", (row) => {
+    const skipped = skipList();
+    const entries = [];
+    const wrong = [];
+    const after = (row) => {
       const id = row.post?.id;
       // The database orders by the id's text, which only a string (or no id) gives back exactly.
       if (id != null && typeof id !== "string") return null;
       return { after_user: row.user_id, after_workspace: row.workspace_id, after_post: id ?? "" };
-    });
-    const skipped = skipList();
-    await planLimits?.review(waitingEntries(found, at, skipped), { readAt: at });
-    const wrong = [];
-    for (const item of found) {
-      if (!isPost(item?.post) || !sendable(item.post)) continue;
-      try {
-        const next = nextRunAfter(item.post, item.time_zone, at);
-        const kept = Date.parse(item.next_run_at ?? "");
-        if (next !== null && !(kept <= next)) wrong.push({ user_id: item.user_id, post_id: item.post.id, version: item.version, next_run_at: iso(at), planned_through: null });
-      } catch (error) {
-        skipped.add(item.user_id, error);
+    };
+    await eachPage("publisher_posts_after", "publisher_posts", after, (found) => {
+      for (const entry of waitingEntries(found, at, skipped)) entries.push(entry);
+      for (const item of found) {
+        if (!isPost(item?.post) || !sendable(item.post)) continue;
+        try {
+          const next = nextRunAfter(item.post, item.time_zone, at);
+          const kept = Date.parse(item.next_run_at ?? "");
+          if (next !== null && !(kept <= next)) wrong.push({ user_id: item.user_id, post_id: item.post.id, version: item.version, next_run_at: iso(at), planned_through: null });
+        } catch (error) {
+          skipped.add(item.user_id, error);
+        }
       }
-    }
+    });
+    await planLimits?.review(entries, { readAt: at });
     skipped.report();
     if (wrong.length) {
       log.error("[publisher] posts whose next look came after their next run, looked at again", wrong.length);
@@ -718,23 +723,21 @@ export function createWorker({
   // Anyone can write their own account_state, so a "Sign in with Bluesky" login, which only names an
   // account, is never taken from there. A new account is taken only while the plan has room for it.
   async function adopt() {
-    const found = await everyRow("publisher_legacy_logins_after", "publisher_legacy_logins", (row) => ({
-      after_user: row.user_id,
-      after_workspace: row.workspace_id,
-      after_connection: row.connection_id,
-    }));
     let kept = 0;
-    for (const row of found) {
-      if (!ID.test(row.connection_id ?? "") || row.session?.oauth) continue;
-      try {
-        const keep = () => vault.put(row.user_id, row.connection_id, row.platform, row.session, { replace: false });
-        // Strict: a limit that can't be read waits for the next look.
-        const turnedAway = await connectWithin({ vault, limits: accountLimits, userId: row.user_id, connectionId: row.connection_id, strict: true }, keep);
-        if (turnedAway === null) kept++;
-      } catch {
-        // Not a login the server can use: the browser hands it over, or the account connects again.
+    const after = (row) => ({ after_user: row.user_id, after_workspace: row.workspace_id, after_connection: row.connection_id });
+    await eachPage("publisher_legacy_logins_after", "publisher_legacy_logins", after, async (found) => {
+      for (const row of found) {
+        if (!ID.test(row.connection_id ?? "") || row.session?.oauth) continue;
+        try {
+          const save = () => vault.put(row.user_id, row.connection_id, row.platform, row.session, { replace: false });
+          // Strict: a limit that can't be read waits for the next look.
+          const turnedAway = await connectWithin({ vault, limits: accountLimits, userId: row.user_id, connectionId: row.connection_id, strict: true }, save);
+          if (turnedAway === null) kept++;
+        } catch {
+          // Not a login the server can use: the browser hands it over, or the account connects again.
+        }
       }
-    }
+    });
     return kept;
   }
 
