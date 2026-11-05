@@ -595,6 +595,73 @@ test("a refusal of the row by the database isn't tried again", async () => {
   assert.deepEqual(waits, []);
 });
 
+test("a post moved later and then earlier goes at its earlier time, not the one it was waiting for", async () => {
+  const posts = [scheduled({ platforms: ["bluesky"] })];
+  posts[0].connections = [{ id: "bs1", platform: "bluesky" }];
+  let fail = true;
+  const { db, worker, advance, setClock, calls } = setup({
+    posts,
+    send: () => {
+      if (fail) throw new PublishError("Busy.", { retry: true });
+      return { state: "sent", publishId: "bs" };
+    },
+  });
+  await worker.tick();
+  fail = false;
+  Object.assign(posts[0].post, { day: "2026-10-13", start: "09:00" });
+  advance(3 * 60_000);
+  await worker.tick();
+  assert.equal(db.tables.post_deliveries[0].next_at, "2026-10-13T09:00:00.000Z");
+
+  Object.assign(posts[0].post, { day: "2026-10-12", start: "18:00" });
+  setClock(Date.parse("2026-10-12T18:00:30Z"));
+  await worker.tick();
+  assert.equal(db.tables.post_deliveries[0].state, "sent");
+  assert.equal(db.tables.post_deliveries[0].due_at, "2026-10-12T18:00:00.000Z");
+  assert.equal(calls.length, 2);
+});
+
+test("a post moved earlier but not due yet keeps waiting until its new time", async () => {
+  const posts = [scheduled({ platforms: ["bluesky"] })];
+  posts[0].connections = [{ id: "bs1", platform: "bluesky" }];
+  let fail = true;
+  const { db, worker, advance, calls } = setup({
+    posts,
+    send: () => {
+      if (fail) throw new PublishError("Busy.", { retry: true });
+      return { state: "sent", publishId: "bs" };
+    },
+  });
+  await worker.tick();
+  fail = false;
+  Object.assign(posts[0].post, { day: "2026-10-13", start: "09:00" });
+  advance(3 * 60_000);
+  await worker.tick();
+  Object.assign(posts[0].post, { day: "2026-10-13", start: "06:00" });
+  advance(60_000);
+  await worker.tick();
+  assert.equal(calls.length, 1);
+  assert.equal(db.tables.post_deliveries[0].state, "queued");
+});
+
+test("editing a post waiting for its retry doesn't cut the wait short", async () => {
+  const posts = [scheduled({ platforms: ["bluesky"] })];
+  posts[0].connections = [{ id: "bs1", platform: "bluesky" }];
+  const { db, worker, advance, calls } = setup({
+    posts,
+    send: () => {
+      throw new PublishError("Busy.", { retry: true });
+    },
+  });
+  await worker.tick();
+  const { next_at: waiting } = db.tables.post_deliveries[0];
+  posts[0].post.title = "A new title";
+  advance(30_000);
+  await worker.tick();
+  assert.equal(db.tables.post_deliveries[0].next_at, waiting);
+  assert.equal(calls.length, 1);
+});
+
 test("a video still uploading to storage is waited for", async () => {
   const { db, worker } = setup({ posts: [scheduled({ platforms: ["youtube"] })], file: null });
   await worker.tick();

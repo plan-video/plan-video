@@ -364,10 +364,16 @@ export function createWorker({
     const clashing = new Map(rows.filter((row) => row.state === "queued" && !inserted.has(keyOf(row))).map((row) => [keyOf(row), row]));
     if (!clashing.size) return;
     const ids = [...new Set([...clashing.values()].map((row) => row.post_id))];
-    const before = await db.select("post_deliveries", { user_id: userId, state: "failed", post_id: ids }, "id,user_id,post_id,occurrence,platform,connection_id,due_at,attempts");
+    const before = await db.select("post_deliveries", { user_id: userId, state: ["failed", "queued"], post_id: ids }, "id,user_id,post_id,occurrence,platform,connection_id,due_at,attempts,state,next_at,requested");
     for (const existing of before) {
       const row = clashing.get(keyOf(existing));
       if (!row) continue;
+      if (existing.state === "queued") {
+        // Moved later, then back: it goes now instead of at the time it was waiting for. due_at sets this apart from a wait for a retry or a limit.
+        const movedBack = !existing.requested && Date.parse(existing.due_at) > Date.parse(row.due_at) + 60_000 && Date.parse(existing.next_at) > Date.parse(row.next_at);
+        if (movedBack) await db.update("post_deliveries", { id: existing.id, state: "queued", next_at: existing.next_at }, { due_at: row.due_at, next_at: row.next_at, updated_at: iso(now()) });
+        continue;
+      }
       const movedLater = row.occurrence === "once" && Date.parse(existing.due_at) < Date.parse(row.due_at) - 60_000;
       // Never reached the network (paused or moved to drafts, since undone), so it's safe to queue again.
       const neverTried = existing.attempts === 0;
