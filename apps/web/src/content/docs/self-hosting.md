@@ -83,7 +83,7 @@ Out of the box, only emails you let in can use your copy: the database saves not
 Your site's address is a setting, with plan.video's as the default:
 
 - `VITE_APP_URL` in `apps/web/.env`, for the website
-- `PUBLIC_URL` in `publisher.env`, `billing.env`, `mcp.env` and `monitor.env`, for the services
+- `PUBLIC_URL` in `r2.env`, `publisher.env`, `billing.env`, `mcp.env` and `monitor.env`, for the services
 
 The email templates in `supabase/templates` take their links and logo from the Site URL you set in Supabase. The networks' sign-in callbacks follow `PUBLIC_URL`: see [Network apps](/docs/network-apps#your-domain).
 
