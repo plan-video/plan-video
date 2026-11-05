@@ -107,7 +107,7 @@ const postFields = {
   link: z.string().optional().describe("A destination link stored on the post."),
   youtube: YouTubeSettings.optional(),
   tiktok: TikTokSettings.optional(),
-  repeat: Repeat.optional().describe("Repeat from the first day. Scheduling still does not publish."),
+  repeat: Repeat.optional().describe("Repeat from the first day, for as long as the post stays scheduled."),
   thread: Thread.optional(),
 };
 
@@ -180,7 +180,7 @@ export const schedulePost = defineTool({
   name: "schedule_post",
   title: "Schedule post",
   description:
-    "Save a post on the Plan Video calendar. A scheduled post goes out on its own at its day and time, from Plan Video's servers, whether or not the app is open; a draft stays until the user schedules it. Pass platforms and a caption, then either a future day and time or draft true. Call social_accounts first, and pass account ids when a platform has more than one account. Attach one local video, or pictures for a carousel, with media. A platform whose publishes is false in social_schema is only kept on the calendar.",
+    "Save a post on the Plan Video calendar. A scheduled post goes out on its own at its day and time, from Plan Video's servers, even with the app closed, once it has synced to the account, so the app has to stay open until then. A draft stays until the user schedules it. Pass platforms and a caption, then either a future day and time or draft true. Call social_accounts first, and pass account ids when a platform has more than one account. Attach one local video, or pictures for a carousel, with media. A platform whose publishes is false in social_schema is only kept on the calendar.",
   input: z.object(postFields),
   output: ScheduledPost,
 });
