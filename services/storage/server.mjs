@@ -389,9 +389,9 @@ async function sentFiles(req, ownerId, ids) {
   const deliveries = await rowsAbout(req, asked, (posts) => `/rest/v1/post_deliveries?select=post_id&state=eq.sent&user_id=eq.${ownerId}&post_id=in.(${posts})`);
   const went = new Set(deliveries.map((row) => row?.post_id));
   const wentParents = [...new Set(ids.map((id) => parents.get(id)).filter((post) => went.has(post)))];
-  const rows = await rowsAbout(req, wentParents, (posts) => `/rest/v1/posts?select=file_ids&owner_id=eq.${ownerId}&id=in.(${posts})`);
-  const listed = new Set(rows.flatMap((row) => (Array.isArray(row?.file_ids) ? row.file_ids : [])));
-  return new Set(ids.filter((id) => went.has(id) || (went.has(parents.get(id)) && listed.has(id))));
+  const rows = await rowsAbout(req, wentParents, (posts) => `/rest/v1/posts?select=id,file_ids&owner_id=eq.${ownerId}&id=in.(${posts})`);
+  const listed = new Map(rows.map((row) => [row?.id, Array.isArray(row?.file_ids) ? row.file_ids : []]));
+  return new Set(ids.filter((id) => went.has(id) || listed.get(parents.get(id))?.includes(id)));
 }
 
 async function uploadUrl(user, body, req) {

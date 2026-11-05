@@ -101,11 +101,11 @@ before(() => {
     if (address.pathname === "/rest/v1/posts") {
       if (postsDown) return new Response("{}", { status: 500 });
       const params = address.searchParams;
-      assert.equal(params.get("select"), "file_ids");
+      assert.equal(params.get("select"), "id,file_ids");
       const owner = params.get("owner_id").slice(3);
       const posts = params.get("id").slice(4, -1).split(",");
       askedPosts.push({ token, owner, posts });
-      return Response.json(posts.filter((post) => listed.has(`${owner}/${post}`)).map((post) => ({ file_ids: listed.get(`${owner}/${post}`) })));
+      return Response.json(posts.filter((post) => listed.has(`${owner}/${post}`)).map((post) => ({ id: post, file_ids: listed.get(`${owner}/${post}`) })));
     }
     return new Response("{}", { status: 404 });
   };
@@ -288,6 +288,19 @@ test("one post that went out doesn't make every file named after it a sent file"
   const moved = await settle(user, { files: [{ id: "went_stray", size: 500 }, { id: "went_reply2", size: 600 }] }, req());
   assert.deepEqual(moved.unsent, ["went_stray"]);
   assert.deepEqual(moved.sent, [{ id: "went_reply2", key: `sent/${user.id}/went_reply2` }]);
+});
+
+test("a sent post can't vouch for a file of another post that went out and doesn't list it", async () => {
+  const user = someone();
+  delivered.add(`${user.id}/first`);
+  delivered.add(`${user.id}/second`);
+  lists(user.id, "first");
+  lists(user.id, "second", "first_stray", "second_own");
+  stored(`posts/${user.id}/first_stray`, 500);
+  stored(`posts/${user.id}/second_own`, 600);
+  const moved = await settle(user, { files: [{ id: "first_stray", size: 500 }, { id: "second_own", size: 600 }] }, req());
+  assert.deepEqual(moved.unsent, ["first_stray"]);
+  assert.deepEqual(moved.sent, [{ id: "second_own", key: `sent/${user.id}/second_own` }]);
 });
 
 test("a deleted post that went out lists no more files", async () => {
