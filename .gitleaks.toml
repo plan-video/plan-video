@@ -10,6 +10,8 @@ regexes = [
   '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIi[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+''',
   # PostHog's project token is a write-only key every page sends; it only runs on plan.video (lib/posthog.ts).
   '''phc_[A-Za-z0-9]{40,}''',
+  # A function name that follows `beginLinkedIn,`, which the LinkedIn client id rule reads as an id.
+  '''^refuseWhenFull$''',
 ]
 paths = [
   # Translations, where words like "LinkedIn Posts" look like client ids.
