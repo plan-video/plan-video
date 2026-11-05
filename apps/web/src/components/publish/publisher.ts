@@ -59,7 +59,7 @@ export type SendResult = "sent" | "failed" | "needs-media" | "busy";
 export type PostTexts = { bluesky?: string; linkedin?: string; x?: string; instagram?: string; facebook?: string; threads?: string };
 
 async function lacksMedia(post: StoredEvent, platform: string) {
-  if ((platform !== "tiktok" && platform !== "youtube" && platform !== "instagram") || post.deliveries?.[platform]?.publishId) return false;
+  if ((platform !== "tiktok" && platform !== "youtube" && platform !== "instagram" && platform !== "pinterest") || post.deliveries?.[platform]?.publishId) return false;
   const files = await postFileStates(post, platform);
   if (post.files && files.length < postFileIds(post, platform).length) return false;
   return platform === "youtube" ? !files.some((file) => file.kind === "video") : !files.length;

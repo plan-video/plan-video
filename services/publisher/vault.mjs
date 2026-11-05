@@ -11,6 +11,7 @@ import { tokenRequest as linkedinToken } from "../linkedin/handler.mjs";
 import { PublishError } from "./errors.mjs";
 import { isMetaNetwork, renewed as metaRenewed } from "./meta.mjs";
 import { pdsFetch, pdsOrigin } from "./pds-fetch.mjs";
+import { renewed as pinterestRenewed } from "./pinterest.mjs";
 
 /** Refreshed this long before it runs out, so an upload doesn't outlive its token. */
 const AHEAD_MS = 10 * 60_000;
@@ -97,6 +98,11 @@ export function cleanSession(platform, value, { allowOAuth = false } = {}) {
     const session = { accountId: str(value.accountId, 200), accessToken: str(value.accessToken), expiresAt: num(value.expiresAt), renewedAt: num(value.renewedAt), scope: str(value.scope, 1000) };
     return session.accessToken && /^\d{1,40}$/.test(session.accountId) ? session : null;
   }
+  if (platform === "pinterest") {
+    // Only ever from the ticket its login gave this person: no browser has Pinterest's tokens to hand over.
+    const session = { accountId: str(value.accountId, 200), accessToken: str(value.accessToken), refreshToken: str(value.refreshToken), expiresAt: num(value.expiresAt), renewedAt: num(value.renewedAt), scope: str(value.scope, 1000) };
+    return session.accessToken && session.accountId ? session : null;
+  }
   if (platform === "bluesky") {
     // "Sign in with Bluesky": the session is the person's own, in bluesky_sessions; this names the account.
     if (value.oauth === true) {
@@ -131,6 +137,7 @@ const EXPIRED = {
   instagram: "Instagram login expired. Connect the account again in Connections.",
   facebook: "Facebook login expired. Connect the Page again in Connections.",
   threads: "Threads login expired. Connect the account again in Connections.",
+  pinterest: "Pinterest login expired. Connect the account again in Connections.",
 };
 
 /** X's confidential clients sign token requests with their id and secret. */
@@ -197,6 +204,7 @@ async function refreshed(platform, session, env) {
   }
   // Instagram's and Threads' are renewed every week they're used; a Page's doesn't run out.
   if (isMetaNetwork(platform)) return metaRenewed(platform, session, env);
+  if (platform === "pinterest") return pinterestRenewed(session, env.pinterest);
   throw new PublishError("plan.video can't post to this network from the server yet.");
 }
 

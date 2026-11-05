@@ -7,6 +7,7 @@ To post for people, your copy of plan.video needs its own developer app on each 
   <Card title="LinkedIn" network="linkedin" href="/docs/linkedin-app">Share on LinkedIn.</Card>
   <Card title="Bluesky" network="bluesky" href="/docs/bluesky-app">No app needed.</Card>
   <Card title="Instagram, Facebook, Threads" network="instagram" href="/docs/meta-app">One Meta app for all three.</Card>
+  <Card title="Pinterest" network="pinterest" href="/docs/pinterest-app">An OAuth 2.0 app with Standard access.</Card>
 </CardGroup>
 
 ## At a glance
@@ -23,16 +24,15 @@ Every network's keys go in its own file in `/etc/plan-video`. Bluesky's key is t
 | Instagram | `meta.env` | `/instagram/callback` |
 | Facebook | `meta.env` | `/facebook/callback` |
 | Threads | `meta.env` | `/threads/callback` |
+| Pinterest | `pinterest.env` | `/pinterest/callback` |
 
 Without its keys, a network can't be connected. Everything else keeps working.
-
-Pinterest has no page here: plan.video can plan posts for it but doesn't send them yet, so there's no app to register.
 
 ## How connecting works
 
 <Steps>
   <Step title="Start">
-    The browser asks the network's service for the sign-in address, such as `/api/tiktok/authorize`. For Instagram, Facebook and Threads, the publisher answers.
+    The browser asks the network's service for the sign-in address, such as `/api/tiktok/authorize`. For Instagram, Facebook, Threads and Pinterest, the publisher answers.
   </Step>
   <Step title="Sign in">
     The person signs in on the network's own page, which sends them back to its callback page on your site with a code.

@@ -23,6 +23,11 @@ const YouTubeSettings = z.object({
   tags: z.array(z.string()).optional().describe("Tags, without a leading #. 30 characters each, 500 altogether."),
 });
 
+const PinterestSettings = z.object({
+  board: z.string().optional().describe("The board it goes on, by name. Required to schedule or publish to Pinterest. A board the account doesn't have yet is made."),
+  title: z.string().optional().describe("The Pin's title, up to 100 characters."),
+});
+
 const TikTokPrivacy = z.enum(["public", "friends", "followers", "private"]);
 
 const TikTokSettings = z.object({
@@ -106,6 +111,7 @@ const postFields = {
     .describe("One video, or up to 35 pictures as a list for a carousel: absolute paths or project library paths. Remote URLs are refused."),
   link: z.string().optional().describe("A destination link stored on the post."),
   youtube: YouTubeSettings.optional(),
+  pinterest: PinterestSettings.optional(),
   tiktok: TikTokSettings.optional(),
   repeat: Repeat.optional().describe("Repeat from the first day. Scheduling still does not publish."),
   thread: Thread.optional(),

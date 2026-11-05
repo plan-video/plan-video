@@ -7,6 +7,7 @@ import { createApi } from "./api.mjs";
 import { createConnectLinks } from "./connect-links.mjs";
 import { fakeDb } from "./fake-db.mjs";
 import { createMetaLogins } from "./meta-logins.mjs";
+import { createPinterestLogins } from "./pinterest-logins.mjs";
 import { createVault } from "./vault.mjs";
 import { createXLogins } from "./x-logins.mjs";
 import { createYouTubeLogins } from "./youtube-logins.mjs";
@@ -23,7 +24,7 @@ const META_ENV = {
   facebook: { appId: "fb", appSecret: "s", configId: "c" },
   threads: { appId: "th", appSecret: "s" },
 };
-const ENV = { youtube: { clientId: "yt", clientSecret: "s" }, x: { clientId: "x", clientSecret: "s" }, tiktok: {}, linkedin: {}, ...META_ENV };
+const ENV = { youtube: { clientId: "yt", clientSecret: "s" }, x: { clientId: "x", clientSecret: "s" }, tiktok: {}, linkedin: {}, pinterest: { appId: "pin", appSecret: "s" }, ...META_ENV };
 const YOUTUBE_CODE = { network: "youtube", code: "g", redirectUri: "https://plan.video/youtube/callback", codeVerifier: "v".repeat(43) };
 
 /** The connect_link_keep function, as the migration has it, over the fake tables. */
@@ -87,6 +88,12 @@ async function setup(t, { level = 2, limit = 40, connections = [] } = {}) {
     exchange: async (network) =>
       ["1001", "1002"].map((accountId) => ({ accountId, handle: `page ${accountId}`, avatarUrl: "", session: { accountId, accessToken: `${network}-token-${accountId}`, expiresAt: 0, renewedAt: clock.now, scope: "s" } })),
   });
+  const pinterest = createPinterestLogins({
+    key: KEY,
+    env: ENV.pinterest,
+    now,
+    exchange: async () => ({ accountId: "77", handle: "maker", avatarUrl: "https://i.pinimg.test/a.jpg", session: { accountId: "77", accessToken: "pina-token", refreshToken: "pinr-token", expiresAt: now() + 30 * DAY, renewedAt: now(), scope: "pins:write" } }),
+  });
   const ticketKey = createHmac("sha256", Buffer.from(KEY, "base64")).update("bluesky-ticket").digest();
   const mac = (holder, did, until, nonce) => createHmac("sha256", ticketKey).update(JSON.stringify([holder.person, holder.owner, holder.workspace ?? "", did, until, nonce])).digest("base64url");
   const bluesky = {
@@ -106,7 +113,7 @@ async function setup(t, { level = 2, limit = 40, connections = [] } = {}) {
     },
   };
   const limits = { limitFor: async () => limit };
-  const links = createConnectLinks({ db, key: KEY, vault, limits, env: ENV, youtube, x, meta, bluesky, profile: async () => ({ handle: "acme.bsky.social", avatarUrl: "" }), now });
+  const links = createConnectLinks({ db, key: KEY, vault, limits, env: ENV, youtube, x, meta, pinterest, bluesky, profile: async () => ({ handle: "acme.bsky.social", avatarUrl: "" }), now });
   const roles = { [`${ADMIN}|brand`]: "admin", [`${MEMBER}|brand`]: "member" };
   const api = createApi({
     env: ENV,
@@ -129,6 +136,7 @@ async function setup(t, { level = 2, limit = 40, connections = [] } = {}) {
     youtube,
     x,
     meta,
+    pinterest,
     bluesky,
     links,
     now,
@@ -167,7 +175,7 @@ test("a client with the link sees whose workspace it is and what they can connec
   assert.equal(opened.status, 200, opened.error);
   assert.equal(opened.workspace, "Acme");
   assert.equal(opened.from, "Sam");
-  assert.deepEqual(opened.networks, ["x", "instagram", "youtube", "facebook", "threads", "bluesky"]);
+  assert.deepEqual(opened.networks, ["x", "instagram", "youtube", "facebook", "threads", "pinterest", "bluesky"]);
   assert.equal(Date.parse(opened.expiresAt), T0 + 7 * DAY);
 });
 
@@ -242,6 +250,20 @@ test("a Facebook login keeps each Page shared, and Bluesky's sign-in starts and 
   assert.equal(sky.handle, "acme.bsky.social");
   assert.deepEqual((await vault.read(OWNER, sky.id)).session, { did: DID, oauth: true, owner: OWNER });
   assert.equal(brand().length, 3);
+});
+
+test("a Pinterest login is kept under the owner, its tokens in no answer or account row", async (t) => {
+  const { ask, vault, brand } = await setup(t);
+  const link = await ownerLink(ask);
+  const started = await ask(null, "connect-link/authorize", { link, network: "pinterest", redirectUri: "https://plan.video/pinterest/callback", state: "state-1234" });
+  assert.match(started.url, /^https:\/\/www\.pinterest\.com\/oauth\/\?client_id=pin&/);
+  const answer = await ask(null, "connect-link/exchange", { link, network: "pinterest", code: "c", redirectUri: "https://plan.video/pinterest/callback" });
+  assert.equal(answer.status, 200, answer.error);
+  assert.deepEqual(answer.accounts, [{ platform: "pinterest", handle: "maker", avatarUrl: "https://i.pinimg.test/a.jpg" }]);
+  const [row] = brand();
+  assert.equal(row.pinterest.accountId, "77");
+  assert.doesNotMatch(JSON.stringify([answer, row]), /pina-|pinr-|ticket/);
+  assert.equal((await vault.read(OWNER, row.id)).session.refreshToken, "pinr-token");
 });
 
 test("the owner's plan still caps the accounts: a full one keeps nothing", async (t) => {

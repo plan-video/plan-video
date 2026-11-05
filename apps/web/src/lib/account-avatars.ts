@@ -8,6 +8,7 @@ import { updateAccountAvatar, updateYouTubeChannel, type SocialConnection } from
 import { loadBlueskyAvatar } from "@/lib/bluesky";
 import { loadLinkedInAvatar } from "@/lib/linkedin";
 import { isMetaNetwork, loadMetaProfile } from "@/lib/meta";
+import { loadPinterestAvatar } from "@/lib/pinterest";
 import { loadTikTokAvatar } from "@/lib/tiktok";
 import { loadYouTubeAvatar, loadYouTubeChannel } from "@/lib/youtube";
 
@@ -21,6 +22,7 @@ async function avatarFor(account: SocialConnection): Promise<string | null> {
   if (account.youtube) return loadYouTubeAvatar(account.id);
   if (account.bluesky) return loadBlueskyAvatar(account.bluesky.did);
   if (account.linkedin) return loadLinkedInAvatar(account.id);
+  if (account.pinterest) return loadPinterestAvatar(account.id);
   if (isMetaNetwork(account.platform) && account[account.platform]) return (await loadMetaProfile(account.platform, account.id)).avatarUrl ?? null;
   return null;
 }
@@ -36,7 +38,7 @@ export function fillMissingAvatars(userId: string, accounts: readonly SocialConn
         .catch(() => {});
       continue;
     }
-    if (account.avatarUrl !== undefined || asked.has(account.id) || !(account.tiktok || account.youtube || account.bluesky || account.linkedin || account.instagram || account.facebook || account.threads)) continue;
+    if (account.avatarUrl !== undefined || asked.has(account.id) || !(account.tiktok || account.youtube || account.bluesky || account.linkedin || account.instagram || account.facebook || account.threads || account.pinterest)) continue;
     asked.add(account.id);
     void avatarFor(account)
       .then((url) => {

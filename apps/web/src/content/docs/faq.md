@@ -13,7 +13,7 @@
 
 <AccordionGroup>
   <Accordion title="Which networks can I post to?">
-    plan.video posts to TikTok, Instagram, YouTube, X, Facebook, LinkedIn, Threads and Bluesky. Pinterest is coming: you can already plan its posts on the calendar, and they go out once it's added. Posting to X needs a paid plan, since X charges for posting through its API. See [Networks](/docs/networks).
+    plan.video posts to TikTok, Instagram, YouTube, X, Facebook, LinkedIn, Threads, Bluesky and Pinterest. Posting to X needs a paid plan, since X charges for posting through its API. See [Networks](/docs/networks).
   </Accordion>
   <Accordion title="What can I post?">
     Videos, photos and text posts, with several photos to a post where the network takes them, and stories on Instagram and Facebook. Each network gets its own caption and settings, and plan.video checks every post against the network's limits, so a video or caption that's too long is flagged before it's scheduled. On TikTok you can also send a video to your inbox, then add a trending sound and post it from the app. See [Create a post](/docs/create-a-post).
