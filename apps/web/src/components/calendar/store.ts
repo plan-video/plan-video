@@ -187,8 +187,8 @@ export function toggleCalendar(id: string) {
 let hydrating: Promise<void> | null = null;
 /** Bumped on a workspace switch, so a read from the last workspace's database lands nowhere. */
 let generation = 0;
-/** Bumped when the account copy rewrites the active workspace's posts, so a read that overlapped it is done again. */
-let accountWrites = 0;
+/** Bumped when this tab rewrites the active workspace's posts, so a read that overlapped it isn't used as it was. */
+let postWrites = 0;
 
 const SYNC_WAIT_MS = 3000;
 
@@ -203,7 +203,7 @@ export function hydrateCalendar() {
       let found: Calendar[];
       let events: StoredEvent[];
       for (;;) {
-        const writes = accountWrites;
+        const writes = postWrites;
         found = await database.getAll("calendars");
         events = await database.getAll("events");
         if (run !== generation) return;
@@ -214,7 +214,7 @@ export function hydrateCalendar() {
           found = [first];
           queueAccountSync();
         }
-        if (writes === accountWrites) break;
+        if (writes === postWrites) break;
       }
       events = events.map(interrupted);
       setCalendars(found.sort((a, b) => a.createdAt.localeCompare(b.createdAt)));
@@ -391,6 +391,7 @@ async function persist(
   } catch (e) {
     toast.error(t("Could not save the calendar"), { description: (e as Error).message });
   } finally {
+    postWrites++;
     for (const row of rows) {
       const left = (unsaved.get(row) ?? 1) - 1;
       if (left > 0) unsaved.set(row, left);
@@ -403,6 +404,25 @@ async function persist(
 function withUnsaved<T extends { id: string }>(kind: "event" | "calendar", onScreen: readonly T[], rows: readonly T[]): T[] {
   const pending = (id: string) => unsaved.has(`${kind}:${id}`);
   return [...rows.filter((row) => !pending(row.id)), ...onScreen.filter((row) => pending(row.id))];
+}
+
+/**
+ * Tabs share the database, and a save writes the whole post as this tab shows it, so what another tab saved or
+ * synced has to reach the screen here. Unchanged posts keep their objects: the calendar redraws on a new one.
+ */
+export async function refreshPostsFromStorage(userId: string, workspaceId: string) {
+  if (!loaded() || !isActiveWorkspace(userId, workspaceId)) return;
+  const run = generation;
+  const writes = postWrites;
+  const rows = await withWorkspaceDb(userId, workspaceId, (database) => database.getAll("events"));
+  if (run !== generation || writes !== postWrites) return;
+  const onScreen = storedEvents();
+  const byId = new Map(onScreen.map((event) => [event.id, event]));
+  const next = withUnsaved("event", onScreen, rows).map((row) => {
+    const shownNow = byId.get(row.id);
+    return shownNow && rowMark(shownNow) === rowMark(row) ? shownNow : row;
+  });
+  if (next.length !== onScreen.length || next.some((row) => byId.get(row.id) !== row)) setStoredEvents(next);
 }
 
 /** Rows as a sync read them, so writing the merged copy back can tell what changed here meanwhile. */
@@ -482,7 +502,7 @@ export async function writeWorkspaceCalendars(userId: string, workspaceId: strin
     const rows = overwrite(await tx.store.getAll(), incoming, read?.calendars);
     await Promise.all([...rows.remove.map((id) => tx.store.delete(id)), ...rows.put.map((calendar) => tx.store.put(calendar)), tx.done]);
     if (isActiveWorkspace(userId, workspaceId)) {
-      accountWrites++;
+      postWrites++;
       if (loaded()) setCalendars(withUnsaved("calendar", calendars(), rows.rows).sort((a, b) => (a.createdAt || "").localeCompare(b.createdAt || "")));
     }
     return rows.kept;
@@ -504,7 +524,7 @@ export async function writeWorkspacePosts(
 
     // Show the posts now; their videos can take a while to download.
     if (isActiveWorkspace(userId, workspaceId)) {
-      accountWrites++;
+      postWrites++;
       if (loaded()) setStoredEvents(withUnsaved("event", storedEvents(), eventRows.rows));
     }
 

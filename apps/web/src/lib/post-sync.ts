@@ -8,7 +8,7 @@
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { createSignal } from "solid-js";
 
-import { everyFileOf, readCalendarSnapshot, readPostSync, writePostSync, writeWorkspacePosts, type CalendarRead } from "@/components/calendar/store";
+import { everyFileOf, readCalendarSnapshot, readPostSync, refreshPostsFromStorage, writePostSync, writeWorkspacePosts, type CalendarRead } from "@/components/calendar/store";
 import type { StoredEvent } from "@/components/calendar/types";
 import { legacyFingerprint, legacyKnownPosts, onePostsCalendar } from "@/lib/account-sync";
 import { onAccountEdited, setAccountApplying, setPostSyncPending } from "@/lib/account-sync-bus";
@@ -220,6 +220,14 @@ function locked<T>(scope: Scope, work: () => Promise<T>): Promise<T> {
 }
 
 async function run(userId: string, scope: Scope): Promise<boolean> {
+  try {
+    return await exchange(userId, scope);
+  } finally {
+    await refreshPostsFromStorage(userId, scope.local).catch(() => undefined);
+  }
+}
+
+async function exchange(userId: string, scope: Scope): Promise<boolean> {
   lastRead = Date.now();
   try {
     const result = await syncPosts(io(userId, scope));
