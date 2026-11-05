@@ -55,6 +55,8 @@ class Device {
   known: Record<string, string> | null = null;
   /** Runs between reading this device's posts and writing them back, like an edit made meanwhile. */
   meanwhile: (() => void) | null = null;
+  /** Off: a file it hasn't got stays that way, as when cloud storage didn't send it. */
+  downloads = true;
 
   constructor(readonly server: Server) {}
 
@@ -84,7 +86,12 @@ class Device {
           else this.events.delete(id);
         }
         const listed = new Set([...this.events.values()].flatMap(filesOf));
-        for (const item of media) this.media.set(item.id, structuredClone(item));
+        // As writeWorkspacePosts: a record needs its file here, or a cloud copy to fetch it from.
+        for (const item of media) {
+          const here = this.media.get(item.id);
+          if (here) this.media.set(item.id, { ...here, ...(item.cloud ? { cloud: item.cloud } : {}) });
+          else if (item.cloud && this.downloads) this.media.set(item.id, structuredClone(item));
+        }
         for (const id of [...this.media.keys()]) if (!listed.has(id)) this.media.delete(id);
         return kept;
       },
@@ -385,6 +392,59 @@ describe("files, refusals and ids", () => {
     await b.settle();
     expect(server.rows.get("p1")?.data?.media).toEqual([a.media.get("p1_new")]);
     expect(server.rows.get("p1")?.data).toMatchObject({ files: ["p1_new"], description: "B's caption" });
+  });
+
+  test("a device without a post's file keeps its listing, so two devices don't fight over it", async () => {
+    for (const cloud of [{ key: "posts/u/p1_a", at: "2026-10-26T09:00:00Z" }, undefined]) {
+      const { server, a, b } = pair();
+      b.downloads = false;
+      a.put(post("p1", { files: ["p1_a"] }));
+      a.media.set("p1_a", { id: "p1_a", name: "a.mp4", type: "video/mp4", lastModified: 1, ...(cloud ? { cloud } : {}) });
+      await a.sync();
+      const listed = server.rows.get("p1")?.data?.media;
+      expect(listed).toEqual([a.media.get("p1_a")]);
+      for (let round = 0; round < 4; round++) {
+        await b.sync();
+        await a.sync();
+      }
+      expect(b.media.has("p1_a")).toBe(false);
+      expect(server.rows.get("p1")?.version).toBe(1);
+      expect(server.rows.get("p1")?.data?.media).toEqual(listed);
+    }
+  });
+
+  test("a post changed on the device without its file keeps the file's listing", async () => {
+    const { server, a, b } = pair();
+    b.downloads = false;
+    a.put(post("p1", { files: ["p1_a"] }));
+    a.media.set("p1_a", { id: "p1_a", name: "a.mp4", type: "video/mp4", lastModified: 1 });
+    await a.sync();
+    await b.sync();
+    b.edit("p1", { title: "Edited without the file" });
+    await b.sync();
+    await a.sync();
+    expect(server.rows.get("p1")?.data).toMatchObject({ title: "Edited without the file", media: [a.media.get("p1_a")] });
+    expect(a.events.get("p1")?.title).toBe("Edited without the file");
+  });
+
+  test("a file's newer cloud copy reaches a device that has the file, and isn't sent back over", async () => {
+    const { server, a, b } = pair();
+    const file = { id: "p1_a", name: "a.mp4", type: "video/mp4", lastModified: 1 };
+    a.put(post("p1", { files: ["p1_a"] }));
+    a.media.set("p1_a", { ...file, cloud: { key: "posts/u/p1_a", at: "2026-10-26T09:00:00Z" } });
+    await a.sync();
+    await b.sync();
+    expect(b.media.has("p1_a")).toBe(true);
+    const renewed = { key: "posts/u/p1_a", at: "2026-12-20T09:00:00Z" };
+    a.media.set("p1_a", { ...file, cloud: renewed });
+    await a.sync();
+    const version = server.rows.get("p1")?.version;
+    for (let round = 0; round < 3; round++) {
+      await b.sync();
+      await a.sync();
+    }
+    expect(b.media.get("p1_a")?.cloud).toEqual(renewed);
+    expect(server.rows.get("p1")?.version).toBe(version);
   });
 
   test("a post the server turns down doesn't make the run fail for the others", async () => {

@@ -98,10 +98,12 @@ export function stable(value: unknown): string {
 
 const mark = (data: PostData | null) => (data ? stable(data) : null);
 
-export function outbound(event: StoredEvent, media: ReadonlyMap<string, AccountMedia>, filesOf: (event: StoredEvent) => string[]): PostData {
+/** A listed file with no record here isn't in this browser yet: it keeps the details the server has, or two devices would undo each other. */
+export function outbound(event: StoredEvent, media: ReadonlyMap<string, AccountMedia>, filesOf: (event: StoredEvent) => string[], base?: PostData | null): PostData {
   const { deliveries: _deliveries, thumbnail: _thumbnail, ...rest } = event;
+  const known = new Map((base?.media ?? []).map((item) => [item.id, item]));
   const files = filesOf(event)
-    .map((id) => media.get(id))
+    .map((id) => media.get(id) ?? known.get(id))
     .filter((item): item is AccountMedia => !!item)
     .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   const data = JSON.parse(JSON.stringify(rest)) as PostData;
@@ -171,7 +173,10 @@ export async function syncPosts<Read>(io: SyncIO<Read>): Promise<SyncResult> {
   const keep = (id: string, data: PostData) => {
     const before = next.get(id);
     next.set(id, inbound(data, before));
-    for (const item of data.media ?? []) nextMedia.set(item.id, item);
+    for (const item of data.media ?? []) {
+      if (stable(nextMedia.get(item.id) ?? null) !== stable(item)) changedHere = true;
+      nextMedia.set(item.id, item);
+    }
     if (stable(next.get(id)) !== stable(before ?? null)) changedHere = true;
   };
 
@@ -253,7 +258,7 @@ export async function syncPosts<Read>(io: SyncIO<Read>): Promise<SyncResult> {
 
   const decide = (id: string, row: PostRow, base: Base | null): Outcome => {
     const here = next.get(id);
-    const ours = here ? outbound(here, nextMedia, io.filesOf) : null;
+    const ours = here ? outbound(here, nextMedia, io.filesOf, base?.data) : null;
     if (mark(ours) === mark(row.data)) return { kind: "agree" };
     if (!base) {
       if (!here) return { kind: "take" };
@@ -291,7 +296,7 @@ export async function syncPosts<Read>(io: SyncIO<Read>): Promise<SyncResult> {
       }
       continue;
     }
-    const ours = here ? outbound(here, media, io.filesOf) : null;
+    const ours = here ? outbound(here, media, io.filesOf, base?.data) : null;
     if (base) {
       if (mark(ours) !== mark(base.data)) {
         sentAsRead.add(id);
@@ -356,5 +361,5 @@ function withoutThumbnail(event: StoredEvent): StoredEvent {
 
 export function changedSince(events: readonly StoredEvent[], media: readonly AccountMedia[], bases: ReadonlyMap<string, Base>, filesOf: (event: StoredEvent) => string[]): Set<string> {
   const byId = new Map(media.map((item) => [item.id, item]));
-  return new Set(events.filter((event) => mark(outbound(event, byId, filesOf)) !== mark(bases.get(event.id)?.data ?? null)).map((event) => event.id));
+  return new Set(events.filter((event) => mark(outbound(event, byId, filesOf, bases.get(event.id)?.data)) !== mark(bases.get(event.id)?.data ?? null)).map((event) => event.id));
 }
