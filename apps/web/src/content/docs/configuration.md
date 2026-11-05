@@ -9,6 +9,7 @@ The website takes its settings when it's built. Each service reads its files fro
 | `VITE_SUPABASE_URL` | Required | Your Supabase project's address. Without it and the key, sign-in is off. |
 | `VITE_SUPABASE_ANON_KEY` | Required | Its publishable key, which is safe in a browser |
 | `VITE_INVITE_ONLY` | | `true` makes the website stop anyone not let in, as well as the database and services. A copy built from this repository leaves it off unless you set it. |
+| `VITE_TURNSTILE_SITE_KEY` | | A [Cloudflare Turnstile](https://developers.cloudflare.com/turnstile/) site key, which checks for bots when someone asks for a sign-in email or enters a password. Build and put up the site with it first, then turn on CAPTCHA protection in Supabase under **Authentication** → **Attack Protection**, with Turnstile's secret key. Turning it on first refuses every sign-in. |
 | `VITE_APP_URL` | | Your site's address, like `https://your-domain.com`; set it for every build. Sign-in emails and the networks' logins come back to it, and the dashboard shows the agent address with it. Leave it empty on the dev server, so sign-in comes back to `localhost`. |
 | `VITE_SENTRY_DSN` | | A [Sentry](https://sentry.io) project's DSN, for reporting a build's errors. Without it, nothing is reported and Sentry isn't loaded. |
 | `VITE_UMAMI_WEBSITE_ID`, `VITE_UMAMI_SCRIPT_URL`, `VITE_UMAMI_DOMAINS` | | [Umami](https://umami.is) analytics. Off when empty. |

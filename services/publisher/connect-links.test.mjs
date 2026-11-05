@@ -159,6 +159,18 @@ async function ownerLink(ask) {
   return made.link.link;
 }
 
+test("only a paid plan makes a client link, while one already made keeps working", async (t) => {
+  const free = await setup(t, { level: 1 });
+  const refused = await free.ask(OWNER, "connect-link/create", { workspace: "brand", workspaceName: "Acme", fromName: "Meta Support" });
+  assert.equal(refused.status, 403);
+  assert.equal(free.db.tables.connect_links.length, 0);
+
+  const paid = await setup(t, { level: 2 });
+  const link = await ownerLink(paid.ask);
+  paid.db.tables.user_data[0].access_level = 1;
+  assert.equal((await paid.ask(null, "connect-link/open", { link })).status, 200);
+});
+
 test("a client with the link sees whose workspace it is and what they can connect, without signing in", async (t) => {
   const { ask } = await setup(t);
   const link = await ownerLink(ask);
@@ -172,8 +184,9 @@ test("a client with the link sees whose workspace it is and what they can connec
 });
 
 test("X isn't offered for an owner on Free, as Connections doesn't offer it", async (t) => {
-  const { ask } = await setup(t, { level: 1 });
+  const { ask, db } = await setup(t);
   const link = await ownerLink(ask);
+  db.tables.user_data[0].access_level = 1;
   const opened = await ask(null, "connect-link/open", { link });
   assert.ok(!opened.networks.includes("x"));
   const refused = await ask(null, "connect-link/authorize", { link, network: "x", redirectUri: "https://plan.video/x/callback", state: "s".repeat(20), codeChallenge: "c".repeat(43) });

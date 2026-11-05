@@ -78,6 +78,7 @@ export const PLANS: Plan[] = [
       msg("4K video export"),
       msg("Templates and saved captions"),
       msg("Client preview links"),
+      msg("Client connect links"),
     ],
   },
   {

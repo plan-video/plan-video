@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { PublishError } from "./errors.mjs";
 import { fakeDb } from "./fake-db.mjs";
-import { createPlanLimits } from "./plans.mjs";
+import { FREE_POST_NOW_PER_DAY, createPlanLimits } from "./plans.mjs";
 import { GRACE_MS, LATE, accountsFor, createWorker, nextUuid } from "./worker.mjs";
 
 const T0 = Date.parse("2026-10-12T16:00:00Z");
@@ -1276,6 +1276,38 @@ const onBluesky = (user, post) => ({
 
 const SOMEONE = "11111111-1111-4111-8111-111111111111";
 const EVERYONE_ELSE = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+
+function postedNow(user, level, times, age) {
+  const { db, worker, sent } = planned([onBluesky(user, { id: "fresh" })]);
+  db.tables.user_data.push({ id: user, access_level: level });
+  for (let index = 0; index < times; index++) {
+    db.tables.post_deliveries.push({ id: `old-${index}`, user_id: user, workspace_id: "w1", post_id: `old-${index}`, occurrence: "once", platform: "bluesky", connection_id: "bs1", state: "sent", attempts: 1, requested: true, due_at: new Date(T0 - age).toISOString(), next_at: new Date(T0 - age).toISOString(), created_at: new Date(T0 - age).toISOString() });
+  }
+  return { db, worker, sent };
+}
+
+test("Post now stops at the Free plan's daily sends, leaving the post unsent", async () => {
+  const { db, worker } = postedNow(SOMEONE, 1, FREE_POST_NOW_PER_DAY, 60_000);
+  await assert.rejects(worker.request(SOMEONE, "fresh"), { message: new RegExp(`Post now can send up to ${FREE_POST_NOW_PER_DAY} times a day`) });
+  assert.equal(db.tables.post_deliveries.filter((row) => row.post_id === "fresh").length, 0);
+});
+
+test("Post now still sends just under the limit, on a paid plan, and once a day has passed", async () => {
+  for (const [level, times, age] of [[1, FREE_POST_NOW_PER_DAY - 1, 60_000], [2, FREE_POST_NOW_PER_DAY, 60_000], [1, FREE_POST_NOW_PER_DAY, 25 * 60 * 60_000]]) {
+    const { worker, sent } = postedNow(SOMEONE, level, times, age);
+    await worker.request(SOMEONE, "fresh");
+    await worker.tick();
+    assert.ok(sent.includes(`${SOMEONE}/fresh`), JSON.stringify({ level, times, age }));
+  }
+});
+
+test("trying a failed post again isn't held to the Free plan's Post now limit", async () => {
+  const { db, worker, sent } = postedNow(SOMEONE, 1, FREE_POST_NOW_PER_DAY, 60_000);
+  db.tables.post_deliveries.push({ id: "failed", user_id: SOMEONE, workspace_id: "w1", post_id: "fresh", occurrence: "once", platform: "bluesky", connection_id: "bs1", state: "failed", error: "busy", attempts: 5, requested: false, due_at: new Date(T0 - 60_000).toISOString(), next_at: new Date(T0 - 60_000).toISOString(), created_at: new Date(T0 - 60_000).toISOString() });
+  await worker.request(SOMEONE, "fresh");
+  await worker.tick();
+  assert.deepEqual(sent, [`${SOMEONE}/fresh`]);
+});
 
 test("one account's post that can't be read holds up nobody else's", async () => {
   for (const odd of [{ day: ["2026-10-27"] }, { start: ["08:00"] }, { platforms: { bluesky: true } }, { id: 7 }, { recurrence: "every:1:day", day: { y: 2026 } }]) {

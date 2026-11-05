@@ -5,11 +5,13 @@
 import { Show, createResource, createSignal, onCleanup } from "solid-js";
 import { toast } from "somoto";
 
+import { useAskToUpgrade } from "@/components/dashboard/paid-lock";
 import { Button } from "@/components/ui/button";
 import { TextField, TextFieldInput } from "@/components/ui/text-field";
 import { useAuth } from "@/context/auth";
 import { connectLinkUrl, createConnectLink, loadConnectLink, revokeConnectLink, type ConnectLink } from "@/lib/connect-link";
 import { intlLocale, t } from "@/lib/i18n";
+import { paidToolsLocked } from "@/lib/paid-tools";
 import { activeScope, activeShared, activeWorkspace, activeWorkspaceId, shownWorkspaceName } from "@/lib/workspaces";
 
 import { DashboardGroupLabel } from "./page-header";
@@ -43,7 +45,10 @@ export function ClientLinkSection() {
     }
   };
 
+  const askToUpgrade = useAskToUpgrade();
+
   const make = async () => {
+    if (paidToolsLocked()) return askToUpgrade(t("Client links come with a paid plan."));
     if (busy()) return;
     setBusy(true);
     try {
