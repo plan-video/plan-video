@@ -627,17 +627,31 @@ export function createWorker({
 
   async function checkOne(row) {
     const network = networks[row.platform];
-    const waited = now() - Date.parse(row.updated_at);
+    let waited = now() - Date.parse(row.updated_at);
     let claimed = null;
     let result;
     let post = null;
     let zone;
     try {
+      // A processing row with a reason is back from a limit's wait, which doesn't count against the looks.
+      // updated_at can't be set ahead to the wait's end: the dashboard's copy follows the newest.
+      if (row.error) {
+        waited = 0;
+        const [woken] = await db.update("post_deliveries", { id: row.id, state: "processing", next_at: row.next_at }, { error: null, updated_at: iso(now()) });
+        if (!woken) return;
+        row = woken;
+      }
       const [found] = await postIn(row.user_id, row.post_id, row.workspace_id);
       post = found?.post ?? null;
       zone = zoneOrUtc(post?.timeZone ?? found?.time_zone);
       // Where the post is made only once the network has the file, a post stopped meanwhile isn't made.
       if (network.publish) {
+        // Moved later: it starts afresh then, like a send, since an upload may not last that long. Nothing was made yet.
+        const dueAt = post && !row.requested ? dueAtOf(post, zone, row.occurrence) : null;
+        if (dueAt !== null && dueAt > now() + 60_000) {
+          await keep({ id: row.id, state: "processing" }, () => ({ state: "queued", attempts: 0, publish_id: null, error: null, due_at: iso(dueAt), next_at: iso(dueAt), updated_at: iso(now()) }));
+          return;
+        }
         const unwanted = stillWanted(row, post, zone);
         if (unwanted) {
           await settle(row, { state: "failed", error: unwanted });
@@ -665,7 +679,7 @@ export function createWorker({
         return;
       }
       if (error instanceof PublishError && error.until && !error.retry) {
-        await keep({ id: row.id, state: claimed ? "sending" : "processing" }, () => ({ state: "processing", error: error.message, next_at: iso(Math.max(error.until, now() + CHECK_EVERY_MS)) }));
+        await keep({ id: row.id, state: claimed ? "sending" : "processing" }, () => ({ state: "processing", error: error.message, next_at: iso(Math.max(error.until, now() + CHECK_EVERY_MS)), updated_at: iso(now()) }));
         return;
       }
       // Nothing was made: publish says to try again only when the network turned the post down.
