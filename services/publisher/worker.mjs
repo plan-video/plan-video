@@ -412,13 +412,14 @@ export function createWorker({
     // Anything that failed or is waiting goes now, with its tries counted afresh; anything sent stays sent.
     const existing = await db.select("post_deliveries", { user_id: userId, post_id: postId, occurrence }, "id,state,platform,connection_id");
     for (const row of existing) {
-      const wanted = rows.some((item) => item.platform === row.platform && item.connection_id === row.connection_id && item.state === "queued");
+      const wanted = rows.find((item) => item.platform === row.platform && item.connection_id === row.connection_id && item.state === "queued");
       if (!wanted || (row.state !== "failed" && row.state !== "queued")) continue;
       await db.update("post_deliveries", { id: row.id, state: row.state }, {
         state: "queued",
         error: null,
         attempts: 0,
         next_at: iso(now()),
+        due_at: wanted.due_at,
         requested: true,
         updated_at: iso(now()),
       });

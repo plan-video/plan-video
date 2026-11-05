@@ -1007,3 +1007,22 @@ test("a limit met at the publish step after the post's day has gone by fails too
   assert.equal(row.state, "failed");
   assert.equal(row.error, LATE);
 });
+
+test("Post now on a post that failed long ago waits out a limit, instead of calling it too late", async () => {
+  const { db, worker, advance } = setup({
+    posts: [onLinkedIn()],
+    send: () => {
+      throw new PublishError("Limited for today.", { until: T0 + 60_000 });
+    },
+  });
+  await worker.tick();
+  advance(GRACE_MS + 60_000);
+  await worker.tick();
+  assert.equal(db.tables.post_deliveries[0].state, "failed");
+  advance(2 * GRACE_MS);
+  await worker.request("u1", "p1");
+  await worker.tick();
+  const [row] = db.tables.post_deliveries;
+  assert.equal(row.state, "queued");
+  assert.equal(row.error, "Limited for today.");
+});
