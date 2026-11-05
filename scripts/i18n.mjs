@@ -25,6 +25,8 @@ const SITE_LOCALES = join(WEB, "site/locales");
 const HAS_SITE = existsSync(SITE_SRC);
 const I18N = join(SRC, "lib/i18n.ts");
 const CONTEXT = "\u0004";
+// The publisher only speaks English: its fixed errors are stored on the delivery, and the dashboard shows them through t().
+const PUBLISHER = join(ROOT, "services/publisher");
 
 function sourceFiles(dir, out = []) {
   // The app's files first, in order, then the site's: the order the words are kept in.
@@ -39,6 +41,16 @@ function sourceFiles(dir, out = []) {
 }
 
 const isSiteFile = (rel) => rel.startsWith("../site/");
+
+function publisherFiles(dir, out = []) {
+  for (const name of readdirSync(dir).sort()) {
+    const path = join(dir, name);
+    if (name === "node_modules") continue;
+    if (statSync(path).isDirectory()) publisherFiles(path, out);
+    else if (name.endsWith(".mjs") && !name.endsWith(".test.mjs")) out.push(path);
+  }
+  return out;
+}
 
 const parse = (file) =>
   ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true, file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
@@ -110,6 +122,19 @@ function extract() {
           while (parent && !isFunction(parent)) parent = parent.parent;
           if (!parent) warnings.push(`${where}: ${kind}() outside a function runs once, in the language the page opened in; keep the English with msg() and call t() where it's shown`);
         }
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(source);
+  }
+  for (const file of publisherFiles(PUBLISHER)) {
+    const source = parse(file);
+    const rel = relative(SRC, file);
+    const visit = (node) => {
+      if (ts.isNewExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "PublishError" && node.arguments?.[0] && ts.isStringLiteralLike(node.arguments[0])) {
+        const key = node.arguments[0].text;
+        if (!keys.has(key)) keys.set(key, { files: new Set(), where: `${rel}:${source.getLineAndCharacterOfPosition(node.getStart()).line + 1}` });
+        keys.get(key).files.add(rel);
       }
       ts.forEachChild(node, visit);
     };

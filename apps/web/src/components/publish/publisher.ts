@@ -5,9 +5,9 @@
 import { createSignal } from "solid-js";
 import { toast } from "somoto";
 
-import { allPosts, ensurePostInCloud, hydrateCalendar, postFileIds, postFileStates, setDelivery, setPostCaptions, uploadProblem } from "@/components/calendar/store";
+import { allPosts, ensurePostInCloud, hydrateCalendar, isUploading, postFileIds, postFileStates, setDelivery, setEventStatus, setPostCaptions, timeIsUp, uploadProblem } from "@/components/calendar/store";
 import type { Delivery, StoredEvent } from "@/components/calendar/types";
-import { rememberRows, settled, type DeliveryRow } from "@/components/publish/deliveries";
+import { deliveryRows, rememberRows, settled, type DeliveryRow } from "@/components/publish/deliveries";
 import { flushAccountSync } from "@/lib/account-sync";
 import { flushPostSync, postSyncProblem, refusedPosts, unsyncedPosts } from "@/lib/post-sync";
 import { msg, t } from "@/lib/i18n";
@@ -43,6 +43,7 @@ export function heldBack(post: Pick<StoredEvent, "id" | "status">): HeldBack | n
   }
   const upload = uploadProblem(post.id);
   if (upload) return { label: t("Not uploaded"), detail: t("Its file hasn't uploaded, so it can't go out with it. {problem}", { problem: t(upload) }) };
+  if (isUploading(post.id)) return { label: t("Uploading"), detail: t("Keep this tab open until it's uploaded. The post can't go out without its files.") };
   return null;
 }
 
@@ -103,7 +104,14 @@ export async function sendPost(postId: string, userId: string | undefined, capti
       const before = allPosts().find((item) => item.id === postId)?.deliveries?.[platform];
       setDelivery(postId, platform, { state: "failed", error: message, attempts: before?.attempts ?? 1, at: new Date().toISOString(), publishId: before?.publishId });
     }
-    toast.error(t("Didn't post it"), { description: t(message), action: { label: t("Retry"), onClick: () => void sendPost(postId, userId) } });
+    // Scheduled with its time gone by, the publisher would send it once it syncs, after this said it failed. Asking still sends a draft.
+    const now = allPosts().find((item) => item.id === postId);
+    const stopped = !!now && now.status === "scheduled" && timeIsUp(now) && !deliveryRows(postId).length && !Object.values(now.deliveries ?? {}).some((delivery) => delivery?.state === "sent");
+    if (stopped) setEventStatus(postId, "draft");
+    toast.error(t("Didn't post it"), {
+      description: stopped ? `${t(message)} ${t("It's saved as a draft, so it won't go out by itself.")}` : t(message),
+      action: { label: t("Retry"), onClick: () => void sendPost(postId, userId) },
+    });
     return "failed";
   } finally {
     setRunning((ids) => {

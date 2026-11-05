@@ -11,6 +11,7 @@ import {
   CloudError,
   cloudHoldUps,
   cloudReadUrl,
+  cloudUploads,
   deleteFromCloud,
   isSentCopy,
   queueCloud,
@@ -24,7 +25,7 @@ import { accountGroups, groupAccounts, type AccountGroup } from "@/lib/account-g
 import { accountsFor, accountsForPlatforms, readChoices, socialConnections, type AccountChoices, type SocialConnection } from "@/lib/social-connections";
 import { scheduledLimit } from "@/lib/plans";
 import { convertWallClock, dayKeyAt, deviceTimeZone, momentOf, timeZone } from "@/lib/time-zone";
-import { activeScope, isActiveWorkspace, onWorkspaceChange, scopeOf, workspaceDatabase, workspaceDatabaseFor, type TeamScope } from "@/lib/workspaces";
+import { activeScope, activeWorkspaceId, isActiveWorkspace, onWorkspaceChange, scopeOf, workspaceDatabase, workspaceDatabaseFor, workspaceOwner, type TeamScope } from "@/lib/workspaces";
 import {
   daysBetween,
   getMonthDays,
@@ -187,8 +188,8 @@ export function toggleCalendar(id: string) {
 let hydrating: Promise<void> | null = null;
 /** Bumped on a workspace switch, so a read from the last workspace's database lands nowhere. */
 let generation = 0;
-/** Bumped when the account copy rewrites the active workspace's posts, so a read that overlapped it is done again. */
-let accountWrites = 0;
+/** Bumped when this tab rewrites the active workspace's posts, so a read that overlapped it isn't used as it was. */
+let postWrites = 0;
 
 const SYNC_WAIT_MS = 3000;
 
@@ -203,7 +204,7 @@ export function hydrateCalendar() {
       let found: Calendar[];
       let events: StoredEvent[];
       for (;;) {
-        const writes = accountWrites;
+        const writes = postWrites;
         found = await database.getAll("calendars");
         events = await database.getAll("events");
         if (run !== generation) return;
@@ -214,7 +215,7 @@ export function hydrateCalendar() {
           found = [first];
           queueAccountSync();
         }
-        if (writes === accountWrites) break;
+        if (writes === postWrites) break;
       }
       events = events.map(interrupted);
       setCalendars(found.sort((a, b) => a.createdAt.localeCompare(b.createdAt)));
@@ -288,10 +289,13 @@ async function pruneMedia(kept: ReadonlySet<string>, run: number) {
   const database = await db();
   const ids = await database.getAllKeys("media");
   if (run !== generation) return;
-  const gone = ids.filter((id) => !kept.has(id));
+  if (!ids.some((id) => !kept.has(id))) return;
+  // Read again in the write: another tab of this browser can have listed a file since this tab's read.
+  const tx = database.transaction(["events", "media"], "readwrite");
+  const listed = new Set((await tx.objectStore("events").getAll()).flatMap(everyFileOf));
+  const gone = ids.filter((id) => !kept.has(id) && !listed.has(id));
+  await Promise.all([...gone.map((id) => tx.objectStore("media").delete(id)), tx.done]);
   if (!gone.length) return;
-  const tx = database.transaction("media", "readwrite");
-  await Promise.all([...gone.map((id) => tx.store.delete(id)), tx.done]);
   queueCloud(`posts-delete:${gone.join(",")}`, () => deleteFromCloud("posts", gone, team));
   queueAccountSync();
 }
@@ -378,19 +382,25 @@ function keepSent(ids: readonly string[], run = generation) {
 /** Unsaved on-screen rows (`event:<id>` / `calendar:<id>`) with saves in flight; a sync's write leaves them as shown. */
 const unsaved = new Map<string, number>();
 
+const NOT_SAVED = msg("This browser couldn't save it, so nothing changed. Its storage may be full.");
+
+/** Says why the save failed, if it did. `quiet`: the caller tells the person. */
 async function persist(
   work: (database: import("idb").IDBPDatabase<CalendarDB>) => Promise<unknown>,
-  options?: { sync?: boolean; rows?: readonly string[] },
-) {
+  options?: { sync?: boolean; rows?: readonly string[]; quiet?: boolean },
+): Promise<string | undefined> {
   const rows = options?.rows ?? [];
   for (const row of rows) unsaved.set(row, (unsaved.get(row) ?? 0) + 1);
   setPendingSaves((count) => count + 1);
+  let failed = false;
   try {
     await work(await db());
     if (options?.sync !== false) queueAccountSync();
   } catch (e) {
-    toast.error(t("Could not save the calendar"), { description: (e as Error).message });
+    failed = true;
+    if (!options?.quiet) toast.error(t("Could not save the calendar"), { description: (e as Error).message });
   } finally {
+    postWrites++;
     for (const row of rows) {
       const left = (unsaved.get(row) ?? 1) - 1;
       if (left > 0) unsaved.set(row, left);
@@ -398,11 +408,35 @@ async function persist(
     }
     setPendingSaves((count) => count - 1);
   }
+  if (!failed) return;
+  // Already shown as saved: back to what the browser really has.
+  const owner = workspaceOwner();
+  if (owner && rows.some((row) => row.startsWith("event:"))) void refreshPostsFromStorage(owner, activeWorkspaceId()).catch(() => undefined);
+  return NOT_SAVED;
 }
 
 function withUnsaved<T extends { id: string }>(kind: "event" | "calendar", onScreen: readonly T[], rows: readonly T[]): T[] {
   const pending = (id: string) => unsaved.has(`${kind}:${id}`);
   return [...rows.filter((row) => !pending(row.id)), ...onScreen.filter((row) => pending(row.id))];
+}
+
+/**
+ * Tabs share the database, and a save writes the whole post as this tab shows it, so what another tab saved or
+ * synced has to reach the screen here. Unchanged posts keep their objects: the calendar redraws on a new one.
+ */
+export async function refreshPostsFromStorage(userId: string, workspaceId: string) {
+  if (!loaded() || !isActiveWorkspace(userId, workspaceId)) return;
+  const run = generation;
+  const writes = postWrites;
+  const rows = await withWorkspaceDb(userId, workspaceId, (database) => database.getAll("events"));
+  if (run !== generation || writes !== postWrites) return;
+  const onScreen = storedEvents();
+  const byId = new Map(onScreen.map((event) => [event.id, event]));
+  const next = withUnsaved("event", onScreen, rows).map((row) => {
+    const shownNow = byId.get(row.id);
+    return shownNow && rowMark(shownNow) === rowMark(row) ? shownNow : row;
+  });
+  if (next.length !== onScreen.length || next.some((row) => byId.get(row.id) !== row)) setStoredEvents(next);
 }
 
 /** Rows as a sync read them, so writing the merged copy back can tell what changed here meanwhile. */
@@ -482,7 +516,7 @@ export async function writeWorkspaceCalendars(userId: string, workspaceId: strin
     const rows = overwrite(await tx.store.getAll(), incoming, read?.calendars);
     await Promise.all([...rows.remove.map((id) => tx.store.delete(id)), ...rows.put.map((calendar) => tx.store.put(calendar)), tx.done]);
     if (isActiveWorkspace(userId, workspaceId)) {
-      accountWrites++;
+      postWrites++;
       if (loaded()) setCalendars(withUnsaved("calendar", calendars(), rows.rows).sort((a, b) => (a.createdAt || "").localeCompare(b.createdAt || "")));
     }
     return rows.kept;
@@ -504,7 +538,7 @@ export async function writeWorkspacePosts(
 
     // Show the posts now; their videos can take a while to download.
     if (isActiveWorkspace(userId, workspaceId)) {
-      accountWrites++;
+      postWrites++;
       if (loaded()) setStoredEvents(withUnsaved("event", storedEvents(), eventRows.rows));
     }
 
@@ -623,7 +657,7 @@ function savedOver(input: StoredEvent & { timeZone: string }, saved: StoredEvent
   return { ...shiftSeries(input, daysBetween(seen.day, saved.day)), day: saved.day, start: saved.start, timeZone: zone };
 }
 
-function putEvent(input: StoredEvent) {
+function putEvent(input: StoredEvent, options?: { quiet?: boolean }) {
   const written = { ...input, timeZone: input.timeZone ?? timeZone() };
   const saved = storedEvents().find((event) => event.id === input.id);
   const next = saved ? savedOver(written, saved) : written;
@@ -632,7 +666,7 @@ function putEvent(input: StoredEvent) {
       ? current.map((event) => (event.id === next.id ? next : event))
       : [next, ...current],
   );
-  void persist((database) => database.put("events", next), { rows: [`event:${next.id}`] });
+  return persist((database) => database.put("events", next), { rows: [`event:${next.id}`], quiet: options?.quiet });
 }
 
 /** Hydrate first. Counts a post deleted since, so what was deleted doesn't come back either. */
@@ -716,11 +750,24 @@ export function timeHasPassed(post: StoredEvent) {
   return !post.recurrence && hasPassed(post.day, post.start, post.allDay);
 }
 
+const isUploadOf = (name: string, id: string) => name === `posts:${id}` || name.startsWith(`posts:${id}_`);
+
+/** Unlike `timeHasPassed`, with no grace: a post given this minute's time counts at once. */
+export function timeIsUp(post: StoredEvent) {
+  return !post.recurrence && (momentOf(post.day, post.allDay ? "00:00" : post.start)?.getTime() ?? 0) <= Date.now();
+}
+
 export function uploadProblem(id: string): string | undefined {
   for (const [name, problem] of cloudHoldUps()) {
-    if (name === `posts:${id}` || name.startsWith(`posts:${id}_`)) return problem;
+    if (isUploadOf(name, id)) return problem;
   }
 }
+
+export function isUploading(id: string) {
+  return [...cloudUploads()].some((name) => isUploadOf(name, id));
+}
+
+export const postUploadsWaiting = () => [...cloudUploads()].some((name) => name.startsWith("posts:"));
 
 export function eventsInDays(days: string[], includeFollowingDay = false): CalendarEvent[] {
   const last = days.at(-1);
@@ -896,12 +943,13 @@ function eventFromDraft(draft: EventDraft): { next: StoredEvent; before?: Stored
   return { next, before };
 }
 
-export function createEvent(draft: EventDraft): string | undefined {
+/** Resolves once it's saved, with the reason if it can't be. */
+export async function createEvent(draft: EventDraft): Promise<string | undefined> {
   const made = eventFromDraft(draft);
   if (typeof made === "string") return made;
   const overLimit = overScheduledLimit(made.next, made.before);
   if (overLimit) return overLimit;
-  putEvent(made.next);
+  return putEvent(made.next, { quiet: true });
 }
 
 /** The plan's limit counts the whole batch, so a batch that passes saves whole rather than stopping partway. */
@@ -1039,7 +1087,7 @@ export function setDelivery(sourceId: string, platform: string, delivery: Delive
   if (status === "posted" && existing.status !== "posted") keepSent(everyFileOf(existing));
 }
 
-export function setPostCaptions(sourceId: string, captions: Partial<Record<string, string | undefined>>) {
+export async function setPostCaptions(sourceId: string, captions: Partial<Record<string, string | undefined>>): Promise<string | undefined> {
   const existing = findEvent(sourceId);
   if (!existing) return;
   const shared = sharedWords(existing);
@@ -1050,7 +1098,7 @@ export function setPostCaptions(sourceId: string, captions: Partial<Record<strin
     else delete next[platform];
   }
   if (JSON.stringify(next) === JSON.stringify(existing.captions ?? {})) return;
-  putEvent({ ...existing, captions: Object.keys(next).length ? next : undefined });
+  return putEvent({ ...existing, captions: Object.keys(next).length ? next : undefined });
 }
 
 // File ids are `<post id>_<random>`, or the post's own id for posts saved before
@@ -1143,12 +1191,25 @@ const sameLists = (post: StoredEvent, plan: FilesPlan) =>
   JSON.stringify(post.ownFiles ?? null) === JSON.stringify(plan.ownFiles ?? null) &&
   JSON.stringify(threadFilesOf(post)) === JSON.stringify(plan.threadFiles ?? {});
 
-export async function keepPostFiles(postId: string, plan: FilesPlan) {
+/** Before the post that lists them is written, so a file with no room here saves nothing. */
+export function storePostFiles(plan: Pick<FilesPlan, "write">) {
+  return persist(
+    async (database) => {
+      const tx = database.transaction("media", "readwrite");
+      await Promise.all([...plan.write.map((item) => tx.store.put(item)), tx.done]);
+    },
+    { sync: false, quiet: true },
+  );
+}
+
+/** `stored`: `storePostFiles` has written them. */
+export async function keepPostFiles(postId: string, plan: FilesPlan, { stored = false } = {}): Promise<string | undefined> {
   const team = activeScope();
-  await persist(async (database) => {
+  const problem = await persist(async (database) => {
     const tx = database.transaction("media", "readwrite");
-    await Promise.all([...plan.write.map((item) => tx.store.put(item)), ...plan.drop.map((id) => tx.store.delete(id)), tx.done]);
+    await Promise.all([...(stored ? [] : plan.write.map((item) => tx.store.put(item))), ...plan.drop.map((id) => tx.store.delete(id)), tx.done]);
   });
+  if (problem) return problem;
   const post = findEvent(postId);
   if (post && !sameLists(post, plan)) {
     const next: StoredEvent = { ...post, files: plan.files, ownFiles: plan.ownFiles, thread: withThreadFiles(post.thread, plan) };
@@ -1156,7 +1217,13 @@ export async function keepPostFiles(postId: string, plan: FilesPlan) {
     if (!next.thread) delete next.thread;
     putEvent(next);
   }
-  for (const { id } of plan.write) backUpFile(id);
+  // Every file it keeps still without a copy, not just new ones: a try that stopped after storing them never got to upload them.
+  const database = await db();
+  for (const id of new Set([...plan.write.map((item) => item.id), ...plan.files, ...Object.values(plan.ownFiles ?? {}).flat(), ...Object.values(plan.threadFiles ?? {}).flat()])) {
+    if (!id) continue;
+    const record = await database.get("media", id);
+    if (record && needsCopy(record.cloud)) backUpFile(id);
+  }
   // A guest's files never went to cloud storage.
   if (!plan.drop.length || !cloudEnabled || inGuestMode()) return;
   // Gone now, and again after any upload of them still running, which would put them back.
@@ -1164,8 +1231,8 @@ export async function keepPostFiles(postId: string, plan: FilesPlan) {
   queueCloud(`posts-delete:${plan.drop.join(",")}`, () => deleteFromCloud("posts", plan.drop, team));
 }
 
-export async function setPostFiles(postId: string, files: PostFiles) {
-  await keepPostFiles(postId, await planPostFiles(postId, files));
+export async function setPostFiles(postId: string, files: PostFiles): Promise<string | undefined> {
+  return keepPostFiles(postId, await planPostFiles(postId, files));
 }
 
 export async function ensurePostInCloud(id: string): Promise<boolean> {

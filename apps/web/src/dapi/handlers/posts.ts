@@ -15,7 +15,7 @@ import {
   type ToolArgs,
 } from "@plan.video/dapi";
 import { getAssetFile } from "@plan.video/runtime";
-import { allPosts, deleteEvent, hydrateCalendar, loadError, loadPostFiles, ownCaptions, postFileIds, postFiles, revisePost, setPostFiles } from "@/components/calendar/store";
+import { allPosts, deleteEvent, hydrateCalendar, isUploading, loadError, loadPostFiles, ownCaptions, postFileIds, postFiles, revisePost, setPostFiles } from "@/components/calendar/store";
 import { everyRecurrence, isDateKey, localDateKey, newId, parseRecurrence, resolveRepeatEnd } from "@/components/calendar/utils";
 import { atLocal, postTitle, savePosts, scheduleProblem, timeOf } from "@/components/publish/save";
 import { hasFailed, PUBLISHING_PLATFORMS, sendPost } from "@/components/publish/publisher";
@@ -679,6 +679,7 @@ async function savePost(
     },
   }]);
   if (error) throw new DapiError("invalid-input", error);
+  if (scheduling && isUploading(id)) warnings.push("Its files are still uploading from this browser tab. Keep the tab open until they finish: the post can't go out without them.");
   return postView(readBack(id), warnings);
 }
 
@@ -867,7 +868,10 @@ export const updatePost: ToolHandler<"update_post"> = async (args, ctx) => {
 
   const error = revisePost(existing.id, patch);
   if (error) throw mapped(error);
-  if (args.media && saved.shared) await setPostFiles(existing.id, { shared: saved.shared.files });
+  if (args.media && saved.shared) {
+    const unsaved = await setPostFiles(existing.id, { shared: saved.shared.files });
+    if (unsaved) throw new DapiError("invalid-input", `The post's other changes were saved, but its files weren't replaced. ${unsaved}`);
+  }
   return postView(readBack(existing.id), warnings);
 };
 
@@ -991,7 +995,7 @@ export const publishPost: ToolHandler<"publish_post"> = async ({ id, agreed }, c
   const saved = readBack(id);
   if (result === "sent") return postView(saved, warnings);
   if (shift && saved.status !== "posted") {
-    revisePost(id, { day: post.day, start: post.start, allDay: post.allDay });
+    revisePost(id, { day: post.day, start: post.start, allDay: post.allDay, status: post.status });
   }
   if (result === "busy") throw new DapiError("busy", "This post is already being published.");
   if (result === "needs-media") throw new DapiError("invalid-input", "Attach a video, or pictures for TikTok, before publishing.");

@@ -36,6 +36,8 @@ export function reloadOnceAfterModuleError(target?: string): boolean {
     return false;
   }
   reloading = true;
+  // Someone can answer the leave warning with Stay, and this tab's errors matter again.
+  window.setTimeout(() => (reloading = false), 10_000);
   const here = window.location.pathname + window.location.search;
   if (!target || target === here) {
     window.location.reload();
