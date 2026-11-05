@@ -117,6 +117,18 @@ restore() {
       mv "$DEST/$to/node_modules.previous" "$DEST/$to/node_modules"
     fi
   done
+  # Their old copies, or none where the old version had none: a bad new unit would keep the old code down.
+  local unit target
+  for unit in $(units_of "$name"); do
+    target=$(unit_target "$unit")
+    if [ -f "$old/units/${target#"$UNITS"/}" ]; then
+      install -D -m 644 "$old/units/${target#"$UNITS"/}" "$target"
+    else
+      [ "$RESTART" != 1 ] || [[ $target == *.service.d/* ]] || systemctl disable --quiet "$(basename "$target")" 2>/dev/null || true
+      rm -f "$target"
+    fi
+  done
+  [ "$RESTART" != 1 ] || systemctl daemon-reload
   rm -rf "$old"
   # Back to a publisher from before the gateway, which needs its port.
   if [ "$name" = publisher ] && [ "$RESTART" = 1 ] && [ ! -f "$DEST/plan-video-publisher/publisher/gateway-link.mjs" ]; then
@@ -147,7 +159,18 @@ deploy() {
     stamp=$(date -u +%Y%m%d-%H%M%S)
     backup="$BACKUPS/$name-$stamp.tgz"
     mkdir -p "$BACKUPS"
-    tar -czf "$backup" -C "$DEST" --exclude=node_modules --exclude='*.bak*' --exclude='backup-*' $existing
+    local kept unit target
+    kept=$(mktemp -d)
+    mkdir -p "$kept/units"
+    for unit in $(units_of "$name"); do
+      target=$(unit_target "$unit")
+      if [ -f "$target" ]; then
+        mkdir -p "$(dirname "$kept/units/${target#"$UNITS"/}")"
+        cp -p "$target" "$kept/units/${target#"$UNITS"/}"
+      fi
+    done
+    tar -czf "$backup" -C "$DEST" --exclude=node_modules --exclude='*.bak*' --exclude='backup-*' $existing -C "$kept" units
+    rm -rf "$kept"
   fi
 
   local pair from to owner synced
@@ -170,7 +193,7 @@ deploy() {
     node --check "$file" || { restore "$name" "$backup"; fail "$name: $file doesn't parse, so the previous version is back"; }
   done < <(for pair in $(parts "$name"); do find "$DEST/${pair#*:}" -name node_modules -prune -o -name '*.mjs' -print; done)
 
-  local unit reload=0 enable=()
+  local reload=0 enable=()
   for unit in $(units_of "$name"); do
     if ! cmp -s "$unit" "$(unit_target "$unit")"; then
       install -D -m 644 "$unit" "$(unit_target "$unit")"

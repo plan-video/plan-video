@@ -137,6 +137,35 @@ for (const [why, body] of Object.entries({
   });
 }
 
+test("rolling back puts the old unit files back too, and reloads them before the restart", (t) => {
+  const { version, deploy, installed, unit, dropIn, calls } = setup(t);
+  const before = unit();
+  const dropInBefore = dropIn();
+  version("the new one", `${UNIT}# a bad unit\n`, "[Service]\nExecStart=\nExecStart=/nowhere\n");
+  const done = deploy(health(null));
+  assert.notEqual(done.status, 0);
+  assert.match(installed(), /first/);
+  assert.equal(unit(), before);
+  assert.equal(dropIn(), dropInBefore);
+  const list = calls();
+  const restart = list.lastIndexOf("restart plan-video-publisher");
+  const reload = list.lastIndexOf("daemon-reload");
+  assert.ok(reload !== -1 && reload < restart, list.join(" | "));
+  assert.ok(list.indexOf("restart plan-video-publisher") < restart, "restarted on the old unit after the new one failed");
+});
+
+test("rolling back takes away a unit file the old version didn't have", (t) => {
+  const { root, repo, git, version, deploy, calls } = setup(t);
+  version("the new one", `${UNIT}# changed\n`);
+  write(join(repo, "services", "publisher", "plan-video-publisher.service.d", "extra.conf"), "[Service]\nExecStart=/nowhere\n");
+  git("add", "-A");
+  git("commit", "-qm", "with a new drop-in");
+  const done = deploy(health(null));
+  assert.notEqual(done.status, 0);
+  assert.equal(existsSync(join(root, "units", "plan-video-publisher.service.d", "extra.conf")), false);
+  assert.ok(calls().includes("daemon-reload"));
+});
+
 test("a deploy that goes well keeps its new unit files", (t) => {
   const { version, deploy, unit } = setup(t);
   version("the new one", `${UNIT}# better\n`);
