@@ -12,11 +12,12 @@ import { LoadingScreen, PageLoader } from "@/components/page-loader";
 import { AuthProvider, useAuth } from '@/context/auth';
 import { connectorEnabled } from '@/ai-editor/connector';
 import { useColorMode } from "@kobalte/core";
+import { isPhone } from '@/lib/phone';
 import { signedInUserId } from '@/lib/guest';
 import { dashboardTheme, setThemeSurface } from "@/lib/dashboard-theme";
 import { AnalyticsConsent } from '@/components/analytics-consent';
 import { ScreenTooSmall, UnlessTooSmall } from '@/components/screen-too-small';
-import { UnsupportedBrowser } from '@/components/unsupported-browser';
+import { isChromium, UnsupportedBrowser } from '@/components/unsupported-browser';
 import { OAuthConsentPage, ResumeConsent, rememberConsent, takeConsent } from '@/pages/oauth-consent';
 import { rememberReturn, takeReturn } from '@/lib/return-after-sign-in';
 import { DASHBOARD_PATH, TRY_PATH, dashboardRoute, isEditorPath, isSitePath, useProjectRef } from '@/hooks/use-project-route';
@@ -168,8 +169,13 @@ function CloudSync() {
 
   createEffect(() => {
     if (!signedInUserId() || !auth.isAuthenticated() || !auth.hasAccess()) return;
-    void import('@/projects/cloud-sync').then((module) => module.startProjectSync());
     void import('@/lib/media-library').then((module) => module.flushMediaDeletes());
+  });
+
+  // Projects only open in the editor, and it can't open here: their files aren't fetched for nothing.
+  createEffect(() => {
+    if (!signedInUserId() || !auth.isAuthenticated() || !auth.hasAccess() || isPhone() || !isChromium()) return;
+    void import('@/projects/cloud-sync').then((module) => module.startProjectSync());
   });
 
   return null;

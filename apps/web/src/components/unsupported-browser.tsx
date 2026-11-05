@@ -9,7 +9,7 @@ import { Icon } from "@/components/ui/icon";
 import { appRoute } from "@/hooks/use-project-route";
 import { t } from "@/lib/i18n";
 
-function isChromium() {
+export function isChromium() {
   if (isServer) return true;
   const uaData = (navigator as { userAgentData?: { brands: { brand: string }[] } }).userAgentData;
   return uaData?.brands?.some((b) => b.brand === "Chromium") ?? false;
