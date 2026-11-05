@@ -140,15 +140,16 @@ async function refreshed(platform, session, env) {
   if (platform === "tiktok") {
     if (session.expiresAt - Date.now() > AHEAD_MS) return null;
     if (!session.refreshToken) throw new PublishError(EXPIRED.tiktok);
-    const token = await tiktokToken(env.tiktok, { grant_type: "refresh_token", refresh_token: session.refreshToken });
+    const token = await tiktokToken(env.tiktok, { grant_type: "refresh_token", refresh_token: session.refreshToken }).catch(() => ({ error: true, busy: true }));
+    if (token.busy) throw new PublishError("TikTok didn't renew the login. Trying again soon.", { retry: true });
     if (token.error) throw new PublishError(EXPIRED.tiktok, { expired: true });
     return { ...session, accessToken: token.accessToken, refreshToken: token.refreshToken || session.refreshToken, expiresAt: Date.now() + token.expiresIn * 1000, scope: token.scope || session.scope };
   }
   if (platform === "youtube") {
     if (session.expiresAt - Date.now() > AHEAD_MS) return null;
     if (!session.refreshToken) throw new PublishError(EXPIRED.youtube);
-    const token = await youtubeToken(env.youtube, { grant_type: "refresh_token", refresh_token: session.refreshToken });
-    if (token.error) throw new PublishError(token.revoked ? "YouTube access was removed. Connect the channel again in Connections." : EXPIRED.youtube, { expired: !!token.revoked, retry: !token.revoked });
+    const token = await youtubeToken(env.youtube, { grant_type: "refresh_token", refresh_token: session.refreshToken }).catch(() => ({ error: true }));
+    if (token.error) throw new PublishError(token.revoked ? "YouTube access was removed. Connect the channel again in Connections." : "YouTube didn't renew the login. Trying again soon.", { expired: !!token.revoked, retry: !token.revoked });
     return { ...session, accessToken: token.accessToken, refreshToken: token.refreshToken || session.refreshToken, expiresAt: Date.now() + token.expiresIn * 1000, scope: token.scope || session.scope };
   }
   if (platform === "linkedin") {
@@ -157,7 +158,8 @@ async function refreshed(platform, session, env) {
       if (session.expiresAt > Date.now()) return null;
       throw new PublishError(EXPIRED.linkedin, { expired: true });
     }
-    const token = await linkedinToken(session.organizationId ? env.linkedinPages : env.linkedin, { grant_type: "refresh_token", refresh_token: session.refreshToken });
+    const token = await linkedinToken(session.organizationId ? env.linkedinPages : env.linkedin, { grant_type: "refresh_token", refresh_token: session.refreshToken }).catch(() => ({ error: true, busy: true }));
+    if (token.busy) throw new PublishError("LinkedIn didn't renew the login. Trying again soon.", { retry: true });
     if (token.error) throw new PublishError(EXPIRED.linkedin, { expired: true });
     return { ...session, accessToken: token.accessToken, refreshToken: token.refreshToken || session.refreshToken, expiresAt: Date.now() + token.expiresIn * 1000, scope: token.scope || session.scope };
   }

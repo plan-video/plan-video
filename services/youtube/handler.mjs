@@ -326,7 +326,7 @@ export async function startUpload(accessToken, meta) {
       status: { privacyStatus: meta.privacy, selfDeclaredMadeForKids: meta.madeForKids },
     }),
   });
-  if (!response.ok) return { error: explain(await response.json().catch(() => null)) };
+  if (!response.ok) return { error: explain(await response.json().catch(() => null)), busy: response.status === 429 || response.status >= 500 };
   const uploadUrl = response.headers.get("location");
   if (!uploadUrl || !allowedUpload(uploadUrl)) return { error: "YouTube didn't start the upload." };
   return { uploadUrl };

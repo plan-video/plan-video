@@ -99,3 +99,59 @@ test("a Page's login renews with the Pages app, and a person's with the first", 
   assert.equal((await vault.fresh("u1", "page")).session.accessToken, "new");
   assert.deepEqual(clients, ["first", "pages"]);
 });
+
+const ENV = { tiktok: { clientKey: "k", clientSecret: "s" }, linkedin: { clientId: "i", clientSecret: "s" }, youtube: { clientId: "i", clientSecret: "s" } };
+const LOGINS = {
+  tiktok: { openId: "o", accessToken: "old", refreshToken: "r", expiresAt: 0, scope: "" },
+  linkedin: { personId: "p", accessToken: "old", refreshToken: "r", expiresAt: 0, scope: "" },
+  youtube: { channelId: "c", accessToken: "old", refreshToken: "r", expiresAt: 0, scope: "" },
+};
+
+async function renewing(t, platform, answer) {
+  const vault = createVault({ db: fakeDb(), key: KEY, env: ENV });
+  await vault.put("u1", "c1", platform, LOGINS[platform]);
+  t.mock.method(globalThis, "fetch", answer);
+  return vault.fresh("u1", "c1").then(
+    () => assert.fail("it should not renew"),
+    (error) => error,
+  );
+}
+
+for (const platform of ["tiktok", "linkedin", "youtube"]) {
+  test(`${platform}: a busy login server or a lost connection is tried again, and never says to reconnect`, async (t) => {
+    const answers = [
+      async () => new Response("busy", { status: 503 }),
+      async () => Response.json({ error: "server_error" }, { status: 500 }),
+      async () => Response.json({ message: "Slow down" }, { status: 429 }),
+      async () => new Response("<html>", { status: 200 }),
+      async () => {
+        throw new TypeError("fetch failed");
+      },
+    ];
+    for (const answer of answers) {
+      await t.test(String(answer), async (each) => {
+        const error = await renewing(each, platform, answer);
+        assert.equal(error.retry, true);
+        assert.equal(error.expired, false);
+        assert.doesNotMatch(error.message, /[Cc]onnect/);
+      });
+    }
+  });
+
+  test(`${platform}: a refresh token the network turned down means connecting again`, async (t) => {
+    const error = await renewing(t, platform, async () => Response.json({ error: "invalid_grant", error_description: "The token is no good" }, { status: 400 }));
+    assert.equal(error.expired, true);
+    assert.equal(error.retry, false);
+    assert.match(error.message, /again/);
+  });
+}
+
+test("tiktok: a refusal in an answer of 200 means connecting again, and its busy words don't", async (t) => {
+  const refused = await renewing(t, "tiktok", async () => Response.json({ error: "invalid_grant" }));
+  assert.equal(refused.expired, true);
+  await t.test("busy", async (each) => {
+    const busy = await renewing(each, "tiktok", async () => Response.json({ error: "rate_limit_exceeded" }));
+    assert.equal(busy.retry, true);
+    assert.equal(busy.expired, false);
+  });
+});

@@ -164,7 +164,9 @@ export async function tokenRequest(env, fields) {
     signal: AbortSignal.timeout(15_000),
   });
   const payload = await response.json().catch(() => null);
-  if (!response.ok || !payload?.access_token) return { error: explain(response.status === 401 ? 400 : response.status, payload) };
+  if (!response.ok || !payload?.access_token) {
+    return { error: explain(response.status === 401 ? 400 : response.status, payload), busy: response.status === 429 || response.status >= 500 || !(payload?.error || payload?.message) };
+  }
   return {
     accessToken: payload.access_token,
     expiresIn: payload.expires_in || 0,
