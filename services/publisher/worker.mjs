@@ -227,6 +227,9 @@ export function createWorker({
     }
   }
 
+  // LinkedIn can keep a limit up for days and a wait never counts as a try, so past the grace it ends like any post that late.
+  const limitOutlasted = (error, dueAt) => error instanceof PublishError && !!error.until && !error.retry && now() - Date.parse(dueAt) > GRACE_MS;
+
   const sendable = (post) => post.status === "scheduled" && !post.paused && (post.platforms ?? []).some((platform) => networks[platform]);
 
   // A run due before its post was given its time (moved into the past, passed while paused) is sent
@@ -569,6 +572,10 @@ export function createWorker({
       }
     } catch (error) {
       // A limit on the plan that frees up later, like X's posts a day: it waits for then, and that wasn't a try.
+      if (limitOutlasted(error, row.due_at)) {
+        await failed({ ...claimed, attempts: MAX_ATTEMPTS }, new PublishError(LATE), { post, zone });
+        return;
+      }
       if (error instanceof PublishError && error.until) {
         await settle(claimed, { state: "queued", attempts: row.attempts, error: error.message, next_at: iso(Math.max(error.until, now() + CHECK_EVERY_MS)) });
         return;
@@ -646,6 +653,10 @@ export function createWorker({
       }
     } catch (error) {
       // A limit that frees up later, with the file already at the network: it waits for then. X's asks to try again, since its upload expires.
+      if (limitOutlasted(error, row.due_at)) {
+        await failed({ ...row, attempts: MAX_ATTEMPTS }, new PublishError(LATE), { post, zone });
+        return;
+      }
       if (error instanceof PublishError && error.until && !error.retry) {
         await db.update("post_deliveries", { id: row.id, state: claimed ? "sending" : "processing" }, { state: "processing", error: error.message, next_at: iso(Math.max(error.until, now() + CHECK_EVERY_MS)) });
         return;

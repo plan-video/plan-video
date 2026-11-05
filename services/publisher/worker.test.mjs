@@ -971,3 +971,39 @@ test("the uuid after one is the next in the order Postgres sorts them", () => {
   assert.equal(nextUuid("ffffffff-ffff-ffff-ffff-ffffffffffff"), null);
   assert.equal(nextUuid("u1"), null);
 });
+
+test("a limit that lasts for days ends in a failed post with an email, not a wait without end", async () => {
+  const { db, worker, advance } = setup({
+    posts: [onLinkedIn()],
+    send: () => {
+      throw new PublishError("Limited for today.", { until: T0 + 60_000 });
+    },
+  });
+  await worker.tick();
+  assert.equal(db.tables.post_deliveries[0].state, "queued");
+  advance(GRACE_MS + 60_000);
+  await worker.tick();
+  const [row] = db.tables.post_deliveries;
+  assert.equal(row.state, "failed");
+  assert.equal(row.error, LATE);
+});
+
+test("a limit met at the publish step after the post's day has gone by fails too", async () => {
+  const { db, worker, advance } = setup({
+    posts: [onLinkedIn()],
+    send: () => ({ state: "processing", publishId: "image:a" }),
+    check: () => ({ state: "ready" }),
+    publish: () => {
+      throw new PublishError("Limited for today.", { until: T0 + 2 * 60_000 });
+    },
+  });
+  await worker.tick();
+  advance(60_000);
+  await worker.tick();
+  assert.equal(db.tables.post_deliveries[0].state, "processing");
+  advance(GRACE_MS);
+  await worker.tick();
+  const [row] = db.tables.post_deliveries;
+  assert.equal(row.state, "failed");
+  assert.equal(row.error, LATE);
+});
