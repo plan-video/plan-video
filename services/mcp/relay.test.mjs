@@ -5,7 +5,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { NO_TAB, noTab, Relay, RelayError } from "./relay.mjs";
+import { NO_TAB, noTab, Relay, RelayError, tooManyValues } from "./relay.mjs";
 
 function socket() {
   return {
@@ -121,4 +121,36 @@ test("past the limit, the least recently used tab is closed", () => {
   });
   assert.equal(relay.size, 8);
   assert.equal(sockets[0].closed?.code, 4008);
+});
+
+test("a tab is waited on only while one of its own calls is open", async () => {
+  const relay = new Relay();
+  const mine = relay.attach("alice", socket());
+  const other = relay.attach("bob", socket());
+  const alice = socket();
+  const asked = relay.attach("alice", alice);
+  asked.lastActive = Date.now() + 1000;
+  assert.equal(relay.waitingOn(asked), false);
+  const pending = relay.call("alice", "undo", {});
+  assert.equal(relay.waitingOn(asked), true);
+  assert.equal(relay.waitingOn(mine), false);
+  assert.equal(relay.waitingOn(other), false);
+  relay.receive(asked, { id: alice.sent[0].id, ok: true, text: "{}" });
+  await pending;
+  assert.equal(relay.waitingOn(asked), false);
+});
+
+test("only what JSON would build counts as values, not what a string says", () => {
+  const frame = (value) => Buffer.from(JSON.stringify(value));
+  const image = { mediaType: "image/png", data: "A".repeat(1000) };
+  assert.equal(tooManyValues(frame({ type: "result", id: "a", ok: true, text: "[]", images: Array(6).fill(image) })), false);
+  // A tool's answer is JSON inside a string: however much of it, it's one string.
+  assert.equal(tooManyValues(frame({ type: "result", text: JSON.stringify(Array(100_000).fill({ a: [1, 2] })) })), false);
+  assert.equal(tooManyValues(frame({ text: '\\"\\\\'.repeat(10_000) + ",{},[]" })), false);
+
+  assert.equal(tooManyValues(Buffer.from(`[${"{},".repeat(100_000)}{}]`)), true);
+  assert.equal(tooManyValues(Buffer.from("[".repeat(100_000))), true);
+  assert.equal(tooManyValues(Buffer.from(`[${"1,".repeat(100_000)}1]`)), true);
+  // A string closed early doesn't hide what follows it, nor does an escape that isn't one.
+  assert.equal(tooManyValues(Buffer.from(`{"text":"\\\\",${'"a":{},'.repeat(100_000)}"b":1}`)), true);
 });

@@ -22,6 +22,24 @@ export const noTab = (site = "https://plan.video") =>
   `plan.video isn't open. Ask the user to open ${site} in their browser, signed in, keep the tab open, and try again.`;
 export const NO_TAB = noTab();
 
+/** Far more than a result has: its text is one string, and six frames take a few values each. */
+const MAX_VALUES = 1000;
+
+/** `[{},{},…]` in 24 MiB parses to gigabytes, so a frame's structure is counted before it's parsed. */
+export function tooManyValues(bytes) {
+  let inString = false;
+  let values = 0;
+  for (let at = 0; at < bytes.length; at++) {
+    const byte = bytes[at];
+    if (inString) {
+      if (byte === 0x5c) at++;
+      else if (byte === 0x22) inString = false;
+    } else if (byte === 0x22) inString = true;
+    else if ((byte === 0x2c || byte === 0x5b || byte === 0x7b) && ++values > MAX_VALUES) return true;
+  }
+  return false;
+}
+
 export class Relay {
   /** userId → the tabs that user has open. */
   #tabs = new Map();
@@ -77,6 +95,11 @@ export class Relay {
 
   hasTab(userId) {
     return this.#tabs.has(userId);
+  }
+
+  waitingOn(tab) {
+    for (const call of this.#pending.values()) if (call.tab === tab) return true;
+    return false;
   }
 
   call(userId, tool, args) {

@@ -229,6 +229,156 @@ test("a signed-in tab answers an agent's call with a big result, end to end", as
   await closed(tab);
 });
 
+async function signedInTab(ip) {
+  const tab = await openTab(ip);
+  tab.send(JSON.stringify({ type: "hello", token: EDITOR_TOKEN }));
+  assert.deepEqual(await nextMessage(tab), { type: "ready" });
+  return tab;
+}
+
+function askAgent(ip = "198.51.100.41") {
+  return fetch(`http://127.0.0.1:${port}/mcp`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${CONNECTOR_TOKEN}`, "Content-Type": "application/json", Accept: "application/json, text/event-stream", "X-Forwarded-For": ip },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "list_posts", arguments: {} } }),
+  }).then((res) => res.json());
+}
+
+/** Resolves with the call's id once this tab, not another of the same person's, is asked. */
+function askedOn(tab) {
+  return new Promise((resolve) => {
+    const seen = (data) => {
+      const message = JSON.parse(String(data));
+      if (message.type !== "call") return;
+      tab.off("message", seen);
+      resolve(message.id);
+    };
+    tab.on("message", seen);
+  });
+}
+
+async function roundTrip(tab, size = 0) {
+  tab.send(JSON.stringify({ type: "active" }));
+  const asked = askedOn(tab);
+  const answer = askAgent();
+  tab.send(JSON.stringify({ type: "result", id: await asked, ok: true, text: "x".repeat(size) }));
+  return (await answer).result;
+}
+
+test("a signed-in tab no call is waiting on is cut off at a big frame", async () => {
+  const tab = await signedInTab("198.51.100.50");
+  tab.send(JSON.stringify({ type: "active", padding: "x".repeat(MiB) }));
+  assert.equal(await closed(tab), 1006);
+});
+
+test("pongs can't hide the pieces of a big frame", async () => {
+  const tab = await signedInTab("198.51.100.51");
+  const piece = Buffer.alloc(8 * 1024, 0x61);
+  tab.on("error", () => {});
+  const ended = closed(tab);
+  let open = true;
+  void ended.then(() => (open = false));
+  for (let sent = 0; open && sent < 2000; sent++) {
+    await new Promise((done) => tab.send(piece, { fin: false, binary: false }, done));
+    await new Promise((done) => tab.pong("", true, done));
+  }
+  assert.equal(await ended, 1006);
+});
+
+test("small frames and pongs never add up to the limit", async () => {
+  const tab = await signedInTab("198.51.100.52");
+  const asides = JSON.stringify({ type: "active", padding: "x".repeat(1024) });
+  for (let sent = 0; sent < 40; sent++) tab.send(asides);
+  // More than 16 KiB of them: a day's worth of heartbeats on a tab left open.
+  for (let sent = 0; sent < 3000; sent++) tab.pong();
+  const { isError, content } = await roundTrip(tab);
+  assert.equal(isError, undefined);
+  assert.equal(content[0].text, "");
+  tab.close();
+  await closed(tab);
+});
+
+test("a big result leaves the tab open and answering, and six full frames fit", async () => {
+  const tab = await signedInTab("198.51.100.53");
+  const big = await roundTrip(tab, 200 * 1024);
+  assert.equal(big.content[0].text.length, 200 * 1024);
+  assert.equal((await roundTrip(tab)).isError, undefined);
+
+  tab.send(JSON.stringify({ type: "active" }));
+  const asked = askedOn(tab);
+  const answer = askAgent();
+  const frame = randomBytes(2.8 * MiB).toString("base64");
+  tab.send(JSON.stringify({ type: "result", id: await asked, ok: true, text: "[]", images: Array.from({ length: 6 }, () => ({ mediaType: "image/png", data: frame })) }));
+  const { result } = await answer;
+  assert.equal(result.content.length, 7);
+  assert.equal(result.content[6].data, frame);
+
+  assert.equal((await roundTrip(tab)).isError, undefined);
+  tab.close();
+  await closed(tab);
+});
+
+test("a frame that would swell on parsing is refused, even with a call waiting", async () => {
+  await wait(300);
+  const start = rss();
+  const tab = await signedInTab("198.51.100.54");
+  tab.send(JSON.stringify({ type: "active" }));
+  const asked = askedOn(tab);
+  const answer = askAgent();
+  await asked;
+  const ended = closed(tab);
+  tab.send(`[${"{},".repeat(Math.floor((24 * MiB - 4) / 3))}{}]`);
+  assert.equal(await ended, 1003);
+  const end = rss();
+  assert.ok(end - start < 150, `RSS grew by ${(end - start).toFixed(0)} MiB`);
+  assert.match((await answer).result.content[0].text, /tab closed/);
+});
+
+test("past 128 MiB of big frames on their way, in all, the next tab is cut off", async () => {
+  const tabs = [];
+  for (let n = 0; n < 8; n++) tabs.push(await signedInTab(`198.51.100.${60 + n}`));
+  const ends = tabs.map(closed);
+  const answers = [];
+  const heard = [];
+  for (const tab of tabs) {
+    tab.on("error", () => {});
+    tab.on("message", (data) => {
+      if (JSON.parse(String(data)).type === "call") heard.shift()?.(tab);
+    });
+  }
+
+  const piece = Buffer.alloc(20 * MiB, 0x61);
+  let cut = -1;
+  for (const [index, tab] of tabs.entries()) {
+    // Two tabs used in the same millisecond tie: asked again until this one has a call of its own.
+    let asked;
+    do {
+      tab.send(JSON.stringify({ type: "active" }));
+      const next = new Promise((resolve) => heard.push(resolve));
+      answers.push(askAgent());
+      asked = await next;
+    } while (asked !== tab);
+    tab.send(piece, { fin: false, binary: false });
+    // A pong comes back only once the server has read everything sent before its ping.
+    const taken = new Promise((resolve) => tab.once("pong", () => resolve(true)));
+    tab.ping();
+    if (!(await Promise.race([taken, ends[index].then(() => false)]))) {
+      cut = index;
+      break;
+    }
+  }
+  assert.equal(cut, 6);
+  for (const tab of tabs) tab.close();
+  await Promise.all(ends);
+  await Promise.all(answers);
+
+  // Those bytes went with their sockets: the next big result goes through.
+  const next = await signedInTab("198.51.100.70");
+  assert.equal((await roundTrip(next, MiB)).content[0].text.length, MiB);
+  next.close();
+  await closed(next);
+});
+
 test("an agent with no token is told to sign in", async () => {
   const res = await fetch(`http://127.0.0.1:${port}/mcp`, { method: "POST", body: "{}" });
   assert.equal(res.status, 401);
