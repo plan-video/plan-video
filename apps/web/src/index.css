@@ -1033,6 +1033,11 @@ html.dashboard-theme [data-slot="dialog-content"] {
   border-radius: var(--radius-xl);
 }
 
+/* Phones lay their own colour over whatever is tapped; every control here shows its press itself. */
+html.dashboard-theme {
+  -webkit-tap-highlight-color: transparent;
+}
+
 .dashboard-shell {
   background: var(--plane-canvas);
   color: var(--plane-text-primary);
