@@ -11,9 +11,11 @@ import { tokenRequest as linkedinToken } from "../linkedin/handler.mjs";
 import { PublishError } from "./errors.mjs";
 import { isMetaNetwork, renewed as metaRenewed } from "./meta.mjs";
 import { pdsFetch, pdsOrigin } from "./pds-fetch.mjs";
+import { pause, withRetries } from "./retry.mjs";
 
 /** Refreshed this long before it runs out, so an upload doesn't outlive its token. */
 const AHEAD_MS = 10 * 60_000;
+const SAVE_WAITS_MS = [1_000, 5_000];
 
 export function sealer(base64Key) {
   const key = Buffer.from(base64Key || "", "base64");
@@ -202,11 +204,13 @@ async function refreshed(platform, session, env) {
   throw new PublishError("plan.video can't post to this network from the server yet.");
 }
 
-export function createVault({ db, key, env }) {
+export function createVault({ db, key, env, wait = pause, log = console }) {
   const box = sealer(key);
   const binding = tokenBinding;
   /** One refresh at a time per login. */
   const pending = new Map();
+  /** Logins renewed but not saved yet. X's old refresh token has stopped working by then, so losing the new one means connecting again. */
+  const unsaved = new Map();
 
   async function read(userId, connectionId) {
     const row = await db.selectOne("social_tokens", { user_id: userId, connection_id: connectionId }, "platform,sealed");
@@ -224,6 +228,43 @@ export function createVault({ db, key, env }) {
       sealed: box.seal(session, binding(userId, connectionId)),
       updated_at: new Date().toISOString(),
     }, "user_id,connection_id");
+  }
+
+  function fresh(userId, connectionId) {
+    const id = binding(userId, connectionId);
+    const running = pending.get(id);
+    if (running) return running;
+    const work = (async () => {
+      const found = await read(userId, connectionId);
+      if (!found) {
+        unsaved.delete(id);
+        throw new PublishError("This account's login isn't on plan.video. Connect it again in Connections.", { expired: true });
+      }
+      // Only over the copy it was renewed from: saved over since, by a reconnect, it's no longer the newest.
+      const held = unsaved.get(id);
+      if (held && held.over !== found.sealed) unsaved.delete(id);
+      const current = unsaved.get(id)?.session ?? null;
+      const next = (await refreshed(found.platform, current ?? found.session, env)) ?? current;
+      if (!next) return found;
+      unsaved.set(id, { userId, connectionId, over: found.sealed, session: next });
+      const sealed = box.seal(next, binding(userId, connectionId));
+      let kept;
+      try {
+        // Only over the copy it refreshed, which no two saves share: a reconnect saved
+        // meanwhile is newer, and a removed login stays removed.
+        [kept] = await withRetries(() => db.update("social_tokens", { user_id: userId, connection_id: connectionId, sealed: found.sealed }, { sealed, updated_at: new Date().toISOString() }), SAVE_WAITS_MS, wait);
+      } catch (error) {
+        log.error("[publisher] couldn't save a renewed login", connectionId, error instanceof Error ? error.message : error);
+        return { platform: found.platform, session: next };
+      }
+      unsaved.delete(id);
+      if (kept) return { platform: found.platform, session: next };
+      const now = await read(userId, connectionId);
+      if (!now) throw new PublishError("This account was disconnected. Connect it again in Connections.", { expired: true });
+      return now;
+    })().finally(() => pending.delete(id));
+    pending.set(id, work);
+    return work;
   }
 
   return {
@@ -256,34 +297,14 @@ export function createVault({ db, key, env }) {
 
     async remove(userId, connectionId) {
       await db.delete("social_tokens", { user_id: userId, connection_id: connectionId });
+      unsaved.delete(binding(userId, connectionId));
     },
 
-    async fresh(userId, connectionId) {
-      const id = binding(userId, connectionId);
-      const running = pending.get(id);
-      if (running) return running;
-      const work = (async () => {
-        const found = await read(userId, connectionId);
-        if (!found) throw new PublishError("This account's login isn't on plan.video. Connect it again in Connections.", { expired: true });
-        const next = await refreshed(found.platform, found.session, env);
-        if (!next) return found;
-        // Only over the copy it refreshed, which no two saves share: a reconnect saved
-        // meanwhile is newer, and a removed login stays removed.
-        const [kept] = await db.update("social_tokens", { user_id: userId, connection_id: connectionId, sealed: found.sealed }, {
-          sealed: box.seal(next, binding(userId, connectionId)),
-          updated_at: new Date().toISOString(),
-        });
-        if (kept) return { platform: found.platform, session: next };
-        const now = await read(userId, connectionId);
-        if (!now) throw new PublishError("This account was disconnected. Connect it again in Connections.", { expired: true });
-        return now;
-      })();
-      pending.set(id, work);
-      try {
-        return await work;
-      } finally {
-        pending.delete(id);
-      }
+    fresh,
+
+    /** So one waiting to be saved isn't lost to a restart before its account next posts. */
+    async saveRenewed() {
+      await Promise.allSettled([...unsaved.values()].map((held) => fresh(held.userId, held.connectionId)));
     },
   };
 }

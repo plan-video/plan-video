@@ -810,6 +810,7 @@ export function createWorker({
     const cut = await db.abandonStale(iso(now() - STALE_SEND_MS), at, pool.goingIn("post_deliveries")).catch((error) => log.error("[publisher] couldn't settle cut-off sends", error));
     for (const row of cut ?? []) await cutOff(row);
     await replies.housekeep(pool.goingIn("post_replies")).catch((error) => log.error("[publisher] couldn't settle cut-off follow-ups", error instanceof Error ? error.message : error));
+    await vault.saveRenewed?.();
     return planned;
   }
 

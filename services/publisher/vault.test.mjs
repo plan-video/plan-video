@@ -155,3 +155,94 @@ test("tiktok: a refusal in an answer of 200 means connecting again, and its busy
     assert.equal(busy.expired, false);
   });
 });
+
+/** X: each refresh token works once, and renewing hands out the next. */
+function rotatingX(t) {
+  const works = new Set(["r1"]);
+  let next = 2;
+  const used = [];
+  t.mock.method(globalThis, "fetch", async (_url, init) => {
+    const token = init.body.get("refresh_token");
+    used.push(token);
+    if (!works.delete(token)) return Response.json({ error: "invalid_request" }, { status: 400 });
+    works.add(`r${next}`);
+    return Response.json({ access_token: `a${next}`, refresh_token: `r${next++}`, expires_in: 7200 });
+  });
+  return used;
+}
+
+async function xLogin(db) {
+  const vault = createVault({ db, key: KEY, env: { x: { clientId: "i", clientSecret: "s" } }, wait: async () => {}, log: { error() {} } });
+  await vault.put("u1", "c1", "x", { xUserId: "1", accessToken: "a1", refreshToken: "r1", expiresAt: 0 });
+  return vault;
+}
+
+test("a renewed login whose save fails once is saved on a second go", async (t) => {
+  const used = rotatingX(t);
+  const db = fakeDb();
+  const vault = await xLogin(db);
+  db.failNextUpdate = true;
+  assert.equal((await vault.fresh("u1", "c1")).session.accessToken, "a2");
+  assert.equal((await vault.read("u1", "c1")).session.refreshToken, "r2");
+  assert.deepEqual(used, ["r1"]);
+});
+
+test("a renewed login that can't be saved for now stays in use, and is saved once it can be", async (t) => {
+  const used = rotatingX(t);
+  const db = fakeDb();
+  const vault = await xLogin(db);
+  const update = db.update.bind(db);
+  db.update = async () => {
+    throw new Error("connection lost");
+  };
+  assert.equal((await vault.fresh("u1", "c1")).session.accessToken, "a2");
+  assert.equal((await vault.fresh("u1", "c1")).session.accessToken, "a2");
+  assert.deepEqual(used, ["r1"], "the spent refresh token isn't used again");
+  assert.equal((await vault.read("u1", "c1")).session.refreshToken, "r1");
+
+  db.update = update;
+  assert.equal((await vault.fresh("u1", "c1")).session.accessToken, "a2");
+  assert.equal((await vault.read("u1", "c1")).session.refreshToken, "r2");
+  assert.deepEqual(used, ["r1"]);
+});
+
+test("a renewed login that couldn't be saved is saved without waiting for the account's next post", async (t) => {
+  const used = rotatingX(t);
+  const db = fakeDb();
+  const vault = await xLogin(db);
+  const update = db.update.bind(db);
+  db.update = async () => {
+    throw new Error("connection lost");
+  };
+  await vault.fresh("u1", "c1");
+  await vault.saveRenewed();
+  assert.equal((await vault.read("u1", "c1")).session.refreshToken, "r1");
+  db.update = update;
+  await vault.saveRenewed();
+  assert.equal((await vault.read("u1", "c1")).session.refreshToken, "r2");
+  assert.deepEqual(used, ["r1"]);
+});
+
+test("a reconnect or a disconnect wins over a renewed login still waiting to be saved", async (t) => {
+  rotatingX(t);
+  const db = fakeDb();
+  const vault = await xLogin(db);
+  const update = db.update.bind(db);
+  db.update = async () => {
+    throw new Error("connection lost");
+  };
+  await vault.fresh("u1", "c1");
+  db.update = update;
+  await vault.put("u1", "c1", "x", { xUserId: "1", accessToken: "reconnected", refreshToken: "r9", expiresAt: Date.now() + 86_400_000 });
+  assert.equal((await vault.fresh("u1", "c1")).session.accessToken, "reconnected");
+  assert.equal((await vault.read("u1", "c1")).session.refreshToken, "r9");
+
+  await vault.put("u1", "c2", "x", { xUserId: "1", accessToken: "a", refreshToken: "r2", expiresAt: 0 });
+  db.update = async () => {
+    throw new Error("connection lost");
+  };
+  await vault.fresh("u1", "c2");
+  db.update = update;
+  await vault.remove("u1", "c2");
+  await assert.rejects(vault.fresh("u1", "c2"), /isn't on plan.video/);
+});
