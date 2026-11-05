@@ -269,6 +269,7 @@
   "Posts": "投稿",
   "The calendar could not be opened.": "カレンダーを開けませんでした。",
   "The page closed before it finished.": "完了する前にページが閉じられました。",
+  "This browser couldn't save it, so nothing changed. Its storage may be full.": "このブラウザーでは保存できなかったため、何も変更されていません。ストレージがいっぱいかもしれません。",
   "Could not save the calendar": "カレンダーを保存できませんでした",
   "Posted posts stay as they went out. Post again to make a copy you can change.": "投稿済みの投稿は送信時のまま残ります。編集するには「再投稿」でコピーを作成してください。",
   "That time has passed. Pick a later one.": "その時刻はすでに過ぎています。もっと後の時刻を選んでください。",

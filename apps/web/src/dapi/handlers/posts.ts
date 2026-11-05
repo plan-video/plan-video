@@ -868,7 +868,10 @@ export const updatePost: ToolHandler<"update_post"> = async (args, ctx) => {
 
   const error = revisePost(existing.id, patch);
   if (error) throw mapped(error);
-  if (args.media && saved.shared) await setPostFiles(existing.id, { shared: saved.shared.files });
+  if (args.media && saved.shared) {
+    const unsaved = await setPostFiles(existing.id, { shared: saved.shared.files });
+    if (unsaved) throw new DapiError("invalid-input", unsaved);
+  }
   return postView(readBack(existing.id), warnings);
 };
 

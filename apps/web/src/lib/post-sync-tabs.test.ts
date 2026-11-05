@@ -127,7 +127,7 @@ describe("two tabs of one browser", () => {
   async function bothWithAPost() {
     const a = await openTab();
     const b = await openTab();
-    expect(a.store.createEvent(draft())).toBeUndefined();
+    expect(await a.store.createEvent(draft())).toBeUndefined();
     await a.sync();
     await b.sync();
     return { a, b };

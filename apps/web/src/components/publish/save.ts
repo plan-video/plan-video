@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { calendars, checkEvents, createEvent, hydrateCalendar, keepPostFiles, planPostFiles, setPostCaptions, withThreadFiles, type PostFiles } from "@/components/calendar/store";
+import { calendars, checkEvents, createEvent, hydrateCalendar, keepPostFiles, planPostFiles, setPostCaptions, storePostFiles, withThreadFiles, type PostFiles } from "@/components/calendar/store";
 import type { EventDraft } from "@/components/calendar/types";
 import { isDateKey, localDateKey } from "@/components/calendar/utils";
 
@@ -118,11 +118,17 @@ export async function savePosts(posts: readonly PlannedPost[]): Promise<string |
   for (const post of posts) {
     // The post lists its files from its first write, so it can't go out without them while they upload.
     const plan = post.id && post.files ? await planPostFiles(post.id, post.files) : null;
+    if (plan) {
+      const unstored = await storePostFiles(plan);
+      if (unstored) return unstored;
+    }
     const draft = draftOf(post, calendarId);
-    const error = createEvent({ ...draft, ...(plan ? { files: plan.files, ownFiles: plan.ownFiles, thread: withThreadFiles(draft.thread, plan) } : {}) });
+    const error = await createEvent({ ...draft, ...(plan ? { files: plan.files, ownFiles: plan.ownFiles, thread: withThreadFiles(draft.thread, plan) } : {}) });
     if (error) return error;
-    if (post.id && post.captions) setPostCaptions(post.id, post.captions);
-    if (post.id && plan) await keepPostFiles(post.id, plan);
+    const unkept = post.id && plan ? await keepPostFiles(post.id, plan, { stored: true }) : undefined;
+    if (unkept) return unkept;
+    const uncaptioned = post.id && post.captions ? await setPostCaptions(post.id, post.captions) : undefined;
+    if (uncaptioned) return uncaptioned;
   }
 }
 

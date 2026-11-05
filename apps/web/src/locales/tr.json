@@ -269,6 +269,7 @@
   "Posts": "Gönderiler",
   "The calendar could not be opened.": "Takvim açılamadı.",
   "The page closed before it finished.": "Sayfa, işlem bitmeden kapandı.",
+  "This browser couldn't save it, so nothing changed. Its storage may be full.": "Bu tarayıcı kaydedemedi, bu yüzden hiçbir şey değişmedi. Depolama alanı dolu olabilir.",
   "Could not save the calendar": "Takvim kaydedilemedi",
   "Posted posts stay as they went out. Post again to make a copy you can change.": "Yayınlanan gönderiler yayınlandığı gibi kalır. Değiştirebileceğin bir kopya için tekrar yayınla.",
   "That time has passed. Pick a later one.": "O saat geçti. Daha ileri bir saat seç.",

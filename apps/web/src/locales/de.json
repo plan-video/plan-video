@@ -269,6 +269,7 @@
   "Posts": "Posts",
   "The calendar could not be opened.": "Der Kalender konnte nicht geöffnet werden.",
   "The page closed before it finished.": "Die Seite wurde geschlossen, bevor es fertig war.",
+  "This browser couldn't save it, so nothing changed. Its storage may be full.": "Dieser Browser konnte es nicht speichern, also hat sich nichts geändert. Vielleicht ist sein Speicher voll.",
   "Could not save the calendar": "Kalender konnte nicht gespeichert werden",
   "Posted posts stay as they went out. Post again to make a copy you can change.": "Gepostete Posts bleiben, wie sie rausgegangen sind. Mit „Erneut posten“ erstellst du eine Kopie, die du ändern kannst.",
   "That time has passed. Pick a later one.": "Dieser Zeitpunkt ist vorbei. Wähle einen späteren.",

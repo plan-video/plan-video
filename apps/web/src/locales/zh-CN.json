@@ -269,6 +269,7 @@
   "Posts": "帖子",
   "The calendar could not be opened.": "无法打开日历。",
   "The page closed before it finished.": "页面在完成前就关闭了。",
+  "This browser couldn't save it, so nothing changed. Its storage may be full.": "此浏览器无法保存，因此没有任何更改。它的存储空间可能已满。",
   "Could not save the calendar": "无法保存日历",
   "Posted posts stay as they went out. Post again to make a copy you can change.": "已发布的帖子会保持发出时的样子。使用“再次发布”可生成一个可修改的副本。",
   "That time has passed. Pick a later one.": "这个时间已经过了，请选个更晚的时间。",
