@@ -302,6 +302,37 @@ test("an upload the network is still processing is checked until it's up", async
   assert.equal(db.tables.post_deliveries[0].publish_id, "pub1");
 });
 
+test("a post a network's limit stops once its file is up waits for the limit, then goes out once", async () => {
+  const until = T0 + 20 * 60 * 60_000;
+  let limited = true;
+  const { db, worker, advance, published } = setup({
+    posts: [{ ...scheduled({ platforms: ["linkedin"] }), connections: [{ id: "li1", platform: "linkedin" }] }],
+    send: () => ({ state: "processing", publishId: "image:a" }),
+    check: () => ({ state: "ready" }),
+    publish: () => {
+      if (limited) throw new PublishError("Limited for today.", { until });
+      return { state: "sent", publishId: "linkedin-id" };
+    },
+  });
+  await worker.tick();
+  advance(60_000);
+  await worker.tick();
+  const [row] = db.tables.post_deliveries;
+  assert.equal(row.state, "processing");
+  assert.equal(row.error, "Limited for today.");
+  assert.equal(Date.parse(row.next_at), until);
+  advance(60_000);
+  await worker.tick();
+  assert.equal(published.length, 1);
+
+  limited = false;
+  advance(until - T0);
+  await worker.tick();
+  assert.equal(db.tables.post_deliveries[0].state, "sent");
+  assert.equal(db.tables.post_deliveries[0].error, null);
+  assert.equal(published.length, 2);
+});
+
 test("a video still uploading to storage is waited for", async () => {
   const { db, worker } = setup({ posts: [scheduled({ platforms: ["youtube"] })], file: null });
   await worker.tick();
@@ -939,4 +970,59 @@ test("the uuid after one is the next in the order Postgres sorts them", () => {
   assert.equal(nextUuid("0000000f-ffff-ffff-ffff-ffffffffffff"), "00000010-0000-0000-0000-000000000000");
   assert.equal(nextUuid("ffffffff-ffff-ffff-ffff-ffffffffffff"), null);
   assert.equal(nextUuid("u1"), null);
+});
+
+test("a limit that lasts for days ends in a failed post with an email, not a wait without end", async () => {
+  const { db, worker, advance } = setup({
+    posts: [onLinkedIn()],
+    send: () => {
+      throw new PublishError("Limited for today.", { until: T0 + 60_000 });
+    },
+  });
+  await worker.tick();
+  assert.equal(db.tables.post_deliveries[0].state, "queued");
+  advance(GRACE_MS + 60_000);
+  await worker.tick();
+  const [row] = db.tables.post_deliveries;
+  assert.equal(row.state, "failed");
+  assert.equal(row.error, LATE);
+});
+
+test("a limit met at the publish step after the post's day has gone by fails too", async () => {
+  const { db, worker, advance } = setup({
+    posts: [onLinkedIn()],
+    send: () => ({ state: "processing", publishId: "image:a" }),
+    check: () => ({ state: "ready" }),
+    publish: () => {
+      throw new PublishError("Limited for today.", { until: T0 + 2 * 60_000 });
+    },
+  });
+  await worker.tick();
+  advance(60_000);
+  await worker.tick();
+  assert.equal(db.tables.post_deliveries[0].state, "processing");
+  advance(GRACE_MS);
+  await worker.tick();
+  const [row] = db.tables.post_deliveries;
+  assert.equal(row.state, "failed");
+  assert.equal(row.error, LATE);
+});
+
+test("Post now on a post that failed long ago waits out a limit, instead of calling it too late", async () => {
+  const { db, worker, advance } = setup({
+    posts: [onLinkedIn()],
+    send: () => {
+      throw new PublishError("Limited for today.", { until: T0 + 60_000 });
+    },
+  });
+  await worker.tick();
+  advance(GRACE_MS + 60_000);
+  await worker.tick();
+  assert.equal(db.tables.post_deliveries[0].state, "failed");
+  advance(2 * GRACE_MS);
+  await worker.request("u1", "p1");
+  await worker.tick();
+  const [row] = db.tables.post_deliveries;
+  assert.equal(row.state, "queued");
+  assert.equal(row.error, "Limited for today.");
 });
