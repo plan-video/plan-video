@@ -73,7 +73,7 @@ export const PLANS: Plan[] = [
       msg("15 social accounts"),
       msg("50 GB storage"),
       msg("Unlimited posts per month"),
-      msg("All 9 networks, X included"),
+      msg("All networks, X included"),
       msg("Bulk and CSV scheduling"),
       msg("4K video export"),
       msg("Templates and saved captions"),

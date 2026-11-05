@@ -24,7 +24,7 @@
     Check that it has a time and isn't a draft. Then look for it under **Failed**. See [Failed posts](/docs/failed-posts).
   </Accordion>
   <Accordion title="The agent says a network isn't supported">
-    Pinterest can be planned but not sent yet. See [Coming soon](/docs/coming-soon).
+    Pinterest isn't available yet, so agents can't add it to a post. See [Coming soon](/docs/coming-soon).
   </Accordion>
   <Accordion title="I want to start over">
     Disconnect the agent under **Connected apps** on the dashboard's [**MCP & CLI** page](https://plan.video/dashboard?dashboard=mcp), remove plan.video from the agent, and [connect it again](/docs/connect-an-agent).

@@ -7,6 +7,7 @@ import { For, Show, createEffect, createSignal } from "solid-js";
 import { toast } from "somoto";
 
 import { PLATFORMS, platformName } from "@/components/calendar/utils";
+import { PUBLISHING_PLATFORMS } from "@/lib/social";
 import { PlatformLogo } from "@/components/publish/controls";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/dashboard/dashboard-icon";
@@ -304,6 +305,7 @@ export function DashboardConnectionsView() {
                             {renewing(true) ? t("Reconnect Pages") : t("Add Page")}
                           </Button>
                         </Show>
+                        <Show when={PUBLISHING_PLATFORMS.includes(item.id)} fallback={<span class="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">{t("Soon")}</span>}>
                         <Button
                           variant="secondary"
                           onClick={() => {
@@ -348,6 +350,7 @@ export function DashboardConnectionsView() {
                         >
                           {renew() || moved() ? t("Reconnect") : accounts().length ? t("Add account") : t("Connect")}
                         </Button>
+                        </Show>
                       </Show>
                       </Show>
                     </div>
