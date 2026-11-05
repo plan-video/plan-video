@@ -1,4 +1,10 @@
 {
+  "Cloud storage stopped sending the post's file.": "클라우드 저장소가 게시물 파일 전송을 멈췄어요.",
+  "LinkedIn is limiting posts from this account for today. Trying again tomorrow.": "LinkedIn이 오늘 이 계정의 게시물을 제한하고 있어요. 내일 다시 시도할게요.",
+  "That X community link isn't right. Use one like x.com/i/communities/123…, or leave it empty.": "이 X 커뮤니티 링크가 올바르지 않아요. x.com/i/communities/123… 같은 링크를 쓰거나 비워 두세요.",
+  "TikTok didn't renew the login. Trying again soon.": "TikTok 로그인을 갱신하지 못했어요. 곧 다시 시도할게요.",
+  "LinkedIn didn't renew the login. Trying again soon.": "LinkedIn 로그인을 갱신하지 못했어요. 곧 다시 시도할게요.",
+  "This follow-up's time passed over a day ago while the network was limiting posts, so it didn't go out.": "네트워크가 게시물을 제한하는 동안 이 후속 게시물의 시간이 하루 넘게 지나서 게시되지 않았어요.",
   "Drop files or folders here": "파일이나 폴더를 여기에 놓으세요",
   "Remove {name}": "{name} 제거",
   "FILE": "파일",

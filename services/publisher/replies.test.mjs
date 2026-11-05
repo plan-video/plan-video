@@ -47,6 +47,7 @@ function setup({ thread, platforms = ["x"], reply, notices, stored = new Map() }
     media: { postFile: async (_userId, id) => (stored.has(id) ? { id, key: `posts/u1/${id}`, size: 10, type: "image/jpeg", kind: stored.get(id) } : null) },
     networks: { x: network("x"), tiktok: network("tiktok", { replies: false }) },
     notices,
+    wait: async () => {},
     now: () => clock,
     log: { error() {}, warn() {} },
   });
@@ -164,6 +165,83 @@ test("a follow-up cut off while it was going isn't sent again", async () => {
   assert.equal(db.tables.post_replies[0].state, "failed");
 });
 
+function insertsFail(db, fails) {
+  const insertNew = db.insertNew.bind(db);
+  db.insertNew = async (table, rows, conflict) => {
+    if (table === "post_replies" && fails(rows[0])) throw new PublishError("The database didn't answer.", { retry: true });
+    return insertNew(table, rows, conflict);
+  };
+}
+
+test("a database blip right after a follow-up is claimed leaves it free to go on its next try", async () => {
+  const { db, worker, replied, advance } = setup({ thread: [{ id: "a", text: "First", delay: 5 }] });
+  await worker.tick();
+  advance(5 * MINUTE);
+  const { selectOne, update } = db;
+  let down = true;
+  db.selectOne = async function (table, filter) {
+    if (down && table === "post_deliveries") throw new PublishError("The database didn't answer.", { retry: true });
+    return selectOne.call(this, table, filter);
+  };
+  let blips = 2;
+  db.update = async function (table, filter, values) {
+    if (table === "post_replies" && values.state !== "sending" && blips-- > 0) throw new PublishError("The database didn't answer.", { retry: true });
+    return update.call(this, table, filter, values);
+  };
+  await worker.dispatch();
+  await worker.pool.idle();
+  assert.equal(db.tables.post_replies[0].state, "queued");
+  assert.equal(replied.length, 0);
+  down = false;
+  advance(5 * MINUTE);
+  await worker.tick();
+  assert.equal(replied.length, 1);
+});
+
+test("a database blip making a post's first follow-up doesn't lose the thread", async () => {
+  const { db, worker, replied, advance } = setup({ thread: [{ id: "a", text: "First", delay: 0 }] });
+  let blips = 2;
+  insertsFail(db, () => blips-- > 0);
+  await worker.tick();
+  assert.equal(db.tables.post_replies.length, 1);
+  advance(MINUTE);
+  await worker.tick();
+  assert.equal(replied.length, 1);
+});
+
+test("a first follow-up that can't be made tells the person, and its post stays sent", async () => {
+  const failures = [];
+  const { db, worker, replied } = setup({ thread: [{ id: "a", text: "First", delay: 0 }], notices: { failed: async (row, about) => failures.push({ row, about }) } });
+  insertsFail(db, () => true);
+  await worker.tick();
+  assert.equal(db.tables.post_deliveries[0].state, "sent");
+  assert.equal(replied.length, 0);
+  assert.equal(failures.length, 1);
+  assert.equal(failures[0].row.requested, false);
+  assert.equal(failures[0].about.reply, true);
+  assert.equal(failures[0].about.unqueued, true);
+  assert.match(failures[0].about.message, /Follow-up 1 of the thread didn't go out on X/);
+});
+
+test("a later follow-up that can't be made tells the person too", async () => {
+  const failures = [];
+  const { db, worker, replied, advance } = setup({
+    thread: [
+      { id: "a", text: "First", delay: 0 },
+      { id: "b", text: "Second", delay: 0 },
+    ],
+    notices: { failed: async (row, about) => failures.push({ row, about }) },
+  });
+  insertsFail(db, (row) => row.step === 1);
+  await worker.tick();
+  advance(MINUTE);
+  await worker.tick();
+  assert.equal(replied.length, 1);
+  assert.equal(db.tables.post_replies[0].state, "sent");
+  assert.equal(failures.length, 1);
+  assert.match(failures[0].about.message, /Follow-up 2 of the thread didn't go out on X/);
+});
+
 test("without post_replies in the database, posts still go out alone", async () => {
   const { db, worker, sent } = setup({ thread: [{ id: "a", text: "First", delay: 0 }] });
   const missing = () => {
@@ -256,4 +334,25 @@ test("a follow-up the network is still processing is looked at again, and posted
   ]);
   assert.equal(db.tables.post_replies[0].state, "sent");
   assert.equal(db.tables.post_replies[0].attempts, 1);
+});
+
+test("a follow-up held by a limit for over a day fails and says so, without promising another go", async () => {
+  const told = [];
+  const { db, worker, advance } = setup({
+    thread: [{ text: "two", delay: 5 }],
+    notices: { failed: async (row, about) => told.push(about.message) },
+    reply: () => {
+      throw new PublishError("Limited for today. Trying again soon.", { until: T0 + 10 * MINUTE });
+    },
+  });
+  await worker.tick();
+  advance(5 * MINUTE);
+  await worker.tick();
+  assert.equal(db.tables.post_replies[0].state, "queued");
+  advance(24 * 60 * MINUTE + 10 * MINUTE);
+  await worker.tick();
+  const [row] = db.tables.post_replies;
+  assert.equal(row.state, "failed");
+  assert.match(row.error, /over a day ago/);
+  assert.equal(told.length, 1);
 });

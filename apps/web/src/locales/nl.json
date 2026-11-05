@@ -1,4 +1,10 @@
 {
+  "Cloud storage stopped sending the post's file.": "De cloudopslag stopte met het versturen van het bestand van de post.",
+  "LinkedIn is limiting posts from this account for today. Trying again tomorrow.": "LinkedIn beperkt vandaag de posts van dit account. Morgen wordt het opnieuw geprobeerd.",
+  "That X community link isn't right. Use one like x.com/i/communities/123…, or leave it empty.": "Die X-communitylink klopt niet. Gebruik er een zoals x.com/i/communities/123…, of laat het leeg.",
+  "TikTok didn't renew the login. Trying again soon.": "TikTok heeft de login niet vernieuwd. Het wordt binnenkort opnieuw geprobeerd.",
+  "LinkedIn didn't renew the login. Trying again soon.": "LinkedIn heeft de login niet vernieuwd. Het wordt binnenkort opnieuw geprobeerd.",
+  "This follow-up's time passed over a day ago while the network was limiting posts, so it didn't go out.": "De tijd van dit vervolg is meer dan een dag geleden verstreken terwijl het netwerk posts beperkte, dus het is niet geplaatst.",
   "Drop files or folders here": "Zet bestanden of mappen hier neer",
   "Remove {name}": "{name} verwijderen",
   "FILE": "BESTAND",

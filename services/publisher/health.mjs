@@ -9,6 +9,8 @@ export const FAILING_WINDOW_MS = 2 * 60 * 60_000;
 export const FAILING_AT_LEAST = 5;
 export const FAILING_PEOPLE = 2;
 const SAMPLE = 5;
+/** Without a finished pass for this long, the sending is stuck and health says so (services/monitor watches it). */
+export const STUCK_MS = 15 * 60_000;
 
 const iso = (ms) => new Date(ms).toISOString();
 
@@ -51,6 +53,19 @@ export async function deliveryProblems(db, at) {
     problems.push(`${failed} posts from ${people} people failed in the last 2 hours and none went out`);
   }
   return problems;
+}
+
+/** The last pass is null until one has finished, so services/deploy.sh can tell a new start that works from one that only started. */
+export function createPassWatch(now = () => Date.now()) {
+  const started = now();
+  let last = null;
+  return {
+    passed() {
+      last = now();
+    },
+    last: () => (last === null ? null : iso(last)),
+    stuck: () => now() - (last ?? started) >= STUCK_MS,
+  };
 }
 
 export function createHealth({ db, key, now = () => Date.now(), log = console }) {

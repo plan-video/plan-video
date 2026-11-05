@@ -16,6 +16,27 @@ test("a time skipped by the clocks going forward lands just after", () => {
   assert.equal(momentOf("2026-03-29", "02:30", "Europe/Amsterdam"), at("2026-03-29T01:30:00Z"));
 });
 
+test("a skipped time goes out just after the change, the same way on both sides of UTC", () => {
+  const local = (time, zone) => new Intl.DateTimeFormat("en-GB", { timeZone: zone, day: "2-digit", hour: "2-digit", minute: "2-digit" }).format(time);
+  assert.equal(momentOf("2027-03-14", "02:30", "America/New_York"), at("2027-03-14T07:30:00Z"));
+  assert.equal(local(momentOf("2027-03-14", "02:30", "America/New_York"), "America/New_York"), "14, 03:30");
+  assert.equal(local(momentOf("2027-03-14", "02:00", "America/Los_Angeles"), "America/Los_Angeles"), "14, 03:00");
+  assert.equal(local(momentOf("2027-03-14", "02:59", "America/Chicago"), "America/Chicago"), "14, 03:59");
+  assert.equal(local(momentOf("2027-03-28", "02:30", "Europe/Amsterdam"), "Europe/Amsterdam"), "28, 03:30");
+  assert.equal(local(momentOf("2026-10-04", "02:15", "Australia/Lord_Howe"), "Australia/Lord_Howe"), "04, 02:45");
+});
+
+test("a time on either side of a change, or one that comes twice, stays as it was", () => {
+  // The hour clocks go back: America's goes out the first time, Europe's the second.
+  assert.equal(momentOf("2026-11-01", "01:30", "America/New_York"), at("2026-11-01T05:30:00Z"));
+  assert.equal(momentOf("2026-10-25", "02:30", "Europe/Amsterdam"), at("2026-10-25T01:30:00Z"));
+  // Around the jump.
+  assert.equal(momentOf("2027-03-14", "01:59", "America/New_York"), at("2027-03-14T06:59:00Z"));
+  assert.equal(momentOf("2027-03-14", "03:00", "America/New_York"), at("2027-03-14T07:00:00Z"));
+  assert.equal(momentOf("2027-03-28", "01:59", "Europe/Amsterdam"), at("2027-03-28T00:59:00Z"));
+  assert.equal(momentOf("2027-03-28", "03:00", "Europe/Amsterdam"), at("2027-03-28T01:00:00Z"));
+});
+
 test("a one-off post is due once, inside the window only", () => {
   const post = { day: "2026-10-12", start: "18:00", timeZone: "Europe/Amsterdam", recurrence: null };
   assert.deepEqual(runsBetween(post, "UTC", at("2026-10-12T15:59:00Z"), at("2026-10-12T16:00:00Z")), [{ occurrence: "once", dueAt: at("2026-10-12T16:00:00Z") }]);

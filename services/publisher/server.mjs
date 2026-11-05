@@ -12,7 +12,7 @@ import { createConnectLinks } from "./connect-links.mjs";
 import { SENDER_PORT, onlyFromGateway } from "./gateway-link.mjs";
 import { createDb } from "./db.mjs";
 import { PublishError, Refused } from "./errors.mjs";
-import { createHealth } from "./health.mjs";
+import { createHealth, createPassWatch } from "./health.mjs";
 import { createInviteMailer } from "./invites.mjs";
 import { createMedia } from "./media.mjs";
 import { createMailer, createNotices } from "./notices.mjs";
@@ -48,10 +48,8 @@ const PASS_MS = 30_000;
 const DISPATCH_MS = 5_000;
 /** A run is planned this long after its moment, so the clock is surely past it. */
 const WAKE_AFTER_MS = 250;
-/** A stop gives the sends going this long to finish, inside systemd's 90 seconds. */
-const DRAIN_MS = 30_000;
-/** Without a finished pass for this long, the sending is stuck and health says so (services/monitor watches it). */
-const STUCK_MS = 15 * 60_000;
+/** A stop gives the sends going this long to finish, inside the unit's TimeoutStopSec. Long uploads take minutes; nothing new starts meanwhile. */
+const DRAIN_MS = 15 * 60_000;
 
 function loadEnv(path) {
   const env = {};
@@ -149,7 +147,7 @@ if (!own.SUPPORT_TO) console.warn("[publisher] SUPPORT_TO isn't set, so the supp
 const worker = createWorker({ db, vault, media, networks, plugs, accountLimits, planLimits, notices, sendFrom });
 
 const health = createHealth({ db, key: own.TOKEN_KEY });
-let lastPass = Date.now();
+const passes = createPassWatch();
 let loops = null;
 const kick = () => loops?.kick();
 
@@ -202,11 +200,11 @@ const server = createServer(onlyFromGateway(senderSecret, (req, res) => {
     const problems = [
       ...(nodeProblem ? [nodeProblem] : []),
       ...(senderSecret ? [] : ["SENDER_SECRET isn't set, so the gateway can't reach the publisher"]),
-      ...(Date.now() - lastPass < STUCK_MS ? [] : ["no sending pass has finished for 15 minutes"]),
+      ...(passes.stuck() ? ["no sending pass has finished for 15 minutes"] : []),
       ...health.report(),
     ];
     const ok = !problems.length;
-    json(res, ok ? 200 : 503, { ok, lastPass: new Date(lastPass).toISOString(), problems });
+    json(res, ok ? 200 : 503, { ok, lastPass: passes.last(), problems });
     return;
   }
   if (!path.startsWith("/api/publisher/")) {
@@ -271,7 +269,7 @@ server.listen(SENDER_PORT, HOST, () => {
         worker,
         // With a key that opens no login, every send would fail: the posts wait for the right key instead.
         paused: () => health.keyWrong(),
-        passed: (planned) => planned && (lastPass = Date.now()),
+        passed: (planned) => planned && passes.passed(),
         afterPass: () => notices?.send(),
         passMs: PASS_MS,
         dispatchMs: DISPATCH_MS,

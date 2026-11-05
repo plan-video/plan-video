@@ -4,15 +4,17 @@
 // it fails with a note to check the network. Making a post once its file is ready is claimed the same way.
 
 import { connectWithin } from "./accounts.mjs";
-import { PublishError } from "./errors.mjs";
+import { PublishError, finalWords } from "./errors.mjs";
 import { fileIdsOf } from "./media.mjs";
 import { OVER_SCHEDULED, isWaiting, startOf, waitingUntil } from "./plans.mjs";
 import { createMemoryGate, createPool } from "./pool.mjs";
 import { createReplies } from "./replies.mjs";
+import { SETTLE_WAITS_MS, pause, withRetries } from "./retry.mjs";
 import { dayAt, dueAtOf, nextRunAfter, runsBetween, zoneOrUtc } from "./schedule.mjs";
 
 /** Runs that came due longer ago than this (publisher down) fail with LATE instead of sending. */
 export const GRACE_MS = 24 * 60 * 60_000;
+const LIMIT_SLACK_MS = 60 * 60_000;
 export const LATE = "This post's time passed over a day ago while plan.video couldn't send it, so it didn't go out. Post it now, or give it a new time.";
 /** Slack for a post saved as due "now" whose time was given a few moments after its minute. */
 const TIMED_SLACK_MS = 5 * 60_000;
@@ -43,10 +45,10 @@ const DELETED_KEPT_MS = 90 * 24 * 60 * 60_000;
 export function lookAgainIn(waited) {
   return waited < 15_000 ? 5_000 : waited < 45_000 ? 10_000 : waited < 2 * 60_000 ? 20_000 : CHECK_EVERY_MS;
 }
-/** Under PostgREST's cap of 1000 rows an answer. */
-export const PAGE = 500;
+/** Under PostgREST's cap of 1000 rows an answer, and small enough that a page of the largest posts (256 KB each) stays about 25 MB. */
+export const PAGE = 100;
 /** Bounds a pass (10 million rows) so no answer can keep it reading for ever. */
-const MAX_PAGES = 20_000;
+const MAX_PAGES = 100_000;
 
 /** Ids post_deliveries accepts; posts with other ids are skipped, not sent. */
 const ID = /^[A-Za-z0-9_-]{1,100}$/;
@@ -107,13 +109,14 @@ export function createWorker({
   sendsAtOnce = SENDS_AT_ONCE,
   perUser = PER_USER,
   memoryBudget = MEMORY_BUDGET,
+  wait = pause,
   now = () => Date.now(),
   log = console,
 }) {
   const iso = (time) => new Date(time).toISOString();
   const pool = createPool({ size: sendsAtOnce, perUser, onFree: () => void dispatch() });
   const memory = createMemoryGate(memoryBudget);
-  const replies = createReplies({ db, vault, networks, media, notices, postIn, memory, now, log });
+  const replies = createReplies({ db, vault, networks, media, notices, postIn, memory, wait, now, log });
 
   function rowsFor(userId, workspaceId, connections, post, runs, { requested = false, late = false } = {}) {
     if (!isPost(post) || typeof workspaceId !== "string" || !workspaceId || workspaceId.length > 100) return [];
@@ -197,28 +200,28 @@ export function createWorker({
   // Falls back to the one-call function (max 1000 rows) on a database without the paged one.
   // When `after` can't give a row's key exactly (a numeric post id the db orders as text "1.0"),
   // the next page starts past that person's rows, so pages always move on.
-  async function everyRow(paged, whole, after) {
-    const rows = [];
+  async function eachPage(paged, whole, after, visit) {
     let last = null;
     for (let from = {}, pages = 0; ; pages++) {
       if (pages >= MAX_PAGES) {
         log.error("[publisher] stopped reading pages: too many", paged);
-        return rows;
+        return;
       }
       let page;
       try {
         page = (await db.rpc(paged, { ...from, size: PAGE })) ?? [];
       } catch (error) {
-        if (rows.length || !/PGRST202/.test(String(error?.message))) throw error;
-        return (await db.rpc(whole)) ?? [];
+        if (pages || !/PGRST202/.test(String(error?.message))) throw error;
+        await visit((await db.rpc(whole)) ?? []);
+        return;
       }
-      rows.push(...page);
-      if (page.length < PAGE) return rows;
+      await visit(page);
+      if (page.length < PAGE) return;
       const end = page.at(-1);
       let next = after(end);
       if (!next || JSON.stringify(next) === last) {
         const user = nextUuid(end?.user_id);
-        if (!user) return rows;
+        if (!user) return;
         log.error("[publisher] skipped the rest of an account's rows that can't be paged past", paged, end.user_id);
         next = { after_user: user };
       }
@@ -228,7 +231,8 @@ export function createWorker({
   }
 
   // LinkedIn can keep a limit up for days and a wait never counts as a try, so past the grace it ends like any post that late.
-  const limitOutlasted = (error, dueAt) => error instanceof PublishError && !!error.until && !error.retry && now() - Date.parse(dueAt) > GRACE_MS;
+  // An hour's slack, so a post due just before midnight and picked up just after still gets its one wait.
+  const limitOutlasted = (error, dueAt) => error instanceof PublishError && !!error.until && !error.retry && Math.max(now(), error.until - LIMIT_SLACK_MS) - Date.parse(dueAt) > GRACE_MS;
 
   const sendable = (post) => post.status === "scheduled" && !post.paused && (post.platforms ?? []).some((platform) => networks[platform]);
 
@@ -323,27 +327,32 @@ export function createWorker({
 
   // Hourly: recounts Free's waiting posts and fixes any next look later than its next run (a lost write).
   // Runs beside planning: skips waiting posts kept after `readAt`, fixes a look only over the version it read.
+  // A post can be a quarter of a megabyte and anyone can save thousands, so only these small notes outlive a page.
   async function sweep() {
     const at = now();
-    const found = await everyRow("publisher_posts_after", "publisher_posts", (row) => {
+    const skipped = skipList();
+    const entries = [];
+    const wrong = [];
+    const after = (row) => {
       const id = row.post?.id;
       // The database orders by the id's text, which only a string (or no id) gives back exactly.
       if (id != null && typeof id !== "string") return null;
       return { after_user: row.user_id, after_workspace: row.workspace_id, after_post: id ?? "" };
-    });
-    const skipped = skipList();
-    await planLimits?.review(waitingEntries(found, at, skipped), { readAt: at });
-    const wrong = [];
-    for (const item of found) {
-      if (!isPost(item?.post) || !sendable(item.post)) continue;
-      try {
-        const next = nextRunAfter(item.post, item.time_zone, at);
-        const kept = Date.parse(item.next_run_at ?? "");
-        if (next !== null && !(kept <= next)) wrong.push({ user_id: item.user_id, post_id: item.post.id, version: item.version, next_run_at: iso(at), planned_through: null });
-      } catch (error) {
-        skipped.add(item.user_id, error);
+    };
+    await eachPage("publisher_posts_after", "publisher_posts", after, (found) => {
+      for (const entry of waitingEntries(found, at, skipped)) entries.push(entry);
+      for (const item of found) {
+        if (!isPost(item?.post) || !sendable(item.post)) continue;
+        try {
+          const next = nextRunAfter(item.post, item.time_zone, at);
+          const kept = Date.parse(item.next_run_at ?? "");
+          if (next !== null && !(kept <= next)) wrong.push({ user_id: item.user_id, post_id: item.post.id, version: item.version, next_run_at: iso(at), planned_through: null });
+        } catch (error) {
+          skipped.add(item.user_id, error);
+        }
       }
-    }
+    });
+    await planLimits?.review(entries, { readAt: at });
     skipped.report();
     if (wrong.length) {
       log.error("[publisher] posts whose next look came after their next run, looked at again", wrong.length);
@@ -357,10 +366,16 @@ export function createWorker({
     const clashing = new Map(rows.filter((row) => row.state === "queued" && !inserted.has(keyOf(row))).map((row) => [keyOf(row), row]));
     if (!clashing.size) return;
     const ids = [...new Set([...clashing.values()].map((row) => row.post_id))];
-    const before = await db.select("post_deliveries", { user_id: userId, state: "failed", post_id: ids }, "id,user_id,post_id,occurrence,platform,connection_id,due_at,attempts");
+    const before = await db.select("post_deliveries", { user_id: userId, state: ["failed", "queued"], post_id: ids }, "id,user_id,post_id,occurrence,platform,connection_id,due_at,attempts,state,next_at,requested");
     for (const existing of before) {
       const row = clashing.get(keyOf(existing));
       if (!row) continue;
+      if (existing.state === "queued") {
+        // Moved later, then back: it goes now instead of at the time it was waiting for. due_at sets this apart from a wait for a retry or a limit.
+        const movedBack = !existing.requested && Date.parse(existing.due_at) > Date.parse(row.due_at) + 60_000 && Date.parse(existing.next_at) > Date.parse(row.next_at);
+        if (movedBack) await db.update("post_deliveries", { id: existing.id, state: "queued", next_at: existing.next_at }, { due_at: row.due_at, next_at: row.next_at, updated_at: iso(now()) });
+        continue;
+      }
       const movedLater = row.occurrence === "once" && Date.parse(existing.due_at) < Date.parse(row.due_at) - 60_000;
       // Never reached the network (paused or moved to drafts, since undone), so it's safe to queue again.
       const neverTried = existing.attempts === 0;
@@ -450,8 +465,11 @@ export function createWorker({
     return rows.find((other) => other.occurrence !== row.occurrence && other.attempts > 0) ?? null;
   }
 
+  // Trying the same write again is safe: while this runs the row's lane is held, so nothing else takes it.
+  const keep = (filter, values) => withRetries(() => db.update("post_deliveries", filter, values()), SETTLE_WAITS_MS, wait);
+
   async function settle(row, values) {
-    return db.update("post_deliveries", { id: row.id }, { ...values, updated_at: iso(now()) });
+    return keep({ id: row.id }, () => ({ ...values, updated_at: iso(now()) }));
   }
 
   async function failed(row, error, about = {}) {
@@ -461,8 +479,9 @@ export function createWorker({
     if (retry && row.attempts < MAX_ATTEMPTS) {
       await settle(row, { state: "queued", error: message, next_at: iso(now() + BACKOFF_MS[row.attempts - 1]) });
     } else {
-      await settle(row, { state: "failed", error: message, next_at: iso(now()) });
-      await notices?.failed(row, { ...about, message: error instanceof PublishError ? message : "Something went wrong on plan.video's side." });
+      const final = finalWords(message);
+      await settle(row, { state: "failed", error: final, next_at: iso(now()) });
+      await notices?.failed(row, { ...about, message: final });
     }
   }
 
@@ -586,10 +605,10 @@ export function createWorker({
     }
     // The network has it now. If keeping that fails, the row stays as sending and
     // is later marked to be checked, rather than sent again.
-    await record(claimed, result, post).catch((error) => log.error("[publisher] couldn't keep a finished send", claimed.id, error));
+    await record(claimed, result, post, zone).catch((error) => log.error("[publisher] couldn't keep a finished send", claimed.id, error));
   }
 
-  async function record(row, result, post) {
+  async function record(row, result, post, zone) {
     if (result.state === "processing") {
       await settle(row, { state: "processing", publish_id: result.publishId, error: null, next_at: iso(now() + lookAgainIn(0)) });
       return;
@@ -604,7 +623,7 @@ export function createWorker({
       plug_checks: plugged ? 0 : PLUG_CHECKS,
     });
     if (sent) {
-      await replies.start(sent, post);
+      await replies.start(sent, post, zone);
       if (sent.occurrence === "once") await markPosted(sent);
     }
   }
@@ -621,17 +640,31 @@ export function createWorker({
 
   async function checkOne(row) {
     const network = networks[row.platform];
-    const waited = now() - Date.parse(row.updated_at);
+    let waited = now() - Date.parse(row.updated_at);
     let claimed = null;
     let result;
     let post = null;
     let zone;
     try {
+      // A processing row with a reason is back from a limit's wait, which doesn't count against the looks.
+      // updated_at can't be set ahead to the wait's end: the dashboard's copy follows the newest.
+      if (row.error) {
+        waited = 0;
+        const [woken] = await db.update("post_deliveries", { id: row.id, state: "processing", next_at: row.next_at }, { error: null, updated_at: iso(now()) });
+        if (!woken) return;
+        row = woken;
+      }
       const [found] = await postIn(row.user_id, row.post_id, row.workspace_id);
       post = found?.post ?? null;
       zone = zoneOrUtc(post?.timeZone ?? found?.time_zone);
       // Where the post is made only once the network has the file, a post stopped meanwhile isn't made.
       if (network.publish) {
+        // Moved later: it starts afresh then, like a send, since an upload may not last that long. Nothing was made yet.
+        const dueAt = post && !row.requested ? dueAtOf(post, zone, row.occurrence) : null;
+        if (dueAt !== null && dueAt > now() + 60_000) {
+          await keep({ id: row.id, state: "processing" }, () => ({ state: "queued", attempts: 0, publish_id: null, error: null, due_at: iso(dueAt), next_at: iso(dueAt), updated_at: iso(now()) }));
+          return;
+        }
         const unwanted = stillWanted(row, post, zone);
         if (unwanted) {
           await settle(row, { state: "failed", error: unwanted });
@@ -659,12 +692,14 @@ export function createWorker({
         return;
       }
       if (error instanceof PublishError && error.until && !error.retry) {
-        await db.update("post_deliveries", { id: row.id, state: claimed ? "sending" : "processing" }, { state: "processing", error: error.message, next_at: iso(Math.max(error.until, now() + CHECK_EVERY_MS)) });
+        await keep({ id: row.id, state: claimed ? "sending" : "processing" }, () => ({ state: "processing", error: error.message, next_at: iso(Math.max(error.until, now() + CHECK_EVERY_MS)), updated_at: iso(now()) }));
         return;
       }
       // Nothing was made: publish says to try again only when the network turned the post down.
-      if (error instanceof PublishError && error.retry && waited < CHECK_LIMIT_MS) {
-        await db.update("post_deliveries", { id: row.id, state: claimed ? "sending" : "processing" }, { state: "processing", next_at: iso(now() + lookAgainIn(waited)) });
+      // Before the claim nothing can have been, so any failure to ask looks again. Once claimed, a plain error may be a cut-off publish.
+      const again = error instanceof PublishError ? error.retry : !claimed;
+      if (again && waited < CHECK_LIMIT_MS) {
+        await keep({ id: row.id, state: claimed ? "sending" : "processing" }, () => ({ state: "processing", next_at: iso(now() + lookAgainIn(waited)) }));
         return;
       }
       await failed({ ...row, attempts: MAX_ATTEMPTS }, error, { post, zone });
@@ -672,7 +707,7 @@ export function createWorker({
     }
     // The network has it now. If keeping that fails, a post just made stays as
     // sending, like a send, and anything else is looked at again.
-    await record(row, result, post).catch((error) => log.error("[publisher] couldn't keep a finished send", row.id, error));
+    await record(row, result, post, zone).catch((error) => log.error("[publisher] couldn't keep a finished send", row.id, error));
   }
 
   async function plugOne(row) {
@@ -696,23 +731,21 @@ export function createWorker({
   // Anyone can write their own account_state, so a "Sign in with Bluesky" login, which only names an
   // account, is never taken from there. A new account is taken only while the plan has room for it.
   async function adopt() {
-    const found = await everyRow("publisher_legacy_logins_after", "publisher_legacy_logins", (row) => ({
-      after_user: row.user_id,
-      after_workspace: row.workspace_id,
-      after_connection: row.connection_id,
-    }));
     let kept = 0;
-    for (const row of found) {
-      if (!ID.test(row.connection_id ?? "") || row.session?.oauth) continue;
-      try {
-        const keep = () => vault.put(row.user_id, row.connection_id, row.platform, row.session, { replace: false });
-        // Strict: a limit that can't be read waits for the next look.
-        const turnedAway = await connectWithin({ vault, limits: accountLimits, userId: row.user_id, connectionId: row.connection_id, strict: true }, keep);
-        if (turnedAway === null) kept++;
-      } catch {
-        // Not a login the server can use: the browser hands it over, or the account connects again.
+    const after = (row) => ({ after_user: row.user_id, after_workspace: row.workspace_id, after_connection: row.connection_id });
+    await eachPage("publisher_legacy_logins_after", "publisher_legacy_logins", after, async (found) => {
+      for (const row of found) {
+        if (!ID.test(row.connection_id ?? "") || row.session?.oauth) continue;
+        try {
+          const save = () => vault.put(row.user_id, row.connection_id, row.platform, row.session, { replace: false });
+          // Strict: a limit that can't be read waits for the next look.
+          const turnedAway = await connectWithin({ vault, limits: accountLimits, userId: row.user_id, connectionId: row.connection_id, strict: true }, save);
+          if (turnedAway === null) kept++;
+        } catch {
+          // Not a login the server can use: the browser hands it over, or the account connects again.
+        }
       }
-    }
+    });
     return kept;
   }
 
@@ -807,6 +840,7 @@ export function createWorker({
     const cut = await db.abandonStale(iso(now() - STALE_SEND_MS), at, pool.goingIn("post_deliveries")).catch((error) => log.error("[publisher] couldn't settle cut-off sends", error));
     for (const row of cut ?? []) await cutOff(row);
     await replies.housekeep(pool.goingIn("post_replies")).catch((error) => log.error("[publisher] couldn't settle cut-off follow-ups", error instanceof Error ? error.message : error));
+    await vault.saveRenewed?.();
     return planned;
   }
 
@@ -849,6 +883,8 @@ export function createWorker({
     let timer;
     await Promise.race([idle(), new Promise((resolve) => (timer = setTimeout(resolve, ms)))]);
     clearTimeout(timer);
+    // Passes have stopped, and a renewed login not yet saved is lost with this process.
+    await vault.saveRenewed?.().catch((error) => log.error("[publisher] couldn't save a renewed login on the way out", error));
     return !pool.going;
   }
 

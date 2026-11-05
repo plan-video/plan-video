@@ -1,4 +1,10 @@
 {
+  "Cloud storage stopped sending the post's file.": "クラウドストレージが投稿のファイルの送信を停止しました。",
+  "LinkedIn is limiting posts from this account for today. Trying again tomorrow.": "LinkedIn が今日はこのアカウントの投稿を制限しています。明日もう一度試します。",
+  "That X community link isn't right. Use one like x.com/i/communities/123…, or leave it empty.": "その X コミュニティのリンクは正しくありません。x.com/i/communities/123… のようなリンクを使うか、空欄にしてください。",
+  "TikTok didn't renew the login. Trying again soon.": "TikTok のログインを更新できませんでした。まもなくもう一度試します。",
+  "LinkedIn didn't renew the login. Trying again soon.": "LinkedIn のログインを更新できませんでした。まもなくもう一度試します。",
+  "This follow-up's time passed over a day ago while the network was limiting posts, so it didn't go out.": "ネットワークが投稿を制限している間にこの続きの投稿の時刻から1日以上経過したため、投稿されませんでした。",
   "Drop files or folders here": "ここにファイルやフォルダをドロップ",
   "Remove {name}": "{name}を削除",
   "FILE": "ファイル",

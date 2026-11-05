@@ -63,9 +63,11 @@ changes() { # what installing $1 would change, one line each
 }
 
 healthy() {
-  local name=$1 since=$2 i
+  local name=$1 since=$2 i tries=30
   [ "$name" = monitor ] && return 0
-  for i in $(seq 1 30); do
+  # Its first pass plans whatever came due while it was restarting.
+  [ "$name" = publisher ] && tries=90
+  for i in $(seq 1 "$tries"); do
     if systemctl is-active --quiet "plan-video-$name"; then
       if [ "$name" = photos ]; then
         # A real picture: the unit's sandbox could let it start, yet stop it working.
@@ -86,9 +88,12 @@ healthy() {
         systemctl is-active --quiet "plan-video-$name" && return 0
         return 1
       fi
-      body=$(curl -fsS http://127.0.0.1:8794/api/publisher/health 2>/dev/null || true)
-      # Healthy once a pass has finished since the restart.
-      if [[ $body == *'"ok":true'* ]] && [[ $(sed -E 's/.*"lastPass":"([^"]+)".*/\1/' <<<"$body") > $since ]]; then return 0; fi
+      # Healthy once a pass has finished since the restart. Health may answer 503 for posts already failing or overdue, which
+      # aren't this deploy's doing: rolling back would undo the fix for them. A wrong key, secret or Node is.
+      body=$(curl -sS --max-time 10 http://127.0.0.1:8794/api/publisher/health 2>/dev/null || true)
+      local last
+      last=$(sed -nE 's/.*"lastPass":"([^"]+)".*/\1/p' <<<"$body")
+      if [[ -n $last && $last > $since ]] && ! grep -qE 'TOKEN_KEY|SENDER_SECRET|undici' <<<"$body"; then return 0; fi
     fi
     sleep 2
   done
@@ -112,6 +117,18 @@ restore() {
       mv "$DEST/$to/node_modules.previous" "$DEST/$to/node_modules"
     fi
   done
+  # Their old copies, or none where the old version had none: a bad new unit would keep the old code down.
+  local unit target
+  for unit in $(units_of "$name"); do
+    target=$(unit_target "$unit")
+    if [ -f "$old/units/${target#"$UNITS"/}" ]; then
+      install -D -m 644 "$old/units/${target#"$UNITS"/}" "$target"
+    else
+      [ "$RESTART" != 1 ] || [[ $target == *.service.d/* ]] || systemctl disable --quiet "$(basename "$target")" 2>/dev/null || true
+      rm -f "$target"
+    fi
+  done
+  [ "$RESTART" != 1 ] || systemctl daemon-reload
   rm -rf "$old"
   # Back to a publisher from before the gateway, which needs its port.
   if [ "$name" = publisher ] && [ "$RESTART" = 1 ] && [ ! -f "$DEST/plan-video-publisher/publisher/gateway-link.mjs" ]; then
@@ -142,7 +159,18 @@ deploy() {
     stamp=$(date -u +%Y%m%d-%H%M%S)
     backup="$BACKUPS/$name-$stamp.tgz"
     mkdir -p "$BACKUPS"
-    tar -czf "$backup" -C "$DEST" --exclude=node_modules --exclude='*.bak*' --exclude='backup-*' $existing
+    local kept unit target
+    kept=$(mktemp -d)
+    mkdir -p "$kept/units"
+    for unit in $(units_of "$name"); do
+      target=$(unit_target "$unit")
+      if [ -f "$target" ]; then
+        mkdir -p "$(dirname "$kept/units/${target#"$UNITS"/}")"
+        cp -p "$target" "$kept/units/${target#"$UNITS"/}"
+      fi
+    done
+    tar -czf "$backup" -C "$DEST" --exclude=node_modules --exclude='*.bak*' --exclude='backup-*' $existing -C "$kept" units
+    rm -rf "$kept"
   fi
 
   local pair from to owner synced
@@ -165,7 +193,7 @@ deploy() {
     node --check "$file" || { restore "$name" "$backup"; fail "$name: $file doesn't parse, so the previous version is back"; }
   done < <(for pair in $(parts "$name"); do find "$DEST/${pair#*:}" -name node_modules -prune -o -name '*.mjs' -print; done)
 
-  local unit reload=0 enable=()
+  local reload=0 enable=()
   for unit in $(units_of "$name"); do
     if ! cmp -s "$unit" "$(unit_target "$unit")"; then
       install -D -m 644 "$unit" "$(unit_target "$unit")"

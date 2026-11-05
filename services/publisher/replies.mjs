@@ -2,11 +2,13 @@
 // Each follow-up gets a post_replies row before it's sent, so none goes out twice; a row is made only once
 // the one before went out, so a failed follow-up stops the rest. Words are read from the post as it goes.
 
-import { PublishError } from "./errors.mjs";
+import { PublishError, finalWords } from "./errors.mjs";
+import { SETTLE_WAITS_MS, pause, withRetries } from "./retry.mjs";
 import { zoneOrUtc } from "./schedule.mjs";
 
 /** Follow-ups one post can have, as New post allows. */
 export const MAX_REPLIES = 10;
+const LIMIT_WAIT_MS = 24 * 60 * 60_000;
 /** Files one follow-up can carry: 4 pictures, or a video. */
 const MAX_FILES = 4;
 const FILE_WAIT_MS = 30 * 60_000;
@@ -19,6 +21,8 @@ const MAX_ATTEMPTS = BACKOFF_MS.length + 1;
 const STALE_MS = 30 * 60_000;
 const CHECK_EVERY_MS = 60_000;
 const TABLE_CHECK_MS = 10 * 60_000;
+/** About five minutes, for a database that's away: the post has gone out, and the rest of its thread hangs on this row. */
+const QUEUE_WAITS_MS = [5_000, 15_000, 40_000, 60_000, 180_000];
 
 const NAMES = { bluesky: "Bluesky", linkedin: "LinkedIn", x: "X" };
 
@@ -40,7 +44,7 @@ export function threadOf(post) {
 }
 
 /** Without post_replies in the database, nothing is sent and posts go out alone. */
-export function createReplies({ db, vault, networks, media, notices, postIn, memory, now = () => Date.now(), log = console }) {
+export function createReplies({ db, vault, networks, media, notices, postIn, memory, wait = pause, now = () => Date.now(), log = console }) {
   const iso = (time) => new Date(time).toISOString();
   let missingTable = false;
   let missingAt = 0;
@@ -74,18 +78,33 @@ export function createReplies({ db, vault, networks, media, notices, postIn, mem
     );
   }
 
-  async function start(delivery, post) {
-    if (!networks[delivery.platform]?.reply || !delivery.publish_id) return;
-    const [first] = threadOf(post);
-    if (!first) return;
+  /** Nothing would ever pick the thread up again without its row, so one that can't be made is told about. */
+  async function queueNext(delivery, step, delay, { post, zone }) {
+    const keep = async () => {
+      try {
+        await queue(delivery, step, delay);
+      } catch (error) {
+        if (!noTable(error)) throw error;
+      }
+    };
     try {
-      await queue(delivery, 0, first.delay);
+      await withRetries(keep, QUEUE_WAITS_MS, wait);
     } catch (error) {
-      if (!noTable(error)) log.error("[publisher] couldn't queue a follow-up", delivery.id, error instanceof Error ? error.message : error);
+      log.error("[publisher] couldn't queue a follow-up", delivery.id, error instanceof Error ? error.message : error);
+      const message = `Follow-up ${step + 1} of the thread didn't go out on ${NAMES[delivery.platform] ?? delivery.platform}. Something went wrong on plan.video's side.`;
+      await notices
+        ?.failed({ ...delivery, requested: false }, { post, zone, reply: true, unqueued: true, message })
+        .catch((problem) => log.error("[publisher] couldn't note a failed follow-up", delivery.id, problem instanceof Error ? problem.message : problem));
     }
   }
 
-  const settle = (row, values) => db.update("post_replies", { id: row.id }, { ...values, updated_at: iso(now()) });
+  async function start(delivery, post, zone) {
+    if (!networks[delivery.platform]?.reply || !delivery.publish_id) return;
+    const [first] = threadOf(post);
+    if (first) await queueNext(delivery, 0, first.delay, { post, zone });
+  }
+
+  const settle = (row, values) => withRetries(() => db.update("post_replies", { id: row.id }, { ...values, updated_at: iso(now()) }), SETTLE_WAITS_MS, wait);
 
   async function failed(row, error, { post, zone, delivery } = {}) {
     const message = error instanceof PublishError ? error.message : "Something went wrong on plan.video's side. Trying again soon.";
@@ -95,8 +114,8 @@ export function createReplies({ db, vault, networks, media, notices, postIn, mem
       await settle(row, { state: "queued", error: message, next_at: iso(now() + BACKOFF_MS[row.attempts - 1]) });
       return;
     }
-    await settle(row, { state: "failed", error: message });
-    const said = error instanceof PublishError ? message : "Something went wrong on plan.video's side.";
+    await settle(row, { state: "failed", error: finalWords(message) });
+    const said = error instanceof PublishError ? finalWords(message) : "Something went wrong on plan.video's side.";
     await notices
       ?.failed(
         { ...row, requested: false, due_at: delivery?.due_at ?? row.created_at },
@@ -157,7 +176,11 @@ export function createReplies({ db, vault, networks, media, notices, postIn, mem
         return;
       }
     } catch (error) {
-      // A limit that frees up later, like X's posts a day: it waits for then, and that wasn't a try.
+      // A limit that frees up later, like X's posts a day: it waits for then, and that wasn't a try. Not without end.
+      if (error instanceof PublishError && error.until && !error.retry && now() - (Date.parse(claimed.created_at) + (thread[row.step]?.delay ?? 0)) > LIMIT_WAIT_MS) {
+        await failed({ ...claimed, attempts: MAX_ATTEMPTS }, new PublishError("This follow-up's time passed over a day ago while the network was limiting posts, so it didn't go out."), { post, zone, delivery });
+        return;
+      }
       if (error instanceof PublishError && error.until) {
         await settle(claimed, { state: "queued", attempts: row.attempts, error: error.message, next_at: iso(Math.max(error.until, now() + CHECK_EVERY_MS)) });
         return;
@@ -169,7 +192,7 @@ export function createReplies({ db, vault, networks, media, notices, postIn, mem
     try {
       await settle(claimed, { state: "sent", publish_id: result.publishId ?? null, url: result.url ?? null, error: result.note ?? null });
       const next = thread[row.step + 1];
-      if (next) await queue(delivery, row.step + 1, next.delay);
+      if (next) await queueNext(delivery, row.step + 1, next.delay, { post, zone });
     } catch (error) {
       log.error("[publisher] couldn't keep a sent follow-up", claimed.id, error instanceof Error ? error.message : error);
     }

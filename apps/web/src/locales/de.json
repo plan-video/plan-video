@@ -1,4 +1,10 @@
 {
+  "Cloud storage stopped sending the post's file.": "Der Cloud-Speicher hat das Senden der Datei des Posts abgebrochen.",
+  "LinkedIn is limiting posts from this account for today. Trying again tomorrow.": "LinkedIn begrenzt heute die Posts dieses Kontos. Morgen wird es erneut versucht.",
+  "That X community link isn't right. Use one like x.com/i/communities/123…, or leave it empty.": "Dieser X-Community-Link stimmt nicht. Nutze einen wie x.com/i/communities/123… oder lass das Feld leer.",
+  "TikTok didn't renew the login. Trying again soon.": "TikTok hat die Anmeldung nicht erneuert. Es wird bald erneut versucht.",
+  "LinkedIn didn't renew the login. Trying again soon.": "LinkedIn hat die Anmeldung nicht erneuert. Es wird bald erneut versucht.",
+  "This follow-up's time passed over a day ago while the network was limiting posts, so it didn't go out.": "Der Zeitpunkt dieser Folgenachricht liegt über einen Tag zurück, während das Netzwerk Posts begrenzt hat. Deshalb wurde sie nicht veröffentlicht.",
   "Drop files or folders here": "Dateien oder Ordner hier ablegen",
   "Remove {name}": "{name} entfernen",
   "FILE": "DATEI",

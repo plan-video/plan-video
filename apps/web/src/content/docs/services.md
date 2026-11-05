@@ -110,7 +110,7 @@ mv /opt/node-v22.22.1-linux-x64 /opt/node-v22.22.1
 ```
  `services/deploy.sh publisher` lays it out this way and installs the unit with its drop-in. It only comes up healthy once it has its keys, below: make them, then `systemctl restart plan-video-publisher`.
 
-It reads `publisher.env`, `r2.env`, and each network's file. It sends each post the moment it's due, up to 16 at once, and looks for anything else due every 5 seconds. A restart lets the sends going finish first, for up to 30 seconds. It retries a failed send after 2, 10 and 30 minutes, and never sends one run twice.
+It reads `publisher.env`, `r2.env`, and each network's file. It sends each post the moment it's due, up to 16 at once, and looks for anything else due every 5 seconds. A restart lets the sends going finish first, for up to 15 minutes, and starts nothing new meanwhile: posts due in that time go out as soon as it's back. It retries a failed send after 2, 10 and 30 minutes, and never sends one run twice.
 
 ## Photos
 
