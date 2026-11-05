@@ -234,7 +234,7 @@ export function createNotices({ db, vault, mailer, publicUrl = "https://plan.vid
     const failed = new Set([...sends, ...followUps].filter((row) => row.state === "failed").map((row) => row.id));
     const kept = new Map(logins.map((row) => [row.connection_id, row.updated_at]));
     return notices.filter((item) =>
-      item.kind === "failed" ? failed.has(item.detail.delivery) : kept.has(item.detail.connection) && Date.parse(kept.get(item.detail.connection)) === Date.parse(item.detail.updated),
+      item.kind === "failed" ? item.detail.unqueued || failed.has(item.detail.delivery) : kept.has(item.detail.connection) && Date.parse(kept.get(item.detail.connection)) === Date.parse(item.detail.updated),
     );
   }
 
@@ -274,11 +274,13 @@ export function createNotices({ db, vault, mailer, publicUrl = "https://plan.vid
 
   return {
     /** Not when the person was watching: a Post now that fails on its first try fails in front of them. */
-    async failed(row, { post, zone, message, reply = false } = {}) {
+    /** `unqueued`: a follow-up that never got a row, so there's none to look at when it's time to email. */
+    async failed(row, { post, zone, message, reply = false, unqueued = false } = {}) {
       if (row.requested && row.attempts <= 1) return;
       await note(row.user_id, `failed:${row.id}:${iso(now())}`, "failed", {
         delivery: row.id,
         ...(reply ? { reply: true } : {}),
+        ...(unqueued ? { unqueued: true } : {}),
         post_id: row.post_id,
         post: postName(post),
         platform: row.platform,

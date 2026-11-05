@@ -9,6 +9,7 @@ import { fileIdsOf } from "./media.mjs";
 import { OVER_SCHEDULED, isWaiting, startOf, waitingUntil } from "./plans.mjs";
 import { createMemoryGate, createPool } from "./pool.mjs";
 import { createReplies } from "./replies.mjs";
+import { pause } from "./retry.mjs";
 import { dayAt, dueAtOf, nextRunAfter, runsBetween, zoneOrUtc } from "./schedule.mjs";
 
 /** Runs that came due longer ago than this (publisher down) fail with LATE instead of sending. */
@@ -107,13 +108,14 @@ export function createWorker({
   sendsAtOnce = SENDS_AT_ONCE,
   perUser = PER_USER,
   memoryBudget = MEMORY_BUDGET,
+  wait = pause,
   now = () => Date.now(),
   log = console,
 }) {
   const iso = (time) => new Date(time).toISOString();
   const pool = createPool({ size: sendsAtOnce, perUser, onFree: () => void dispatch() });
   const memory = createMemoryGate(memoryBudget);
-  const replies = createReplies({ db, vault, networks, media, notices, postIn, memory, now, log });
+  const replies = createReplies({ db, vault, networks, media, notices, postIn, memory, wait, now, log });
 
   function rowsFor(userId, workspaceId, connections, post, runs, { requested = false, late = false } = {}) {
     if (!isPost(post) || typeof workspaceId !== "string" || !workspaceId || workspaceId.length > 100) return [];
@@ -587,10 +589,10 @@ export function createWorker({
     }
     // The network has it now. If keeping that fails, the row stays as sending and
     // is later marked to be checked, rather than sent again.
-    await record(claimed, result, post).catch((error) => log.error("[publisher] couldn't keep a finished send", claimed.id, error));
+    await record(claimed, result, post, zone).catch((error) => log.error("[publisher] couldn't keep a finished send", claimed.id, error));
   }
 
-  async function record(row, result, post) {
+  async function record(row, result, post, zone) {
     if (result.state === "processing") {
       await settle(row, { state: "processing", publish_id: result.publishId, error: null, next_at: iso(now() + lookAgainIn(0)) });
       return;
@@ -605,7 +607,7 @@ export function createWorker({
       plug_checks: plugged ? 0 : PLUG_CHECKS,
     });
     if (sent) {
-      await replies.start(sent, post);
+      await replies.start(sent, post, zone);
       if (sent.occurrence === "once") await markPosted(sent);
     }
   }
@@ -675,7 +677,7 @@ export function createWorker({
     }
     // The network has it now. If keeping that fails, a post just made stays as
     // sending, like a send, and anything else is looked at again.
-    await record(row, result, post).catch((error) => log.error("[publisher] couldn't keep a finished send", row.id, error));
+    await record(row, result, post, zone).catch((error) => log.error("[publisher] couldn't keep a finished send", row.id, error));
   }
 
   async function plugOne(row) {
