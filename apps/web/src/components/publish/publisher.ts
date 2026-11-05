@@ -106,7 +106,7 @@ export async function sendPost(postId: string, userId: string | undefined, capti
     }
     // Scheduled with its time gone by, the publisher would send it once it syncs, after this said it failed. Asking still sends a draft.
     const now = allPosts().find((item) => item.id === postId);
-    const stopped = !!now && now.status === "scheduled" && timeIsUp(now) && !deliveryRows(postId).length;
+    const stopped = !!now && now.status === "scheduled" && timeIsUp(now) && !deliveryRows(postId).length && !Object.values(now.deliveries ?? {}).some((delivery) => delivery?.state === "sent");
     if (stopped) setEventStatus(postId, "draft");
     toast.error(t("Didn't post it"), {
       description: stopped ? `${t(message)} ${t("It's saved as a draft, so it won't go out by itself.")}` : t(message),

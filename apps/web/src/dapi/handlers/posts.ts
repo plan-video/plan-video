@@ -995,7 +995,7 @@ export const publishPost: ToolHandler<"publish_post"> = async ({ id, agreed }, c
   const saved = readBack(id);
   if (result === "sent") return postView(saved, warnings);
   if (shift && saved.status !== "posted") {
-    revisePost(id, { day: post.day, start: post.start, allDay: post.allDay });
+    revisePost(id, { day: post.day, start: post.start, allDay: post.allDay, status: post.status });
   }
   if (result === "busy") throw new DapiError("busy", "This post is already being published.");
   if (result === "needs-media") throw new DapiError("invalid-input", "Attach a video, or pictures for TikTok, before publishing.");

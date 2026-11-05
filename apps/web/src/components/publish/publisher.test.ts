@@ -83,6 +83,13 @@ describe("Post now that never reached the publisher", () => {
     expect(shared.handed).toEqual(["retried"]);
   });
 
+  test("a repeating post keeps going: one failed Post now doesn't end the series", async () => {
+    await scheduled("series", { repeat: "every:1:day" });
+    shared.online = false;
+    await sendPost("series", "user-1");
+    expect(statusOf("series")).toBe("scheduled");
+  });
+
   test("a post whose time is still ahead stays scheduled, and goes at that time", async () => {
     await scheduled("later", { at: new Date(Date.now() + 2 * 60 * 60_000) });
     shared.online = false;
