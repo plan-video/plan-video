@@ -510,11 +510,11 @@ function platformNotes(platform: SocialPlatform): string {
   const parts = [
     PUBLISHES.has(platform.id)
       ? platform.id === "youtube"
-        ? "Plan Video can upload a video here while the app is open."
+        ? "Plan Video can upload a video here."
         : platform.id === "tiktok"
-          ? `Plan Video can post here while the app is open: a video, or up to ${pictures} pictures as a photo post.`
-          : `Plan Video can post here while the app is open: the words, with the post's video or up to ${pictures} of its pictures.`
-      : "Kept on the calendar. Plan Video does not send to this platform.",
+          ? `Plan Video can post here: a video, or up to ${pictures} pictures as a photo post.`
+          : `Plan Video can post here: the words, with the post's video or up to ${pictures} of its pictures.`
+      : "Kept on the calendar. Plan Video doesn't send to this platform yet.",
   ];
   if (platform.title?.required) parts.push("A title is required.");
   if (!platform.kinds.includes("text")) parts.push("Needs a picture or a video.");
