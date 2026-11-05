@@ -533,15 +533,27 @@ export async function writeWorkspacePosts(
     await Promise.all([...eventRows.remove.map((id) => tx.store.delete(id)), ...eventRows.put.map((event) => tx.store.put(event)), tx.done]);
     const kept = eventRows.keptIds;
 
+    // Show the posts now; their videos can take a while to download.
     if (isActiveWorkspace(userId, workspaceId)) {
       postWrites++;
       if (loaded()) setStoredEvents(withUnsaved("event", storedEvents(), eventRows.rows));
     }
 
+    const existing = await database.getAll("media");
+    const had = new Map(existing.map((record) => [record.id, record]));
+    const downloads = new Map<string, File>();
+    for (const item of posts.media) {
+      // Deleted here since the sync read this browser's copy: not fetched back.
+      if (had.get(item.id)?.file || (read?.media.has(item.id) && !had.has(item.id))) continue;
+      const file = await fileFromCloud(item, scopeOf(workspaceId));
+      if (file) downloads.set(item.id, file);
+    }
+    // Read again in the write: files can be added here, or get their cloud copy, while the videos download.
     const mediaTx = database.transaction(["events", "media"], "readwrite");
     const mediaStore = mediaTx.objectStore("media");
     const [postsNow, records] = await Promise.all([mediaTx.objectStore("events").getAll(), mediaStore.getAll()]);
     const listed = new Set(postsNow.flatMap(everyFileOf));
+    const present = new Set(records.map((record) => record.id));
     const wanted = new Map(posts.media.map((item) => [item.id, item]));
     const changedHere = (record: MediaRecord) => !!read && read.media.get(record.id) !== mediaMark(record);
     const writes: Promise<unknown>[] = [];
@@ -552,43 +564,18 @@ export async function writeWorkspacePosts(
         if (!listed.has(record.id)) writes.push(mediaStore.delete(record.id));
         continue;
       }
-      if (record.file) writes.push(mediaStore.put({ ...record, cloud: item.cloud ?? record.cloud }));
+      const file = record.file ?? downloads.get(item.id);
+      if (file) writes.push(mediaStore.put({ ...record, file, cloud: item.cloud ?? record.cloud }));
+    }
+    for (const item of posts.media) {
+      // Deleted here meanwhile, or since the sync read this browser's copy: stays deleted.
+      if (present.has(item.id) || had.has(item.id) || read?.media.has(item.id)) continue;
+      const file = downloads.get(item.id);
+      if (file) writes.push(mediaStore.put({ id: item.id, file, ...(item.cloud ? { cloud: item.cloud } : {}) }));
     }
     await Promise.all([...writes, mediaTx.done]);
-    fetchingFiles = fetchingFiles.then(() => fetchPostFiles(userId, workspaceId, posts.media, read));
     return kept;
   });
-}
-
-let fetchingFiles: Promise<void> = Promise.resolve();
-
-export const postFilesFetched = () => fetchingFiles;
-
-/** Apart from the sync, one at a time: it needn't wait for videos, and each stays once it's here if the page closes or storage fills. */
-async function fetchPostFiles(userId: string, workspaceId: string, items: readonly AccountMedia[], read?: CalendarRead) {
-  const pass = async () => {
-    for (const item of items) {
-      const before = await withWorkspaceDb(userId, workspaceId, (database) => database.get("media", item.id));
-      // Deleted here since the sync read this browser's copy: not fetched back.
-      if (before?.file || (read?.media.has(item.id) && !before)) continue;
-      const file = await fileFromCloud(item, scopeOf(workspaceId));
-      if (!file) continue;
-      await withWorkspaceDb(userId, workspaceId, async (database) => {
-        const tx = database.transaction(["events", "media"], "readwrite");
-        const store = tx.objectStore("media");
-        const [posts, now] = await Promise.all([tx.objectStore("events").getAll(), store.get(item.id)]);
-        if (!now?.file && posts.some((post) => everyFileOf(post).includes(item.id))) await store.put({ ...now, id: item.id, file, ...(item.cloud ? { cloud: item.cloud } : {}) });
-        await tx.done;
-      });
-    }
-  };
-  try {
-    // Another tab of this browser already fetching them leaves this one nothing to do.
-    const locks = typeof navigator !== "undefined" ? navigator.locks : undefined;
-    await (locks ? locks.request(`plan.video.post-files.${userId}.${workspaceId}`, { ifAvailable: true }, (lock) => (lock ? pass() : undefined)) : pass());
-  } catch (error) {
-    console.warn("[posts] Stopped fetching a post's files", error);
-  }
 }
 
 export async function writeWorkspaceCalendar(
