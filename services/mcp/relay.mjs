@@ -15,6 +15,7 @@ const SLOW_TOOLS = new Set(["capture_frames", "schedule_post", "update_post", "c
 /** Publishing waits for the video to upload to every network on the post. */
 const PUBLISH_TIMEOUT_MS = 600_000;
 const PUBLISH_TOOLS = new Set(["publish_post"]);
+const LATE_ANSWER_MS = 5 * 60_000;
 /** One person rarely has more plan.video tabs open than this; past it the oldest goes. */
 const MAX_TABS_PER_USER = 8;
 
@@ -99,7 +100,7 @@ export class Relay {
 
   waitingOn(tab) {
     for (const call of this.#pending.values()) if (call.tab === tab) return true;
-    return false;
+    return tab.lateUntil > Date.now();
   }
 
   call(userId, tool, args) {
@@ -111,7 +112,11 @@ export class Relay {
     const ms = PUBLISH_TOOLS.has(tool) ? this.#publishTimeoutMs : SLOW_TOOLS.has(tool) ? this.#slowTimeoutMs : this.#timeoutMs;
     return new Promise((resolve, reject) => {
       const timer = setTimeout(
-        () => this.#settle(id, new RelayError(`The plan.video tab didn't answer within ${Math.round(ms / 1000)} seconds. It may be in the background or still at work; ask the user to bring it to the front, then check what was done before trying again.`)),
+        () => {
+          // A tab works through its calls in turn, so its answer can still be on the way.
+          tab.lateUntil = Date.now() + LATE_ANSWER_MS;
+          this.#settle(id, new RelayError(`The plan.video tab didn't answer within ${Math.round(ms / 1000)} seconds. It may be in the background or still at work; ask the user to bring it to the front, then check what was done before trying again.`));
+        },
         ms,
       );
       this.#pending.set(id, { tab, resolve, reject, timer });

@@ -154,3 +154,15 @@ test("only what JSON would build counts as values, not what a string says", () =
   // A string closed early doesn't hide what follows it, nor does an escape that isn't one.
   assert.equal(tooManyValues(Buffer.from(`{"text":"\\\\",${'"a":{},'.repeat(100_000)}"b":1}`)), true);
 });
+
+test("an answer that comes after its call timed out still counts as one the tab was asked for, for a while", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout", "Date"] });
+  const relay = new Relay({ timeoutMs: 1_000 });
+  const asked = relay.attach("alice", socket());
+  const call = relay.call("alice", "list_posts", {});
+  t.mock.timers.tick(1_000);
+  await assert.rejects(call);
+  assert.equal(relay.waitingOn(asked), true);
+  t.mock.timers.tick(5 * 60_000 + 1);
+  assert.equal(relay.waitingOn(asked), false);
+});
