@@ -88,6 +88,7 @@ import { projectRoute, useReturnHere } from "@/hooks/use-project-route";
 import { track } from "@/lib/analytics";
 import { cx } from "@/lib/cva";
 import { localized, msg, t } from "@/lib/i18n";
+import { warnBeforeLeaving } from "@/lib/leave-guard";
 import { paidToolsLocked } from "@/lib/paid-tools";
 import {
   captionLength,
@@ -289,6 +290,29 @@ const allMedia = () => [...post.media, ...Object.values(post.ownMedia).flatMap((
 /** Kept apart from allMedia: follow-ups don't decide the post's kind. */
 const threadMedia = () => post.thread.flatMap((reply) => reply.media);
 const keptReplies = () => post.thread.filter(replyHasContent).slice(0, MAX_REPLIES);
+
+const hasContent = () =>
+  post.media.length > 0 ||
+  post.project !== null ||
+  post.caption.trim().length > 0 ||
+  Object.keys(post.overrides).length > 0 ||
+  Object.keys(post.ownMedia).length > 0 ||
+  post.thread.some(replyHasContent);
+
+const fileMark = (item: PostMedia) => [item.file.name, item.file.size, item.file.lastModified];
+const contentMark = () =>
+  JSON.stringify([
+    post.caption,
+    post.overrides,
+    post.project?.key ?? null,
+    post.media.map(fileMark),
+    Object.entries(post.ownMedia).map(([id, own]) => [id, own?.items.map(fileMark)]),
+    post.thread.map((reply) => [reply.text, reply.media.map(fileMark)]),
+  ]);
+/** A saved post opened as it was has nothing to lose. */
+let savedMark: string | null = null;
+
+warnBeforeLeaving(() => hasContent() && contentMark() !== savedMark);
 
 /** Platforms can share a file, so one is only let go once nothing in the post holds it. */
 function releaseUnused(items: readonly PostMedia[]) {
@@ -515,6 +539,7 @@ async function loadPost(saved: StoredEvent, replace: boolean) {
       },
     }),
   );
+  savedMark = contentMark();
 }
 
 async function putFiles(files: File[]) {
@@ -826,14 +851,6 @@ export function DashboardNewPostView() {
     return null;
   };
 
-  const hasContent = () =>
-    post.media.length > 0 ||
-    post.project !== null ||
-    post.caption.trim().length > 0 ||
-    Object.keys(post.overrides).length > 0 ||
-    Object.keys(post.ownMedia).length > 0 ||
-    post.thread.some(replyHasContent);
-
   const toInbox = () => post.kind !== "story" && post.platforms.length > 0 && post.platforms.every((id) => id === "tiktok") && post.settings.tiktok.inbox;
   const livePlatforms = () => post.platforms.filter((id) => PUBLISHING_PLATFORMS.includes(id));
   const ready = () => post.platforms.length > 0 && errors().length === 0 && mediaErrors().length === 0 && !busy();
@@ -913,6 +930,7 @@ export function DashboardNewPostView() {
       toast.error(t("Could not save the post"), { description: t(error) });
       return null;
     }
+    savedMark = contentMark();
     keepThumbnail(id);
     if (post.platforms.includes("pinterest") && post.kind !== "story") rememberPinterestBoard(post.settings.pinterest.board);
     return { when, id };
