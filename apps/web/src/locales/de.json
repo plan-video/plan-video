@@ -3456,5 +3456,6 @@
   "Only a picture has a background to remove": "Nur bei Bildern lässt sich der Hintergrund entfernen",
   "Only a picture or footage can be upscaled": "Nur Bilder oder Videomaterial lassen sich hochskalieren",
   "Only footage can be scored": "Nur Videomaterial lässt sich vertonen",
-  "Generation": "Generierung"
+  "Generation": "Generierung",
+  "Reset columns": "Spalten zurücksetzen"
 }

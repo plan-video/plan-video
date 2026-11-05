@@ -3456,5 +3456,6 @@
   "Only a picture has a background to remove": "Tło można usunąć tylko z obrazu",
   "Only a picture or footage can be upscaled": "Rozdzielczość można zwiększyć tylko dla obrazu lub nagrania wideo",
   "Only footage can be scored": "Muzykę można dodać tylko do nagrania wideo",
-  "Generation": "Generowanie"
+  "Generation": "Generowanie",
+  "Reset columns": "Przywróć kolumny"
 }

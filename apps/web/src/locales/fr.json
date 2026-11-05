@@ -3456,5 +3456,6 @@
   "Only a picture has a background to remove": "Seule une image a un arrière-plan à supprimer",
   "Only a picture or footage can be upscaled": "Seule la résolution d’une image ou d’une vidéo peut être augmentée",
   "Only footage can be scored": "Seule une vidéo peut être mise en musique",
-  "Generation": "Génération"
+  "Generation": "Génération",
+  "Reset columns": "Réinitialiser les colonnes"
 }

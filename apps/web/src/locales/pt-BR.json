@@ -3456,5 +3456,6 @@
   "Only a picture has a background to remove": "Só imagens têm fundo para remover",
   "Only a picture or footage can be upscaled": "Só é possível aumentar a resolução de imagens ou vídeos",
   "Only footage can be scored": "Só vídeos podem receber trilha sonora",
-  "Generation": "Geração"
+  "Generation": "Geração",
+  "Reset columns": "Redefinir colunas"
 }

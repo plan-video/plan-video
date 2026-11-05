@@ -17,6 +17,8 @@ A LinkedIn Page's views are its impressions, from its 50 newest posts, and only 
 
 Pick a range, from today to all time or dates of your own, and it compares them with the period before. You can also look at one account from the list of accounts.
 
+In the table of posts, click a column's name to sort by it, or drag it to put the column somewhere else. With a keyboard, hold Alt (Option on a Mac) and press the left or right arrow. This browser remembers the order, and **Reset columns** puts it back.
+
 ## Post at your best times
 
 **Best times** uses your posts from the last six months, in your time zone. Click **Add to Auto-schedule** on a time to add it to [Auto-schedule](/docs/scheduling#auto-schedule).

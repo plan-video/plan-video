@@ -3456,5 +3456,6 @@
   "Only a picture has a background to remove": "只有图片才能抠像",
   "Only a picture or footage can be upscaled": "只有图片或视频素材才能高清放大",
   "Only footage can be scored": "只有视频素材才能添加音频",
-  "Generation": "生成内容"
+  "Generation": "生成内容",
+  "Reset columns": "重置列"
 }

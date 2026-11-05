@@ -3456,5 +3456,6 @@
   "Only a picture has a background to remove": "배경 제거는 사진에만 쓸 수 있어요",
   "Only a picture or footage can be upscaled": "업스케일은 사진이나 영상에만 쓸 수 있어요",
   "Only footage can be scored": "오디오는 영상에만 입힐 수 있어요",
-  "Generation": "생성 결과"
+  "Generation": "생성 결과",
+  "Reset columns": "열 초기화"
 }
