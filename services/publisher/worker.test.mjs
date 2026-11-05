@@ -1309,6 +1309,20 @@ test("trying a failed post again isn't held to the Free plan's Post now limit", 
   assert.deepEqual(sent, [`${SOMEONE}/fresh`]);
 });
 
+test("a new account on a post that already has a run is held to Post now's limit", async () => {
+  const { db, worker } = postedNow(SOMEONE, 1, FREE_POST_NOW_PER_DAY, 60_000);
+  db.tables.post_deliveries.push({ id: "other", user_id: SOMEONE, workspace_id: "w1", post_id: "fresh", occurrence: "once", platform: "bluesky", connection_id: "gone", state: "failed", error: "busy", attempts: 5, requested: false, due_at: new Date(T0 - 60_000).toISOString(), next_at: new Date(T0 - 60_000).toISOString(), created_at: new Date(T0 - 60_000).toISOString() });
+  await assert.rejects(worker.request(SOMEONE, "fresh"), { message: /Post now can send up to/ });
+});
+
+test("failed sends don't use up Post now's limit", async () => {
+  const { db, worker, sent } = postedNow(SOMEONE, 1, FREE_POST_NOW_PER_DAY, 60_000);
+  for (const row of db.tables.post_deliveries) row.state = "failed";
+  await worker.request(SOMEONE, "fresh");
+  await worker.tick();
+  assert.deepEqual(sent, [`${SOMEONE}/fresh`]);
+});
+
 test("one account's post that can't be read holds up nobody else's", async () => {
   for (const odd of [{ day: ["2026-10-27"] }, { start: ["08:00"] }, { platforms: { bluesky: true } }, { id: 7 }, { recurrence: "every:1:day", day: { y: 2026 } }]) {
     const { worker, sent, errors } = planned([onBluesky(SOMEONE, { id: "odd", ...odd }), onBluesky(EVERYONE_ELSE, { id: "fine" })]);

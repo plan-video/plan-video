@@ -336,7 +336,7 @@ export function createApi({ env, vault, worker, users, kick, bluesky, limits, db
       }
       // A link shows a stranger a name its maker typed, so a throwaway Free account can't make one. A shared workspace is on its owner's plan.
       const plan = await db.selectOne("user_data", { id: scope.actor }, "access_level");
-      if (!(typeof plan?.access_level === "number" && plan.access_level > 1)) throw new Refused(403, "Client links come with a paid plan. Upgrade in Billing to make one.");
+      if (!(typeof plan?.access_level === "number" && plan.access_level > 1)) throw new Refused(403, "Client links come with a paid plan.");
       json(res, 200, { link: await links.create({ owner: scope.actor, workspace, person: user.id, workspaceName: body.workspaceName, fromName: body.fromName }) });
       return;
     }

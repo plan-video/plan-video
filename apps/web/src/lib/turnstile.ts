@@ -9,20 +9,30 @@ type Turnstile = {
 
 const SCRIPT = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
 const MOST_WAIT_MS = 120_000;
+const MOST_LOAD_MS = 30_000;
 
 let loading: Promise<Turnstile> | undefined;
 
 function loadTurnstile(): Promise<Turnstile> {
   loading ??= new Promise<Turnstile>((resolve, reject) => {
     const script = document.createElement("script");
+    const stop = (why: string) => {
+      script.remove();
+      reject(new Error(why));
+    };
+    const timer = setTimeout(() => stop("Turnstile didn't load in time"), MOST_LOAD_MS);
     script.src = SCRIPT;
     script.async = true;
     script.onload = () => {
+      clearTimeout(timer);
       const found = (window as { turnstile?: Turnstile }).turnstile;
       if (found) resolve(found);
-      else reject(new Error("Turnstile didn't start"));
+      else stop("Turnstile didn't start");
     };
-    script.onerror = () => reject(new Error("Turnstile didn't load"));
+    script.onerror = () => {
+      clearTimeout(timer);
+      stop("Turnstile didn't load");
+    };
     document.head.append(script);
   }).catch((error: unknown) => {
     loading = undefined;

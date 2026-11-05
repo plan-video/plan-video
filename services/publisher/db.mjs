@@ -127,7 +127,7 @@ export function createDb({ url, serviceKey, fetch: send = fetch }) {
       return (await call("GET", `publisher_uploads?select=at&user_id=eq.${encodeURIComponent(userId)}&platform=eq.${encodeURIComponent(platform)}&at=gte.${since}&order=at.asc&limit=${limit}`)) ?? [];
     },
     async postNowSince(userId, since, limit) {
-      return (await call("GET", `post_deliveries?select=id&user_id=eq.${encodeURIComponent(userId)}&requested=is.true&created_at=gte.${since}&limit=${limit}`)) ?? [];
+      return (await call("GET", `post_deliveries?select=id&user_id=eq.${encodeURIComponent(userId)}&requested=is.true&state=neq.failed&created_at=gte.${since}&limit=${limit}`)) ?? [];
     },
     async noticesDue(before, after, tries, limit) {
       return (await call("GET", `publisher_notices?select=*&sent_at=is.null&created_at=lte.${before}&created_at=gte.${after}&attempts=lt.${tries}&order=created_at.asc&limit=${limit}`)) ?? [];

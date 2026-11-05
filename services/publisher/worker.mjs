@@ -424,8 +424,8 @@ export function createWorker({
     const rows = rowsFor(userId, found.workspace_id, found.connections ?? [], post, [{ occurrence, dueAt: now() }], { requested: true });
     if (!rows.length) throw new PublishError("None of this post's networks can publish from plan.video.");
     // Only what's new counts: trying a failed post again can't send anything more.
-    const known = await db.select("post_deliveries", { user_id: userId, post_id: postId, occurrence }, "id");
-    if (!known.length) await planLimits?.postNowAllowed(userId);
+    const known = await db.select("post_deliveries", { user_id: userId, post_id: postId, occurrence }, "platform,connection_id");
+    if (rows.some((row) => !known.some((item) => item.platform === row.platform && item.connection_id === row.connection_id))) await planLimits?.postNowAllowed(userId);
     await db.insertNew("post_deliveries", rows, "user_id,post_id,occurrence,platform,connection_id");
     // Anything that failed or is waiting goes now, with its tries counted afresh; anything sent stays sent.
     const existing = await db.select("post_deliveries", { user_id: userId, post_id: postId, occurrence }, "id,state,platform,connection_id");
