@@ -432,6 +432,26 @@ describe("the publisher", () => {
     assert.equal(gone.post, null);
   });
 
+  test("an account whose saved connections aren't a list stops nobody else's posts or logins", async () => {
+    const broken = await makeUser("broken");
+    const made = await insert(broken, broken.id, "w", post("broken-1", { status: "scheduled", platforms: ["x"] }));
+    assert.equal(made.status, 201, JSON.stringify(made.data));
+    const before = new Date(Date.now() + 1000).toISOString();
+    for (const connections of ["not-a-list", null, { a: 1 }, 7]) {
+      const saved = await saveOwner(broken, { slices: { w: { connections } } });
+      assert.ok(saved.status < 300, JSON.stringify(saved.data));
+      const due = await rpc(SERVICE, "publisher_due", { before, size: 1000 });
+      assert.ok(due.some((row) => row.user_id === owner.id));
+      assert.deepEqual(due.find((row) => row.user_id === broken.id).connections, []);
+      assert.ok(Array.isArray(await rpc(SERVICE, "publisher_posts_after", { size: 1000 })));
+      assert.ok(Array.isArray(await rpc(SERVICE, "publisher_legacy_logins_after", { size: 1000 })));
+    }
+    const saved = await saveOwner(broken, { slices: "not-an-object" });
+    assert.ok(saved.status < 300, JSON.stringify(saved.data));
+    assert.ok(Array.isArray(await rpc(SERVICE, "publisher_legacy_logins_after", { size: 1000 })));
+    assert.ok(Array.isArray(await rpc(SERVICE, "publisher_legacy_logins")));
+  });
+
   test("the publisher keeps its next look only for a post unchanged since it read it", async () => {
     const row = await one(owner.id, "own-1");
     const later = "2030-01-01T09:00:00.000Z";
