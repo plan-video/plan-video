@@ -4,6 +4,7 @@
 
 // The project token is public by design.
 
+import { scrubAddressFields } from "@/lib/sentry-scrub";
 import type { PostHog } from "posthog-js";
 
 const PROJECT_TOKEN = "phc_AzigqMXbwUHXEYRR9KVeYkzt6nGXszSnUtVYAvBqTJUb";
@@ -34,6 +35,14 @@ export function startPostHog() {
       defaults: "2026-05-30",
       person_profiles: "identified_only",
       disable_session_recording: true,
+      // An address can be a client link or a shared post, which work for whoever has them.
+      before_send: (event) => {
+        if (!event) return event;
+        event.properties = scrubAddressFields(event.properties);
+        if (event.$set) event.$set = scrubAddressFields(event.$set);
+        if (event.$set_once) event.$set_once = scrubAddressFields(event.$set_once);
+        return event;
+      },
     });
     client = posthog;
     if (!allowed) {
