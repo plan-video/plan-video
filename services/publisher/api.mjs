@@ -151,7 +151,8 @@ export function createApi({ env, vault, worker, users, kick, bluesky, limits, db
   /** `workspace` is set only for someone acting for another owner. */
   async function scopeOf(req, user, body) {
     if (body.team === undefined || body.team === null) return { actor: user.id, role: "owner" };
-    const owner = typeof body.team.owner === "string" ? body.team.owner : "";
+    // Lowercase as the database stores it: a uuid matches in either case there, but a login is sealed to this exact text.
+    const owner = typeof body.team.owner === "string" ? body.team.owner.toLowerCase() : "";
     const workspace = typeof body.team.workspace === "string" ? body.team.workspace : "";
     if (!UUID.test(owner) || !ID.test(workspace)) throw new Refused(400, "That isn't a workspace.");
     const access = await users.access(req, owner, workspace);

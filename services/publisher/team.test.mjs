@@ -43,7 +43,8 @@ function setup() {
     from: async (req) => ({ id: req.headers.authorization.slice(7) }),
     access: async (req, owner, workspace) => {
       const person = req.headers.authorization.slice(7);
-      const role = owner === OWNER ? ROLES[`${person}:${workspace}`] : undefined;
+      // Postgres reads a uuid in either case.
+      const role = owner.toLowerCase() === OWNER ? ROLES[`${person}:${workspace}`] : undefined;
       return role ? { role, level: 3 } : null;
     },
   };
@@ -107,6 +108,11 @@ test("only the owner and admins connect and remove accounts, and only in their w
   assert.equal((await ask(ADMIN, "login/save", { team: team(), connectionId: "c-new", platform: "tiktok", session })).status, 200);
   assert.ok(db.tables.social_tokens.some((row) => row.user_id === OWNER && row.connection_id === "c-new"));
   assert.ok(!db.tables.social_tokens.some((row) => row.user_id === ADMIN));
+
+  const shouted = { ...team(), owner: OWNER.toUpperCase() };
+  assert.equal((await ask(ADMIN, "login/save", { team: shouted, connectionId: "c-shouted", platform: "tiktok", session })).status, 200);
+  assert.ok(db.tables.social_tokens.some((row) => row.user_id === OWNER && row.connection_id === "c-shouted"));
+  assert.equal((await vault.fresh(OWNER, "c-shouted")).session.accessToken, session.accessToken);
 
   assert.equal((await ask(ADMIN, "login/save", { team: team(), connectionId: "c-private", platform: "tiktok", session })).status, 403);
   assert.equal((await ask(ADMIN, "login/forget", { team: team(), connectionId: "c-private" })).status, 403);
