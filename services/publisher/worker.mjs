@@ -445,6 +445,19 @@ export function createWorker({
     return db.select("post_deliveries", { user_id: userId, post_id: postId, occurrence }, "*");
   }
 
+  // Only an account still connected: one disconnected meanwhile fails, so someone hears to reconnect it.
+  const takenOff = (row, post, connections) =>
+    !!post?.platforms?.includes(row.platform) &&
+    !post.paused &&
+    connections.some((item) => item.id === row.connection_id && item.platform === row.platform) &&
+    !accountsFor(post, row.platform, connections).includes(row.connection_id);
+
+  // Removed, not failed: a failed row would keep the post from counting as posted once the new account has sent it.
+  async function dropTakenOff(row) {
+    await db.delete("post_deliveries", { id: row.id });
+    if (row.occurrence === "once") await markPosted(row);
+  }
+
   function stillWanted(row, post, zone) {
     if (!post) return "The post was deleted before it went out.";
     if (post.paused) return "The post was paused before it went out.";
@@ -530,6 +543,7 @@ export function createWorker({
           return;
         }
       }
+      if (takenOff(claimed, post, found?.connections ?? [])) return await dropTakenOff(claimed);
       const unwanted = stillWanted(claimed, post, zone);
       if (unwanted) {
         // Never reached the network, so undoing the pause or the move sends it after all.
@@ -668,6 +682,7 @@ export function createWorker({
           await keep({ id: row.id, state: "processing" }, () => ({ state: "queued", attempts: 0, publish_id: null, error: null, due_at: iso(dueAt), next_at: iso(dueAt), updated_at: iso(now()) }));
           return;
         }
+        if (takenOff(row, post, found?.connections ?? [])) return await dropTakenOff(row);
         const unwanted = stillWanted(row, post, zone);
         if (unwanted) {
           await settle(row, { state: "failed", error: unwanted });
