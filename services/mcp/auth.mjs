@@ -64,7 +64,8 @@ export function createAuth({ supabaseUrl, supabaseAnonKey, fetch: fetchImpl = fe
       if (typeof found?.id !== "string" || !UUID.test(found.id) || payload.sub !== found.id) return null;
       entry = { userId: found.id, clientId: null };
     }
-    entry.until = Math.min(Date.now() + CACHE_MS, typeof payload.exp === "number" ? payload.exp * 1000 : 0);
+    entry.expires = typeof payload.exp === "number" ? payload.exp * 1000 : 0;
+    entry.until = Math.min(Date.now() + CACHE_MS, entry.expires);
     if (entry.until > Date.now()) cache.set(token, entry);
     return entry;
   }

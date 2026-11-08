@@ -78,7 +78,8 @@ export function createPlanLimits({ db, now = () => Date.now(), log = console, yo
   /** Null until read. Only the publisher writes publisher_waiting. */
   let known = null;
   const keyOf = (row) => `${row.user_id}|${row.workspace_id}|${row.post_id}|${row.connection_id}`;
-  const accountOf = (row) => `${row.user_id}|${row.workspace_id}|${row.connection_id}`;
+  // By login, which is the owner's and the connection's: nothing stops an owner listing one in several workspaces.
+  const accountOf = (row) => `${row.user_id}|${row.connection_id}`;
   const postOf = (row) => `${row.user_id}|${row.workspace_id}|${row.post_id}`;
   const iso = (time) => (time === null ? null : new Date(time).toISOString());
   const keptRow = ({ until, seen_at: seen, ...row }) => ({ ...row, until: until ? Date.parse(until) : null, seenAt: seen ? Date.parse(seen) : 0 });
@@ -137,6 +138,14 @@ export function createPlanLimits({ db, now = () => Date.now(), log = console, yo
         const [{ user_id, workspace_id, post_id }] = rows;
         await db.delete("publisher_waiting", { user_id, workspace_id, post_id, connection_id: rows.map((row) => row.connection_id) });
         for (const row of rows) known.delete(keyOf(row));
+      }
+
+      // Back to waiting from a day gone by is an arrival, as the end of a pause is, or parking posts there would make room for more.
+      for (const entry of entries) {
+        const row = known.get(keyOf(entry));
+        if (row?.over !== false || !entry.waiting || row.until === null || row.until >= at || row.until === (entry.until ?? null)) continue;
+        await db.delete("publisher_waiting", { user_id: row.user_id, workspace_id: row.workspace_id, post_id: row.post_id, connection_id: [row.connection_id] });
+        known.delete(keyOf(entry));
       }
 
       // A post kept since it arrived waits as long as it says now, or, when it wasn't looked at, until when it said last. Kept in one write.

@@ -12,6 +12,29 @@ export function scrubUrl(url: string): string {
   return url.replace(/[?#].*$/s, "").replace(/^((?:[a-z]+:\/\/[^/]+)?)(.*)$/s, (_, origin: string, path: string) => origin + path.replace(LINK_IN_PATH, "/$1/[id]"));
 }
 
+/** Analytics also need the campaign a visit came from. */
+export function analyticsUrl(url: string): string {
+  const query = new URLSearchParams(/\?([^#]*)/.exec(url)?.[1] ?? "");
+  const campaign = new URLSearchParams([...query].filter(([name]) => name.startsWith("utm_"))).toString();
+  return scrubUrl(url) + (campaign ? `?${campaign}` : "");
+}
+
+const ADDRESS_FIELD = /(url|referrer|pathname)$/i;
+
+const scrubElementAddress = (element: Record<string, unknown>) =>
+  Object.fromEntries(Object.entries(element).map(([name, value]) => [name, typeof value === "string" && /href$/i.test(name) ? analyticsUrl(value) : value]));
+
+/** Page events carry the address under several names, such as `$current_url` and `$initial_referrer`. */
+export function scrubAddressFields<T extends Record<string, unknown>>(fields: T): T {
+  return Object.fromEntries(
+    Object.entries(fields).map(([name, value]) => {
+      if (name === "$elements_chain" && typeof value === "string") return [name, value.replace(/href="([^"]*)"/g, (_, address: string) => `href="${analyticsUrl(address)}"`)];
+      if (name === "$elements" && Array.isArray(value)) return [name, value.map((element: Record<string, unknown>) => scrubElementAddress(element))];
+      return [name, typeof value === "string" && ADDRESS_FIELD.test(name) ? analyticsUrl(value) : value];
+    }),
+  ) as T;
+}
+
 const scrubWords = (words: string) => words.replace(ADDRESS, scrubUrl);
 
 /** What was logged can be anything, so it keeps only its addresses' safe parts, at any depth. */

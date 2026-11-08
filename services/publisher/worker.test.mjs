@@ -97,6 +97,16 @@ test("two publishers looking at the same moment send a due post once", async () 
   assert.deepEqual(db.tables.post_deliveries.map((row) => row.state), ["sent", "sent"]);
 });
 
+test("a delivery records the files it carried, its follow-ups' too", async () => {
+  const entry = scheduled({ platforms: ["bluesky"], files: ["p1", "p1_a"], thread: [{ text: "More", files: ["p1_r", "other_x"] }] });
+  entry.connections = [{ id: "bs1", platform: "bluesky" }];
+  const { db, worker, setFile } = setup({ posts: [entry], file: picture("p1") });
+  setFile(picture("p1_a"), "p1_a");
+  await worker.tick();
+  assert.equal(db.tables.post_deliveries[0].state, "sent");
+  assert.deepEqual(db.tables.post_deliveries[0].files, ["p1", "p1_a", "p1_r"]);
+});
+
 test("each workspace's posts go out from its own accounts", async () => {
   const theirs = { ...scheduled({ id: "p0", title: "Theirs", platforms: ["bluesky"] }), workspace_id: "w0", connections: [{ id: "bs0", platform: "bluesky" }] };
   const { worker, calls } = setup({ posts: [theirs, scheduled()] });
@@ -217,6 +227,54 @@ test("a post whose account was removed fails instead of going out from the one l
   advance(30_000);
   await worker.tick();
   assert.deepEqual(calls.map((call) => call.connection), ["yt1", "tt1"]);
+});
+
+test("a delivery waiting to try again doesn't go out from an account taken off the post, but still says when one was disconnected", async () => {
+  let busy = true;
+  const send = () => {
+    if (busy) throw new PublishError("TikTok is busy.", { retry: true });
+    return { state: "sent", publishId: "tiktok-id" };
+  };
+  const swapped = scheduled({ platforms: ["tiktok"], accounts: { tiktok: ["tt1"] } });
+  swapped.connections = [...swapped.connections, { id: "tt2", platform: "tiktok" }];
+  const first = setup({ posts: [swapped], send });
+  await first.worker.tick();
+  busy = false;
+  swapped.post.accounts = { tiktok: ["tt2"] };
+  first.advance(10 * 60_000);
+  await first.worker.tick();
+  assert.deepEqual(first.calls.slice(1).map((call) => call.connection), ["tt2"]);
+  assert.deepEqual(first.db.tables.post_deliveries.map((row) => row.connection_id), ["tt2"]);
+
+  busy = true;
+  const dropped = scheduled({ platforms: ["tiktok"], accounts: { tiktok: ["tt1"] } });
+  const second = setup({ posts: [dropped], send });
+  await second.worker.tick();
+  busy = false;
+  dropped.connections = dropped.connections.filter((item) => item.id !== "tt1");
+  second.advance(10 * 60_000);
+  await second.worker.tick();
+  assert.equal(second.db.tables.post_deliveries.length, 1);
+});
+
+test("a post isn't marked as posted while the account it was moved to hasn't been planned yet", async () => {
+  let busy = true;
+  const send = (name) => {
+    if (name === "tiktok" && busy) throw new PublishError("TikTok is busy.", { retry: true });
+    return { state: "sent", publishId: `${name}-id` };
+  };
+  const entry = scheduled({ accounts: { tiktok: ["tt1"], youtube: ["yt1"] } });
+  entry.connections = [...entry.connections, { id: "tt2", platform: "tiktok" }];
+  const { worker, calls, advance } = setup({ posts: [entry], send });
+  await worker.tick();
+  busy = false;
+  entry.post.accounts = { tiktok: ["tt2"], youtube: ["yt1"] };
+  advance(10 * 60_000);
+  await worker.dispatch();
+  assert.equal(entry.post.status, "scheduled");
+  await worker.tick();
+  assert.ok(calls.some((call) => call.connection === "tt2"));
+  assert.equal(entry.post.status, "posted");
 });
 
 test("a send that may work later is tried again with a wait, then fails for good", async () => {

@@ -112,6 +112,12 @@ test("a file that isn't a picture, or is far too big to be one, can't be made an
   assert.equal((await shapeOf(await make("tiktok", await picture(40, 30)))).format, "jpeg");
 });
 
+test("a big progressive JPEG, which has to be held whole to decode, isn't worked on; a normal one is", async () => {
+  const big = (progressive) => sharp({ create: { width: 7000, height: 7500, channels: 3, background: { r: 30, g: 90, b: 200 } } }).jpeg({ quality: 50, progressive }).toBuffer();
+  await assert.rejects(make("tiktok", await big(true)), cantBeMade);
+  assert.equal((await shapeOf(await make("tiktok", await sharp({ create: { width: 1200, height: 800, channels: 3, background: { r: 30, g: 90, b: 200 } } }).jpeg({ progressive: true }).toBuffer()))).format, "jpeg");
+});
+
 test("only the shapes it knows are answered", async () => {
   assert.equal((await fetch(`${url}/`)).status, 404);
   assert.equal((await fetch(`${url}/tiktok`)).status, 404);

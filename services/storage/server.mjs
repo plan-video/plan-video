@@ -183,7 +183,8 @@ const teams = new Map();
 
 async function teamActor(req, user, body) {
   const team = body?.team;
-  const owner = typeof team?.owner === "string" ? team.owner : "";
+  // Lowercase as the database stores it: files, limits and holds are all kept under this text.
+  const owner = typeof team?.owner === "string" ? team.owner.toLowerCase() : "";
   const workspace = typeof team?.workspace === "string" ? team.workspace : "";
   if (!UUID.test(owner) || !ID.test(workspace)) throw new Refused(400, "That isn't a workspace.");
   // Every purpose the request names, at the top and in each target. Only settle names none: it moves posts.
@@ -386,12 +387,14 @@ async function rowsAbout(req, posts, pathFor) {
 async function sentFiles(req, ownerId, ids) {
   const parents = new Map(ids.map((id) => [id, parentOf(id)]));
   const asked = [...new Set(ids.flatMap((id) => [id, parents.get(id) ?? id]))];
-  const deliveries = await rowsAbout(req, asked, (posts) => `/rest/v1/post_deliveries?select=post_id&state=eq.sent&user_id=eq.${ownerId}&post_id=in.(${posts})`);
+  const deliveries = await rowsAbout(req, asked, (posts) => `/rest/v1/post_deliveries?select=post_id,files&state=eq.sent&user_id=eq.${ownerId}&post_id=in.(${posts})`);
   const went = new Set(deliveries.map((row) => row?.post_id));
+  // What the publisher recorded as it went: a post can still be edited after that, so what it lists now proves nothing alone.
+  const carried = new Set(deliveries.flatMap((row) => (Array.isArray(row?.files) ? row.files : [])));
   const wentParents = [...new Set(ids.map((id) => parents.get(id)).filter((post) => went.has(post)))];
   const rows = await rowsAbout(req, wentParents, (posts) => `/rest/v1/posts?select=id,file_ids&owner_id=eq.${ownerId}&id=in.(${posts})`);
   const listed = new Map(rows.map((row) => [row?.id, Array.isArray(row?.file_ids) ? row.file_ids : []]));
-  return new Set(ids.filter((id) => went.has(id) || listed.get(parents.get(id))?.includes(id)));
+  return new Set(ids.filter((id) => went.has(id) || (carried.has(id) && listed.get(parents.get(id))?.includes(id))));
 }
 
 async function uploadUrl(user, body, req) {

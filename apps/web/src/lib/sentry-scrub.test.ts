@@ -4,7 +4,7 @@
 
 import { describe, expect, test } from "vitest";
 
-import { scrubBreadcrumb, scrubEvent, scrubUrl } from "./sentry-scrub";
+import { analyticsUrl, scrubAddressFields, scrubBreadcrumb, scrubEvent, scrubUrl } from "./sentry-scrub";
 
 describe("what goes to the error reports", () => {
   test.each([
@@ -53,5 +53,25 @@ describe("what goes to the error reports", () => {
     expect(crumb.data).toEqual({ from: "/connect/[id]", to: "/x/callback" });
     expect(scrubBreadcrumb({ category: "fetch", data: { url: "https://files.test/a?sig=abc", method: "PUT" } }).data).toEqual({ url: "https://files.test/a", method: "PUT" });
     expect(scrubBreadcrumb({ category: "console", message: "Opened https://plan.video/p/s3cret-id now" }).message).toBe("Opened https://plan.video/p/[id] now");
+  });
+});
+
+describe("what goes to analytics", () => {
+  test("hides links and sign-in codes, and keeps campaign tags", () => {
+    expect(analyticsUrl("https://plan.video/connect/s3cret?utm_source=mail&x=1#top")).toBe("https://plan.video/connect/[id]?utm_source=mail");
+    expect(analyticsUrl("https://plan.video/tiktok/callback?code=abc")).toBe("https://plan.video/tiktok/callback");
+    expect(analyticsUrl("/p/s3cret")).toBe("/p/[id]");
+  });
+
+  test("cleans a clicked link's address out of what autocapture records", () => {
+    const chain = 'a:text="Open"attr__href="https://plan.video/connect/s3cret?x=1"href="https://plan.video/p/s3cret";div:nth-child="1"';
+    const fields = scrubAddressFields({ $elements_chain: chain, $elements: [{ tag_name: "a", attr__href: "/connect/s3cret", href: "/p/s3cret" }, { tag_name: "div" }] });
+    expect(fields.$elements_chain).toBe('a:text="Open"attr__href="https://plan.video/connect/[id]"href="https://plan.video/p/[id]";div:nth-child="1"');
+    expect(fields.$elements).toEqual([{ tag_name: "a", attr__href: "/connect/[id]", href: "/p/[id]" }, { tag_name: "div" }]);
+  });
+
+  test("cleans every address a page event carries, and nothing else", () => {
+    const fields = { $current_url: "https://plan.video/p/s3cret", $pathname: "/connect/s3cret", $initial_referrer: "https://a.test/?code=1", plan: "/p/not-an-address-field" };
+    expect(scrubAddressFields(fields)).toEqual({ $current_url: "https://plan.video/p/[id]", $pathname: "/connect/[id]", $initial_referrer: "https://a.test/", plan: "/p/not-an-address-field" });
   });
 });

@@ -174,6 +174,15 @@ test("one address can hold only 20 sockets that haven't said hello", async () =>
   await Promise.all([...open, again].map(closed));
 });
 
+test("addresses in one IPv6 /64 count as one", async () => {
+  const open = [];
+  for (let i = 1; i <= 20; i++) open.push(await openTab(`2001:db8:aa:bb::${i.toString(16)}`));
+  assert.ok(open.every((ws) => ws instanceof WebSocket));
+  assert.equal(await openTab("2001:db8:aa:bb:ffff::1"), 429);
+  for (const ws of open) ws.close();
+  await Promise.all(open.map(closed));
+});
+
 test("only 500 sockets in all may be waiting to say hello", async () => {
   const open = [];
   for (let n = 0; n < 25; n++) {
@@ -195,6 +204,30 @@ test("a socket that never says hello is closed after 10 seconds", { timeout: 15_
   assert.equal(await closed(ws), 4401);
   const ms = Date.now() - opened;
   assert.ok(ms >= 9_500 && ms < 11_500, `closed after ${ms} ms`);
+});
+
+test("a tab's socket ends with its sign-in, unless it shows a new one by then that's still its own", { timeout: 15_000 }, async () => {
+  const soon = () => token({ sub: ALICE, exp: Math.floor(Date.now() / 1000) + 2, jti: randomBytes(4).toString("hex") });
+  const signedIn = async (ip) => {
+    const tab = await openTab(ip);
+    const ready = new Promise((resolve) => tab.once("message", resolve));
+    tab.send(JSON.stringify({ type: "hello", token: soon() }));
+    await ready;
+    return tab;
+  };
+  const left = await signedIn("203.0.113.40");
+  const renewed = await signedIn("203.0.113.41");
+  const stranger = await signedIn("203.0.113.42");
+  renewed.send(JSON.stringify({ type: "token", token: token({ sub: ALICE, jti: "fresh" }) }));
+  stranger.send(JSON.stringify({ type: "token", token: token({ sub: "someone-else" }) }));
+  assert.equal(await closed(stranger), 4401);
+  assert.equal(await closed(left), 4401);
+  const pong = new Promise((resolve) => renewed.once("pong", resolve));
+  renewed.ping();
+  await pong;
+  assert.equal(renewed.readyState, WebSocket.OPEN);
+  renewed.close();
+  await closed(renewed);
 });
 
 test("a signed-in tab answers an agent's call with a big result, end to end", async () => {

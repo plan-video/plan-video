@@ -4,6 +4,7 @@
 
 // Loads only after consent and only on plan.video, so desktop, dev and preview deploys stay out of the property.
 
+import { analyticsUrl } from "@/lib/sentry-scrub";
 import { createSignal } from "solid-js";
 
 import { startPostHog, stopPostHog } from "@/lib/posthog";
@@ -64,6 +65,9 @@ function loadGoogleAnalytics() {
   gtag("js", new Date());
   gtag("config", MEASUREMENT_ID, {
     send_page_view: true,
+    // An address can be a client link or a shared post, which work for whoever has them.
+    page_location: analyticsUrl(window.location.href),
+    page_referrer: analyticsUrl(document.referrer),
     cookie_domain: "plan.video",
     allow_google_signals: false,
     allow_ad_personalization_signals: false,

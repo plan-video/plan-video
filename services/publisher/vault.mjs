@@ -220,11 +220,12 @@ export function createVault({ db, key, env, wait = pause, log = console }) {
     return { platform: row.platform, session: session.oauth ? { ...session, owner: userId } : session, sealed: row.sealed };
   }
 
-  async function write(userId, connectionId, platform, session) {
+  async function write(userId, connectionId, platform, session, workspace) {
     await db.upsert("social_tokens", {
       user_id: userId,
       connection_id: connectionId,
       platform,
+      ...(workspace ? { workspace_id: workspace } : {}),
       sealed: box.seal(session, binding(userId, connectionId)),
       updated_at: new Date().toISOString(),
     }, "user_id,connection_id");
@@ -272,15 +273,17 @@ export function createVault({ db, key, env, wait = pause, log = console }) {
      * A login just made replaces the one kept; an older copy only fills a gap, since the one kept may
      * have been refreshed since and some networks accept only the newest.
      */
-    async put(userId, connectionId, platform, value, { replace = true, allowOAuth = false } = {}) {
+    /** `workspace` is where an admin connected it: an admin can't list a login that isn't from their workspace. */
+    async put(userId, connectionId, platform, value, { replace = true, allowOAuth = false, workspace } = {}) {
       const session = cleanSession(platform, value, { allowOAuth });
       if (!session) throw new PublishError("That isn't a login plan.video can keep.");
-      if (replace) await write(userId, connectionId, platform, session);
+      if (replace) await write(userId, connectionId, platform, session, workspace);
       else {
         await db.insertNew("social_tokens", [{
           user_id: userId,
           connection_id: connectionId,
           platform,
+          ...(workspace ? { workspace_id: workspace } : {}),
           sealed: box.seal(session, binding(userId, connectionId)),
           updated_at: new Date().toISOString(),
         }], "user_id,connection_id");

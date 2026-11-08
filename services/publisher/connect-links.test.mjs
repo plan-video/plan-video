@@ -95,7 +95,8 @@ async function setup(t, { level = 2, limit = 40, connections = [] } = {}) {
       this.started.push({ owner, handle });
       return "https://bsky.social/oauth/authorize?x=1";
     },
-    async callback(holder) {
+    async callback(holder, _query, browser) {
+      this.finishedIn = browser;
       const until = String(Date.now() + 15 * 60_000);
       const nonce = "ab".repeat(12);
       return { did: DID, ticket: `${until}.${nonce}.${mac(holder, DID, until, nonce)}` };
@@ -245,10 +246,11 @@ test("a Facebook login keeps each Page shared, and Bluesky's sign-in starts and 
   const pages = await ask(null, "connect-link/exchange", { link, network: "facebook", code: "c", redirectUri: "https://plan.video/facebook/callback" });
   assert.equal(pages.status, 200, pages.error);
   assert.deepEqual(pages.accounts.map((account) => account.handle), ["page 1001", "page 1002"]);
-  const started = await ask(null, "connect-link/authorize", { link, network: "bluesky", handle: "@acme.bsky.social" });
+  const started = await ask(null, "connect-link/authorize", { link, network: "bluesky", handle: "@acme.bsky.social", state: "tab-0123456789abcdef" });
   assert.equal(started.status, 200, started.error);
   assert.deepEqual(bluesky.started, [{ owner: OWNER, handle: "acme.bsky.social" }]);
-  const signedIn = await ask(null, "connect-link/exchange", { link, network: "bluesky", query: "code=c&state=s" });
+  const signedIn = await ask(null, "connect-link/exchange", { link, network: "bluesky", query: "code=c&state=s", state: "tab-0123456789abcdef" });
+  assert.equal(bluesky.finishedIn, "tab-0123456789abcdef");
   assert.equal(signedIn.status, 200, signedIn.error);
   const sky = brand().find((row) => row.platform === "bluesky");
   assert.deepEqual(sky.bluesky, { did: DID, pds: "", oauth: true, server: true });

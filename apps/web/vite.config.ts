@@ -193,6 +193,8 @@ export default defineConfig(async ({ mode, command }): Promise<UserConfig> => {
       // Killfeed icons live at the repo root (`assets/killfeed`), outside this app.
       fs: {
         allow: [resolve(__dirname, '../..')],
+        // Setting this replaces Vite's own list, so that comes first.
+        deny: ['.env', '.env.*', '*.{crt,pem}', '**/.git/**', 'server.env'],
       },
       headers: {
         'Cross-Origin-Opener-Policy': 'same-origin',

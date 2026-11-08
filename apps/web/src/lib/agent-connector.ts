@@ -28,7 +28,9 @@ export function startAgentConnector(user: () => User | null): () => void {
       beginSyncing(person);
     }
     const confirm = (request: Parameters<typeof askInTab>[0]) => askInTab(request, confirmWaitMs(tool, arrived));
-    const result = await runAgentTool(tool, args, { user, signal, confirm, confirmEvery: true });
+    // The call belongs to who was signed in when it started, even if it waits on an Allow while another signs in.
+    const sameUser = () => (user()?.id === person ? user() : null);
+    const result = await runAgentTool(tool, args, { user: sameUser, signal, confirm, confirmEvery: true });
     if (result.error) throw new Error(result.text);
     return { text: result.text };
   });

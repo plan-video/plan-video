@@ -9,6 +9,8 @@ import { supabase } from "@/lib/supabase";
 const PATH = "/api/mcp/tab";
 const RETRY_MIN_MS = 1_000;
 const RETRY_MAX_MS = 60_000;
+/** Under the 90 seconds before expiry when getSession renews a token, so the socket always has the new one in time. */
+const TOKEN_CHECK_MS = 60_000;
 
 /** Off until agentic editing launches: agents only schedule posts. */
 export const AGENTIC_EDITING = false;
@@ -46,12 +48,15 @@ export function connectClaude(run: ConnectorRunner): () => void {
   let retryMs = RETRY_MIN_MS;
   let retryTimer: ReturnType<typeof setTimeout> | undefined;
   let queue: Promise<void> = Promise.resolve();
+  let sentToken: string | undefined;
 
   const send = (ws: WebSocket, message: unknown) => {
     if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(message));
   };
 
   const answer = async (ws: WebSocket, call: Call, arrived: number) => {
+    // The relay already told the agent this tab left, and whoever is signed in by now didn't ask for this.
+    if (stopped || ws !== socket) return;
     try {
       const output = await run(call.tool, call.args ?? {}, { arrived });
       send(ws, { type: "result", id: call.id, ok: true, text: output.text, images: output.images ?? [] });
@@ -79,6 +84,7 @@ export function connectClaude(run: ConnectorRunner): () => void {
     const ws = new WebSocket(url);
     socket = ws;
 
+    sentToken = token;
     ws.onopen = () => send(ws, { type: "hello", token });
     ws.onmessage = (event) => {
       let message: Incoming;
@@ -113,10 +119,21 @@ export function connectClaude(run: ConnectorRunner): () => void {
     else if (event === "SIGNED_IN" && !socket) void open();
   });
 
+  // By timer, as the Supabase client stops renewing on its own in a hidden tab, and connected tabs are often hidden.
+  const tokenTimer = setInterval(() => {
+    void auth.getSession().then(({ data }) => {
+      const token = data.session?.access_token;
+      if (!token || token === sentToken || socket?.readyState !== WebSocket.OPEN) return;
+      sentToken = token;
+      send(socket, { type: "token", token });
+    }).catch(() => undefined);
+  }, TOKEN_CHECK_MS);
+
   void open();
 
   return () => {
     stopped = true;
+    clearInterval(tokenTimer);
     clearTimeout(retryTimer);
     subscription.unsubscribe();
     window.removeEventListener("focus", onActive);

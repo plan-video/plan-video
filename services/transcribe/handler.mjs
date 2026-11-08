@@ -9,6 +9,8 @@ import { pipeline } from "node:stream/promises";
 
 const SCRIBE = "https://api.elevenlabs.io/v1/speech-to-text";
 const MAX_AUDIO_BYTES = 100 * 1024 * 1024;
+const STALL_MS = 30_000;
+const SLOWEST_BYTES_PER_SECOND = 8 * 1024;
 
 const PAUSE_SECONDS = 0.45;
 
@@ -247,7 +249,7 @@ export function wavSeconds(audio, total = audio.length) {
       const channels = audio.readUInt16LE(body + 2);
       const sampleRate = audio.readUInt32LE(body + 4);
       const bits = audio.readUInt16LE(body + 14);
-      if ((format !== 1 && format !== 0xfffe) || channels !== 1 || bits !== 16 || sampleRate < 8000 || sampleRate > 192000) return null;
+      if (format !== 1 || channels !== 1 || bits !== 16 || sampleRate < 8000 || sampleRate > 192000) return null;
       byteRate = sampleRate * 2;
     } else if (id === "data") {
       if (!byteRate) return null;
@@ -325,7 +327,7 @@ async function transcribe(req, res, env, user) {
 
     const form = new FormData();
     form.set("model_id", "scribe_v2");
-    form.set("file", await openAsBlob(file, { type: req.headers["content-type"] || "audio/wav" }), "audio");
+    form.set("file", await openAsBlob(file, { type: "audio/wav" }), "audio");
     form.set("timestamps_granularity", "word");
     // Captions show what was said. "(gunshots)" is not a word.
     form.set("tag_audio_events", "false");
@@ -398,11 +400,20 @@ function errorOf(payload) {
   return typeof detail?.message === "string" ? detail.message : undefined;
 }
 
-async function saveBody(req, file, max) {
+export async function saveBody(req, file, max) {
   let size = 0;
+  const started = Date.now();
+  let last = started;
+  // A slot is held while this runs, so a sender has to keep sending. The floor is far under what speech audio needs.
+  const watch = setInterval(() => {
+    const at = Date.now();
+    if (at - last >= STALL_MS || (at - started >= STALL_MS && size / ((at - started) / 1000) < SLOWEST_BYTES_PER_SECOND)) req.destroy(new Error("stalled"));
+  }, 5000);
+  watch.unref?.();
   const cap = new Transform({
     transform(chunk, _encoding, done) {
       size += chunk.length;
+      last = Date.now();
       if (size > max) done(new Refused(413, "The scene audio is too large to transcribe."));
       else done(null, chunk);
     },
@@ -413,6 +424,8 @@ async function saveBody(req, file, max) {
     req.destroy();
     if (error instanceof Refused) throw error;
     throw new Refused(400, "The audio didn't arrive in full. Try again.");
+  } finally {
+    clearInterval(watch);
   }
   return size;
 }

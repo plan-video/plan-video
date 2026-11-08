@@ -8,7 +8,7 @@ import { PublishError, finalWords } from "./errors.mjs";
 import { fileIdsOf } from "./media.mjs";
 import { OVER_SCHEDULED, isWaiting, startOf, waitingUntil } from "./plans.mjs";
 import { createMemoryGate, createPool } from "./pool.mjs";
-import { createReplies } from "./replies.mjs";
+import { createReplies, threadOf } from "./replies.mjs";
 import { SETTLE_WAITS_MS, pause, withRetries } from "./retry.mjs";
 import { dayAt, dueAtOf, nextRunAfter, runsBetween, zoneOrUtc } from "./schedule.mjs";
 
@@ -185,7 +185,8 @@ export function createWorker({
   function timedFor(item, at) {
     const timed = timedFrom(item.post);
     if (!timed) return timed;
-    const key = `${item.user_id}|${item.workspace_id ?? ""}|${item.post.id}|${item.post.sendFrom}`;
+    // The moment, not the text: anyone can save a post with megabytes in it.
+    const key = `${item.user_id}|${item.workspace_id ?? ""}|${item.post.id}|${timed}`;
     const first = firstSeen.get(key) ?? at;
     firstSeen.set(key, first);
     return Math.min(timed, first - TIMED_SLACK_MS);
@@ -445,6 +446,22 @@ export function createWorker({
     return db.select("post_deliveries", { user_id: userId, post_id: postId, occurrence }, "*");
   }
 
+  // Only an account still connected: one disconnected meanwhile fails, so someone hears to reconnect it.
+  const takenOff = (row, post, connections) =>
+    !!post?.platforms?.includes(row.platform) &&
+    !post.paused &&
+    connections.some((item) => item.id === row.connection_id && item.platform === row.platform) &&
+    !accountsFor(post, row.platform, connections).includes(row.connection_id);
+
+  // Removed, not failed: a failed row would keep the post from counting as posted once the new account has sent it.
+  async function dropTakenOff(row, post, connections) {
+    await db.delete("post_deliveries", { id: row.id });
+    if (row.occurrence !== "once") return;
+    // Not yet if the account it moved to has no row: planning hasn't got to it, and a posted post is never planned.
+    const rows = await db.select("post_deliveries", { user_id: row.user_id, post_id: row.post_id, occurrence: "once", platform: row.platform }, "connection_id");
+    if (accountsFor(post, row.platform, connections).every((id) => rows.some((other) => other.connection_id === id))) await markPosted(row);
+  }
+
   function stillWanted(row, post, zone) {
     if (!post) return "The post was deleted before it went out.";
     if (post.paused) return "The post was paused before it went out.";
@@ -530,6 +547,7 @@ export function createWorker({
           return;
         }
       }
+      if (takenOff(claimed, post, found?.connections ?? [])) return await dropTakenOff(claimed, post, found?.connections ?? []);
       const unwanted = stillWanted(claimed, post, zone);
       if (unwanted) {
         // Never reached the network, so undoing the pause or the move sends it after all.
@@ -611,6 +629,9 @@ export function createWorker({
     await record(claimed, result, post, zone).catch((error) => log.error("[publisher] couldn't keep a finished send", claimed.id, error));
   }
 
+  // Storage lets only these into the larger room for what went out.
+  const carriedFiles = (post, platform) => [...new Set([...(fileIdsOf(post, platform) ?? []), ...threadOf(post).flatMap((reply) => reply.files)])];
+
   async function record(row, result, post, zone) {
     if (result.state === "processing") {
       await settle(row, { state: "processing", publish_id: result.publishId, error: null, next_at: iso(now() + lookAgainIn(0)) });
@@ -619,6 +640,7 @@ export function createWorker({
     const plugged = plugs?.platforms.includes(row.platform);
     const [sent] = await settle(row, {
       state: "sent",
+      files: carriedFiles(post, row.platform),
       publish_id: result.publishId ?? row.publish_id,
       url: result.url ?? null,
       error: result.note ?? null,
@@ -668,6 +690,7 @@ export function createWorker({
           await keep({ id: row.id, state: "processing" }, () => ({ state: "queued", attempts: 0, publish_id: null, error: null, due_at: iso(dueAt), next_at: iso(dueAt), updated_at: iso(now()) }));
           return;
         }
+        if (takenOff(row, post, found?.connections ?? [])) return await dropTakenOff(row, post, found?.connections ?? []);
         const unwanted = stillWanted(row, post, zone);
         if (unwanted) {
           await settle(row, { state: "failed", error: unwanted });

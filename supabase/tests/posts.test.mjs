@@ -452,6 +452,16 @@ describe("the publisher", () => {
     assert.ok(Array.isArray(await rpc(SERVICE, "publisher_legacy_logins")));
   });
 
+  test("one account with many posts due doesn't keep another out of the page", async () => {
+    const [busy, quiet] = await Promise.all([makeUser("busy"), makeUser("quiet")]);
+    for (const [person, count] of [[busy, 60], [quiet, 1]]) {
+      for (let index = 0; index < count; index++) assert.equal((await insert(person, person.id, "w", post(`due-${person.id.slice(0, 4)}-${index}`))).status, 201);
+    }
+    sql(`update public.post_schedule set next_run_at = now() - interval '1 hour' where owner_id = '${busy.id}'; update public.post_schedule set next_run_at = now() - interval '1 minute' where owner_id = '${quiet.id}';`);
+    const page = await rpc(SERVICE, "publisher_due", { before: new Date().toISOString(), size: 51 });
+    assert.ok(page.some((row) => row.user_id === quiet.id));
+  });
+
   test("the publisher keeps its next look only for a post unchanged since it read it", async () => {
     const row = await one(owner.id, "own-1");
     const later = "2030-01-01T09:00:00.000Z";
@@ -543,6 +553,8 @@ describe("shared workspaces' other functions", () => {
     assert.equal((await share("by-member")).status, 201);
     const stolen = await share("private-1");
     assert.equal(stolen.status, 403, JSON.stringify(stolen.data));
+    const unsaved = await share("no-such-post");
+    assert.equal(unsaved.status, 403, JSON.stringify(unsaved.data));
     assert.equal(await rpc(outsider.token, "team_post_elsewhere", { owner: owner.id, workspace: W1, post: "anything" }), true);
   });
 
@@ -560,6 +572,14 @@ describe("shared workspaces' other functions", () => {
     assert.equal(stored.slice.events, undefined);
     assert.equal(stored.slice.media, undefined);
     assert.deepEqual(stored.slice.library.map((item) => item.id), ["lib-own"]);
+  });
+
+  test("deleting a workspace stops sharing all its posts, past what a browser may delete at once", async () => {
+    const sharer = await makeUser("sharer");
+    const rows = Array.from({ length: 101 }, (_, index) => ({ owner_id: sharer.id, post_id: `shared-${index}`, snapshot: { workspaceId: "going" } }));
+    assert.ok((await call("/rest/v1/post_previews", { method: "POST", prefer: "return=minimal", body: rows })).status < 300);
+    await rpc(sharer.token, "forget_workspace_team", { workspace: "going" });
+    assert.deepEqual((await call(`/rest/v1/post_previews?select=id&owner_id=eq.${sharer.id}`)).data, []);
   });
 
   test("deleting a workspace deletes its posts, but only once it's gone from the account", async () => {

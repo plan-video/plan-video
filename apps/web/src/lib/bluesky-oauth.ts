@@ -12,6 +12,8 @@ import { activeScope, type TeamScope } from "@/lib/workspaces";
 
 /** The sign-in finishes for the same owner. */
 const TEAM_KEY = "plan.video.bluesky-team";
+/** Only this tab can finish the sign-in it started. */
+const BROWSER_KEY = "plan.video.bluesky-browser";
 
 /** Elsewhere, like a local dev server, it's app passwords. */
 export function blueskySignInAvailable() {
@@ -35,7 +37,9 @@ async function call<T>(route: string, body: unknown): Promise<T> {
 export async function beginBlueskySignIn(handle: string): Promise<void> {
   if (!blueskySignInAvailable()) throw new Error(t("Open {origin} to sign in with Bluesky.", { origin: APP_ORIGIN }));
   const team = activeScope();
-  const { url } = await call<{ url: string }>("authorize", team ? { handle, team } : { handle });
+  const browser = crypto.randomUUID();
+  sessionStorage.setItem(BROWSER_KEY, browser);
+  const { url } = await call<{ url: string }>("authorize", team ? { handle, browser, team } : { handle, browser });
   try {
     if (team) sessionStorage.setItem(TEAM_KEY, JSON.stringify(team));
     else sessionStorage.removeItem(TEAM_KEY);
@@ -54,5 +58,7 @@ export async function finishBlueskySignIn(params: URLSearchParams): Promise<{ di
   } catch {
     team = null;
   }
-  return call<{ did: string; ticket: string }>("callback", team ? { query: params.toString(), team } : { query: params.toString() });
+  const browser = sessionStorage.getItem(BROWSER_KEY);
+  sessionStorage.removeItem(BROWSER_KEY);
+  return call<{ did: string; ticket: string }>("callback", team ? { query: params.toString(), browser, team } : { query: params.toString(), browser });
 }

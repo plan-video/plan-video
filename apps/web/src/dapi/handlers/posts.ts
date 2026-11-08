@@ -296,7 +296,7 @@ function channelsOf(platforms: readonly string[], choices: AccountChoices | unde
 // A no stops the call before anything changes.
 async function askPerson(ctx: ToolContext, request: ConfirmRequest & { scheduled?: boolean; at?: Date | null; tiktokYes?: boolean }) {
   const { scheduled, at, tiktokYes, ...shown } = request;
-  if (!ctx.confirm || !needsConfirm({ tool: request.tool, scheduled, at, tiktokYes, every: ctx.confirmEvery })) return;
+  if (!ctx.confirm || !needsConfirm({ tool: request.tool, scheduled, leavesSchedule: request.leavesSchedule, at, tiktokYes, every: ctx.confirmEvery })) return;
   if (!(await ctx.confirm(shown))) throw new DapiError("canceled", NOT_CONFIRMED);
 }
 
@@ -321,11 +321,14 @@ function detailsOf(post: {
     filesElsewhere: Math.max(0, post.elsewhere ?? 0),
     repeat: post.recurrence ? { recurrence: post.recurrence, end: post.end ?? null } : null,
     youtube: youtube ? { title: youtube.title, privacy: youtube.privacy, madeForKids: youtube.madeForKids, tags: [...youtube.tags] } : null,
-    tiktokPrivacy: tiktok && !tiktok.inbox ? tiktok.privacy : null,
+    tiktok: tiktok && !tiktok.inbox ? { privacy: tiktok.privacy, comments: tiktok.comments, duet: tiktok.duet, stitch: tiktok.stitch, yourBrand: tiktok.yourBrand, brandedContent: tiktok.brandedContent } : null,
     captions: Object.entries(post.captions ?? {}).flatMap(([platform, text]) => (post.platforms.includes(platform) && text?.trim() ? [{ platform, text }] : [])),
     thread: threadPlatforms(post.platforms as PlatformId[]).length ? (post.thread ?? []).map((reply) => ({ text: reply.text, delay: reply.delay, files: reply.files?.length ?? 0 })) : [],
   };
 }
+
+const whatGoesOut = (post: StoredEvent) =>
+  JSON.stringify([post.day, post.start, post.allDay, post.status, post.description, ownCaptions(post), post.platforms, post.accounts, post.link, post.files, post.ownFiles, post.youtube, post.tiktok, post.thread, post.recurrence, post.recurrenceEnd]);
 
 const keptFiles = (post: StoredEvent) => new Set([...(post.files ?? []), ...Object.values(post.ownFiles ?? {}).flatMap((ids) => ids ?? [])]).size;
 
@@ -824,6 +827,7 @@ export const updatePost: ToolHandler<"update_post"> = async (args, ctx) => {
     time,
     channels: channelsOf(platforms, choices),
     soon: status === "scheduled" && isSoon(at),
+    leavesSchedule: existing.status === "scheduled" && status !== "scheduled",
     tiktok: tiktokYes && tiktok ? { branded: tiktok.brandedContent } : null,
     details: detailsOf({
       platforms,
@@ -958,6 +962,7 @@ export const publishPost: ToolHandler<"publish_post"> = async ({ id, agreed }, c
   }
   // It goes out now, so the person is asked before anything on it changes.
   const here = [...(await postFiles(post)), ...(await Promise.all(Object.keys(post.ownFiles ?? {}).map((platform) => postFiles(post, platform)))).flat()];
+  const approved = whatGoesOut(post);
   await askPerson(ctx, {
     tool: "publish_post",
     caption: post.description ?? "",
@@ -977,6 +982,9 @@ export const publishPost: ToolHandler<"publish_post"> = async ({ id, agreed }, c
       thread: post.thread,
     }),
   });
+  // Another agent can edit it while the question waits: a yes is only for what the person saw.
+  const current = allPosts().find((item) => item.id === id);
+  if (!current || whatGoesOut(current) !== approved) throw new DapiError("canceled", "The post changed while waiting for the person's answer, so it wasn't sent. Publish it again so they can see the new version.");
   if (profile && warnings.length) {
     const changed = revisePost(id, { tiktok: profile });
     if (changed) throw mapped(changed);

@@ -178,6 +178,31 @@ test("a paused post comes back as new, so pausing doesn't make room for more tha
   assert.equal(context.planLimits.over("u1", "w1", "p0", "tt1"), true);
 });
 
+test("a post moved to a day gone by comes back as new, so parking posts there doesn't make room for more than 10", async () => {
+  const posts = Array.from({ length: 10 }, (_, index) => post(`p${index}`, 1 + index));
+  const context = setup({ posts });
+  await context.worker.tick();
+  const { day, start } = posts[0].post;
+  // Long enough ago that it isn't sent late instead.
+  const past = new Date(T0 - 72 * HOUR);
+  Object.assign(posts[0].post, { day: past.toISOString().slice(0, 10), start: past.toISOString().slice(11, 16) });
+  posts.push(post("new", 20));
+  await context.worker.tick();
+  assert.equal(context.planLimits.over("u1", "w1", "new", "tt1"), false);
+  Object.assign(posts[0].post, { day, start });
+  await context.worker.tick();
+  assert.equal(context.planLimits.over("u1", "w1", "p0", "tt1"), true);
+});
+
+test("one login listed in two workspaces has one 10", async () => {
+  const posts = Array.from({ length: 12 }, (_, index) => ({ ...post(`p${index}`, 1 + index), workspace_id: index % 2 ? "w2" : "w1" }));
+  const context = setup({ posts });
+  await context.worker.tick();
+  assert.equal(context.planLimits.over("u1", "w1", "p10", "tt1"), true);
+  assert.equal(context.planLimits.over("u1", "w2", "p11", "tt1"), true);
+  assert.equal(context.planLimits.over("u1", "w2", "p9", "tt1"), false);
+});
+
 test("what the publisher saw survives a restart", async () => {
   const posts = Array.from({ length: 11 }, (_, index) => post(`p${index}`, 1 + index));
   const context = setup({ posts });

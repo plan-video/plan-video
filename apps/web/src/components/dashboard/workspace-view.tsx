@@ -19,7 +19,7 @@ import { useAuth } from "@/context/auth";
 import { accountGroups, loadAccountGroups } from "@/lib/account-groups";
 import { t } from "@/lib/i18n";
 import { loadSocialConnections, socialConnections } from "@/lib/social-connections";
-import { TEAM_LEVEL, leaveWorkspace, sendLegacyInvites } from "@/lib/team";
+import { TEAM_LEVEL, leaveWorkspace } from "@/lib/team";
 import { loadVault, vaultItems } from "@/lib/vault";
 import { deleteWorkspaceEverywhere } from "@/lib/workspace-delete";
 import { activeShared, activeWorkspace, shownWorkspaceName, workspaces } from "@/lib/workspaces";
@@ -45,13 +45,6 @@ export function DashboardWorkspaceView(props: { onOpen(view: "billing"): void })
   const workspace = () => activeWorkspace();
   const shared = () => activeShared();
   const teamPlan = () => auth.accessLevel() >= TEAM_LEVEL;
-
-  // Invites kept here before they went through the server go out once the plan includes a team.
-  createEffect(() => {
-    const userId = auth.user()?.id;
-    const current = workspace();
-    if (userId && !shared() && teamPlan() && current.members.length) void sendLegacyInvites(current, userId);
-  });
 
   const confirmLeave = async () => {
     const current = shared();
