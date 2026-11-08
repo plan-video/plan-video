@@ -403,7 +403,7 @@ test("the dashboard has the over-the-limit message word for word", { skip: !exis
 });
 
 test("a post whose day or time isn't text has no start, rather than throwing", () => {
-  for (const odd of [{ day: ["2026-10-27"], start: "10:00" }, { day: "2026-10-27", start: ["10:00"] }, { day: 20261027, start: "10:00" }, { day: { y: 1 }, start: "10:00" }]) {
+  for (const odd of [{ day: ["2026-10-27"], start: "10:00" }, { day: "2026-10-27", start: ["10:00"] }, { day: 20261027, start: "10:00" }, { day: { y: 1 }, start: "10:00" }, { day: "9999-12-31", start: "23:59", timeZone: "Etc/GMT+12" }]) {
     assert.equal(startOf(odd, "UTC"), null, JSON.stringify(odd));
     assert.equal(isWaiting({ status: "scheduled", ...odd }, "UTC", Date.parse("2026-10-12T00:00:00Z")), false);
   }
