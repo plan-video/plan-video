@@ -38,6 +38,8 @@ const PONG_FRAME = 6;
 const MAX_UNVERIFIED = 500;
 const MAX_UNVERIFIED_PER_IP = 20;
 const MAX_TABS = 5000;
+/** The longest setTimeout takes. */
+const MAX_TIMER_MS = 2 ** 31 - 1;
 const MAX_IMAGES = 6;
 const HELLO_MS = 10_000;
 const HEARTBEAT_MS = 30_000;
@@ -243,6 +245,12 @@ function onTab(ws, socket, ip) {
   unverified.set(ip, (unverified.get(ip) ?? 0) + 1);
 
   const hello = setTimeout(() => ws.close(4401, "Sign in first."), HELLO_MS);
+  // A socket lasts as long as the sign-in it showed. The tab sends each new token before the last runs out.
+  let signedIn;
+  const signedInUntil = (expires) => {
+    clearTimeout(signedIn);
+    signedIn = setTimeout(() => ws.close(4401, "Sign in again."), Math.min(Math.max(0, expires - Date.now()), MAX_TIMER_MS));
+  };
   const heartbeat = setInterval(() => {
     if (!alive) return ws.terminate();
     alive = false;
@@ -280,8 +288,18 @@ function onTab(ws, socket, ip) {
       }
       verified();
       forget(received);
+      signedInUntil(who.expires);
       tab = relay.attach(who.userId, { send: (text) => ws.send(text), close: (code, reason) => ws.close(code, reason) });
       ws.send(JSON.stringify({ type: "ready" }));
+      return;
+    }
+
+    if (message?.type === "token" && typeof message.token === "string") {
+      // Sign-in that can't be checked right now leaves things as they are, until this token runs out.
+      const who = await auth.editor(message.token).catch(() => undefined);
+      if (who === undefined || ws.readyState !== WebSocket.OPEN) return;
+      if (!who || who.userId !== tab.userId) ws.close(4401, "Sign in again.");
+      else signedInUntil(who.expires);
       return;
     }
 
@@ -293,6 +311,7 @@ function onTab(ws, socket, ip) {
     forget(received);
     verified();
     clearTimeout(hello);
+    clearTimeout(signedIn);
     clearInterval(heartbeat);
     if (tab) relay.detach(tab);
   });
