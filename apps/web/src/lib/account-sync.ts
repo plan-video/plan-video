@@ -23,7 +23,7 @@ import { reloadCaptionStyles } from "@/lib/caption-brand";
 import { reloadQueueSlots } from "@/lib/queue-slots";
 import { reloadSocialConnections, shareableConnections } from "@/lib/social-connections";
 import { supabase } from "@/lib/supabase";
-import { reloadTimeZone } from "@/lib/time-zone";
+import { reloadTimeZone, setTimeZoneOwner, timeZoneKey } from "@/lib/time-zone";
 import { reloadVault } from "@/lib/vault";
 import {
   DEFAULT_WORKSPACE,
@@ -145,6 +145,7 @@ export function beginAccountSync(userId: string | undefined) {
   ready = false;
   dirty = false;
   currentUser = userId;
+  setTimeZoneOwner(userId ?? null);
   failures = 0;
   clearTimeout(retryTimer);
   retryTimer = undefined;
@@ -344,8 +345,8 @@ async function writeLocal(userId: string, payload: Payload, reads?: ReadonlyMap<
   try {
     const body = strip(payload);
     writeJson(`plan.video.workspaces.${userId}`, body.workspaces);
-    if (body.timeZone) localStorage.setItem("plan.video.time-zone", body.timeZone);
-    else localStorage.removeItem("plan.video.time-zone");
+    if (body.timeZone) localStorage.setItem(timeZoneKey(userId), body.timeZone);
+    else localStorage.removeItem(timeZoneKey(userId));
     writeJson(`plan.video.notifications.${userId}`, body.notifications);
     writeJson(projectFoldersKey(userId), body.projectFolders);
     writeJson(gradePresetsKey(userId), body.gradePresets);
@@ -416,7 +417,7 @@ async function readLocal(userId: string, reads?: Map<string, CalendarRead>): Pro
   for (const workspace of workspaces) slices[workspace.id] = await readSlice(userId, workspace.id, reads);
   return canonicalize({
     workspaces: { active, list: workspaces },
-    timeZone: localStorage.getItem("plan.video.time-zone"),
+    timeZone: localStorage.getItem(timeZoneKey(userId)),
     notifications: readNotes(userId),
     projectFolders: readArray(projectFoldersKey(userId)).filter(isProjectFolder),
     gradePresets: readArray(gradePresetsKey(userId)).filter(isGradePreset),

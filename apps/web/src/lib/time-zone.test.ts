@@ -1,6 +1,25 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { clockAt, momentOf } from "./time-zone";
+const saved = new Map<string, string>();
+vi.stubGlobal("localStorage", { getItem: (key: string) => saved.get(key) ?? null, setItem: (key: string, value: string) => void saved.set(key, value), removeItem: (key: string) => void saved.delete(key) });
+vi.mock("@/lib/account-sync-bus", () => ({ queueAccountSync: () => {} }));
+
+const { chosenZone, clockAt, momentOf, setTimeZone, setTimeZoneOwner } = await import("./time-zone");
+
+describe("the chosen zone", () => {
+  it("belongs to one account, so the next person on this browser doesn't get it", () => {
+    setTimeZoneOwner("a");
+    setTimeZone("Asia/Tokyo");
+    expect(chosenZone()).toBe("Asia/Tokyo");
+    setTimeZoneOwner("b");
+    expect(chosenZone()).toBeNull();
+    setTimeZone("Europe/Paris");
+    setTimeZoneOwner(null);
+    expect(chosenZone()).toBeNull();
+    setTimeZoneOwner("a");
+    expect(chosenZone()).toBe("Asia/Tokyo");
+  });
+});
 
 describe("momentOf", () => {
   it("reads a skipped time as just after the change, on both sides of UTC, as the publisher does", () => {

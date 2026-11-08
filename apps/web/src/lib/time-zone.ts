@@ -30,9 +30,14 @@ function isZone(zone: string) {
   }
 }
 
+/** Each account's own, as the rest of what syncs is. Without one (a guest), a key that never goes into an account. */
+export const timeZoneKey = (userId: string | null) => (userId ? `${STORAGE_KEY}.${userId}` : STORAGE_KEY);
+
+let owner: string | null = null;
+
 function readSaved(): string | null {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY);
+    const saved = localStorage.getItem(timeZoneKey(owner));
     return saved && isZone(saved) ? saved : null;
   } catch {
     return null;
@@ -61,8 +66,8 @@ export function setTimeZone(zone: string | null) {
   const from = timeZone();
   const next = zone === deviceTimeZone() ? null : zone;
   try {
-    if (next) localStorage.setItem(STORAGE_KEY, next);
-    else localStorage.removeItem(STORAGE_KEY);
+    if (next) localStorage.setItem(timeZoneKey(owner), next);
+    else localStorage.removeItem(timeZoneKey(owner));
   } catch {
     // Kept for this session only.
   }
@@ -70,6 +75,11 @@ export function setTimeZone(zone: string | null) {
   const to = timeZone();
   if (from !== to) for (const listener of listeners) listener(from, to);
   queueAccountSync();
+}
+
+export function setTimeZoneOwner(userId: string | null) {
+  owner = userId;
+  reloadTimeZone();
 }
 
 /** After another browser changed it. */
