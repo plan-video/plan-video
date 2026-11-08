@@ -8,6 +8,8 @@ const MAX_BYTES = 32 * 1024 * 1024;
 /** The most pixels a picture may have: above any phone camera's 48 to 50 MP, and well under sharp's own limit, so two at once fit in this service's memory. */
 const PIXEL_LIMIT = 100_000_000;
 const LIMITS = { limitInputPixels: PIXEL_LIMIT };
+/** Storage only asks for JPEG or PNG, but takes the uploader's word, so a WEBP or GIF named .png arrives too. An SVG is drawn rather than decoded, and a few KB of one can take minutes. */
+const PICTURE_FORMATS = new Set(["jpeg", "png", "webp", "gif"]);
 
 // Each picture on one thread, as a thread holds lines of a wide picture at a time.
 sharp.concurrency(1);
@@ -109,11 +111,9 @@ export async function handlePhotos(req, res) {
   if (!bytes) return answer(res, 422, "Over the size a picture can be.");
   let made;
   try {
-    if (make) made = await make(bytes);
-    else {
-      const { width, height } = await sharp(bytes, LIMITS).metadata();
-      made = JSON.stringify({ width, height });
-    }
+    const { format, width, height } = await sharp(bytes, LIMITS).metadata();
+    if (!PICTURE_FORMATS.has(format)) return answer(res, 422, "That picture can't be made.");
+    made = make ? await make(bytes) : JSON.stringify({ width, height });
   } catch (error) {
     return answer(res, 422, error instanceof Error ? error.message : "That picture can't be made.");
   }
