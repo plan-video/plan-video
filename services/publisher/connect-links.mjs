@@ -206,6 +206,9 @@ export function createConnectLinks({ db, key, vault, limits, env, youtube, tikto
   }
 
   return {
+    /** Whether a link is one this server made, so strings that aren't can't make rate-limit counters. */
+    known: (link) => idOf(link) !== null,
+
     // For the owner or an admin, signed in.
 
     async current(owner, workspace) {
