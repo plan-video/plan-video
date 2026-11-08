@@ -97,6 +97,16 @@ test("two publishers looking at the same moment send a due post once", async () 
   assert.deepEqual(db.tables.post_deliveries.map((row) => row.state), ["sent", "sent"]);
 });
 
+test("a delivery records the files it carried, its follow-ups' too", async () => {
+  const entry = scheduled({ platforms: ["bluesky"], files: ["p1", "p1_a"], thread: [{ text: "More", files: ["p1_r", "other_x"] }] });
+  entry.connections = [{ id: "bs1", platform: "bluesky" }];
+  const { db, worker, setFile } = setup({ posts: [entry], file: picture("p1") });
+  setFile(picture("p1_a"), "p1_a");
+  await worker.tick();
+  assert.equal(db.tables.post_deliveries[0].state, "sent");
+  assert.deepEqual(db.tables.post_deliveries[0].files, ["p1", "p1_a", "p1_r"]);
+});
+
 test("each workspace's posts go out from its own accounts", async () => {
   const theirs = { ...scheduled({ id: "p0", title: "Theirs", platforms: ["bluesky"] }), workspace_id: "w0", connections: [{ id: "bs0", platform: "bluesky" }] };
   const { worker, calls } = setup({ posts: [theirs, scheduled()] });

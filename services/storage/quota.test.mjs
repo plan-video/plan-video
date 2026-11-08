@@ -72,6 +72,8 @@ const askedDeliveries = [];
 /** `${owner}/${post}` → what the post's row lists in file_ids. */
 const listed = new Map();
 const lists = (owner, post, ...files) => listed.set(`${owner}/${post}`, [post, ...files]);
+/** `${owner}/${post}` → the files its delivery recorded, when not simply what it lists. */
+const carried = new Map();
 const askedPosts = [];
 let postsDown = false;
 let deliveriesDown = false;
@@ -96,7 +98,10 @@ before(() => {
       const owner = params.get("user_id").slice(3);
       const posts = params.get("post_id").slice(4, -1).split(",");
       askedDeliveries.push({ token, owner, posts });
-      return Response.json(posts.filter((post) => delivered.has(`${owner}/${post}`)).map((post_id) => ({ post_id })));
+      return Response.json(posts.filter((post) => delivered.has(`${owner}/${post}`)).map((post_id) => {
+        const key = `${owner}/${post_id}`;
+        return { post_id, files: carried.has(key) ? carried.get(key) : (listed.get(key) ?? null) };
+      }));
     }
     if (address.pathname === "/rest/v1/posts") {
       if (postsDown) return new Response("{}", { status: 500 });
@@ -288,6 +293,21 @@ test("one post that went out doesn't make every file named after it a sent file"
   const moved = await settle(user, { files: [{ id: "went_stray", size: 500 }, { id: "went_reply2", size: 600 }] }, req());
   assert.deepEqual(moved.unsent, ["went_stray"]);
   assert.deepEqual(moved.sent, [{ id: "went_reply2", key: `sent/${user.id}/went_reply2` }]);
+});
+
+test("only files the post carried when it went out go to sent/, not ones added to it since", async () => {
+  const user = someone();
+  delivered.add(`${user.id}/went`);
+  lists(user.id, "went", "went_real", "went_added");
+  carried.set(`${user.id}/went`, ["went", "went_real"]);
+  assert.equal((await video(user, "went_real", 1000, { sent: true })).key, `sent/${user.id}/went_real`);
+  assert.equal((await video(user, "went_added", 1000, { sent: true })).key, `posts/${user.id}/went_added`);
+
+  delivered.add(`${user.id}/older`);
+  lists(user.id, "older", "older_extra");
+  carried.set(`${user.id}/older`, null);
+  assert.equal((await video(user, "older", 1000, { sent: true })).key, `sent/${user.id}/older`);
+  assert.equal((await video(user, "older_extra", 1000, { sent: true })).key, `posts/${user.id}/older_extra`);
 });
 
 test("a sent post can't vouch for a file of another post that went out and doesn't list it", async () => {

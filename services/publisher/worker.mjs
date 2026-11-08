@@ -8,7 +8,7 @@ import { PublishError, finalWords } from "./errors.mjs";
 import { fileIdsOf } from "./media.mjs";
 import { OVER_SCHEDULED, isWaiting, startOf, waitingUntil } from "./plans.mjs";
 import { createMemoryGate, createPool } from "./pool.mjs";
-import { createReplies } from "./replies.mjs";
+import { createReplies, threadOf } from "./replies.mjs";
 import { SETTLE_WAITS_MS, pause, withRetries } from "./retry.mjs";
 import { dayAt, dueAtOf, nextRunAfter, runsBetween, zoneOrUtc } from "./schedule.mjs";
 
@@ -625,6 +625,9 @@ export function createWorker({
     await record(claimed, result, post, zone).catch((error) => log.error("[publisher] couldn't keep a finished send", claimed.id, error));
   }
 
+  // Storage lets only these into the larger room for what went out.
+  const carriedFiles = (post, platform) => [...new Set([...(fileIdsOf(post, platform) ?? []), ...threadOf(post).flatMap((reply) => reply.files)])];
+
   async function record(row, result, post, zone) {
     if (result.state === "processing") {
       await settle(row, { state: "processing", publish_id: result.publishId, error: null, next_at: iso(now() + lookAgainIn(0)) });
@@ -633,6 +636,7 @@ export function createWorker({
     const plugged = plugs?.platforms.includes(row.platform);
     const [sent] = await settle(row, {
       state: "sent",
+      files: carriedFiles(post, row.platform),
       publish_id: result.publishId ?? row.publish_id,
       url: result.url ?? null,
       error: result.note ?? null,
