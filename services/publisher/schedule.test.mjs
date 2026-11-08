@@ -123,6 +123,7 @@ test("a post in a year the database can't read back has no run, whatever its zon
   const after = at("2026-10-12T12:00:00Z");
   assert.equal(nextRunAfter({ day: "9999-12-31", start: "23:59", timeZone: "Etc/GMT+12", recurrence: null }, "UTC", after), null);
   assert.equal(nextRunAfter({ day: "9999-12-30", start: "09:00", recurrence: "every:1:day" }, "UTC", after), null);
+  assert.equal(nextRunAfter({ day: "2026-10-01", start: "09:00", recurrence: "every:1:day", recurrenceEnd: "0999-12-31" }, "UTC", after), null, "an end long past is still an end");
   assert.equal(nextRunAfter({ day: "2026-10-01", start: "09:00", recurrence: "every:1:day", recurrenceEnd: "9999-12-31" }, "UTC", after), at("2026-10-13T09:00:00Z"));
 });
 

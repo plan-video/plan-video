@@ -118,6 +118,9 @@ test("only the owner and admins connect and remove accounts, and only in their w
   assert.equal((await ask(ADMIN, "login/forget", { team: team(), connectionId: "c-private" })).status, 403);
   assert.ok(db.tables.social_tokens.some((row) => row.connection_id === "c-private"));
 
+  db.tables.social_tokens.push({ user_id: OWNER, connection_id: "c-broken", platform: "tiktok", sealed: "can't be opened" });
+  assert.deepEqual(await ask(ADMIN, "login/forget", { team: team(), connectionId: "c-broken" }), { status: 200, revoked: false });
+
   const original = globalThis.fetch;
   globalThis.fetch = async () => new Response("{}", { status: 200 });
   try {
