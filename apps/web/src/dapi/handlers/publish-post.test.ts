@@ -24,10 +24,10 @@ vi.mock("@/lib/publishing", () => ({ requestSend: async () => { throw new Error(
 shared.idb = new FakeIdb();
 const { loadWorkspaces } = await import("@/lib/workspaces");
 loadWorkspaces("user-1");
-const { allPosts, createEvent, hydrateCalendar } = await import("@/components/calendar/store");
+const { allPosts, createEvent, hydrateCalendar, revisePost } = await import("@/components/calendar/store");
 const { localDateKey } = await import("@/components/calendar/utils");
 const { timeOf } = await import("@/components/publish/save");
-const { publishPost } = await import("./posts");
+const { publishPost, updatePost } = await import("./posts");
 
 
 test("an agent's Post now that fails leaves a future post scheduled at its own time", async () => {
@@ -37,4 +37,31 @@ test("an agent's Post now that fails leaves a future post scheduled at its own t
   await expect(publishPost({ id: "tue" }, { app: { requireUser: () => ({ id: "user-1" }) } } as never)).rejects.toThrow();
   const after = allPosts().find((post) => post.id === "tue");
   expect(after).toMatchObject({ day: localDateKey(when), start: timeOf(when), status: "scheduled" });
+});
+
+const planned = (id: string, when: Date) =>
+  createEvent({ id, allDay: false, calendarId: "posts", day: localDateKey(when), description: "Words", duration: 15, link: "", platforms: ["x"], accounts: {}, start: timeOf(when), status: "scheduled", title: "Words" } as never);
+const USER = { requireUser: () => ({ id: "user-1" }) };
+
+test("a post changed while its Allow waits isn't sent, and the person is asked again", async () => {
+  await hydrateCalendar();
+  await planned("edited", new Date(Date.now() + 5 * 86_400_000));
+  const confirm = async () => {
+    revisePost("edited", { description: "Words the person never saw" });
+    return true;
+  };
+  await expect(publishPost({ id: "edited" }, { app: USER, confirm } as never)).rejects.toThrow(/changed while/);
+});
+
+test("an agent taking a post off the schedule asks first, and a no changes nothing", async () => {
+  await hydrateCalendar();
+  await planned("kept", new Date(Date.now() + 5 * 86_400_000));
+  const asked: unknown[] = [];
+  const confirm = async (request: unknown) => {
+    asked.push(request);
+    return false;
+  };
+  await expect(updatePost({ id: "kept", draft: true }, { app: USER, confirm, confirmEvery: true } as never)).rejects.toThrow(/didn't confirm/);
+  expect(asked).toMatchObject([{ leavesSchedule: true }]);
+  expect(allPosts().find((post) => post.id === "kept")?.status).toBe("scheduled");
 });
