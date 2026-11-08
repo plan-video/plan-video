@@ -322,6 +322,19 @@ describe("working in a shared workspace", () => {
     assert.ok(ids.includes("conn-theirs") && ids.includes("conn-not-saved-yet"));
   });
 
+  test("a login's tokens left in a workspace never reach its members", async () => {
+    const payload = await ownerPayload(owner);
+    const next = { ...payload.slices[W1], connections: [...payload.slices[W1].connections, { id: "conn-old", platform: "x", handle: "old", x: { xUserId: "u", accessToken: "secret-a", refreshToken: "secret-r" } }] };
+    await saveOwner(owner, { ...payload, revision: randomUUID(), slices: { ...payload.slices, [W1]: next } }, payload.revision);
+    const shared = await rpc(member.token, "team_workspace", { owner: owner.id, workspace: W1 });
+    const old = shared.slice.connections.find((row) => row.id === "conn-old");
+    assert.equal(old.handle, "old");
+    assert.equal(old.x.xUserId, "u");
+    assert.ok(!JSON.stringify(shared).includes("secret-"));
+    const again = await ownerPayload(owner);
+    await saveOwner(owner, { ...again, revision: randomUUID(), slices: { ...again.slices, [W1]: payload.slices[W1] } }, again.revision);
+  });
+
   test("the owner's own save is refused when someone saved meanwhile", async () => {
     const payload = await ownerPayload(owner);
     const stale = await saveOwner(owner, { ...payload, revision: "r-owner" }, "r1");
