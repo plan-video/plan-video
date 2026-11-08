@@ -39,7 +39,8 @@ const hooks = (envDir: string, mode = "production") => {
 
 describe("the dev server", () => {
   test("won't serve the secrets file, and keeps Vite's own refusals", async () => {
-    const config = await resolveConfig({ configFile: resolve(__dirname, "vite.config.ts") }, "serve");
+    // Vite's own check, which its types leave out.
+    const config = (await resolveConfig({ configFile: resolve(__dirname, "vite.config.ts") }, "serve")) as ResolvedConfig & { fsDenyGlob: (path: string) => boolean };
     for (const file of ["server.env", ".env", ".env.local", "cert.pem"]) expect(config.fsDenyGlob(resolve(__dirname, file))).toBe(true);
     expect(config.fsDenyGlob(resolve(__dirname, "src/main.ts"))).toBe(false);
   });
