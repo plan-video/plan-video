@@ -478,7 +478,7 @@ export function createApi({ env, vault, worker, users, kick, bluesky, limits, db
       limit(`bluesky:${user.id}`, 20, 600);
       mustManage(scope);
       const handle = typeof body.handle === "string" ? body.handle.trim().replace(/^@+/, "").slice(0, 300) : "";
-      json(res, 200, { url: await bluesky.authorize(scope.actor, handle) });
+      json(res, 200, { url: await bluesky.authorize(scope.actor, handle, typeof body.browser === "string" ? body.browser : "") });
       return;
     }
 
@@ -486,7 +486,7 @@ export function createApi({ env, vault, worker, users, kick, bluesky, limits, db
       if (!bluesky) throw new Refused(503, "Sign in with Bluesky isn't available right now. Use an app password.");
       mustManage(scope);
       const query = typeof body.query === "string" ? body.query.slice(0, 4000) : "";
-      json(res, 200, await bluesky.callback(holderOf(user, scope), query));
+      json(res, 200, await bluesky.callback(holderOf(user, scope), query, typeof body.browser === "string" ? body.browser : ""));
       return;
     }
 

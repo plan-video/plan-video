@@ -185,7 +185,7 @@ export function createConnectLinks({ db, key, vault, limits, env, youtube, tikto
     }
     // Sign in with Bluesky: the session stays the owner's own, in bluesky_sessions; the login names the account.
     const query = typeof body.query === "string" ? body.query.slice(0, 4000) : "";
-    const { did, ticket } = await bluesky.callback(holder, query);
+    const { did, ticket } = await bluesky.callback(holder, query, typeof body.state === "string" ? body.state : "");
     if (!bluesky.openTicket(holder, did, ticket)) throw new Refused(400, "Bluesky didn't finish connecting. Try again.");
     const found = await profile(did);
     return [{ handle: found.handle, avatarUrl: found.avatarUrl, session: { did, oauth: true }, details: { did, pds: "", oauth: true, server: true } }];
@@ -254,7 +254,7 @@ export function createConnectLinks({ db, key, vault, limits, env, youtube, tikto
       const state = text("state");
       if (network === "bluesky") {
         const handle = text("handle").trim().replace(/^@+/, "").slice(0, 300);
-        return { url: await bluesky.authorize(row.owner_id, handle) };
+        return { url: await bluesky.authorize(row.owner_id, handle, state) };
       }
       if (isMetaNetwork(network)) return meta.authorize(network, { redirectUri, state });
       if (!STATE.test(state)) throw new Refused(400, "That login state isn't valid.");
