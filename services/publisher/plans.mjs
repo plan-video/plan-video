@@ -51,7 +51,7 @@ export function startOf(post, accountZone) {
   const time = post?.allDay ? "00:00" : post?.start;
   // Strings first: test() reads an array like ["2026-10-27"] as its text, and momentOf would then throw.
   if (typeof post?.day !== "string" || typeof time !== "string") return null;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(post.day) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) return null;
+  if (!isDayKey(post.day) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) return null;
   return momentOf(post.day, time, zoneOrUtc(post.timeZone ?? accountZone));
 }
 

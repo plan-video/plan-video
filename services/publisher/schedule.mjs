@@ -8,7 +8,8 @@ const dateFromKey = (day) => new Date(`${day}T00:00:00Z`);
 const dateKey = (date) => date.toISOString().slice(0, 10);
 export const shiftDay = (day, offset) => dateKey(new Date(dateFromKey(day).getTime() + offset * DAY));
 const daysBetween = (from, to) => Math.round((dateFromKey(to).getTime() - dateFromKey(from).getTime()) / DAY);
-export const isDayKey = (value) => typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(dateFromKey(value).getTime());
+// Postgres can't read a moment outside years 1 to 9999 as toISOString writes it, and one refused write stops planning for everyone. Inside that, as zones and a series' look-ahead move a day on.
+export const isDayKey = (value) => typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) && value >= "0002" && value < "9000" && Number.isFinite(dateFromKey(value).getTime());
 const isClock = (value) => typeof value === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
 
 function parseRecurrence(recurrence) {

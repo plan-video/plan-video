@@ -151,7 +151,8 @@ export function createApi({ env, vault, worker, users, kick, bluesky, limits, db
   /** `workspace` is set only for someone acting for another owner. */
   async function scopeOf(req, user, body) {
     if (body.team === undefined || body.team === null) return { actor: user.id, role: "owner" };
-    const owner = typeof body.team.owner === "string" ? body.team.owner : "";
+    // Lowercase as the database stores it: a uuid matches in either case there, but a login is sealed to this exact text.
+    const owner = typeof body.team.owner === "string" ? body.team.owner.toLowerCase() : "";
     const workspace = typeof body.team.workspace === "string" ? body.team.workspace : "";
     if (!UUID.test(owner) || !ID.test(workspace)) throw new Refused(400, "That isn't a workspace.");
     const access = await users.access(req, owner, workspace);
@@ -356,7 +357,11 @@ export function createApi({ env, vault, worker, users, kick, bluesky, limits, db
       const connectionId = connectionOf(body);
       mustManage(scope);
       await mustNotBeElsewhere(scope, connectionId);
-      const found = await vault.read(scope.actor, connectionId).catch(() => null);
+      let unreadable = false;
+      const found = await vault.read(scope.actor, connectionId).catch(() => {
+        unreadable = true;
+        return null;
+      });
       await vault.remove(scope.actor, connectionId);
       // What plan.video kept of a YouTube channel's videos goes with its login. If that fails, the daily check clears it (youtube-check.mjs).
       if (!found || found.platform === "youtube") {
@@ -364,7 +369,7 @@ export function createApi({ env, vault, worker, users, kick, bluesky, limits, db
       }
       // One Bluesky sign-in can be connected in several workspaces; it ends with the last of them.
       const shared = found?.session?.oauth && (await sameBlueskyAccount(scope.actor, found.session.did));
-      const revoked = !found || shared ? true : await revoke(found.platform, found.session, env, bluesky);
+      const revoked = !unreadable && (!found || shared ? true : await revoke(found.platform, found.session, env, bluesky));
       json(res, 200, { revoked });
       return;
     }
