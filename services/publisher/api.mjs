@@ -304,7 +304,7 @@ export function createApi({ env, vault, worker, users, kick, bluesky, limits, db
       // A new account counts against the plan's social accounts; a login for one already connected doesn't.
       const save = () =>
         connectWithin({ vault, limits, userId: scope.actor, connectionId }, () =>
-          vault.put(scope.actor, connectionId, platform, session, { replace: body.replace !== false, allowOAuth: true }),
+          vault.put(scope.actor, connectionId, platform, session, { replace: body.replace !== false, allowOAuth: true, workspace: scope.workspace }),
         );
       const most = await (ticket ? spend(ticket, connectionId, save) : save());
       if (most !== null) throw new Refused(403, `Your plan connects ${most} social accounts, and they're all in use. Upgrade, or add accounts in Billing, to connect another.`);

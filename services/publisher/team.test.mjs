@@ -106,7 +106,7 @@ test("only the owner and admins connect and remove accounts, and only in their w
   assert.equal((await ask(MEMBER, "login/forget", { team: team(), connectionId: "c-shared" })).status, 403);
 
   assert.equal((await ask(ADMIN, "login/save", { team: team(), connectionId: "c-new", platform: "tiktok", session })).status, 200);
-  assert.ok(db.tables.social_tokens.some((row) => row.user_id === OWNER && row.connection_id === "c-new"));
+  assert.ok(db.tables.social_tokens.some((row) => row.user_id === OWNER && row.connection_id === "c-new" && row.workspace_id === SHARED));
   assert.ok(!db.tables.social_tokens.some((row) => row.user_id === ADMIN));
 
   const shouted = { ...team(), owner: OWNER.toUpperCase() };

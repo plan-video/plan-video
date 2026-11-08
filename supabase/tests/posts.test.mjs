@@ -562,6 +562,14 @@ describe("shared workspaces' other functions", () => {
     assert.deepEqual(stored.slice.library.map((item) => item.id), ["lib-own"]);
   });
 
+  test("deleting a workspace stops sharing all its posts, past what a browser may delete at once", async () => {
+    const sharer = await makeUser("sharer");
+    const rows = Array.from({ length: 101 }, (_, index) => ({ owner_id: sharer.id, post_id: `shared-${index}`, snapshot: { workspaceId: "going" } }));
+    assert.ok((await call("/rest/v1/post_previews", { method: "POST", prefer: "return=minimal", body: rows })).status < 300);
+    await rpc(sharer.token, "forget_workspace_team", { workspace: "going" });
+    assert.deepEqual((await call(`/rest/v1/post_previews?select=id&owner_id=eq.${sharer.id}`)).data, []);
+  });
+
   test("deleting a workspace deletes its posts, but only once it's gone from the account", async () => {
     await insert(owner, owner.id, W3, post("in-w3"));
     await rpc(owner.token, "forget_workspace_team", { workspace: W3 });

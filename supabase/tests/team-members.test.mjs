@@ -308,6 +308,20 @@ describe("working in a shared workspace", () => {
     assert.deepEqual(after.slices[W2].connections.map((row) => row.id), ["conn-2"]);
   });
 
+  test("an admin can't list a login kept for somewhere else, as one a half-finished deletion left", async () => {
+    const keep = (connection_id, workspace_id) => call("/rest/v1/social_tokens", { method: "POST", body: { user_id: owner.id, connection_id, platform: "x", sealed: "x", workspace_id } });
+    await keep("conn-left", null);
+    await keep("conn-theirs", W1);
+    const payload = await ownerPayload(owner);
+    const names = ["conn-left", "conn-theirs", "conn-not-saved-yet"];
+    const next = { ...payload.slices[W1], connections: [...payload.slices[W1].connections, ...names.map((id) => ({ id, platform: "x", handle: id }))] };
+    const saved = await rpc(admin.token, "save_team_workspace", { owner: owner.id, workspace: W1, slice: next, base: payload.revision });
+    assert.equal(saved.same, false);
+    const ids = (await ownerPayload(owner)).slices[W1].connections.map((row) => row.id);
+    assert.ok(!ids.includes("conn-left"));
+    assert.ok(ids.includes("conn-theirs") && ids.includes("conn-not-saved-yet"));
+  });
+
   test("the owner's own save is refused when someone saved meanwhile", async () => {
     const payload = await ownerPayload(owner);
     const stale = await saveOwner(owner, { ...payload, revision: "r-owner" }, "r1");
@@ -474,6 +488,31 @@ describe("roles and leaving", () => {
     assert.equal((await rpc(member.token, "team_workspace", { owner: owner.id, workspace: W2 })).role, "member");
     await rpc(member.token, "remove_workspace_member", { member: leaving.id });
     await refuses(rpc(member.token, "team_workspace", { owner: owner.id, workspace: W2 }), "42501");
+  });
+
+  test("a workspace's client links end when an admin's rights do, not when an invite is turned down", async () => {
+    const link = async () => {
+      const id = randomUUID().replaceAll("-", "").slice(0, 16);
+      const made = await call("/rest/v1/connect_links", { method: "POST", prefer: "return=minimal", body: { id, owner_id: owner.id, workspace_id: W2, created_by: owner.id, expires_at: new Date(Date.now() + 3_600_000).toISOString() } });
+      assert.ok(made.status < 300, JSON.stringify(made.data));
+      return id;
+    };
+    const ended = async (id) => (await call(`/rest/v1/connect_links?select=revoked_at&id=eq.${id}`)).data[0].revoked_at !== null;
+
+    const invited = await rpc(owner.token, "invite_workspace_member", { owner: owner.id, workspace: W2, address: outsider.email, role: "admin" });
+    const first = await link();
+    await rpc(outsider.token, "remove_workspace_member", { member: invited.id });
+    assert.equal(await ended(first), false);
+
+    const joined = await rpc(owner.token, "invite_workspace_member", { owner: owner.id, workspace: W2, address: member.email, role: "admin" });
+    await rpc(member.token, "accept_workspace_invite", { invite: joined.id });
+    await rpc(owner.token, "set_workspace_member_role", { member: joined.id, role: "member" });
+    assert.equal(await ended(first), true);
+
+    await rpc(owner.token, "set_workspace_member_role", { member: joined.id, role: "admin" });
+    const second = await link();
+    await rpc(member.token, "remove_workspace_member", { member: joined.id });
+    assert.equal(await ended(second), true);
   });
 
   test("a smaller plan pauses the team without losing it", async () => {

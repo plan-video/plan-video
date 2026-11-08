@@ -10,7 +10,6 @@ import { createSignal } from "solid-js";
 
 import { queueAccountSync } from "@/lib/account-sync-bus";
 import { t } from "@/lib/i18n";
-import { supabase } from "@/lib/supabase";
 
 export type WorkspaceRole = "admin" | "member";
 
@@ -453,10 +452,6 @@ export async function deleteWorkspace(id: string): Promise<string | undefined> {
   if (activeId() === id) activate(remaining[0]!.id);
   save();
   forgetCopies(userId, id);
-  // Everyone it was shared with leaves it too.
-  void supabase?.rpc("forget_workspace_team", { workspace: id }).then(({ error }) => {
-    if (error && !/forget_workspace_team/.test(error.message)) console.error("[workspaces] Could not take the team out of the deleted workspace", error);
-  });
 }
 
 function forgetCopies(userId: string, id: string) {
