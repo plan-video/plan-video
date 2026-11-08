@@ -10,6 +10,8 @@ const PIXEL_LIMIT = 100_000_000;
 const LIMITS = { limitInputPixels: PIXEL_LIMIT };
 /** Storage only asks for JPEG or PNG, but takes the uploader's word, so a WEBP or GIF named .png arrives too. An SVG is drawn rather than decoded, and a few KB of one can take minutes. */
 const PICTURE_FORMATS = new Set(["jpeg", "png", "webp", "gif"]);
+/** A progressive JPEG holds about 2 bytes of each channel of each pixel while it decodes, so two at once must fit in this service's memory. */
+const PROGRESSIVE_BYTES = 300_000_000;
 
 // Each picture on one thread, as a thread holds lines of a wide picture at a time.
 sharp.concurrency(1);
@@ -111,8 +113,8 @@ export async function handlePhotos(req, res) {
   if (!bytes) return answer(res, 422, "Over the size a picture can be.");
   let made;
   try {
-    const { format, width, height } = await sharp(bytes, LIMITS).metadata();
-    if (!PICTURE_FORMATS.has(format)) return answer(res, 422, "That picture can't be made.");
+    const { format, width, height, channels, isProgressive } = await sharp(bytes, LIMITS).metadata();
+    if (!PICTURE_FORMATS.has(format) || (isProgressive && width * height * channels * 2 > PROGRESSIVE_BYTES)) return answer(res, 422, "That picture can't be made.");
     made = make ? await make(bytes) : JSON.stringify({ width, height });
   } catch (error) {
     return answer(res, 422, error instanceof Error ? error.message : "That picture can't be made.");

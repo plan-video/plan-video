@@ -35,6 +35,22 @@ async function fetchVideo(photos, path, { method = "GET", range } = {}) {
 
 const pathOf = (link) => new URL(link).pathname;
 
+test("a video download cut off partway stops reading the file", async () => {
+  const { PassThrough } = await import("node:stream");
+  let cancelled;
+  const stopped = new Promise((resolve) => (cancelled = resolve));
+  const media = {
+    postFile: async () => ({ key: "posts/u1/clip", size: 10, type: "video/mp4", kind: "video" }),
+    stream: async () => new ReadableStream({ pull: (controller) => controller.enqueue(new Uint8Array(1)), cancel: cancelled }, { highWaterMark: 0 }),
+  };
+  const photos = createPhotos({ key: KEY, publicUrl: "https://plan.video", media });
+  const res = new PassThrough({ highWaterMark: 1 });
+  res.writeHead = () => res;
+  await photos.serveVideo({ method: "GET", headers: {} }, res, pathOf(photos.videoLink("u1", "clip")));
+  res.destroy();
+  await stopped;
+});
+
 test("a video link serves the file as it is, whole or in part", async () => {
   const { photos, asked } = setup();
   const path = pathOf(photos.videoLink("u1", "clip"));

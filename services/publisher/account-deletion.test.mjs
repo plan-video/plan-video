@@ -11,7 +11,7 @@ const ME = "0f0f0f0f-0000-4000-8000-000000000001";
 const OTHER = "0f0f0f0f-0000-4000-8000-000000000002";
 const session = { accessToken: "a", refreshToken: "r", expiresAt: Date.now() + 3_600_000, openId: "o", scope: "video.publish" };
 
-async function setup({ customer = "cus_1", answers = {} } = {}) {
+async function setup({ customer = "cus_1", answers = {}, photoPages = [[{ name: "photo.png" }]], connections = [], revoke: slowRevoke } = {}) {
   const db = fakeDb();
   db.tables.user_data = [{ id: ME, stripe_customer_id: customer }, { id: OTHER, stripe_customer_id: "cus_2" }];
   db.tables.account_state = [{
@@ -19,6 +19,7 @@ async function setup({ customer = "cus_1", answers = {} } = {}) {
     payload: { slices: { main: { connections: [
       { id: "c-tiktok", platform: "tiktok" },
       { id: "c-old", platform: "youtube", youtube: { channelId: "ch", accessToken: "old-a", refreshToken: "old-r" } },
+      ...connections,
     ] } } },
   }];
   db.tables.bluesky_sessions.push({ user_id: ME, did: "did:plc:me", sealed: "x" }, { user_id: OTHER, did: "did:plc:other", sealed: "x" });
@@ -33,6 +34,7 @@ async function setup({ customer = "cus_1", answers = {} } = {}) {
   const bluesky = { revoke: async (userId, did) => void revoked.push(`bluesky ${userId} ${did}`) };
   const revoke = async (platform, found) => {
     revoked.push(`${platform} ${found.refreshToken}`);
+    await slowRevoke?.();
     return true;
   };
   const send = async (url, init) => {
@@ -42,7 +44,7 @@ async function setup({ customer = "cus_1", answers = {} } = {}) {
     if (answer === "down") throw new TypeError("fetch failed");
     if (typeof answer === "number") return new Response("{}", { status: answer });
     if (path.startsWith("/api/billing/")) assert.equal(init.headers.Authorization, "Bearer token-of-me");
-    if (path === "/storage/v1/object/list/avatars") return Response.json([{ name: "photo.png" }]);
+    if (path === "/storage/v1/object/list/avatars") return Response.json(photoPages.length > 1 ? photoPages.shift() : photoPages[0]);
     return Response.json({});
   };
   const deletion = createAccountDeletion({
@@ -64,6 +66,32 @@ test("ends the plan first, then erases files and photo, ends every login, and de
   ]);
   assert.deepEqual(revoked.sort(), ["bluesky " + ME + " did:plc:me", "tiktok r", "x xr", "youtube old-r"].sort());
   assert.deepEqual(db.tables.social_tokens.map((row) => row.user_id), [OTHER]);
+});
+
+test("a huge list of old logins ends each one once, a few at a time, up to a limit", async () => {
+  let running = 0;
+  let most = 0;
+  const connections = [
+    ...Array.from({ length: 50 }, (_, i) => ({ id: `same-${i}`, platform: "youtube", youtube: { channelId: "ch", accessToken: "same-a", refreshToken: "same-r" } })),
+    ...Array.from({ length: 1000 }, (_, i) => ({ id: `many-${i}`, platform: "youtube", youtube: { channelId: "ch", accessToken: `a${i}`, refreshToken: `r${i}` } })),
+  ];
+  const slowRevoke = async () => {
+    most = Math.max(most, ++running);
+    await new Promise((resolve) => setImmediate(resolve));
+    running--;
+  };
+  const { deletion, revoked } = await setup({ connections, revoke: slowRevoke });
+  await deletion.remove(ME, "token-of-me");
+  assert.equal(revoked.filter((line) => line === "youtube same-r").length, 1);
+  assert.ok(revoked.length <= 310, `${revoked.length} revokes`);
+  assert.ok(most <= 16, `${most} at once`);
+});
+
+test("every profile photo goes, past one page of them", async () => {
+  const full = Array.from({ length: 1000 }, (_, i) => ({ name: `${i}.webp` }));
+  const { deletion, steps } = await setup({ photoPages: [full, [{ name: "last.webp" }]] });
+  await deletion.remove(ME, "token-of-me");
+  assert.equal(steps.filter((step) => step === "POST /storage/v1/object/list/avatars").length, 2);
 });
 
 test("someone who never paid isn't sent to billing", async () => {

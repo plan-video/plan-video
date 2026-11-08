@@ -412,6 +412,10 @@ test("someone in a shared workspace uploads, and settles, on its owner's plan", 
   assert.equal(sent.key, `sent/${OWNER}/teampost_abc123`);
   assert.deepEqual(askedDeliveries.at(-1), { token: "member-token", owner: OWNER, posts: ["teampost_abc123", "teampost"] });
 
+  const shouted = await ask("/api/storage/upload-url", { purpose: "media", id: "shouted", contentType: "video/mp4", size: 1000, team: { owner: OWNER.toUpperCase(), workspace: "brand" } });
+  assert.equal(shouted.status, 200, shouted.error);
+  assert.equal(shouted.key, `media/${OWNER}/shouted`);
+
   assert.deepEqual(askedPosts.at(-1), { token: "member-token", owner: OWNER, posts: ["teampost"] });
 
   stored(`posts/${OWNER}/teampost_def456`, 900);

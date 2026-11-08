@@ -185,7 +185,8 @@ export function createWorker({
   function timedFor(item, at) {
     const timed = timedFrom(item.post);
     if (!timed) return timed;
-    const key = `${item.user_id}|${item.workspace_id ?? ""}|${item.post.id}|${item.post.sendFrom}`;
+    // The moment, not the text: anyone can save a post with megabytes in it.
+    const key = `${item.user_id}|${item.workspace_id ?? ""}|${item.post.id}|${timed}`;
     const first = firstSeen.get(key) ?? at;
     firstSeen.set(key, first);
     return Math.min(timed, first - TIMED_SLACK_MS);

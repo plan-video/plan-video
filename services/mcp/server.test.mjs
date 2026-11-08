@@ -174,6 +174,15 @@ test("one address can hold only 20 sockets that haven't said hello", async () =>
   await Promise.all([...open, again].map(closed));
 });
 
+test("addresses in one IPv6 /64 count as one", async () => {
+  const open = [];
+  for (let i = 1; i <= 20; i++) open.push(await openTab(`2001:db8:aa:bb::${i.toString(16)}`));
+  assert.ok(open.every((ws) => ws instanceof WebSocket));
+  assert.equal(await openTab("2001:db8:aa:bb:ffff::1"), 429);
+  for (const ws of open) ws.close();
+  await Promise.all(open.map(closed));
+});
+
 test("only 500 sockets in all may be waiting to say hello", async () => {
   const open = [];
   for (let n = 0; n < 25; n++) {

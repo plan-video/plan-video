@@ -183,7 +183,8 @@ const teams = new Map();
 
 async function teamActor(req, user, body) {
   const team = body?.team;
-  const owner = typeof team?.owner === "string" ? team.owner : "";
+  // Lowercase as the database stores it: files, limits and holds are all kept under this text.
+  const owner = typeof team?.owner === "string" ? team.owner.toLowerCase() : "";
   const workspace = typeof team?.workspace === "string" ? team.workspace : "";
   if (!UUID.test(owner) || !ID.test(workspace)) throw new Refused(400, "That isn't a workspace.");
   // Every purpose the request names, at the top and in each target. Only settle names none: it moves posts.

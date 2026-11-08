@@ -6,6 +6,7 @@
 // open plan.video tab over /api/mcp/tab. Stateless: each MCP request gets a fresh server and
 // transport, so the only state is the open tabs.
 
+import { isIP } from "node:net";
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
@@ -100,10 +101,17 @@ setInterval(() => {
   for (const [name, entry] of windows) if (entry.reset <= now) windows.delete(name);
 }, 60_000).unref();
 
-/** The last X-Forwarded-For hop, the one the reverse proxy appended. */
+/** The last X-Forwarded-For hop, the one the reverse proxy appended. IPv6 counts by its /64, which one person can fill. */
 function clientIp(req) {
   const forwarded = String(req.headers["x-forwarded-for"] ?? "").split(",").map((part) => part.trim()).filter(Boolean);
-  return forwarded.at(-1) ?? req.socket.remoteAddress ?? "unknown";
+  let ip = (forwarded.at(-1) ?? req.socket.remoteAddress ?? "").split("%")[0];
+  if (/^::ffff:\d+\.\d+\.\d+\.\d+$/i.test(ip)) ip = ip.slice(7);
+  if (isIP(ip) !== 6) return ip || "unknown";
+  const [head, tail = ""] = ip.toLowerCase().split("::");
+  const front = head ? head.split(":") : [];
+  const back = tail ? tail.split(":") : [];
+  const groups = [...front, ...Array(Math.max(0, 8 - front.length - back.length)).fill("0"), ...back];
+  return `${groups.slice(0, 4).map((group) => Number.parseInt(group, 16).toString(16)).join(":")}::/64`;
 }
 
 function json(res, status, body, headers = {}) {
@@ -202,7 +210,8 @@ async function handleMcp(req, res) {
   await transport.handleRequest(req, res, body);
 }
 
-const tabs = new WebSocketServer({ noServer: true, maxPayload: TAB_MESSAGE_MAX });
+// A socket asked to close frees its place in a second, not after ws's default of 30.
+const tabs = new WebSocketServer({ noServer: true, maxPayload: TAB_MESSAGE_MAX, closeTimeout: 1000 });
 
 const unverified = new Map();
 let unverifiedTotal = 0;
