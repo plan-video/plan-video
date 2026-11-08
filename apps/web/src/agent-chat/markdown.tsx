@@ -22,7 +22,8 @@ DOMPurify.addHook("afterSanitizeAttributes", (node) => {
  */
 const NO_REMOTE = {
   FORBID_TAGS: ["img", "picture", "source", "video", "audio", "track", "iframe", "object", "embed", "svg", "math", "link", "style", "form", "input"],
-  FORBID_ATTR: ["style", "src", "srcset", "poster", "background", "action", "formaction"],
+  // `class` too: Tailwind's `fixed inset-0` would turn a link into the whole window.
+  FORBID_ATTR: ["class", "style", "src", "srcset", "poster", "background", "action", "formaction"],
 };
 
 function render(text: string, local: boolean): string {

@@ -55,6 +55,8 @@ export function connectClaude(run: ConnectorRunner): () => void {
   };
 
   const answer = async (ws: WebSocket, call: Call, arrived: number) => {
+    // The relay already told the agent this tab left, and whoever is signed in by now didn't ask for this.
+    if (stopped || ws !== socket) return;
     try {
       const output = await run(call.tool, call.args ?? {}, { arrived });
       send(ws, { type: "result", id: call.id, ok: true, text: output.text, images: output.images ?? [] });

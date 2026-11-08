@@ -17,11 +17,9 @@ import { supabase } from "@/lib/supabase";
 import {
   asWorkspaceIcon,
   asWorkspaceShape,
-  clearLegacyMembers,
   forgetSharedCopy,
   setSharedWorkspaces,
   sharedIdOf,
-  sharedWorkspace,
   switchWorkspace,
   type SharedWorkspace,
   type TeamScope,
@@ -392,16 +390,4 @@ export async function removeTeamMember(id: string): Promise<string | undefined> 
 export function inviteLink(id: string): string {
   const origin = window.location.origin;
   return `${origin}/dashboard?invite=${encodeURIComponent(id)}`;
-}
-
-/** Old invites stored on the workspace itself; sent for real once the plan includes a team. */
-export async function sendLegacyInvites(workspace: Workspace, ownerId: string) {
-  if (!workspace.members.length || sharedWorkspace(workspace.id)) return;
-  const scope = { owner: ownerId, workspace: workspace.id };
-  for (const member of workspace.members) {
-    const result = await inviteToWorkspace(scope, member.email, member.role);
-    if ("error" in result && result.error !== t("That person is already invited.")) return;
-    if ("id" in result) void emailInvite(result.id);
-  }
-  clearLegacyMembers(workspace.id);
 }

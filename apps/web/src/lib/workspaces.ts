@@ -470,8 +470,3 @@ export function forgetSharedCopy(userId: string, id: string) {
   if (isSharedId(id)) forgetCopies(userId, id);
 }
 
-export function clearLegacyMembers(id: string) {
-  if (!list().some((row) => row.id === id && row.members.length)) return;
-  setList((current) => current.map((row) => (row.id === id ? { ...row, members: [] } : row)));
-  save();
-}

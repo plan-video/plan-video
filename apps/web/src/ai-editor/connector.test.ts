@@ -15,13 +15,15 @@ vi.mock("@/lib/supabase", () => ({
 }));
 
 const sent: { type: string; token?: string }[] = [];
+const sockets: FakeSocket[] = [];
 class FakeSocket {
   static OPEN = 1;
   readyState = 1;
   onopen?: () => void;
-  onmessage?: unknown;
-  onclose?: unknown;
+  onmessage?: (event: { data: string }) => void;
+  onclose?: () => void;
   constructor() {
+    sockets.push(this);
     queueMicrotask(() => this.onopen?.());
   }
   send(text: string) {
@@ -35,7 +37,33 @@ vi.stubGlobal("document", { addEventListener: () => {}, removeEventListener: () 
 
 const { connectClaude } = await import("./connector");
 
-afterEach(() => vi.useRealTimers());
+afterEach(() => {
+  vi.useRealTimers();
+  sent.length = 0;
+  token = "first";
+});
+
+test("a call queued on a socket that has since closed doesn't run", async () => {
+  vi.useFakeTimers();
+  sockets.length = 0;
+  let finish = () => {};
+  const ran: string[] = [];
+  const stop = connectClaude(async (tool) => {
+    ran.push(tool);
+    if (tool === "first") await new Promise<void>((resolve) => (finish = resolve));
+    return { text: "" };
+  });
+  await vi.advanceTimersByTimeAsync(0);
+  const ws = sockets[0]!;
+  ws.onmessage?.({ data: JSON.stringify({ type: "call", id: "1", tool: "first" }) });
+  ws.onmessage?.({ data: JSON.stringify({ type: "call", id: "2", tool: "second" }) });
+  await vi.advanceTimersByTimeAsync(0);
+  ws.onclose?.();
+  finish();
+  await vi.advanceTimersByTimeAsync(0);
+  expect(ran).toEqual(["first"]);
+  stop();
+});
 
 test("a connected tab sends each new sign-in token over the socket, once, without being asked", async () => {
   vi.useFakeTimers();
