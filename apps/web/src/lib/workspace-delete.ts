@@ -53,6 +53,7 @@ async function forgetOnServer(id: string) {
     if (!result?.error) return;
     console.error("[workspaces] Could not clear the deleted workspace from the server", result.error);
   }
+  console.error("[workspaces] Gave up clearing the deleted workspace from the server", id);
 }
 
 async function partsOf(userId: string, id: string): Promise<WorkspaceParts> {

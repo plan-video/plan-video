@@ -41,7 +41,7 @@ export const captionBrandStyle = () => items().find((item) => item.id === BRAND_
 function isLayer(value: unknown): value is AuthoredTree {
   if (!value || typeof value !== "object") return false;
   const row = value as Partial<AuthoredTree>;
-  return typeof row.tag === "string" && /^[A-Za-z][A-Za-z0-9]*$/.test(row.tag) && Array.isArray(row.children) && row.children.every(isLayer);
+  return typeof row.tag === "string" && /^[A-Za-z][A-Za-z0-9]*$/.test(row.tag) && !!row.props && typeof row.props === "object" && Array.isArray(row.children) && row.children.every(isLayer);
 }
 
 export function readStyle(value: unknown): CaptionBrandStyle | null {

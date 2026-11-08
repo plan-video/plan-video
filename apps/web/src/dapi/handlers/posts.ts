@@ -328,7 +328,7 @@ function detailsOf(post: {
 }
 
 const whatGoesOut = (post: StoredEvent) =>
-  JSON.stringify([post.description, ownCaptions(post), post.platforms, post.accounts, post.link, post.files, post.ownFiles, post.youtube, post.tiktok, post.thread, post.recurrence, post.recurrenceEnd]);
+  JSON.stringify([post.day, post.start, post.allDay, post.status, post.description, ownCaptions(post), post.platforms, post.accounts, post.link, post.files, post.ownFiles, post.youtube, post.tiktok, post.thread, post.recurrence, post.recurrenceEnd]);
 
 const keptFiles = (post: StoredEvent) => new Set([...(post.files ?? []), ...Object.values(post.ownFiles ?? {}).flatMap((ids) => ids ?? [])]).size;
 

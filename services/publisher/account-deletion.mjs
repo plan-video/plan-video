@@ -53,6 +53,7 @@ export function createAccountDeletion({ db, vault, media, bluesky, revoke, env, 
       }
       if (files.length < PHOTO_PAGE) return;
     }
+    throw new Refused(503, failed);
   }
 
   async function eraseFiles(userId) {

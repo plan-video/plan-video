@@ -23,7 +23,7 @@ import { reloadCaptionStyles } from "@/lib/caption-brand";
 import { reloadQueueSlots } from "@/lib/queue-slots";
 import { reloadSocialConnections, shareableConnections } from "@/lib/social-connections";
 import { supabase } from "@/lib/supabase";
-import { reloadTimeZone, setTimeZoneOwner, timeZoneKey } from "@/lib/time-zone";
+import { adoptAccountZone, reloadTimeZone, setTimeZoneOwner, timeZoneKey } from "@/lib/time-zone";
 import { reloadVault } from "@/lib/vault";
 import {
   DEFAULT_WORKSPACE,
@@ -234,6 +234,7 @@ async function reconcile(userId: string): Promise<boolean> {
       if (remote === "failed") return failed(userId);
       // Posts as read now: what changes here before the merged copy is written back is kept.
       const reads = new Map<string, CalendarRead>();
+      if (remote) adoptAccountZone(userId, remote.timeZone ?? null);
       const local = await readLocal(userId, reads);
       const baseline = readBaseline(userId);
       const next = canonicalize(choose(remote, local, baseline, readKnown(userId), readKnownWorkspaces(userId)));
@@ -345,8 +346,7 @@ async function writeLocal(userId: string, payload: Payload, reads?: ReadonlyMap<
   try {
     const body = strip(payload);
     writeJson(`plan.video.workspaces.${userId}`, body.workspaces);
-    if (body.timeZone) localStorage.setItem(timeZoneKey(userId), body.timeZone);
-    else localStorage.removeItem(timeZoneKey(userId));
+    localStorage.setItem(timeZoneKey(userId), body.timeZone ?? "");
     writeJson(`plan.video.notifications.${userId}`, body.notifications);
     writeJson(projectFoldersKey(userId), body.projectFolders);
     writeJson(gradePresetsKey(userId), body.gradePresets);
@@ -417,7 +417,7 @@ async function readLocal(userId: string, reads?: Map<string, CalendarRead>): Pro
   for (const workspace of workspaces) slices[workspace.id] = await readSlice(userId, workspace.id, reads);
   return canonicalize({
     workspaces: { active, list: workspaces },
-    timeZone: localStorage.getItem(timeZoneKey(userId)),
+    timeZone: localStorage.getItem(timeZoneKey(userId)) || null,
     notifications: readNotes(userId),
     projectFolders: readArray(projectFoldersKey(userId)).filter(isProjectFolder),
     gradePresets: readArray(gradePresetsKey(userId)).filter(isGradePreset),

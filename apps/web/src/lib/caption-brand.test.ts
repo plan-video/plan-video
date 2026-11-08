@@ -13,6 +13,6 @@ const { readStyle } = await import("./caption-brand");
 const node = (tag: string, children: unknown[] = []) => ({ tag, props: {}, children });
 
 test("a saved caption style keeps only real layers, however deep a bad one hides", () => {
-  const style = readStyle({ id: "brand", props: {}, children: [node("text"), node('img src=x onerror="alert(1)"'), node("group", [node("<script>")]), "text", null] });
+  const style = readStyle({ id: "brand", props: {}, children: [node("text"), node('img src=x onerror="alert(1)"'), node("group", [node("<script>")]), "text", null, { tag: "text", children: [] }] });
   expect(style?.children.map((child) => child.tag)).toEqual(["text"]);
 });

@@ -454,9 +454,12 @@ export function createWorker({
     !accountsFor(post, row.platform, connections).includes(row.connection_id);
 
   // Removed, not failed: a failed row would keep the post from counting as posted once the new account has sent it.
-  async function dropTakenOff(row) {
+  async function dropTakenOff(row, post, connections) {
     await db.delete("post_deliveries", { id: row.id });
-    if (row.occurrence === "once") await markPosted(row);
+    if (row.occurrence !== "once") return;
+    // Not yet if the account it moved to has no row: planning hasn't got to it, and a posted post is never planned.
+    const rows = await db.select("post_deliveries", { user_id: row.user_id, post_id: row.post_id, occurrence: "once", platform: row.platform }, "connection_id");
+    if (accountsFor(post, row.platform, connections).every((id) => rows.some((other) => other.connection_id === id))) await markPosted(row);
   }
 
   function stillWanted(row, post, zone) {
@@ -544,7 +547,7 @@ export function createWorker({
           return;
         }
       }
-      if (takenOff(claimed, post, found?.connections ?? [])) return await dropTakenOff(claimed);
+      if (takenOff(claimed, post, found?.connections ?? [])) return await dropTakenOff(claimed, post, found?.connections ?? []);
       const unwanted = stillWanted(claimed, post, zone);
       if (unwanted) {
         // Never reached the network, so undoing the pause or the move sends it after all.
@@ -687,7 +690,7 @@ export function createWorker({
           await keep({ id: row.id, state: "processing" }, () => ({ state: "queued", attempts: 0, publish_id: null, error: null, due_at: iso(dueAt), next_at: iso(dueAt), updated_at: iso(now()) }));
           return;
         }
-        if (takenOff(row, post, found?.connections ?? [])) return await dropTakenOff(row);
+        if (takenOff(row, post, found?.connections ?? [])) return await dropTakenOff(row, post, found?.connections ?? []);
         const unwanted = stillWanted(row, post, zone);
         if (unwanted) {
           await settle(row, { state: "failed", error: unwanted });

@@ -53,6 +53,19 @@ test("a post changed while its Allow waits isn't sent, and the person is asked a
   await expect(publishPost({ id: "edited" }, { app: USER, confirm } as never)).rejects.toThrow(/changed while/);
 });
 
+test("a post moved to another time while its Allow waits isn't sent", async () => {
+  await hydrateCalendar();
+  const when = new Date(Date.now() + 5 * 86_400_000);
+  await planned("moved", when);
+  const later = new Date(when.getTime() + 86_400_000);
+  const confirm = async () => {
+    revisePost("moved", { day: localDateKey(later) });
+    return true;
+  };
+  await expect(publishPost({ id: "moved" }, { app: USER, confirm } as never)).rejects.toThrow(/changed while/);
+  expect(allPosts().find((post) => post.id === "moved")?.day).toBe(localDateKey(later));
+});
+
 test("an agent taking a post off the schedule asks first, and a no changes nothing", async () => {
   await hydrateCalendar();
   await planned("kept", new Date(Date.now() + 5 * 86_400_000));

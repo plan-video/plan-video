@@ -123,10 +123,10 @@ export function connectClaude(run: ConnectorRunner): () => void {
   const tokenTimer = setInterval(() => {
     void auth.getSession().then(({ data }) => {
       const token = data.session?.access_token;
-      if (!token || token === sentToken || !socket) return;
+      if (!token || token === sentToken || socket?.readyState !== WebSocket.OPEN) return;
       sentToken = token;
       send(socket, { type: "token", token });
-    });
+    }).catch(() => undefined);
   }, TOKEN_CHECK_MS);
 
   void open();

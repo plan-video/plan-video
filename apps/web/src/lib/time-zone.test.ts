@@ -4,9 +4,19 @@ const saved = new Map<string, string>();
 vi.stubGlobal("localStorage", { getItem: (key: string) => saved.get(key) ?? null, setItem: (key: string, value: string) => void saved.set(key, value), removeItem: (key: string) => void saved.delete(key) });
 vi.mock("@/lib/account-sync-bus", () => ({ queueAccountSync: () => {} }));
 
-const { chosenZone, clockAt, momentOf, setTimeZone, setTimeZoneOwner } = await import("./time-zone");
+const { adoptAccountZone, chosenZone, clockAt, momentOf, setTimeZone, setTimeZoneOwner, timeZoneKey } = await import("./time-zone");
 
 describe("the chosen zone", () => {
+  it("takes the account's zone on a browser that has none saved for it, without undoing a choice made here", () => {
+    setTimeZoneOwner("c");
+    adoptAccountZone("c", "Europe/Amsterdam");
+    expect(chosenZone()).toBe("Europe/Amsterdam");
+    setTimeZone(null);
+    adoptAccountZone("c", "Europe/Amsterdam");
+    expect(chosenZone()).toBeNull();
+    expect(saved.get(timeZoneKey("c"))).toBe("");
+  });
+
   it("belongs to one account, so the next person on this browser doesn't get it", () => {
     setTimeZoneOwner("a");
     setTimeZone("Asia/Tokyo");

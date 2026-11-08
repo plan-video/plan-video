@@ -257,6 +257,26 @@ test("a delivery waiting to try again doesn't go out from an account taken off t
   assert.equal(second.db.tables.post_deliveries.length, 1);
 });
 
+test("a post isn't marked as posted while the account it was moved to hasn't been planned yet", async () => {
+  let busy = true;
+  const send = (name) => {
+    if (name === "tiktok" && busy) throw new PublishError("TikTok is busy.", { retry: true });
+    return { state: "sent", publishId: `${name}-id` };
+  };
+  const entry = scheduled({ accounts: { tiktok: ["tt1"], youtube: ["yt1"] } });
+  entry.connections = [...entry.connections, { id: "tt2", platform: "tiktok" }];
+  const { worker, calls, advance } = setup({ posts: [entry], send });
+  await worker.tick();
+  busy = false;
+  entry.post.accounts = { tiktok: ["tt2"], youtube: ["yt1"] };
+  advance(10 * 60_000);
+  await worker.dispatch();
+  assert.equal(entry.post.status, "scheduled");
+  await worker.tick();
+  assert.ok(calls.some((call) => call.connection === "tt2"));
+  assert.equal(entry.post.status, "posted");
+});
+
 test("a send that may work later is tried again with a wait, then fails for good", async () => {
   const { db, worker, calls, advance } = setup({
     posts: [scheduled({ platforms: ["youtube"] })],

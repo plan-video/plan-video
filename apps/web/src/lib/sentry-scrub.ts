@@ -21,9 +21,18 @@ export function analyticsUrl(url: string): string {
 
 const ADDRESS_FIELD = /(url|referrer|pathname)$/i;
 
+const scrubElementAddress = (element: Record<string, unknown>) =>
+  Object.fromEntries(Object.entries(element).map(([name, value]) => [name, typeof value === "string" && /href$/i.test(name) ? analyticsUrl(value) : value]));
+
 /** Page events carry the address under several names, such as `$current_url` and `$initial_referrer`. */
 export function scrubAddressFields<T extends Record<string, unknown>>(fields: T): T {
-  return Object.fromEntries(Object.entries(fields).map(([name, value]) => [name, typeof value === "string" && ADDRESS_FIELD.test(name) ? analyticsUrl(value) : value])) as T;
+  return Object.fromEntries(
+    Object.entries(fields).map(([name, value]) => {
+      if (name === "$elements_chain" && typeof value === "string") return [name, value.replace(/href="([^"]*)"/g, (_, address: string) => `href="${analyticsUrl(address)}"`)];
+      if (name === "$elements" && Array.isArray(value)) return [name, value.map((element: Record<string, unknown>) => scrubElementAddress(element))];
+      return [name, typeof value === "string" && ADDRESS_FIELD.test(name) ? analyticsUrl(value) : value];
+    }),
+  ) as T;
 }
 
 const scrubWords = (words: string) => words.replace(ADDRESS, scrubUrl);

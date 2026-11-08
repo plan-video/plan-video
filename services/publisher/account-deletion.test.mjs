@@ -94,6 +94,12 @@ test("every profile photo goes, past one page of them", async () => {
   assert.equal(steps.filter((step) => step === "POST /storage/v1/object/list/avatars").length, 2);
 });
 
+test("an account whose photos never run out isn't deleted with some left behind", async () => {
+  const full = Array.from({ length: 1000 }, (_, i) => ({ name: `${i}.webp` }));
+  const { deletion } = await setup({ photoPages: [full] });
+  await assert.rejects(deletion.remove(ME, "token-of-me"), /profile photo/);
+});
+
 test("someone who never paid isn't sent to billing", async () => {
   const { deletion, steps } = await setup({ customer: null });
   await deletion.remove(ME, "token-of-me");
