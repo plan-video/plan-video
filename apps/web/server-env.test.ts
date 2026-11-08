@@ -1,8 +1,8 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
-import type { ResolvedConfig } from "vite";
+import { resolveConfig, type ResolvedConfig } from "vite";
 import { afterEach, describe, expect, test } from "vitest";
 
 import { serverEnv, serverSecretsPlugin } from "./server-env";
@@ -36,6 +36,14 @@ const hooks = (envDir: string, mode = "production") => {
     close: () => (plugin.closeBundle as { handler: Hook }).handler(),
   };
 };
+
+describe("the dev server", () => {
+  test("won't serve the secrets file, and keeps Vite's own refusals", async () => {
+    const config = await resolveConfig({ configFile: resolve(__dirname, "vite.config.ts") }, "serve");
+    for (const file of ["server.env", ".env", ".env.local", "cert.pem"]) expect(config.fsDenyGlob(resolve(__dirname, file))).toBe(true);
+    expect(config.fsDenyGlob(resolve(__dirname, "src/main.ts"))).toBe(false);
+  });
+});
 
 describe("serverEnv", () => {
   test("reads the secrets beside the site's values, and the shell's win", () => {
