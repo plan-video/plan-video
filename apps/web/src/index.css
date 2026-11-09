@@ -541,23 +541,23 @@ html.moving-step .step-actions {
 
 /* Set on <html> so menus, tooltips and dialogs mounted on <body> get the same palette. */
 html.dashboard-theme {
-  --plane-canvas: #060606;
-  --plane-surface-1: #0b0b0b;
-  --plane-surface-2: #111111;
-  --plane-layer-1: #111111;
-  --plane-layer-1-hover: #161616;
-  --plane-layer-2: #161616;
-  --plane-layer-2-hover: #1b1b1b;
-  --plane-layer-2-active: #232323;
-  --plane-layer-3: #1b1b1b;
-  --plane-layer-3-hover: #232323;
+  --plane-canvas: #070605;
+  --plane-surface-1: #0c0a09;
+  --plane-surface-2: #110f0e;
+  --plane-layer-1: #110f0e;
+  --plane-layer-1-hover: #171513;
+  --plane-layer-2: #171513;
+  --plane-layer-2-hover: #1c1a18;
+  --plane-layer-2-active: #24211f;
+  --plane-layer-3: #1c1a18;
+  --plane-layer-3-hover: #24211f;
   --plane-layer-transparent-hover: oklch(1 0 0 / 5%);
   --plane-layer-transparent-active: oklch(1 0 0 / 9%);
   --plane-layer-transparent-selected: oklch(1 0 0 / 13%);
-  --plane-border-subtle: #1c1c1c;
-  --plane-border-subtle-1: #252525;
-  --plane-border-strong: #2e2e2e;
-  --plane-border-strong-1: #3a3a3a;
+  --plane-border-subtle: #1d1a18;
+  --plane-border-subtle-1: #262321;
+  --plane-border-strong: #2f2b29;
+  --plane-border-strong-1: #3b3734;
   --plane-text-primary: #ededed;
   --plane-text-secondary: #a1a1a1;
   --plane-text-tertiary: #7d7d7d;
@@ -716,21 +716,21 @@ html.dashboard-theme[data-dashboard-theme="light"] [class*="color-scheme:dark"] 
 /* `site-light` swaps Tailwind's white and black ends, so everything turns over at once. A picture that must stay as it is sits in `.site-dark`. */
 :root,
 html.site-light .site-dark {
-  --site-page: #0a0a0a;
-  --site-canvas: #060606;
-  --site-surface: #0b0b0b;
-  --site-raised: #111111;
-  --site-panel: #141414;
-  --site-layer: #161616;
-  --site-popover: #161616;
-  --site-layer-2: #1a1a1a;
-  --site-frame: #161616;
-  --site-edge-soft: #1c1c1c;
+  --site-page: #0c0a09;
+  --site-canvas: #070605;
+  --site-surface: #0c0a09;
+  --site-raised: #110f0e;
+  --site-panel: #151311;
+  --site-layer: #171513;
+  --site-popover: #171513;
+  --site-layer-2: #1b1917;
+  --site-frame: #171513;
+  --site-edge-soft: #1d1a18;
   --site-rail: #7d7d7d;
   --site-rail-on: #ededed;
   --site-accent-film: #0b1630;
   --site-streak: rgb(170 200 255);
-  --site-edge: #1f1f1f;
+  --site-edge: #201d1b;
   --site-shadow-float: inset 0 1px 0 rgb(255 255 255 / 0.05), 0 12px 32px -12px rgb(0 0 0 / 0.8);
   --site-shadow-menu: 0 16px 24px -8px rgb(0 0 0 / 0.5), 0 4px 8px -4px rgb(0 0 0 / 0.4);
   --site-shadow-panel: 0 24px 48px -16px rgb(0 0 0 / 0.8);
@@ -780,9 +780,9 @@ html.site-light .site-dark {
 
 html.site-light {
   color-scheme: light;
-  --color-white: #0a0a0a;
+  --color-white: #0c0a09;
   --color-black: #ffffff;
-  --color-neutral-50: #0a0a0a;
+  --color-neutral-50: #0c0a09;
   --color-red-300: #dc2626;
   --color-red-400: #ef4444;
 
@@ -1193,12 +1193,12 @@ html.editor-theme .font-450 {
 }
 
 html.editor-theme[data-kb-theme="dark"] {
-  --canvas: #060606;
-  --background: #0b0b0b;
+  --canvas: #070605;
+  --background: #0c0a09;
   --foreground: #d4d4d4;
-  --card: #0b0b0b;
+  --card: #0c0a09;
   --card-foreground: #d4d4d4;
-  --popover: #111111;
+  --popover: #110f0e;
   --popover-foreground: #d4d4d4;
   --primary: #2f6ff0;
   --primary-foreground: rgb(255 255 255 / 0.9);
@@ -1217,10 +1217,10 @@ html.editor-theme[data-kb-theme="dark"] {
   --disabled-foreground: #4a4a4a;
   --accent: rgb(255 255 255 / 0.05);
   --accent-foreground: #a1a1a1;
-  --border: #1a1a1a;
-  --border-strong: #1f1f1f;
-  --border-input: #262626;
-  --border-darker: #0b0b0b;
+  --border: #1b1917;
+  --border-strong: #201d1b;
+  --border-input: #272422;
+  --border-darker: #0c0a09;
   --input: rgb(255 255 255 / 0.05);
   --ring: #2f6ff0;
   --inset: rgb(255 255 255 / 0.08);

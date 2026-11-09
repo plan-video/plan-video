@@ -18,7 +18,7 @@ export function GuestFrame(props: { children: JSX.Element }) {
   const navigate = useNavigate();
 
   return (
-    <div class="flex h-dvh w-full flex-col bg-[#1c1c1c] px-2 pb-2 text-white max-md:px-0 max-md:pb-0">
+    <div class="flex h-dvh w-full flex-col bg-(--guest-frame,#1d1a18) px-2 pb-2 text-white max-md:px-0 max-md:pb-0">
       {/* Above the frame, so the tooltip that opens down from it lands over the demo. */}
       <div class="relative z-10 flex h-12 shrink-0 items-center px-2">
         <A href="/" aria-label={t("Back to plan.video")} class={`${BAND_BUTTON} pl-1.5 text-white hover:bg-white/[0.08]`}>

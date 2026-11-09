@@ -74,13 +74,13 @@ export type TimelineColors = {
 
 export const COLORS = {
   background: {
-    default: '#0B0B0B',
-    muted: '#161616',
-    accent: '#161616',
+    default: '#0C0A09',
+    muted: '#171513',
+    accent: '#171513',
   },
   border: {
-    darker: '#0B0B0B',
-    input: '#2E2E2E',
+    darker: '#0C0A09',
+    input: '#2F2B29',
     ring: '#2f6ff0',
     scrubber: '#F43535',
   },

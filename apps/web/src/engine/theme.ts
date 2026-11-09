@@ -12,7 +12,7 @@ import type { World } from 'koota';
 
 /** Must match `--canvas` in each theme. */
 const CANVAS_BACKGROUND: Record<EditorThemeMode, number> = {
-	dark: 0x060606,
+	dark: 0x070605,
 	light: 0xf3f3f3,
 };
 
