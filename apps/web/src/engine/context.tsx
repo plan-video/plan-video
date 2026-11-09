@@ -7,6 +7,8 @@ import { useColorMode } from '@kobalte/core';
 import { WorldProvider } from '@plan.video/koota-solid';
 
 import { createEngine, type Engine, type EngineOptions } from './create-engine';
+import { liveThemeSpec } from '@/lib/app-theme';
+
 import { setEditorTheme } from './theme';
 
 const EngineContext = createContext<Engine>();
@@ -23,7 +25,7 @@ export function EngineProvider(props: EngineProviderProps): JSX.Element {
 	onCleanup(() => engine.dispose());
 
 	const { colorMode } = useColorMode();
-	createRenderEffect(() => setEditorTheme(engine.world, colorMode()));
+	createRenderEffect(() => setEditorTheme(engine.world, colorMode(), liveThemeSpec()));
 
 	return (
 		<EngineContext.Provider value={engine}>

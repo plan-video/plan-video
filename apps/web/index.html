@@ -87,6 +87,18 @@
           document.documentElement.dataset.boot = theme;
         }
 
+        // A custom theme's colours, as lib/app-theme.ts last wrote them. Its
+        // rules only match the dashboard and editor, so the site never sees it.
+        try {
+          var themeCss = localStorage.getItem("plan.theme-css");
+          if (themeCss) {
+            var themeStyle = document.createElement("style");
+            themeStyle.id = "app-theme";
+            themeStyle.textContent = themeCss;
+            document.head.appendChild(themeStyle);
+          }
+        } catch (e) {}
+
         // @site:hero-preload
       })();
     </script>

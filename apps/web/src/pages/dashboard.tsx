@@ -69,6 +69,7 @@ import { activeWorkspaceId, firstNameFrom, loadWorkspaces, setWorkspaceOwnerName
 import { TeamInviteDialog } from "@/components/dashboard/team-invite";
 import { fillMissingAvatars } from "@/lib/account-avatars";
 import { loadSocialConnections, socialConnections } from "@/lib/social-connections";
+import "@/lib/app-theme";
 import { dashboardRailLabels, dashboardTheme } from "@/lib/dashboard-theme";
 import { analyticsSectionOf } from "@/components/dashboard/analytics-state";
 import { parseTimestamp } from "@/components/dashboard/utils";
