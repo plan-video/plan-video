@@ -2,22 +2,15 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { For, Match, Show, Switch, createSignal, onCleanup } from "solid-js";
+import { Match, Switch, createSignal, onCleanup } from "solid-js";
 import { toast } from "somoto";
 
 import { DefaultCalendarViewToggle } from "@/components/calendar/view-toggle";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/dashboard/dashboard-icon";
 import { Switch as Toggle, SwitchControl, SwitchInput, SwitchLabel, SwitchThumb } from "@/components/ui/switch";
-import { cx } from "@/lib/cva";
-import { msg, t } from "@/lib/i18n";
-import {
-  dashboardRailLabels,
-  dashboardTheme,
-  setDashboardRailLabels,
-  setDashboardTheme,
-  type DashboardTheme,
-} from "@/lib/dashboard-theme";
+import { t } from "@/lib/i18n";
+import { dashboardRailLabels, setDashboardRailLabels } from "@/lib/dashboard-theme";
 import { chosenZone, timeZone, zonedFormat } from "@/lib/time-zone";
 import { usePermissionState, type PermissionState } from "@/hooks/use-permission";
 
@@ -28,75 +21,12 @@ import {
   DashboardSurfaceSection,
 } from "./shared";
 import { LanguagePicker } from "./language-picker";
+import { ThemeSection } from "./theme-gallery";
 import { TimeZonePicker } from "./time-zone-picker";
 
-const THEME_PREVIEWS: { value: DashboardTheme; label: string; canvas: string; surface: string; line: string; text: string; accent: string }[] = [
-  { value: "dark", label: msg("Dark"), canvas: "#060606", surface: "#0b0b0b", line: "#1c1c1c", text: "#3a3a3a", accent: "#2f6ff0" },
-  { value: "light", label: msg("Light"), canvas: "#f3f3f3", surface: "#ffffff", line: "#ebebeb", text: "#d4d4d4", accent: "#2563eb" },
-];
-
-function DashboardAppearanceSection() {
+function DashboardRailSection() {
   return (
-    <DashboardSurfaceSection title={t("Appearance")}>
-      <div role="radiogroup" aria-label={t("Theme")} class="grid grid-cols-2 gap-3">
-        <For each={THEME_PREVIEWS}>
-          {(option) => {
-            const selected = () => dashboardTheme() === option.value;
-            return (
-              <button
-                type="button"
-                role="radio"
-                aria-checked={selected()}
-                class="group flex min-w-0 flex-col gap-2.5 rounded-xl p-1.5 text-left outline-none depth-card depth-unlit focus-ring"
-                onClick={() => setDashboardTheme(option.value)}
-              >
-                <span
-                  aria-hidden="true"
-                  class={cx(
-                    "flex h-24 gap-1.5 overflow-hidden rounded-md p-1.5 ring-1 transition-shadow",
-                    selected() ? "ring-2 ring-(--plane-accent-primary)" : "ring-(--plane-border-subtle-1) group-hover:ring-(--plane-border-strong)",
-                  )}
-                  style={{ background: option.canvas }}
-                >
-                  <span class="flex w-4 flex-col items-center gap-1.5 pt-1">
-                    <span class="size-2.5 rounded-[3px]" style={{ background: option.accent }} />
-                    <span class="size-2 rounded-[2px]" style={{ background: option.text }} />
-                    <span class="size-2 rounded-[2px]" style={{ background: option.text }} />
-                  </span>
-                  <span class="flex min-w-0 flex-1 overflow-hidden rounded-[4px] border" style={{ background: option.surface, "border-color": option.line }}>
-                    <span class="flex w-14 flex-col gap-1.5 border-r p-2" style={{ "border-color": option.line }}>
-                      <span class="h-1.5 w-8 rounded-full" style={{ background: option.text }} />
-                      <span class="h-1.5 w-6 rounded-full" style={{ background: option.line }} />
-                      <span class="h-1.5 w-7 rounded-full" style={{ background: option.line }} />
-                    </span>
-                    <span class="flex flex-1 flex-col gap-1.5 p-2">
-                      <span class="h-1.5 w-12 rounded-full" style={{ background: option.text }} />
-                      <span class="grid flex-1 grid-cols-3 gap-1">
-                        <span class="rounded-[2px] border" style={{ "border-color": option.line }} />
-                        <span class="rounded-[2px] border" style={{ "border-color": option.line }} />
-                        <span class="rounded-[2px] border" style={{ "border-color": option.line, background: option.accent, opacity: 0.35 }} />
-                      </span>
-                    </span>
-                  </span>
-                </span>
-                <span class="flex items-center gap-2 px-0.5">
-                  <span
-                    class={cx(
-                      "grid size-4 place-items-center rounded-full border transition-colors",
-                      selected() ? "border-(--plane-accent-primary) bg-(--plane-accent-primary)" : "border-(--plane-border-strong)",
-                    )}
-                  >
-                    <Show when={selected()}>
-                      <span class="size-1.5 rounded-full bg-white" />
-                    </Show>
-                  </span>
-                  <span class="text-sm font-medium text-(--plane-text-primary)">{t(option.label)}</span>
-                </span>
-              </button>
-            );
-          }}
-        </For>
-      </div>
+    <DashboardSurfaceSection title={t("Navigation")}>
       <Toggle checked={!dashboardRailLabels()} onChange={(iconsOnly) => setDashboardRailLabels(!iconsOnly)} class="flex items-center gap-4">
         <SwitchLabel class="min-w-0 flex-1 cursor-pointer pr-4 text-xs font-normal">
           <span class="block text-foreground">{t("Icons only in the side rail")}</span>
@@ -276,7 +206,8 @@ function DashboardPermissionsSection() {
 export function DashboardSettingsView() {
   return (
     <DashboardScrollView>
-      <DashboardAppearanceSection />
+      <ThemeSection />
+      <DashboardRailSection />
       <DashboardLanguageSection />
       <DashboardTimeZoneSection />
       <DashboardCalendarSection />
