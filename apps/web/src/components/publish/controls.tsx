@@ -2,18 +2,20 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import { useSearchParams } from "@solidjs/router";
 import { For, Show, createSignal, type JSX } from "solid-js";
 
 import { tileViewBox } from "@/components/brand/tile-box";
 import { YouTubeBare, YouTubeSlot, YouTubeWhiteTile } from "@/components/brand/youtube-icon";
 import { AccountAvatar } from "@/components/publish/account-avatar";
 import { Icon } from "@/components/dashboard/dashboard-icon";
+import { Button } from "@/components/ui/button";
 import { Switch, SwitchControl, SwitchInput, SwitchLabel, SwitchThumb } from "@/components/ui/switch";
 import { cx } from "@/lib/cva";
 import { intlLocale, msg, t } from "@/lib/i18n";
 import { Popover, PopoverContent, PopoverPortal, PopoverTrigger } from "@/components/ui/popover";
 import { POST_KINDS, PUBLISHING_PLATFORMS, SOCIAL_PLATFORMS, platformsFor, socialPlatform, sortPlatforms, type PlatformId, type PostKind } from "@/lib/social";
-import { accountLabel, accountsFor, accountsForPlatforms, connectionsFor, toggleAccount, type AccountChoices } from "@/lib/social-connections";
+import { accountLabel, accountsFor, accountsForPlatforms, connectionsFor, socialConnections, toggleAccount, type AccountChoices } from "@/lib/social-connections";
 
 export const fieldControlBase =
   "w-full min-w-0 rounded-md border border-(--border-input) bg-input px-2 text-xs text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary disabled:cursor-not-allowed disabled:opacity-50 [color-scheme:dark]";
@@ -304,24 +306,41 @@ export function PlatformPicker(props: {
     props.onChange(sortPlatforms(ids), accountsForPlatforms(ids, accounts, { keepRemoved: true }));
   };
 
-  // One already on a post stays pickable, so it can be taken off.
-  const soon = (id: PlatformId) => !PUBLISHING_PLATFORMS.includes(id) && !props.value.includes(id);
+  const [, setParams] = useSearchParams();
+  const addAccount = () => setParams({ dashboard: "connections" });
 
   const toggle = (id: PlatformId) => {
     const picked = new Set(props.value);
     if (picked.has(id)) picked.delete(id);
-    else if (!soon(id)) picked.add(id);
+    else picked.add(id);
     apply([...picked]);
   };
 
-  const offered = () => (props.available ? SOCIAL_PLATFORMS.filter((platform) => props.available!.includes(platform.id)) : SOCIAL_PLATFORMS);
+  // One already on a post stays, even with no account, so it can be taken off.
+  const offered = () =>
+    SOCIAL_PLATFORMS.filter(
+      (platform) =>
+        (!props.available || props.available.includes(platform.id)) &&
+        (props.value.includes(platform.id) || (PUBLISHING_PLATFORMS.includes(platform.id) && connectionsFor(platform.id).length > 0)),
+    );
 
-  // All nine in a row when there's room, else rows of five or three, so a row never ends with one left over.
+  const noneOffered = (canLeave: boolean) => (
+    <div class="col-span-full flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-2 py-1.5">
+      <span class="text-xs text-muted-foreground">{socialConnections().length ? t("None of your accounts can post this.") : t("You haven't connected any accounts yet.")}</span>
+      <Show when={canLeave}>
+        <Button variant="secondary" class="px-2.5" onClick={addAccount}>
+          {socialConnections().length ? t("Add account") : t("Connect an account")}
+        </Button>
+      </Show>
+    </div>
+  );
+
+  // Every network and Add fill a row when there's room, else rows of five or three.
   if (props.variant === "logos") {
     return (
       <div class={cx("@container", props.class)}>
         <div class="grid grid-cols-3 gap-1 @sm:grid-cols-5 @2xl:grid-cols-9">
-          <For each={offered()}>
+          <For each={offered()} fallback={noneOffered(true)}>
             {(platform) => {
               const on = () => props.value.includes(platform.id);
               const accounts = () => connectionsFor(platform.id);
@@ -331,22 +350,19 @@ export function PlatformPicker(props: {
                   class="group flex min-w-0 flex-col items-center rounded-md border press"
                   classList={{
                     "border-primary/70 bg-primary/10": on(),
-                    "border-transparent": !on(),
-                    "hover:bg-accent": !on() && !soon(platform.id),
+                    "border-transparent hover:bg-accent": !on(),
                   }}
                 >
                   <button
                     type="button"
                     aria-pressed={on()}
-                    aria-label={soon(platform.id) ? t("{network}: soon", { network: platform.name }) : undefined}
-                    disabled={soon(platform.id)}
                     class="flex w-full min-w-0 flex-col items-center gap-2 rounded-md px-1 pt-3 pb-2.5 focus-ring"
                     title={accounts().length === 1 ? accountLabel(accounts()[0]!) : undefined}
                     onClick={() => toggle(platform.id)}
                   >
                     <PlatformLogo id={platform.id} class="size-8 rounded-lg" />
                     <span class="max-w-full truncate text-xs" classList={{ "text-foreground": on(), "text-muted-foreground group-hover:text-foreground": !on() }}>
-                      {soon(platform.id) ? t("Soon") : platform.name}
+                      {platform.name}
                     </span>
                   </button>
                   <Show when={(accounts().length > 1 && on()) || unpicked()}>
@@ -363,12 +379,25 @@ export function PlatformPicker(props: {
               );
             }}
           </For>
+          <Show when={offered().length}>
+            <button
+              type="button"
+              title={t("Add account")}
+              class="group flex min-w-0 flex-col items-center gap-2 rounded-md border border-transparent px-1 pt-3 pb-2.5 press hover:bg-accent focus-ring"
+              onClick={addAccount}
+            >
+              <span class="grid size-8 place-items-center rounded-lg border border-dashed border-(--border-input) text-muted-foreground transition-colors group-hover:text-foreground">
+                <Icon name="plus-add" class="size-5" />
+              </span>
+              <span class="max-w-full truncate text-xs text-muted-foreground transition-colors group-hover:text-foreground">{t("Add")}</span>
+            </button>
+          </Show>
         </div>
       </div>
     );
   }
 
-  // All nine logos in one row, for a side panel; a network's accounts open under it.
+  // Every logo in one row, for a side panel; a network's accounts open under it.
   if (props.variant === "row") {
     const choosing = () =>
       offered().filter((platform) => {
@@ -378,18 +407,16 @@ export function PlatformPicker(props: {
     return (
       <div class={cx("flex flex-col gap-1", props.class)}>
         <div class="grid grid-cols-9 gap-0.5">
-          <For each={offered()}>
+          <For each={offered()} fallback={noneOffered(true)}>
             {(platform) => {
               const on = () => props.value.includes(platform.id);
               return (
                 <button
                   type="button"
                   aria-pressed={on()}
-                  aria-label={soon(platform.id) ? t("{network}: soon", { network: platform.name }) : platform.name}
-                  title={soon(platform.id) ? t("{network}: soon", { network: platform.name }) : undefined}
-                  disabled={soon(platform.id)}
+                  aria-label={platform.name}
                   class="grid h-10 min-w-0 place-items-center rounded-md border press focus-ring"
-                  classList={{ "border-primary/70 bg-primary/10": on(), "border-transparent": !on(), "hover:bg-accent": !on() && !soon(platform.id) }}
+                  classList={{ "border-primary/70 bg-primary/10": on(), "border-transparent hover:bg-accent": !on() }}
                   onClick={() => toggle(platform.id)}
                 >
                   <PlatformLogo id={platform.id} compact class="size-6" />
@@ -397,6 +424,19 @@ export function PlatformPicker(props: {
               );
             }}
           </For>
+          <Show when={offered().length}>
+            <button
+              type="button"
+              aria-label={t("Add account")}
+              title={t("Add account")}
+              class="group grid h-10 min-w-0 place-items-center rounded-md border border-transparent press hover:bg-accent focus-ring"
+              onClick={addAccount}
+            >
+              <span class="grid size-6 place-items-center rounded-md border border-dashed border-(--border-input) text-muted-foreground transition-colors group-hover:text-foreground">
+                <Icon name="plus-add-small" class="size-4" />
+              </span>
+            </button>
+          </Show>
         </div>
         <For each={choosing()}>
           {(platform) => (
@@ -416,7 +456,8 @@ export function PlatformPicker(props: {
 
   return (
     <div class="grid gap-1.5" style={{ "grid-template-columns": `repeat(${props.columns ?? 3}, minmax(0, 1fr))` }}>
-      <For each={offered()}>
+      {/* Only the template editor uses these, a dialog that would lose its draft on leaving. */}
+      <For each={offered()} fallback={noneOffered(false)}>
         {(platform) => {
           const on = () => props.value.includes(platform.id);
           const accounts = () => connectionsFor(platform.id);
@@ -426,14 +467,12 @@ export function PlatformPicker(props: {
               class="group flex min-w-0 flex-col justify-center rounded-md border press"
               classList={{
                 "border-primary/70 bg-primary/10": on(),
-                "border-(--border-input)": !on(),
-                "hover:bg-accent": !on() && !soon(platform.id),
+                "border-(--border-input) hover:bg-accent": !on(),
               }}
             >
               <button
                 type="button"
                 aria-pressed={on()}
-                disabled={soon(platform.id)}
                 class="flex min-h-10 min-w-0 items-center gap-2 rounded-md px-2.5 py-1.5 text-left focus-ring"
                 onClick={() => toggle(platform.id)}
               >
@@ -442,9 +481,6 @@ export function PlatformPicker(props: {
                   <span class="truncate text-xs" classList={{ "text-foreground": on(), "text-muted-foreground group-hover:text-foreground": !on() }}>
                     {platform.name}
                   </span>
-                  <Show when={soon(platform.id)}>
-                    <span class="truncate text-xs leading-3 text-muted-foreground">{t("Soon")}</span>
-                  </Show>
                   <Show when={accounts().length === 1 && !unpicked()}>
                     <span class="truncate text-xs leading-3 text-muted-foreground">@{accounts()[0]!.handle}</span>
                   </Show>
@@ -452,16 +488,14 @@ export function PlatformPicker(props: {
                     <span class="truncate text-xs leading-3 text-muted-foreground">{t("{count, plural, one {# account} other {# accounts}}", { count: accounts().length })}</span>
                   </Show>
                 </span>
-                <Show when={!soon(platform.id)}>
-                  <span
-                    class="grid size-4 shrink-0 place-items-center rounded-full border transition-colors"
-                    classList={{ "border-primary bg-primary text-primary-foreground": on(), "border-(--border-input)": !on() }}
-                  >
-                    <Show when={on()}>
-                      <CheckMark class="size-2.5" />
-                    </Show>
-                  </span>
-                </Show>
+                <span
+                  class="grid size-4 shrink-0 place-items-center rounded-full border transition-colors"
+                  classList={{ "border-primary bg-primary text-primary-foreground": on(), "border-(--border-input)": !on() }}
+                >
+                  <Show when={on()}>
+                    <CheckMark class="size-2.5" />
+                  </Show>
+                </span>
               </button>
               <Show when={(accounts().length > 1 && on()) || unpicked()}>
                 <div class="-mt-1 pr-2.5 pb-1.5 pl-[42px]">
