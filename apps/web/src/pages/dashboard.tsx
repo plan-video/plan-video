@@ -561,7 +561,7 @@ export function DashboardPage() {
           <div class="contents max-md:hidden">
             <DashboardIconRailItem showLabel={railLabels()} tooltip="right" active={rail() === "projects"} onClick={() => openRail("projects")} icon="project" label={t("Projects")} />
           </div>
-          <DashboardIconRailItem showLabel={railLabels()} tooltip="right" active={rail() === "library"} onClick={() => openRail("library")} icon="layer-stack" label={t("Library")} />
+          <DashboardIconRailItem showLabel={railLabels()} tooltip="right" active={rail() === "library"} onClick={() => openRail("library")} icon="library" label={t("Library")} />
           <DashboardIconRailItem showLabel={railLabels()} tooltip="right" active={rail() === "agent"} onClick={() => openRail("agent")} icon="agent" label={t(RAIL_LABELS.agent)} />
           <div class="contents max-md:hidden">
             <DashboardIconRailItem showLabel={railLabels()} tooltip="right" active={rail() === "plugs"} onClick={() => openRail("plugs")} icon="plug" label={t("Plugs")} />

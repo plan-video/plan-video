@@ -22,7 +22,7 @@ import { WorkspaceBadge } from "./workspace-switcher";
 const RAIL: { icon: PlaneIconName; label: string }[] = [
   { icon: "calendar", label: msg({ message: "Schedule", context: "noun" }) },
   { icon: "project", label: msg("Projects") },
-  { icon: "layer-stack", label: msg("Library") },
+  { icon: "library", label: msg("Library") },
   { icon: "agent", label: msg("Assistant") },
   { icon: "plug", label: msg("Plugs") },
   { icon: "analytics", label: msg("Analytics") },

@@ -84,7 +84,7 @@ const LIGHT: Palette = { canvas: "#f3f3f3", surface: "#ffffff", line: "#ebebeb",
 const PICTURE_RAIL: { icon: PlaneIconName; label: string }[] = [
   { icon: "calendar", label: msg({ message: "Schedule", context: "noun" }) },
   { icon: "project", label: msg("Projects") },
-  { icon: "layer-stack", label: msg("Library") },
+  { icon: "library", label: msg("Library") },
 ];
 
 /** The dashboard, small: its rail, side panel and calendar in the colours it's being chosen in. */
