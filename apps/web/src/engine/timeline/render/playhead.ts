@@ -46,7 +46,7 @@ export function renderPlayhead(world: World, scene: Entity, surface: TimelineSur
 
 	ctx.save();
 	ctx.translate(-5, 2);
-	ctx.fillStyle = surface.colors.border.ring;
+	ctx.fillStyle = surface.colors.border.playhead;
 	ctx.strokeStyle = surface.colors.border.darker;
 	ctx.lineWidth = 2;
 	ctx.stroke(KNOB_PATH);
@@ -66,7 +66,7 @@ export function renderPlayhead(world: World, scene: Entity, surface: TimelineSur
 	ctx.lineWidth = 3;
 	ctx.stroke();
 
-	ctx.strokeStyle = surface.colors.border.ring;
+	ctx.strokeStyle = surface.colors.border.playhead;
 	ctx.lineWidth = 1;
 	ctx.stroke();
 
@@ -104,8 +104,8 @@ function renderMotionTrail(world: World, surface: TimelineSurfaceState, frame: n
 
 	const reverse = gradientWidth < 0;
 	const gradient = ctx.createLinearGradient(reverse ? width : -width, 0, 0, 0);
-	gradient.addColorStop(0, surface.colors.border.ring + '00');
-	gradient.addColorStop(1, surface.colors.border.ring);
+	gradient.addColorStop(0, surface.colors.border.playhead + '00');
+	gradient.addColorStop(1, surface.colors.border.playhead);
 
 	ctx.fillStyle = gradient;
 	ctx.globalAlpha = 0.16;
@@ -130,14 +130,14 @@ function renderCollapsedPlayhead(surface: TimelineSurfaceState, frame: number): 
 	ctx.lineWidth = 4;
 	ctx.stroke();
 
-	ctx.strokeStyle = surface.colors.border.ring;
+	ctx.strokeStyle = surface.colors.border.playhead;
 	ctx.lineWidth = 2;
 	ctx.stroke();
 
 	ctx.beginPath();
 	ctx.roundRect(-width / 2, PILL_TOP, width, PILL_HEIGHT, PILL_RADIUS);
 
-	ctx.fillStyle = surface.colors.border.ring;
+	ctx.fillStyle = surface.colors.border.playhead;
 	ctx.strokeStyle = surface.colors.border.darker;
 	ctx.lineWidth = 1;
 	ctx.fill();

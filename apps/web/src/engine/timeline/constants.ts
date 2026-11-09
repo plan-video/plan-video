@@ -61,7 +61,7 @@ export const RULER_INTERVALS = [
 
 export type TimelineColors = {
   background: { default: string; muted: string; accent: string };
-  border: { darker: string; input: string; ring: string; scrubber: string };
+  border: { darker: string; input: string; ring: string; playhead: string; scrubber: string };
   ruler: { tick: string; text: string };
   keyframe: string;
   clip: Record<'group' | 'video' | 'audio' | 'caption' | 'image' | 'text' | 'shape' | 'scene' | 'mask' | 'adjustment' | 'html' | 'failed', {
@@ -82,6 +82,7 @@ export const COLORS = {
     darker: '#0C0A09',
     input: '#2F2B29',
     ring: '#2f6ff0',
+    playhead: '#2f6ff0',
     scrubber: '#F43535',
   },
   ruler: {
@@ -168,6 +169,7 @@ export const LIGHT_COLORS = {
     darker: '#FFFFFF',
     input: '#D4D4D4',
     ring: '#2563eb',
+    playhead: '#2563eb',
     scrubber: '#E5252A',
   },
   ruler: {
