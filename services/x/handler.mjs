@@ -85,13 +85,9 @@ async function userFor(req, env) {
     if (!access.ok || (await access.json()) !== true) throw new Refused(403, "This account hasn't been let in yet.");
   }
 
-  const plan = await supabaseCall(env, `/rest/v1/user_data?select=access_level&id=eq.${encodeURIComponent(user.id)}`, token);
-  const rows = plan.ok ? await plan.json().catch(() => []) : [];
-  const paid = Array.isArray(rows) && typeof rows[0]?.access_level === "number" && rows[0].access_level > 1;
-
   if (SESSIONS.size > 5000) SESSIONS.clear();
-  SESSIONS.set(token, { user: { id: user.id, paid }, until: Date.now() + 60_000 });
-  return { id: user.id, paid };
+  SESSIONS.set(token, { user: { id: user.id }, until: Date.now() + 60_000 });
+  return { id: user.id };
 }
 
 export function explain(status, payload) {
@@ -203,8 +199,6 @@ function text(body, key) {
   return typeof body[key] === "string" ? body[key] : "";
 }
 
-const PAID_ONLY = "Posting to X is on paid plans. Upgrade in Billing to connect X.";
-
 export async function handleX(req, res, path, env) {
   if (req.method !== "POST") {
     json(res, 405, { error: "Use POST." });
@@ -217,12 +211,8 @@ export async function handleX(req, res, path, env) {
 
   const user = await userFor(req, env);
   limit(`x:${user.id}`, 600, 600);
-  // Ending plan.video's access works on any plan, so someone who stopped paying can still disconnect.
-  if (!user.paid && path !== "/api/x/revoke") {
-    json(res, 403, { error: PAID_ONLY });
-    return;
-  }
 
+  // No plan check: a shared workspace follows its owner's plan, which only the publisher's x/exchange knows.
   const body = JSON.parse((await readBody(req, JSON_MAX)).toString("utf8") || "{}");
 
   if (path === "/api/x/authorize") {
