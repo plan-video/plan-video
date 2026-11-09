@@ -19,7 +19,7 @@
   "dependencies": {
     "@plan.video/runtime": "*",
     "koota": "^0.6.6",
-    "mediabunny": "^1.62.1"
+    "mediabunny": "^1.65.0"
   },
   "devDependencies": {
     "@types/audioworklet": "^0.0.100",

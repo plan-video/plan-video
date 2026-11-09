@@ -26,7 +26,7 @@
     "animejs": "^4.4.1",
     "colord": "^2.9.3",
     "koota": "^0.6.6",
-    "mediabunny": "^1.62.1"
+    "mediabunny": "^1.65.0"
   },
   "devDependencies": {
     "@webgpu/types": "^0.1.74",
