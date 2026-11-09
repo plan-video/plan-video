@@ -80,7 +80,7 @@ export type SliderThumbProps<T extends ValidComponent = "span"> = VoidProps<
 export const SliderThumb = <T extends ValidComponent = "span">(
   props: SliderThumbProps<T>,
 ) => {
-  const [, rest] = splitProps(props as SliderThumbProps, ["class"])
+  const [local, rest] = splitProps(props as SliderThumbProps, ["class", "aria-label"])
 
   return (
     <SliderPrimitive.Thumb
@@ -91,7 +91,7 @@ export const SliderThumb = <T extends ValidComponent = "span">(
       )}
       {...rest}
     >
-      <SliderPrimitive.Input />
+      <SliderPrimitive.Input aria-label={local["aria-label"]} />
     </SliderPrimitive.Thumb>
   )
 }
