@@ -8,7 +8,11 @@ Change it in the dashboard under **Settings** → **Preferences**, or from the l
 
 ## Theme
 
-Pick **Dark** or **Light** under **Preferences** → **Appearance**, or with the switch at the bottom of the site. One pick applies everywhere. Until you pick, the site starts light, and the dashboard and editor start dark. The docs follow the same choice; use the switch in the top bar.
+Pick **Light**, **Dark** or **System** (follow your device) under **Preferences** → **Appearance**, or use the switch at the bottom of the site. One pick applies everywhere. Until you pick, the site starts light, and the dashboard and editor start dark. The docs follow the same choice; use the switch in the top bar.
+
+Below that, choose a ready-made theme or click **New theme** to build your own: accent colour, background, contrast, corners and font, plus the playhead and clip colours on the timeline. The dashboard and the video editor always share one theme, and text stays readable whatever you pick.
+
+To share a theme, open its **⋯** menu and choose **Copy theme code**. To add one, click the arrow next to **New theme**, choose **Import a theme** and paste the code.
 
 ## Editor layout
 
