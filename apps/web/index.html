@@ -32,6 +32,7 @@
           // drawn in the dashboard's own palette, as the dashboard draws it
           // over the dark mode.
           var picked = localStorage.getItem("plan.dashboard-theme");
+          if (picked === "system") picked = matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
           if (picked !== "light" && picked !== "dark") picked = null;
           if (/^\/(p|connect)\/[^/]+\/?$/.test(location.pathname)) {
             apply("dark");
@@ -80,6 +81,7 @@
           var theme = "dark";
           try {
             var choice = localStorage.getItem("plan.dashboard-theme");
+            if (choice === "system") choice = matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
             if (choice === "light" || choice === "dark") theme = choice;
           } catch (e) {}
           document.documentElement.dataset.boot = theme;
