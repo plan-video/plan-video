@@ -2763,8 +2763,6 @@ function PlatformSettingsSection(props: { issues: PostIssue[] }) {
   const current = () => (shown().includes(previewing()) ? previewing() : shown()[0]!);
   const blocked = (id: PlatformId) => props.issues.some((issue) => issue.platform === id && issue.level === "error");
   const [open, setOpen] = createSignal(false);
-  // YouTube's title, description and privacy status are shown as soon as YouTube is picked, as its rules ask.
-  createEffect(on(() => shown().includes("youtube"), (youtube) => youtube && setOpen(true)));
   return (
     <Show when={shown().length}>
       <section class="flex flex-col gap-3">
