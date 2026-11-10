@@ -36,7 +36,7 @@
     Free connects 3, Creator 15, Pro 40 and Agency 100, and Agency can add more past that. Each account counts once, and several can be on the same network: two TikTok accounts and a YouTube channel are three. See [Connect accounts](/docs/connect-accounts).
   </Accordion>
   <Accordion title="Can I manage several brands or clients?">
-    Yes. Give each brand its own workspace, with its own accounts and calendar, and group accounts to post to them together. On paid plans, send a client a link to a post as it will go out, and they can comment on it without an account. A client can also connect their own accounts to a workspace from a link you send them. Pro and Agency add team members, as many as you like: admins run a workspace with you, and members write, schedule and post. See [Workspaces](/docs/workspaces) and [Work with clients](/docs/clients).
+    Yes. Give each brand its own workspace, with its own accounts and calendar, and group accounts to post to them together. On paid plans, send a client a link to a post as it will go out, and they can comment on it without an account, or send a link that lets them connect their own accounts to a workspace. Pro and Agency add team members, as many as you like: admins run a workspace with you, and members write, schedule and post. See [Workspaces](/docs/workspaces) and [Work with clients](/docs/clients).
   </Accordion>
 </AccordionGroup>
 

@@ -108,13 +108,36 @@ test("no browser gets an X access token, not even the owner", async () => {
   assert.equal(answer.accessToken, undefined);
 });
 
+test("someone on Free can start X's sign-in, for a shared workspace on its owner's paid plan", async () => {
+  const env = { clientId: "id", clientSecret: "secret", supabaseUrl: "https://sb.test", supabaseAnonKey: "anon", requireInvite: false };
+  const original = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    const text = String(url);
+    if (/sb\.test\/auth\/v1\/user/.test(text)) return new Response(JSON.stringify({ id: MEMBER }));
+    if (/sb\.test\/rest\/v1\/user_data/.test(text)) return new Response(JSON.stringify([{ access_level: 1 }]));
+    assert.fail(`called ${text}`);
+  };
+  try {
+    const req = Object.assign(new Readable({ read() {} }), { method: "POST", headers: { authorization: "Bearer a.e30.b" } });
+    req.push(JSON.stringify({ redirectUri: CODE.redirectUri, state: "state-1", codeChallenge: "c".repeat(43) }));
+    req.push(null);
+    let status = 0;
+    let answer = "";
+    const res = { writableEnded: false, writeHead: (code) => (status = code), end: (text) => (answer = text) };
+    await handleX(req, res, "/api/x/authorize", env);
+    assert.equal(status, 200, answer);
+    assert.match(JSON.parse(answer).url, /^https:\/\/x\.com\/i\/oauth2\/authorize/);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
 test("the X service no longer swaps codes, refreshes, or posts for a browser", async () => {
   const env = { clientId: "id", clientSecret: "secret", supabaseUrl: "https://sb.test", supabaseAnonKey: "anon", requireInvite: false };
   const original = globalThis.fetch;
   globalThis.fetch = async (url) => {
     const text = String(url);
     if (/sb\.test\/auth\/v1\/user/.test(text)) return new Response(JSON.stringify({ id: OWNER }));
-    if (/sb\.test\/rest\/v1\/user_data/.test(text)) return new Response(JSON.stringify([{ access_level: 4 }]));
     assert.fail(`called ${text}`);
   };
   try {
