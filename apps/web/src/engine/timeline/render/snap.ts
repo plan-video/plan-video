@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { RULER_HEIGHT } from '../config';
-import { getResolution, getScrollX } from '../view';
+import { framesToPixels, getResolution, getScrollX, pixelsToFrames } from '../view';
 
 import type { Entity, World } from 'koota';
 import type { TimelineSurfaceState } from '../surface';
@@ -27,4 +27,30 @@ export function renderSnapLine(world: World, scene: Entity, surface: TimelineSur
 	ctx.restore();
 
 	surface.snapX = null;
+}
+
+/** A drag that ends anywhere else never says so here, so an aim nobody has renewed stops being drawn. */
+const DROP_AIM_LIFETIME = 700;
+
+/** On the frame a drop would land on, not under the pointer, so what is shown is what is dropped. */
+export function renderDropAim(world: World, scene: Entity, surface: TimelineSurfaceState): void {
+	const { ctx, canvas, dropAim } = surface;
+	if (!ctx || !canvas || !dropAim) return;
+
+	if (performance.now() - dropAim.at > DROP_AIM_LIFETIME) {
+		surface.dropAim = null;
+		return;
+	}
+
+	const resolution = getResolution(world, scene);
+	const scroll = getScrollX(world, scene) * resolution;
+	const x = framesToPixels(Math.max(0, pixelsToFrames(dropAim.x + scroll, resolution)), resolution) - scroll;
+
+	ctx.save();
+	ctx.fillStyle = surface.colors.border.ring;
+	ctx.fillRect(x - 1, RULER_HEIGHT, 2, canvas.height / window.devicePixelRatio - RULER_HEIGHT);
+	ctx.beginPath();
+	ctx.arc(x, RULER_HEIGHT, 4, 0, Math.PI * 2);
+	ctx.fill();
+	ctx.restore();
 }

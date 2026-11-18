@@ -19,13 +19,12 @@ import { fitSceneToClip, sceneFitFor } from "@/engine/scene-size";
 import { getDocumentEditor } from "@/engine/editor";
 import { t } from "@/lib/i18n";
 import { cx } from "@/lib/cva";
-import { useLayout } from "@/context/layout";
-import { BAR_SLOT_CLASS } from "@/components/canvas/toolbar-slot";
+import { useBarSlotClass } from "@/components/canvas/toolbar-slot";
 
 import type { Entity } from "koota";
 
 export function ActionBar() {
-  const { toolbarSlot } = useLayout();
+  const slotClass = useBarSlotClass();
   const { imageNodes, videoNodes } = useMediaSelection();
   const { isOn, toggle } = useTransforms();
   const [cutoutFor, setCutoutFor] = createSignal<Entity | null>(null);
@@ -71,7 +70,7 @@ export function ActionBar() {
   return (
     <>
       <Show when={visible()}>
-        <div class={cx("absolute z-10 rounded-lg p-1 bg-background border border-border-input flex gap-1 items-center", BAR_SLOT_CLASS[toolbarSlot()])}>
+        <div class={cx("absolute z-10 rounded-lg p-1 bg-background border border-border-input flex gap-1 items-center", slotClass())}>
           <Show when={canCaption() && !isVideo()}>
             <Button variant="ghost" class="gap-0 pl-0.5 text-muted-foreground" onClick={autoCaptions}>
               <Icon name="captions" />

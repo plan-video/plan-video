@@ -7,7 +7,9 @@ import {
   DEFAULT_DOCK,
   LAYOUT_PRESET_IDS,
   PANEL_IDS,
+  defaultDock,
   dropTargetAt,
+  isPlainDefault,
   movePanel,
   placeDock,
   presetLayout,
@@ -278,6 +280,29 @@ describe("readDock", () => {
   });
 });
 
+describe("defaultDock", () => {
+  it("gives a tall window a taller timeline and changes nothing else", () => {
+    const tall = rectsOf(defaultDock(394), { width: 2560, height: 1440 });
+    const plain = rectsOf(DEFAULT_DOCK, { width: 2560, height: 1440 });
+    expect(tall.timeline.height).toBe(394);
+    expect(tall.assets.width).toBe(plain.assets.width);
+    expect(tall.inspector.width).toBe(plain.inspector.width);
+    expect(tall.mixer).toMatchObject({ width: plain.mixer.width, height: 394 });
+    expectTiled(tall, { width: 2560, height: 1440 });
+  });
+
+  it("never goes below the plain default", () => {
+    expect(defaultDock(120)).toBe(DEFAULT_DOCK);
+  });
+
+  it("tells a saved copy of the plain default from a layout someone made", () => {
+    expect(isPlainDefault(JSON.parse(JSON.stringify(DEFAULT_DOCK)))).toBe(true);
+    expect(isPlainDefault(defaultDock(394))).toBe(false);
+    const handle = placeDock(DEFAULT_DOCK, FRAME).handles.find((candidate) => candidate.dir === "col")!;
+    expect(isPlainDefault(resizeDock(DEFAULT_DOCK, handle, 0))).toBe(false);
+  });
+});
+
 describe("presetLayout", () => {
   it.each([...LAYOUT_PRESET_IDS])("%s holds every panel and tiles any window", (id) => {
     for (const frame of [FRAME, { width: 2500, height: 1380 }, { width: 960, height: 600 }]) {
@@ -313,8 +338,8 @@ describe("presetLayout", () => {
 });
 
 describe("saved layouts", () => {
-  const snapshot: LayoutSnapshot = { dock: DEFAULT_DOCK, layersWidth: 300, toolbarSlot: "top", hidden: ["mixer"] };
-  const other: LayoutSnapshot = { dock: presetLayout("sidebars", FRAME).dock, layersWidth: null, toolbarSlot: "bottom", hidden: [] };
+  const snapshot: LayoutSnapshot = { dock: DEFAULT_DOCK, toolbarSlot: "top", hidden: ["mixer"] };
+  const other: LayoutSnapshot = { dock: presetLayout("sidebars", FRAME).dock, toolbarSlot: "bottom", hidden: [] };
 
   it("adds a new name and tidies its spaces", () => {
     const { layouts, id } = withSavedLayout([], "  Reels  ", snapshot, "a");
@@ -363,8 +388,8 @@ describe("saved layouts", () => {
   });
 
   it("fills in what an older saved layout lacks", () => {
-    const [layout] = readSavedLayouts([{ id: "a", name: "Reels", dock: DEFAULT_DOCK, layersWidth: "wide" }]);
-    expect(layout).toMatchObject({ layersWidth: null, toolbarSlot: "bottom", hidden: [] });
+    const [layout] = readSavedLayouts([{ id: "a", name: "Reels", dock: DEFAULT_DOCK }]);
+    expect(layout).toMatchObject({ toolbarSlot: "bottom", hidden: [] });
   });
 });
 

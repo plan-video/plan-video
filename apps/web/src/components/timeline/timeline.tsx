@@ -2,8 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { onCleanup, onMount } from 'solid-js';
+import { Show, onCleanup, onMount } from 'solid-js';
 import { toast } from 'somoto';
+import FilmIcon from 'lucide-solid/icons/film';
 import { useWorld } from '@plan.video/koota-solid';
 import { FrameRate, Selected, framesToSeconds, getActiveEntity } from '@plan.video/runtime';
 import { droppedFiles, importFiles } from '@/engine/asset-actions';
@@ -11,7 +12,9 @@ import { insertAsset } from '@/engine/insert-asset';
 import { insertAssetsInNewScene } from '@/engine/new-scene';
 import { clipMediaKind, replaceClipMediaAndReport, selectedMediaClips } from '@/engine/replace-media';
 import { useLibrary } from '@/engine/library';
+import { useTimelineIndex } from '@/engine/hooks';
 import { useTimeline } from '@/context/timeline';
+import { TIMELINE_GUTTER_WIDTH } from '@/engine/timeline/config';
 import { TimelineSurface } from '@/engine/timeline/surface';
 import { findClipAt } from '@/engine/timeline/render/clip';
 import { findTransitionDrop } from '@/engine/timeline/render/transitions';
@@ -26,6 +29,7 @@ export function Timeline() {
   const world = useWorld();
   const timeline = useTimeline();
   const library = useLibrary();
+  const index = useTimelineIndex();
 
   onMount(() => timeline.attachCanvas());
   onCleanup(() => timeline.detachCanvas());
@@ -78,6 +82,19 @@ export function Timeline() {
     if (surface) surface.replaceDrop = null;
   };
 
+  // Media dropped on a clip to replace it takes that clip's time, so it shows no start of its own.
+  const aimDrop = (event: DragEvent, replacing: boolean) => {
+    const surface = world.get(TimelineSurface);
+    const rect = surface?.canvas?.getBoundingClientRect();
+    if (!surface || !rect) return;
+    surface.dropAim = replacing ? null : { x: event.clientX - rect.left, at: performance.now() };
+  };
+
+  const clearDropAim = () => {
+    const surface = world.get(TimelineSurface);
+    if (surface) surface.dropAim = null;
+  };
+
   // Dropped assets start where they were dropped, not at the playhead as on the canvas: aiming at the timeline says when.
   const handleDrop = async (event: DragEvent) => {
     event.preventDefault();
@@ -90,6 +107,7 @@ export function Timeline() {
 
     const replacing = aimReplace(event);
     clearReplaceAim();
+    clearDropAim();
 
     const lib = library();
     if (!lib) return;
@@ -130,13 +148,15 @@ export function Timeline() {
       event.dataTransfer!.dropEffect = aimTransition(event) ? 'copy' : 'none';
       return;
     }
-    aimReplace(event);
+    const replacing = aimReplace(event) !== null;
+    if (carriesFiles(event)) aimDrop(event, replacing);
     event.dataTransfer!.dropEffect = 'copy';
   };
 
   const handleDragLeave = () => {
     clearTransitionAim();
     clearReplaceAim();
+    clearDropAim();
   };
 
   return (
@@ -148,6 +168,16 @@ export function Timeline() {
         on:dragover={handleDragOver}
         on:dragleave={handleDragLeave}
       />
+      <Show when={index().layers.length === 0}>
+        {/* Pulled left by half the layer column, so it sits in the middle of the whole timeline. */}
+        <div
+          class="pointer-events-none absolute inset-0 flex items-center justify-center gap-2 text-xs text-muted-foreground"
+          style={{ translate: `-${TIMELINE_GUTTER_WIDTH / 2}px` }}
+        >
+          <FilmIcon class="size-4" stroke-width={1.75} />
+          {t("Drop media here")}
+        </div>
+      </Show>
     </TimelineClipMenu>
   );
 }

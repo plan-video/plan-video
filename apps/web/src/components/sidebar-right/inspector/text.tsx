@@ -126,7 +126,7 @@ export function TextPanel(props: TextPanelProps) {
 
   const incomingMotion = useDerived(() => {
     const list = entity().get(Cache)?.animations ?? [];
-    return list.find((animation) => animation.get(Animation)?.phase !== AnimationPhase.OUT);
+    return list.find((animation) => (animation.get(Animation)?.phase ?? AnimationPhase.IN) === AnimationPhase.IN);
   });
   const motionPreset = createMemo(() => {
     const type = incomingMotion()?.get(Animation)?.type;
@@ -140,7 +140,7 @@ export function TextPanel(props: TextPanelProps) {
     if (!preset) return;
 
     const incoming = (entity().get(Cache)?.animations ?? []).filter(
-      (animation) => animation.get(Animation)?.phase !== AnimationPhase.OUT,
+      (animation) => (animation.get(Animation)?.phase ?? AnimationPhase.IN) === AnimationPhase.IN,
     );
     const already = motionPreset() === name && incoming.length === 1;
     if (incoming.length) editor.remove(incoming);

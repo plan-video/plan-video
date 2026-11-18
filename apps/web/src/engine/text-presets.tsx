@@ -2,13 +2,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { ColorStop, LinearGradientPaint, Shadow, Stroke, Text } from '@plan.video/reconciler';
+import { Animation, ColorStop, LinearGradientPaint, Shadow, Stroke, Text } from '@plan.video/reconciler';
 import { Computed, getActiveEntity, getNextName, isScene, loadWebFont, store, TEXT_LOOKS } from '@plan.video/runtime';
 
 import { msg, t } from '@/lib/i18n';
 
 import { getDocumentEditor } from './editor';
 
+import type { AnimationType } from '@plan.video/jsx';
 import type { Entity, World } from 'koota';
 import type { TextLook, TextLookId, WebFonts } from '@plan.video/runtime';
 
@@ -16,9 +17,13 @@ const SECONDS = 4;
 
 const WHITE = '#FFFFFF';
 
-export type TextStyle = TextLook & { id: TextLookId; name: string; sample: string };
+/** What a tile draws: a look and the words it shows. */
+export type LookSample = TextLook & { name: string; sample: string };
 
-/** In the order the tab shows them, two to a row. */
+/** A look captions can wear. */
+export type TextStyle = LookSample & { id: TextLookId };
+
+/** The caption looks, in the order the pickers show them, two to a row. */
 export const TEXT_STYLES: TextStyle[] = ([
 	{ id: 'commentary', name: msg('Commentary'), sample: msg('Each time') },
 	{ id: 'hook', name: msg('Hook'), sample: msg('The hook.') },
@@ -46,6 +51,224 @@ export const TEXT_STYLES: TextStyle[] = ([
 	{ id: 'ink', name: msg('Ink'), sample: msg('Plot twist') },
 ] satisfies { id: TextLookId; name: string; sample: string }[]).map((style) => ({ ...TEXT_LOOKS[style.id], ...style }));
 
+/** Seconds. An in plays once from the text's start; a loop repeats until its end. */
+export type StyleMotion = { type: AnimationType; duration: number };
+
+export type MovingTextStyle = LookSample & { id: string; in?: StyleMotion; loop?: StyleMotion };
+
+const glow = (color: string, wide = 0.6, tight = 0.18, opacity = 1): NonNullable<TextLook['shadows']> => [
+	{ color, blur: wide, opacity },
+	{ color, blur: tight, opacity },
+];
+const SOFT_SHADOW = { color: '#000000', blur: 0.22, y: 0.04, opacity: 0.6 };
+
+type StyleDraft = Omit<MovingTextStyle, 'sample'>;
+
+/** The Text tab, two to a row. Each tile shows the style's own name, which is also the text it adds. */
+export const MOVING_TEXT_STYLES: MovingTextStyle[] = ([
+	{
+		id: 'synthwave', name: msg('Synthwave'), font: 'Lilita One', weight: 400, size: 1.05,
+		fill: { from: '#C7EDFF', to: '#2B4FD8' },
+		strokes: [{ color: '#0B1446', width: 0.14 }],
+		shadows: [{ color: '#4FC3FF', blur: 0.5, opacity: 0.7 }],
+		in: { type: 'slideUp', duration: 0.6 }, loop: { type: 'float', duration: 2.4 },
+	},
+	{
+		id: 'slow-morning', name: msg('Slow morning'), font: 'Bebas Neue', weight: 400, size: 1.25, textCase: 'upper', letterSpacing: 0.03,
+		fill: '#FFF6E8',
+		shadows: [SOFT_SHADOW],
+		in: { type: 'fade', duration: 1.2 },
+	},
+	{
+		id: 'letterpress', name: msg('Letterpress'), font: 'Rubik Mono One', weight: 400, size: 0.75, textCase: 'upper',
+		fill: WHITE,
+		strokes: [{ color: '#000000', width: 0.18 }],
+		in: { type: 'pop', duration: 0.25 },
+	},
+	{
+		id: 'doodle', name: msg('Doodle'), font: 'Titan One', weight: 400, size: 1,
+		fill: '#9A6BFF',
+		strokes: [{ color: '#3E8BFF', width: 0.16 }],
+		loop: { type: 'wiggle', duration: 1.2 },
+	},
+	{
+		id: 'scorcher', name: msg('Scorcher'), font: 'Luckiest Guy', weight: 400, size: 1,
+		fill: { from: '#FFE45C', to: '#FF5A00' },
+		strokes: [{ color: '#8A1C00', width: 0.1 }],
+		shadows: [{ color: '#FF6A00', blur: 0.5, opacity: 0.8 }],
+		loop: { type: 'shake', duration: 1 },
+	},
+	{
+		id: 'goo', name: msg('Goo'), font: 'Luckiest Guy', weight: 400, size: 1.1, italic: true, textCase: 'upper',
+		fill: { from: '#E9FF6B', to: '#36D62B' },
+		strokes: [{ color: '#0A3A0E', width: 0.16 }],
+		in: { type: 'bounce', duration: 0.3 }, loop: { type: 'pulse', duration: 1.4 },
+	},
+	{
+		id: 'splash', name: msg('Splash'), font: 'Fredoka', weight: 700, size: 1.05, textCase: 'upper',
+		fill: '#5CF6FF',
+		shadows: glow('#00C8FF', 0.6, 0.16, 0.9),
+		loop: { type: 'float', duration: 2 },
+	},
+	{
+		id: 'bronze', name: msg('Bronze'), font: 'Playfair Display', weight: 900, size: 1,
+		fill: { from: '#F5C79A', to: '#8A4B1E' },
+		strokes: [{ color: '#2A1407', width: 0.05 }],
+		shadows: [SOFT_SHADOW],
+		in: { type: 'grow', duration: 0.8 },
+	},
+	{
+		id: 'rough-draft', name: msg('Rough draft'), font: 'Rubik', weight: 900, size: 0.95, textCase: 'upper',
+		fill: '#F2C6FF',
+		strokes: [{ color: '#B24BFF', width: 0.12 }],
+		shadows: [{ color: '#C05CFF', blur: 0.5, opacity: 0.6 }],
+		in: { type: 'appearChar', duration: 0.8 },
+	},
+	{
+		id: 'stardust', name: msg('Stardust'), font: 'Playfair Display', weight: 500, size: 1.05, italic: true,
+		fill: WHITE,
+		shadows: glow('#FFFFFF', 0.5, 0.12, 0.7),
+		loop: { type: 'breathe', duration: 2.4 },
+	},
+	{
+		id: 'puffy', name: msg('Puffy'), font: 'Fredoka', weight: 500, size: 1.15,
+		fill: '#3A3E46',
+		strokes: [{ color: '#C9CED8', width: 0.1 }],
+		in: { type: 'pop', duration: 0.25 }, loop: { type: 'float', duration: 2.8 },
+	},
+	{
+		id: 'memo', name: msg('Memo'), font: 'Source Code Pro', weight: 600, size: 0.8, letterSpacing: 0.04,
+		fill: WHITE,
+		shadows: [SOFT_SHADOW],
+		in: { type: 'appearChar', duration: 1 },
+	},
+	{
+		id: 'invitation', name: msg('Invitation'), font: 'Great Vibes', weight: 400, size: 1.45,
+		fill: WHITE,
+		shadows: [SOFT_SHADOW],
+		in: { type: 'blur', duration: 0.8 },
+	},
+	{
+		id: 'scholar', name: msg('Scholar'), font: 'Playfair Display', weight: 700, size: 1.05,
+		fill: '#3E7BFF',
+		strokes: [{ color: WHITE, width: 0.12 }],
+		in: { type: 'slideUp', duration: 0.6 },
+	},
+	{
+		id: 'loud', name: msg('Loud'), font: 'Rubik Mono One', weight: 400, size: 0.8, textCase: 'upper',
+		fill: { from: '#FF3DE0', to: '#5B2BFF' },
+		strokes: [{ color: '#14002E', width: 0.12 }],
+		loop: { type: 'shake', duration: 0.8 },
+	},
+	{
+		id: 'fizz', name: msg('Fizz'), font: 'Fredoka', weight: 700, size: 1.1,
+		fill: '#8CFF3A',
+		strokes: [{ color: '#0D4F10', width: 0.14 }],
+		loop: { type: 'pulse', duration: 0.8 },
+	},
+	{
+		id: 'royal', name: msg('Royal'), font: 'Great Vibes', weight: 400, size: 1.45,
+		fill: '#FFF4FB',
+		shadows: glow('#F3B6FF', 0.6, 0.15),
+		loop: { type: 'float', duration: 3 },
+	},
+	{
+		id: 'heartbeat', name: msg('Heartbeat'), font: 'Sacramento', weight: 400, size: 1.7,
+		fill: WHITE,
+		shadows: glow('#FFFFFF', 0.5, 0.12, 0.8),
+		loop: { type: 'pulse', duration: 1 },
+	},
+	{
+		id: 'roller', name: msg('Roller'), font: 'Lilita One', weight: 400, size: 1.1,
+		fill: { from: '#FFF3DC', to: '#FF9A5C' },
+		shadows: [{ color: '#FF7A3D', blur: 0.5, opacity: 0.7 }],
+		in: { type: 'bounce', duration: 0.3 }, loop: { type: 'wiggle', duration: 2 },
+	},
+	{
+		id: 'fuzzy', name: msg('Fuzzy'), font: 'Bebas Neue', weight: 400, size: 1.35,
+		fill: WHITE,
+		shadows: glow('#FFFFFF', 0.8, 0.25, 0.85),
+		loop: { type: 'breathe', duration: 1.8 },
+	},
+	{
+		id: 'cupid', name: msg('Cupid'), font: 'Great Vibes', weight: 400, size: 1.5,
+		fill: '#FF8CC4',
+		shadows: glow('#FF4FA0', 0.6, 0.18),
+		loop: { type: 'pulse', duration: 1 },
+	},
+	{
+		id: 'bloom', name: msg('Bloom'), font: 'Fredoka', weight: 700, size: 1.1,
+		fill: '#FF5AD9',
+		strokes: [{ color: '#6A0B52', width: 0.1 }],
+		shadows: [{ color: '#FF5AD9', blur: 0.4, opacity: 0.5 }],
+		loop: { type: 'wiggle', duration: 1.6 },
+	},
+	{
+		id: 'after-hours', name: msg('After hours'), font: 'Bebas Neue', weight: 400, size: 1.25, textCase: 'upper', letterSpacing: 0.02,
+		fill: '#FFE3F1',
+		strokes: [{ color: '#FF2E93', width: 0.04 }],
+		shadows: glow('#FF2E93'),
+		loop: { type: 'flicker', duration: 2 },
+	},
+	{
+		id: 'blue-note', name: msg('Blue note'), font: 'Titan One', weight: 400, size: 1,
+		fill: '#2F5BFF',
+		strokes: [{ color: '#0A1A66', width: 0.08 }],
+		shadows: [{ color: '#2F5BFF', blur: 0.5, opacity: 0.6 }],
+		loop: { type: 'float', duration: 2.2 },
+	},
+	{
+		id: 'bubble', name: msg('Bubble'), font: 'Fredoka', weight: 700, size: 1.1,
+		fill: '#A88BFF',
+		strokes: [{ color: '#EEE6FF', width: 0.12 }],
+		loop: { type: 'float', duration: 1.6 },
+	},
+	{
+		id: 'serious', name: msg('Serious'), font: 'Anton', weight: 400, size: 1.15, textCase: 'upper', letterSpacing: 0.01,
+		fill: WHITE,
+		strokes: [{ color: '#000000', width: 0.18 }],
+		in: { type: 'pop', duration: 0.25 },
+	},
+	{
+		id: 'squish', name: msg('Squish'), font: 'Titan One', weight: 400, size: 1, textCase: 'upper',
+		fill: '#46D65E',
+		strokes: [{ color: '#0B4A1A', width: 0.16 }],
+		in: { type: 'bounce', duration: 0.3 }, loop: { type: 'pulse', duration: 0.9 },
+	},
+	{
+		id: 'metal', name: msg('Metal'), font: 'Rubik Mono One', weight: 400, size: 0.8, textCase: 'upper',
+		fill: { from: '#FFFFFF', to: '#7B8494' },
+		strokes: [{ color: '#1C2230', width: 0.1 }],
+		shadows: [SOFT_SHADOW],
+		loop: { type: 'shake', duration: 1.2 },
+	},
+	{
+		id: 'static', name: msg('Static'), font: 'Source Code Pro', weight: 700, size: 0.95, textCase: 'upper',
+		fill: '#D6EEFF',
+		shadows: glow('#3FA9FF'),
+		loop: { type: 'flicker', duration: 1.5 },
+	},
+	{
+		id: 'dance-floor', name: msg('Dance floor'), font: 'Sacramento', weight: 400, size: 1.8,
+		fill: { from: '#FF3B3B', to: '#FFB020' },
+		shadows: [{ color: '#FF3B3B', blur: 0.4, opacity: 0.5 }],
+		loop: { type: 'wiggle', duration: 1 },
+	},
+	{
+		id: 'spooky', name: msg('Spooky'), font: 'Luckiest Guy', weight: 400, size: 1.05, textCase: 'upper',
+		fill: { from: '#FFC93D', to: '#FF6A00' },
+		shadows: glow('#FF6A00', 0.6, 0.18, 0.9),
+		loop: { type: 'shake', duration: 0.5 },
+	},
+	{
+		id: 'headline', name: msg('Headline'), font: 'Bangers', weight: 400, size: 1.25, textCase: 'upper', letterSpacing: 0.03,
+		fill: '#FFE14D',
+		strokes: [{ color: '#000000', width: 0.14 }],
+		shadows: [SOFT_SHADOW],
+		in: { type: 'pop', duration: 0.25 },
+	},
+] satisfies StyleDraft[]).map((style) => ({ ...style, sample: style.name }));
+
 /** Pixels per em of a style at size 1, on a frame whose short side is 1080. */
 const EM = 112;
 
@@ -67,7 +290,7 @@ function measure(text: string, font: Font): { width: number; height: number } {
 	return { width: metrics.width, height: metrics.fontBoundingBoxAscent + metrics.fontBoundingBoxDescent };
 }
 
-export function textStyleWords(style: TextStyle, text: string): string {
+export function textStyleWords(style: TextLook, text: string): string {
 	if (style.textCase === 'upper') return text.toUpperCase();
 	if (style.textCase === 'lower') return text.toLocaleLowerCase();
 	return text;
@@ -116,7 +339,7 @@ export async function addTextBox(world: World): Promise<Entity | null> {
 	return entity ?? null;
 }
 
-export async function addTextStyle(world: World, style: TextStyle): Promise<Entity | null> {
+export async function addTextStyle(world: World, style: MovingTextStyle): Promise<Entity | null> {
 	const at = target(world);
 	if (!at) return null;
 
@@ -165,6 +388,8 @@ export async function addTextStyle(world: World, style: TextStyle): Promise<Enti
 					offsetY={shadow.y ? em(shadow.y) : undefined}
 				/>
 			))}
+			{style.in ? <Animation type={style.in.type} duration={style.in.duration} /> : null}
+			{style.loop ? <Animation type={style.loop.type} phase="loop" duration={style.loop.duration} /> : null}
 		</Text>
 	));
 	if (entity) editor.select(entity);

@@ -41,7 +41,7 @@ import {
 } from "@plan.video/runtime";
 import { useDerived, useEditor } from "@/engine/hooks";
 import { t } from "@/lib/i18n";
-import { ANIMATION_GROUPS, DEFAULT_ANIMATION, POP_MOTION_DURATION, animationOption } from "./animation-types";
+import { ANIMATION_GROUPS, DEFAULT_ANIMATION, LOOP_ANIMATIONS, POP_MOTION_DURATION, animationOption } from "./animation-types";
 import { MixedTag, useMixed } from "./word-mix";
 
 import type { AnimationGroup, AnimationOption } from "./animation-types";
@@ -54,8 +54,23 @@ const DEFAULT_DELAY = 0;
 // Stable identity, so a node without animations does not resample every tick.
 const NO_ANIMATIONS: Entity[] = [];
 
-const phaseRank = (animation: Entity) =>
-  animation.get(Animation)?.phase === AnimationPhase.OUT ? 1 : 0;
+const PHASE_RANK: Record<AnimationPhase, number> = {
+  [AnimationPhase.IN]: 0,
+  [AnimationPhase.LOOP]: 1,
+  [AnimationPhase.OUT]: 2,
+};
+
+const phaseRank = (animation: Entity) => PHASE_RANK[animation.get(Animation)?.phase ?? AnimationPhase.IN];
+
+type PhaseName = "in" | "out" | "loop";
+
+const PHASE_NAMES: Record<AnimationPhase, PhaseName> = {
+  [AnimationPhase.IN]: "in",
+  [AnimationPhase.OUT]: "out",
+  [AnimationPhase.LOOP]: "loop",
+};
+
+const phaseLabel = (phase: PhaseName) => (phase === "out" ? t("Out") : phase === "loop" ? t("Loop") : t("In"));
 
 const sameOrder = (a: Entity[], b: Entity[]) =>
   a.length === b.length && a.every((entity, index) => entity === b[index]);
@@ -150,7 +165,10 @@ function AnimationRow(props: AnimationRowProps) {
   const animation = useTrait(() => props.animation, Animation);
 
   const label = createMemo(() => t(animationOption(animation()?.type).label));
-  const phase = createMemo(() => (animation()?.phase === AnimationPhase.OUT ? t("OUT") : t("IN")));
+  const phase = createMemo(() => {
+    const value = animation()?.phase;
+    return value === AnimationPhase.OUT ? t("OUT") : value === AnimationPhase.LOOP ? t("LOOP") : t("IN");
+  });
 
   return (
     <ItemRow
@@ -200,7 +218,7 @@ function AnimationInspector(props: AnimationInspectorProps) {
   const fps = () => frameRate()?.value ?? 30;
   const duration = createMemo(() => framesToSeconds(animation()?.duration ?? 0, fps()));
   const delay = createMemo(() => framesToSeconds(animation()?.delay ?? 0, fps()));
-  const isOut = createMemo(() => animation()?.phase === AnimationPhase.OUT);
+  const phase = createMemo(() => PHASE_NAMES[animation()?.phase ?? AnimationPhase.IN]);
 
   // Plus whichever group holds the current preset: a `gain` on a node that has since lost its audio
   // must still show, or the select would have no value to display.
@@ -219,10 +237,11 @@ function AnimationInspector(props: AnimationInspectorProps) {
     if ((next.name === "pop" || next.name === "bounce") && duration() === DEFAULT_DURATION) {
       editor.editProperty(props.animation, "duration", POP_MOTION_DURATION);
     }
+    if (LOOP_ANIMATIONS.has(next.name) && phase() !== "loop") handlePhaseChange("loop");
   };
 
-  const handlePhaseChange = (next: boolean) => {
-    editor.editProperty(props.animation, "phase", next ? "out" : false);
+  const handlePhaseChange = (next: PhaseName) => {
+    editor.editProperty(props.animation, "phase", next === "in" ? false : next);
   };
 
   const handleDurationChange = (seconds: number) => {
@@ -278,18 +297,16 @@ function AnimationInspector(props: AnimationInspectorProps) {
       <FloatingInspectorContent class="flex flex-col gap-2 p-4">
         <ControlRow label={t("Phase")}>
           {/* Kobalte keys only strings, numbers and objects: booleans all got the same empty key. */}
-          <Select<"in" | "out">
-            value={isOut() ? "out" : "in"}
-            onChange={(value) => value !== null && handlePhaseChange(value === "out")}
-            options={["in", "out"]}
+          <Select<PhaseName>
+            value={phase()}
+            onChange={(value) => value !== null && handlePhaseChange(value)}
+            options={["in", "loop", "out"]}
             itemComponent={(itemProps) => (
-              <SelectItem item={itemProps.item}>
-                {itemProps.item.rawValue === "out" ? t("Out") : t("In")}
-              </SelectItem>
+              <SelectItem item={itemProps.item}>{phaseLabel(itemProps.item.rawValue)}</SelectItem>
             )}
           >
             <SelectTrigger>
-              <SelectValue class="text-xs">{isOut() ? t("Out") : t("In")}</SelectValue>
+              <SelectValue class="text-xs">{phaseLabel(phase())}</SelectValue>
             </SelectTrigger>
             <SelectPortal>
               <SelectContent />

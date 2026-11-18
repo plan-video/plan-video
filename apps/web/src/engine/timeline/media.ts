@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { CanvasSink } from 'mediabunny';
+import { CanvasSink, EncodedPacketSink } from 'mediabunny';
 import { getAssetFile, getVideoTrack, secondsToFrames } from '@plan.video/runtime';
 
 import { MAX_CLIP_HEIGHT } from './config';
@@ -62,6 +62,12 @@ const LONG_SPREAD_COUNT = 10;
 const LONG_DURATION = 60 * 10;
 
 const TILE_MARGIN = 1;
+
+/**
+ * In seconds of footage. Tiles at least this far apart show key frames: a key frame decodes on its own,
+ * while any frame after it needs every frame since, which on a long video is most of the work.
+ */
+const KEY_FRAME_SPACING = 2;
 
 const stills = new Map<string, Still>();
 const stillsDecoding = new Set<string>();
@@ -183,10 +189,11 @@ async function decodeSpread(request: FrameRequest): Promise<void> {
 		const last = await track.computeDuration();
 		const count = asset.duration < LONG_DURATION ? SPREAD_COUNT : LONG_SPREAD_COUNT;
 		const sink = createSink(track, request);
+		const keys = keyFrames(track, (last - first) / count);
 
 		for (let i = 0; i < count; i++) {
 			try {
-				const wrapped = await sink.getCanvas(first + (i * (last - first)) / count);
+				const wrapped = await sink.getCanvas(await decodeTime(keys, first + (i * (last - first)) / count));
 				if (!wrapped) continue;
 
 				record.frames.push({
@@ -266,10 +273,24 @@ async function updateClip(request: FrameRequest): Promise<void> {
 		if (!track) return;
 
 		const sink = createSink(track, request);
+		const keys = keyFrames(track, request.interval / request.fps);
+		let decoded = Number.NaN;
+		let superseded = false;
 
 		for (let i = 0; i < count; i++) {
+			// A zoom mid-decode asks for tiles at another spacing: the rest of this batch would never be shown.
+			if (cached.pending && cached.pending.interval !== request.interval) {
+				superseded = true;
+				break;
+			}
+
 			try {
-				const wrapped = await sink.getCanvas(((from + i) * request.interval) / request.fps);
+				const time = await decodeTime(keys, ((from + i) * request.interval) / request.fps);
+				// Two tiles between the same pair of key frames share its picture.
+				if (time === decoded) continue;
+				decoded = time;
+
+				const wrapped = await sink.getCanvas(time);
 				if (!wrapped) continue;
 
 				// The decoder may snap to a keyframe, so file it under the timestamp it returned.
@@ -283,10 +304,15 @@ async function updateClip(request: FrameRequest): Promise<void> {
 			}
 		}
 
-		cached.frames = keep(cached.frames);
-		cached.start = wanted.start;
-		cached.end = wanted.end;
-		cached.request = request;
+		if (superseded) {
+			// Not a finished request to compare the next one against: that one decodes its whole range.
+			cached.request = null;
+		} else {
+			cached.frames = keep(cached.frames);
+			cached.start = wanted.start;
+			cached.end = wanted.end;
+			cached.request = request;
+		}
 	} catch (error) {
 		console.error('[timeline] could not update thumbnails', error);
 	} finally {
@@ -298,6 +324,18 @@ async function updateClip(request: FrameRequest): Promise<void> {
 		cached.pending = null;
 		void updateClip(pending);
 	}
+}
+
+function keyFrames(track: InputVideoTrack, spacing: number): EncodedPacketSink | null {
+	return spacing >= KEY_FRAME_SPACING ? new EncodedPacketSink(track) : null;
+}
+
+/** The key frame at or before `seconds`, or `seconds` itself when the exact frame is wanted or no key frame is found. */
+async function decodeTime(keys: EncodedPacketSink | null, seconds: number): Promise<number> {
+	if (!keys) return seconds;
+
+	const key = await keys.getKeyPacket(seconds, { metadataOnly: true });
+	return key?.timestamp ?? seconds;
 }
 
 function tileRange(request: FrameRequest) {

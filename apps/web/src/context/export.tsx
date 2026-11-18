@@ -2,18 +2,21 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { createContext, useContext, onCleanup, onMount } from "solid-js";
+import { Show, createContext, createSignal, useContext, onCleanup, onMount } from "solid-js";
 import { toast } from "somoto";
 import { canEncodeVideo } from "mediabunny";
 import { useWorld } from "@plan.video/koota-solid";
 import { computeOutputSize } from "@plan.video/encoder";
-import { Computed, getActiveEntity } from "@plan.video/runtime";
+import { Computed, Library, getActiveEntity } from "@plan.video/runtime";
 import { assert, downloadObject, isInputTarget } from "@/utils";
 import { t } from "@/lib/i18n";
 import { useEngineContext } from "@/engine";
 import { useProject } from "@/context/project";
-import { ExportProgress, type ExportConfig } from "@/components/sidebar-right/inspector/export-progress";
+import { useSchedulePost } from "@/components/editor/schedule-post-button";
+import { ExportProgress, ExportSaved, type ExportConfig } from "@/components/sidebar-right/inspector/export-progress";
 import { renderScene, renderOverlay, cancelRender } from "@/context/render";
+import { postableExport } from "@/lib/social-media";
+import { sceneCredits, sceneWords } from "@/projects/post-export";
 import {
   MIME_TYPES,
   getDefaultExportTemplate,
@@ -28,6 +31,8 @@ type ExportContextValue = {
   exporting: Accessor<boolean>;
 };
 
+type SavedExport = { handle: FileSystemFileHandle; scene: Entity; video: boolean; postable: boolean };
+
 const ExportContext = createContext<ExportContextValue>();
 
 export function ExportProvider(props: { children: JSX.Element }) {
@@ -35,7 +40,20 @@ export function ExportProvider(props: { children: JSX.Element }) {
   const world = useWorld();
   const project = useProject();
 
+  const schedulePost = useSchedulePost();
   const exporting = () => !!renderOverlay();
+  const [saved, setSaved] = createSignal<SavedExport | null>(null);
+
+  const scheduleSaved = async (file: File) => {
+    const current = saved();
+    if (!current) return;
+    const library = world.get(Library);
+    const scene = current.scene.isAlive() ? current.scene : null;
+    const credits = library && scene ? sceneCredits(world, library, scene) : [];
+    const words = library && scene ? await sceneWords(world, library, scene).catch(() => "") : "";
+    setSaved(null);
+    schedulePost({ made: { file, credits, words } });
+  };
 
   const exportScene: ExportContextValue["exportScene"] = async (scene, config) => {
     if (!scene?.isAlive()) return;
@@ -101,9 +119,7 @@ export function ExportProvider(props: { children: JSX.Element }) {
           description: result.error.message,
         });
       } else if (result.type === "success") {
-        toast(t("Export complete"), {
-          description: t("Your video has been successfully exported"),
-        });
+        setSaved({ handle: target, scene, video: videoEnabled, postable: postableExport(config) });
       }
     } catch (e) {
       console.error("Export failed:", e);
@@ -159,6 +175,17 @@ export function ExportProvider(props: { children: JSX.Element }) {
         duration={renderOverlay()?.duration ?? 0}
         onCancel={cancelRender}
       />
+      <Show when={saved()} keyed>
+        {(current) => (
+          <ExportSaved
+            handle={current.handle}
+            video={current.video}
+            postable={current.postable}
+            onSchedule={scheduleSaved}
+            onClose={() => setSaved(null)}
+          />
+        )}
+      </Show>
     </ExportContext.Provider>
   );
 }

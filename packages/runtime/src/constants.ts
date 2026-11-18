@@ -113,11 +113,19 @@ export enum AnimationType {
   SCRAMBLE,
   POP,
   BOUNCE,
+  FLOAT,
+  PULSE,
+  WIGGLE,
+  SHAKE,
+  FLICKER,
+  BREATHE,
 }
 
 export enum AnimationPhase {
   IN,
   OUT,
+  /** Repeats every `duration` from the head (plus delay) to the tail. */
+  LOOP,
 }
 
 export enum TextAlign {

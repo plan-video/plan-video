@@ -53,11 +53,7 @@ function PartialDetails(props: { partial: PartialAsset }) {
 
   return (
     <div class="flex flex-col w-full px-4 border-t border-border">
-      <div class="h-12 flex items-center justify-between">
-        <span class="text-base font-strong">{t("Information")}</span>
-      </div>
-
-      <div class="py-3 border-t border-b border-border text-xs break-all">
+      <div class="py-3 border-b border-border text-xs break-all">
         {assetName(props.partial)}
       </div>
 
@@ -120,19 +116,16 @@ function AssetDetails() {
   const metadataRows = useAssetMetadataRows(selection.asset);
 
   return (
-    <div class="flex flex-col w-full px-4 border-t border-border">
-      <div class="h-12 flex items-center justify-between">
-        <span class="text-base font-strong">{t("Information")}</span>
-      </div>
+    <div class="flex flex-col w-full px-4 pt-4 border-t border-border">
       <Show when={selection.asset()}>
         {asset => <AssetInfoPreview asset={asset()} />}
       </Show>
 
       <div class="flex flex-col gap-2 my-2">
-        <Button variant="default" class="w-full" onClick={handleInsert}>
+        <Button variant="secondary" class="w-full" onClick={handleInsert}>
           {t("Insert at playhead")}
         </Button>
-        <Button variant="secondary" class="w-full" onClick={handleReplace}>
+        <Button variant="ghost" class="w-full" onClick={handleReplace}>
           {t("Replace source")}
         </Button>
       </div>
@@ -171,7 +164,7 @@ function AssetDetails() {
                   <span class="w-20 shrink-0 overflow-hidden text-ellipsis whitespace-nowrap">
                     {t(row.label)}
                   </span>
-                  <span class="min-w-0 flex-1 text-right overflow-hidden text-ellipsis whitespace-nowrap" title={row.value ?? undefined}>
+                  <span class="min-w-0 flex-1 text-right text-foreground overflow-hidden text-ellipsis whitespace-nowrap" title={row.value ?? undefined}>
                     {row.value}
                   </span>
                 </div>
@@ -209,7 +202,8 @@ export function useAssetMetadataRows(asset: Accessor<Asset | undefined>) {
     const timed = a.type === "VIDEO" || a.type === "AUDIO" || a.type === "SEQUENCE";
 
     const dimensions = visual ? `${a.width}×${a.height}` : null;
-    const resolution = a.type === "VIDEO" || a.type === "SEQUENCE" ? `${a.height}p` : null;
+    // Named by the shorter side, so an upright 1080×1920 video is still 1080p.
+    const resolution = a.type === "VIDEO" || a.type === "SEQUENCE" ? `${Math.min(a.width, a.height)}p` : null;
     const aspectRatio = visual ? formatAspectRatio(a.width, a.height) : null;
     const frameRate =
       a.type === "VIDEO" || a.type === "SEQUENCE"

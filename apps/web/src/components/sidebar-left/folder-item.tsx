@@ -200,7 +200,7 @@ export function FolderItem(props: FolderItemProps) {
         <div
           data-drop-target={isDropTarget()}
           data-selected={props.selected}
-          class="relative aspect-video w-full overflow-clip rounded bg-muted flex items-center justify-center after:pointer-events-none after:absolute after:inset-0 after:rounded after:opacity-0 after:ring-2 after:ring-inset after:ring-ring after:z-10 data-[drop-target=true]:after:opacity-100 data-[selected=true]:after:opacity-100"
+          class="relative aspect-video w-full overflow-clip rounded-md bg-muted before:pointer-events-none before:absolute before:inset-0 before:z-10 before:rounded-md before:inset-ring-1 before:inset-ring-foreground/8 flex items-center justify-center after:pointer-events-none after:absolute after:inset-0 after:rounded-md after:opacity-0 after:ring-2 after:ring-inset after:ring-ring after:z-10 data-[drop-target=true]:after:opacity-100 data-[selected=true]:after:opacity-100"
         >
           <Icon name="folder-thumbnail" class="w-8 h-6 text-muted-foreground pointer-events-none" />
           <Show when={childCount() > 0}>

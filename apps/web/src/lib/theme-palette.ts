@@ -26,8 +26,8 @@ export type ThemeSpec = {
 
 export const DEFAULT_THEME: ThemeSpec = {
   accent: "#2f6ff0",
-  hue: 60,
-  tint: 6,
+  hue: 262,
+  tint: 4,
   brightness: 20,
   layers: 50,
   borders: 50,
@@ -112,48 +112,48 @@ export function contrastRatio(first: string, second: string): number {
 
 /** Dark then light: the neutral ramp every theme bends, in the steps the dashboard and editor already use. */
 const GREYS = {
-  canvas: ["#060606", "#f3f3f3"],
-  surface: ["#0b0b0b", "#ffffff"],
-  surface2: ["#111111", "#fafafa"],
-  layer1: ["#111111", "#f6f6f6"],
-  layer1Hover: ["#161616", "#f0f0f0"],
-  layer2: ["#161616", "#ffffff"],
-  layer2Hover: ["#1b1b1b", "#f6f6f6"],
-  layer2Active: ["#232323", "#efefef"],
-  layer3: ["#1b1b1b", "#efefef"],
-  layer3Hover: ["#232323", "#e7e7e7"],
-  popover: ["#111111", "#ffffff"],
-  secondary: ["#161616", "#f0f0f0"],
-  secondaryHover: ["#1b1b1b", "#e8e8e8"],
-  secondaryPressing: ["#232323", "#dedede"],
-  timelineMuted: ["#161616", "#ededed"],
-  timelineAccent: ["#161616", "#f3f3f3"],
-  artCard: ["#151515", "#ffffff"],
+  canvas: ["#0f0f0f", "#f3f3f3"],
+  surface: ["#1d1d1d", "#ffffff"],
+  surface2: ["#232323", "#fafafa"],
+  layer1: ["#232323", "#f6f6f6"],
+  layer1Hover: ["#292929", "#f0f0f0"],
+  layer2: ["#292929", "#ffffff"],
+  layer2Hover: ["#2e2e2e", "#f6f6f6"],
+  layer2Active: ["#343434", "#efefef"],
+  layer3: ["#2e2e2e", "#efefef"],
+  layer3Hover: ["#343434", "#e7e7e7"],
+  popover: ["#2f2f2f", "#ffffff"],
+  secondary: ["#292929", "#f0f0f0"],
+  secondaryHover: ["#2e2e2e", "#e8e8e8"],
+  secondaryPressing: ["#343434", "#dedede"],
+  timelineMuted: ["#282828", "#ededed"],
+  timelineAccent: ["#282828", "#f3f3f3"],
+  artCard: ["#262626", "#ffffff"],
 } as const;
 
 const LINES = {
-  borderSubtle: ["#1c1c1c", "#ebebeb"],
-  borderSubtle1: ["#252525", "#e3e3e3"],
-  borderStrong: ["#2e2e2e", "#d4d4d4"],
-  borderStrong1: ["#3a3a3a", "#c2c2c2"],
-  editorBorder: ["#1a1a1a", "#ededed"],
-  editorBorderStrong: ["#1f1f1f", "#e6e6e6"],
-  editorBorderInput: ["#262626", "#e0e0e0"],
-  timelineInput: ["#2e2e2e", "#d4d4d4"],
-  artCardEdge: ["#262626", "#e3e3e3"],
-  artLine: ["#2e2e2e", "#dedede"],
-  artLineSoft: ["#222222", "#ececec"],
+  borderSubtle: ["#2c2c2c", "#ebebeb"],
+  borderSubtle1: ["#333333", "#e3e3e3"],
+  borderStrong: ["#3c3c3c", "#d4d4d4"],
+  borderStrong1: ["#464646", "#c2c2c2"],
+  editorBorder: ["#2b2b2b", "#ededed"],
+  editorBorderStrong: ["#343434", "#e6e6e6"],
+  editorBorderInput: ["#3e3e3e", "#e0e0e0"],
+  timelineInput: ["#3e3e3e", "#d4d4d4"],
+  artCardEdge: ["#393939", "#e3e3e3"],
+  artLine: ["#414141", "#dedede"],
+  artLineSoft: ["#313131", "#ececec"],
 } as const;
 
 const TEXTS = {
-  textPrimary: ["#ededed", "#171717"],
-  textSecondary: ["#a1a1a1", "#5c5c5c"],
-  textTertiary: ["#7d7d7d", "#737373"],
-  textPlaceholder: ["#666666", "#a3a3a3"],
-  textDisabled: ["#4a4a4a", "#c7c7c7"],
-  editorForeground: ["#d4d4d4", "#171717"],
-  editorMuted: ["#a1a1a1", "#5c5c5c"],
-  editorDisabled: ["#4a4a4a", "#a3a3a3"],
+  textPrimary: ["#eeeeee", "#171717"],
+  textSecondary: ["#ababab", "#5c5c5c"],
+  textTertiary: ["#8c8c8c", "#737373"],
+  textPlaceholder: ["#747474", "#a3a3a3"],
+  textDisabled: ["#585858", "#c7c7c7"],
+  editorForeground: ["#dbdbdb", "#171717"],
+  editorMuted: ["#ababab", "#5c5c5c"],
+  editorDisabled: ["#636363", "#a3a3a3"],
 } as const;
 
 type GreyStep = keyof typeof GREYS;
@@ -212,10 +212,10 @@ function clipPalette(color: string, mode: ThemeMode): ClipPalette {
   const chroma = clamp(c, 0.01, 0.2);
   return mode === "dark"
     ? {
-        background: oklchToHex(0.3, chroma * 0.35, h),
-        border: oklchToHex(0.42, chroma * 0.6, h),
-        primary: oklchToHex(0.76, chroma, h),
-        foreground: oklchToHex(0.92, chroma * 0.25, h),
+        background: oklchToHex(0.44, chroma * 0.7, h),
+        border: oklchToHex(0.58, chroma * 0.9, h),
+        primary: oklchToHex(0.86, chroma * 0.9, h),
+        foreground: oklchToHex(0.975, chroma * 0.15, h),
       }
     : {
         background: oklchToHex(0.95, chroma * 0.15, h),

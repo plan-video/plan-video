@@ -75,10 +75,9 @@ export function ProjectMenu(props: { compact?: boolean }) {
             as="button"
             type="button"
             aria-label={t("Project menu")}
-            class="grid size-8 place-items-center rounded-md text-muted-foreground outline-none focus-ring transition-colors hover:bg-accent hover:text-foreground data-expanded:bg-accent data-expanded:text-foreground"
+            class="grid size-9 place-items-center rounded-md text-foreground outline-none focus-ring transition-colors hover:bg-accent data-expanded:bg-accent"
           >
-            {/* A pixel right: the P's stem carries its weight on the left. */}
-            <LogoMark class="size-5 translate-x-px text-current" />
+            <LogoMark class="size-[22px] text-current" />
           </DropdownMenuTrigger>
         </Show>
         <DropdownMenuPortal>

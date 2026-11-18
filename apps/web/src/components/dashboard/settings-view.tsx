@@ -20,6 +20,7 @@ import {
   DashboardScrollView,
   DashboardSurfaceSection,
 } from "./shared";
+import { KeymapSelect } from "@/components/keymap-select";
 import { LanguagePicker } from "./language-picker";
 import { ThemeSection } from "./theme-gallery";
 import { TimeZonePicker } from "./time-zone-picker";
@@ -49,6 +50,19 @@ function DashboardLanguageSection() {
         leading={<Icon name="globe" class="text-foreground" />}
         description={t("Saved on this device, for the dashboard, the editor and the website.")}
         action={<LanguagePicker />}
+      />
+    </DashboardSurfaceSection>
+  );
+}
+
+function DashboardEditorKeysSection() {
+  return (
+    <DashboardSurfaceSection title={t("Video editor")}>
+      <DashboardInfoActionRow
+        title={t("Keyboard shortcuts")}
+        leading={<Icon name="keyboard-shortcut" class="text-foreground" />}
+        description={t("Use the keys you know from another video editor. Saved on this device.")}
+        action={<KeymapSelect />}
       />
     </DashboardSurfaceSection>
   );
@@ -209,6 +223,7 @@ export function DashboardSettingsView() {
       <ThemeSection />
       <DashboardRailSection />
       <DashboardLanguageSection />
+      <DashboardEditorKeysSection />
       <DashboardTimeZoneSection />
       <DashboardCalendarSection />
       <DashboardPermissionsSection />

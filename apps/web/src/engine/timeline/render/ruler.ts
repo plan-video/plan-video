@@ -8,6 +8,7 @@ import { assert } from '@/utils';
 import { RULER_INTERVALS } from '../constants';
 import {
 	RULER_HEIGHT,
+	RULER_LABEL_X,
 	RULER_LABEL_Y,
 	RULER_TICK_HEIGHT_MAJOR,
 	RULER_TICK_HEIGHT_MINOR,
@@ -58,31 +59,29 @@ export function renderRuler(world: World, scene: Entity, surface: TimelineSurfac
 	}
 
 	const interval = getRulerInterval(resolution);
-	const firstFrame = pixelsToFrames(minX, resolution);
 	const lastFrame = pixelsToFrames(maxX, resolution);
 	const step = Math.max(1, Math.round(interval.numerator / interval.denominator));
-
-	const majorOffset = RULER_HEIGHT - RULER_TICK_HEIGHT_MAJOR;
-	const minorOffset = RULER_HEIGHT - RULER_TICK_HEIGHT_MINOR;
+	// One major tick back: its label reaches into view after the tick itself has scrolled out.
+	const firstFrame = Math.max(0, Math.floor(pixelsToFrames(minX, resolution) / interval.numerator - 1) * interval.numerator);
 
 	ctx.font = '500 10px JetBrains Mono';
-	ctx.fillStyle = surface.colors.ruler.text;
 	ctx.textBaseline = 'middle';
-	ctx.textAlign = 'center';
+	ctx.textAlign = 'left';
+	ctx.lineWidth = 1;
 
-	for (let frame = Math.floor(firstFrame / step) * step; frame <= lastFrame; frame += step) {
-		const x = framesToPixels(frame, resolution);
-		let y = minorOffset;
+	for (let frame = firstFrame; frame <= lastFrame; frame += step) {
+		// On the half pixel, so the hairline is one crisp pixel wide.
+		const x = framesToPixels(frame, resolution) + 0.5;
+		const major = frame % interval.numerator === 0;
 
-		if (frame % interval.numerator === 0) {
-			y = majorOffset;
-			ctx.fillText(formatTickLabel(frame, fps), x, RULER_LABEL_Y);
+		if (major) {
+			ctx.fillStyle = surface.colors.ruler.text;
+			ctx.fillText(formatTickLabel(frame, fps), x + RULER_LABEL_X, RULER_LABEL_Y);
 		}
 
-		ctx.lineWidth = 1;
-		ctx.strokeStyle = surface.colors.ruler.tick;
+		ctx.strokeStyle = major ? surface.colors.ruler.major : surface.colors.ruler.tick;
 		ctx.beginPath();
-		ctx.moveTo(x, y);
+		ctx.moveTo(x, RULER_HEIGHT - (major ? RULER_TICK_HEIGHT_MAJOR : RULER_TICK_HEIGHT_MINOR));
 		ctx.lineTo(x, RULER_HEIGHT);
 		ctx.stroke();
 	}

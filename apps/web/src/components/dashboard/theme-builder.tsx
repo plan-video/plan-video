@@ -58,7 +58,7 @@ const CLIP_DEFAULTS: Record<ClipKind, string> = {
   text: "#94a3b8",
   image: "#f59e0b",
   caption: "#e879b9",
-  shape: "#f87171",
+  shape: "#fa9c77",
 };
 
 type Tab = "colors" | "style" | "editor";

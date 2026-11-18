@@ -34,7 +34,6 @@ import { cx } from "@/lib/cva";
 import { inGuestMode } from "@/lib/guest";
 import { t } from "@/lib/i18n";
 import { useEngineContext } from "@/engine";
-import { WorkflowsHost } from "@/components/workflows/save-workflow-dialog";
 
 import type { Mount } from '@plan.video/reconciler';
 import type { EditWriter } from '@/projects/edits';
@@ -226,7 +225,6 @@ export function EditorPage() {
         <FloatingProjectHeader />
       </Show>
       <EditorTour />
-      <WorkflowsHost />
     </div>
   );
 }

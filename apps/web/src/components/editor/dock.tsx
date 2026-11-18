@@ -10,11 +10,11 @@ import { sidebarTab } from "@/agent-chat";
 import { Canvas } from "@/components/canvas";
 import { Inspector, Soundboard } from "@/components/sidebar-right";
 import { SidebarLeft } from "@/components/sidebar-left";
-import { Layers, Timeline } from "@/components/timeline";
+import { Layers, Timeline, TimelineBar } from "@/components/timeline";
 import { Button } from "@/components/ui/button";
 import { useLayout } from "@/context/layout";
 import { zoomToFitWhenSettled } from "@/engine/camera";
-import { RULER_HEIGHT } from "@/engine/timeline";
+import { RULER_HEIGHT, TIMELINE_BAR_HEIGHT, TIMELINE_GUTTER_WIDTH } from "@/engine/timeline";
 import { layoutTarget } from "@/engine/stream-layout";
 import { msg, t } from "@/lib/i18n";
 import { EDITOR_RAIL_WIDTH, EditorRail } from "./editor-rail";
@@ -36,8 +36,6 @@ import {
 
 const PANEL_GAP = 6;
 const LAYOUT_INSPECTOR_WIDTH = 360;
-const MIN_LAYERS_WIDTH = 248;
-const MIN_TRACKS_WIDTH = 160;
 const SETTLE_MS = 200;
 
 const DOCKED_PANELS = ["assets", "inspector", "timeline", "mixer"] as const;
@@ -78,12 +76,20 @@ export function EditorDock() {
   // The stream layout's controls live in the inspector, so opening it brings the inspector back for as long as it's open.
   const hidden = () => layout.hiddenSections().filter((panel) => panel !== "inspector" || !layoutTarget());
   const options = () => ({
-    foldedHeight: layout.timelineMinimized() ? RULER_HEIGHT : undefined,
+    foldedHeight: layout.timelineMinimized() ? TIMELINE_BAR_HEIGHT + RULER_HEIGHT : undefined,
     minWidths: layoutTarget() ? { inspector: LAYOUT_INSPECTOR_WIDTH } : undefined,
     hidden: hidden(),
   });
   const placement = createMemo(() => placeDock(layout.dock(), frame(), options()));
   const rectOf = (panel: PanelId) => placement().panels[panel];
+
+  // How far the timeline's middle moved to make room for the mixer, so its tools can stay where they were.
+  const timelineToolsShift = createMemo(() => {
+    const timeline = rectOf("timeline");
+    const alone = placeDock(layout.dock(), frame(), { ...options(), hidden: [...hidden(), "mixer"] }).panels.timeline;
+    if (!timeline || !alone) return 0;
+    return alone.x + alone.width / 2 - (timeline.x + timeline.width / 2);
+  });
 
   // Where the assets panel sits or would sit, so hiding it doesn't move the rail or the layer column.
   const assetsRect = createMemo(() => placeDock(layout.dock(), frame()).panels.assets);
@@ -203,27 +209,6 @@ export function EditorDock() {
     );
   };
 
-  const timelineWidth = () => rectOf("timeline")?.width ?? frame().width;
-  // Lines up with the assets panel above it until the user sets its own width.
-  const layersWidth = () => {
-    const wanted = layout.layersWidth() ?? assetsRect()?.width ?? MIN_LAYERS_WIDTH;
-    return Math.max(MIN_LAYERS_WIDTH, Math.min(wanted, timelineWidth() - MIN_TRACKS_WIDTH));
-  };
-
-  const startLayersResize = (event: PointerEvent) => {
-    if (event.button !== 0) return;
-    const start = event.clientX;
-    const before = layersWidth();
-    const saved = layout.layersWidth();
-    trackPointer(
-      event,
-      (move) => layout.setLayersWidth(before + move.clientX - start),
-      (committed) => {
-        if (!committed) layout.setLayersWidth(saved);
-      },
-    );
-  };
-
   const panelBody = (id: (typeof DOCKED_PANELS)[number]) => {
     if (id === "assets") {
       return (
@@ -244,21 +229,12 @@ export function EditorDock() {
     }
     if (id === "mixer") return <Soundboard />;
     return (
-      <div class="grid size-full" style={{ "grid-template-columns": `${layersWidth()}px 1px minmax(0, 1fr)` }}>
-        <Layers />
-        <div class="relative z-20 bg-border-strong">
-          <Show when={!layout.timelineMinimized()}>
-            <div
-              role="separator"
-              aria-orientation="vertical"
-              class="group absolute inset-y-0 left-1/2 w-1.5 -translate-x-1/2 cursor-ew-resize touch-none"
-              onPointerDown={startLayersResize}
-            >
-              <div class="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 transition-colors group-hover:bg-primary group-active:bg-primary" />
-            </div>
-          </Show>
+      <div class="flex size-full flex-col">
+        <TimelineBar toolsShift={timelineToolsShift()} />
+        <div class="grid min-h-0 flex-1" style={{ "grid-template-columns": `${TIMELINE_GUTTER_WIDTH}px minmax(0, 1fr)` }}>
+          <Layers />
+          <Timeline />
         </div>
-        <Timeline />
       </div>
     );
   };

@@ -50,6 +50,17 @@ export const ANIMATION_GROUPS: AnimationGroup[] = [
     options: [{ name: "blur", label: msg("Blur") }],
   },
   {
+    label: msg("Loop"),
+    options: [
+      { name: "float", label: msg("Float") },
+      { name: "pulse", label: msg("Pulse") },
+      { name: "wiggle", label: msg("Wiggle") },
+      { name: "shake", label: msg("Shake") },
+      { name: "flicker", label: msg("Flicker") },
+      { name: "breathe", label: msg("Breathe") },
+    ],
+  },
+  {
     label: msg("Text"),
     kind: "text",
     options: [
@@ -66,6 +77,9 @@ export const ANIMATION_GROUPS: AnimationGroup[] = [
 ];
 
 export const POP_MOTION_DURATION = 0.2;
+
+/** Made to repeat: picking one sets the phase to loop. */
+export const LOOP_ANIMATIONS: ReadonlySet<AnimationName> = new Set(["float", "pulse", "wiggle", "shake", "flicker", "breathe"]);
 
 export const TEXT_MOTION_PRESETS: readonly (AnimationOption & { duration: number })[] = [
   { name: "pop", label: msg("Pop"), duration: POP_MOTION_DURATION },

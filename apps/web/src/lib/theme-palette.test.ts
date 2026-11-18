@@ -48,6 +48,16 @@ describe("the default theme", () => {
   });
 
   it.each([
+    ["--canvas", dark.canvas],
+    ["--background", dark.surface],
+    ["--popover", dark.popover],
+    ["--border", dark.editorBorder],
+    ["--foreground", dark.editorForeground],
+  ])("gives the dark editor the same palette, at %s", (token, value) => {
+    expect(distance(value, shipped('html.editor-theme[data-kb-theme="dark"]', token))).toBeLessThanOrEqual(3);
+  });
+
+  it.each([
     ["--plane-canvas", light.canvas],
     ["--plane-layer-1", light.layer1],
     ["--plane-border-subtle", light.borderSubtle],

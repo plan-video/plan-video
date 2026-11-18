@@ -55,6 +55,34 @@ export const WebFonts = {
 		weights: ['400'],
 		url: 'https://fonts.gstatic.com/s/permanentmarker/v16/Fh4uPib9Iyv2ucM6pGQMWimMp004La2Cf5b6jlg.woff2',
 	},
+	'Rubik Mono One': {
+		weights: ['400'],
+		url: 'https://fonts.gstatic.com/s/rubikmonoone/v20/UqyJK8kPP3hjw6ANTdfRk9YSN983TKUJcOj8.woff2',
+	},
+	'Bebas Neue': {
+		weights: ['400'],
+		url: 'https://fonts.gstatic.com/s/bebasneue/v16/JTUSjIg69CK48gW7PXoo9WlhyyTh89Y.woff2',
+	},
+	'Titan One': {
+		weights: ['400'],
+		url: 'https://fonts.gstatic.com/s/titanone/v17/mFTzWbsGxbbS_J5cQcjClDgm-khykw.woff2',
+	},
+	Fredoka: {
+		weights: ['300', '400', '500', '600', '700'],
+		url: 'https://fonts.gstatic.com/s/fredoka/v17/X7n64b87HvSqjb_WIi2yDCRwoQ_k7367_DWu89XgHPyh.woff2',
+	},
+	'Playfair Display': {
+		weights: ['400', '500', '600', '700', '800', '900'],
+		url: 'https://fonts.gstatic.com/s/playfairdisplay/v40/nuFiD-vYSZviVYUb_rj3ij__anPXDTzYgEM86xQ.woff2',
+	},
+	'Great Vibes': {
+		weights: ['400'],
+		url: 'https://fonts.gstatic.com/s/greatvibes/v21/RWmMoKWR9v4ksMfaWd_JN9XFiaQoDmlr.woff2',
+	},
+	Sacramento: {
+		weights: ['400'],
+		url: 'https://fonts.gstatic.com/s/sacramento/v17/buEzpo6gcdjy0EiZMBUG4C0f_f5Iai0.woff2',
+	},
 	'Source Code Pro': {
 		weights: ['200', '300', '400', '500', '600', '700', '800', '900'],
 		url: 'https://fonts.gstatic.com/s/sourcecodepro/v22/HI_SiYsKILxRpg3hIP6sJ7fM7PqlPevWnsUnxg.woff2',

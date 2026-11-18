@@ -68,8 +68,8 @@ function Market() {
 
   return (
     <div class="min-h-0 flex-1 overflow-y-auto">
-      <div class="flex flex-col gap-3 px-3 pb-3 pt-3">
-        <label class="flex h-8 items-center gap-1 rounded-md bg-input pl-1 pr-2 focus-within:ring-1 focus-within:ring-ring">
+      <div class="flex flex-col gap-3 p-4">
+        <label class="flex h-7 items-center gap-1 rounded-md bg-input pl-1 pr-2 focus-within:ring-1 focus-within:ring-ring">
           <Icon name="search" class="text-muted-foreground" />
           <input
             type="text"

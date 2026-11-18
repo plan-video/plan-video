@@ -18,8 +18,7 @@ import { Popover, PopoverContent, PopoverPortal, PopoverTrigger } from "@/compon
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cx } from "@/lib/cva";
-import { useLayout } from "@/context/layout";
-import { BAR_SLOT_CLASS } from "@/components/canvas/toolbar-slot";
+import { useBarSlotClass } from "@/components/canvas/toolbar-slot";
 import { t } from "@/lib/i18n";
 import {
   For,
@@ -123,7 +122,7 @@ export interface PromptInputProps {
 
 export function PromptInput(props: PromptInputProps) {
   const library = useLibrary();
-  const { toolbarSlot } = useLayout();
+  const slotClass = useBarSlotClass();
   const editor = useEditor();
   const { images: selectedImages } = useMediaSelection();
   const { generate: generateImage } = useGenerateImage();
@@ -458,7 +457,7 @@ export function PromptInput(props: PromptInputProps) {
 
   return (
     <div
-      class={cx("absolute w-xl max-w-[calc(100%-2rem)] z-10 flex flex-col gap-2 rounded-lg border border-border bg-background p-2", BAR_SLOT_CLASS[toolbarSlot()])}
+      class={cx("absolute w-xl max-w-[calc(100%-2rem)] z-10 flex flex-col gap-2 rounded-lg border border-border bg-background p-2", slotClass())}
       onDragOver={handleDragOver}
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}

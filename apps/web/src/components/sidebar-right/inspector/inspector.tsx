@@ -3,7 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { ControlScrollArea } from "@/components/ui/control-scrollarea";
-import { Show, createMemo } from "solid-js";
+import { PanelSearchContext, foldSearch } from "@/components/ui/panel-section";
+import { Show, createEffect, createMemo, createSignal, on } from "solid-js";
 import {
   isAdjustmentLayer,
   isAudio,
@@ -65,6 +66,7 @@ export type SelectionTarget =
   | "text"
   | "shape"
   | "group"
+  | "several"
   | "stage";
 
 function classifyNode(entity: Entity): SelectionTarget {
@@ -79,6 +81,9 @@ function classifyNode(entity: Entity): SelectionTarget {
   if (isGroup(entity)) return "group";
   return "stage";
 }
+
+// Every panel opens with its own top hairline. Pulled up a pixel, it lands on the title row's instead of doubling it.
+const SCROLL_AREA = "-mt-px min-h-0 flex-1";
 
 export function Inspector() {
   const world = useWorld();
@@ -105,6 +110,8 @@ export function Inspector() {
     if (keyframes().length > 0) return "keyframe";
     if (asset() || partial()) return "asset";
     if (pickedWords()) return "words";
+    // Not the canvas: its background is not a setting of the layers picked together.
+    if (selection().length > 1) return "several";
     const entity = primary();
     if (selection().length === 1 && entity) return classifyNode(entity);
     return "stage";
@@ -131,121 +138,139 @@ export function Inspector() {
     return targets.includes(selectionTarget());
   };
 
+  const [query, setQuery] = createSignal("");
+  const [matches, setMatches] = createSignal(0);
+  const search = {
+    query: createMemo(() => foldSearch(query())),
+    count: (change: number) => setMatches((total) => total + change),
+  };
+  // These panels are one block each, not sections.
+  const searchable = () => !layoutTarget() && !includesTarget("several", "asset");
+  // A search belongs to what was selected: the next selection opens whole again.
+  createEffect(on([selectionHash, layoutTarget], () => setQuery(""), { defer: true }));
+
   return (
     <div class="h-full min-h-0 flex flex-col" data-right-sidebar data-tour="inspector">
-      <InspectorHeader title={title()} />
+      <InspectorHeader title={title()} query={query()} onQuery={searchable() ? setQuery : undefined} />
       <Show when={layoutTarget()}>
-        <ControlScrollArea class="flex-1 min-h-0" scrollKey="stream-layout">
+        <ControlScrollArea class={SCROLL_AREA} scrollKey="stream-layout">
           <LayoutPreviewPanel />
         </ControlScrollArea>
       </Show>
-      <Show when={!layoutTarget() && selectionHash()} keyed>
-        <ControlScrollArea class="flex-1 min-h-0" scrollKey={selectionHash()}>
-          <Show when={selection().length > 1}>
-            <Alignment />
-          </Show>
+      <PanelSearchContext.Provider value={search}>
+        <Show when={!layoutTarget() && selectionHash()} keyed>
+          <ControlScrollArea class={SCROLL_AREA} scrollKey={selectionHash()}>
+            <Show when={includesTarget("several")}>
+              <Alignment />
+            </Show>
 
-          <Show when={pickedWords()} keyed>
-            {(picked) => <CaptionWordStyle entity={picked.entity} indices={picked.indices} />}
-          </Show>
+            <Show when={pickedWords()} keyed>
+              {(picked) => <CaptionWordStyle entity={picked.entity} indices={picked.indices} />}
+            </Show>
 
-          <Show when={includesTarget("stage")}>
-            <BackgroundSettings />
-          </Show>
+            <Show when={includesTarget("stage")}>
+              <BackgroundSettings />
+            </Show>
 
-          <Show when={includesTarget("stage")}>
-            <VariablesSettings />
-          </Show>
+            <Show when={includesTarget("stage")}>
+              <VariablesSettings />
+            </Show>
 
-          <Show when={includesTarget("shape", "group", "adjustment")}>
-            <EffectSettings selection={selection()} />
-          </Show>
+            <Show when={includesTarget("shape", "group", "adjustment")}>
+              <EffectSettings selection={selection()} />
+            </Show>
 
-          <Show when={includesTarget("shape", "text", "audio", "scene", "caption", "group", "mask", "adjustment")}>
-            <TimeSettings selection={selection()} />
-          </Show>
+            <Show when={includesTarget("shape", "text", "audio", "scene", "caption", "group", "mask", "adjustment")}>
+              <TimeSettings selection={selection()} />
+            </Show>
 
-          <Show when={includesTarget("shape", "text", "audio", "scene", "caption", "group", "mask", "adjustment")}>
-            <TransformSettings selection={selection()} />
-          </Show>
+            {/* Not for sound: it has no place, size or look on the canvas. */}
+            <Show when={includesTarget("shape", "text", "scene", "caption", "group", "mask", "adjustment")}>
+              <TransformSettings selection={selection()} />
+            </Show>
 
-          <Show when={includesTarget("shape", "text", "audio", "scene", "mask")}>
-            <LayoutPanel selection={selection()} />
-          </Show>
+            <Show when={includesTarget("shape", "text", "scene", "mask")}>
+              <LayoutPanel selection={selection()} />
+            </Show>
 
-          <Show when={includesTarget("shape", "text", "scene", "caption", "group", "audio", "mask")}>
-            <AppearanceSettings selection={selection()} />
-          </Show>
+            <Show when={includesTarget("shape", "text", "scene", "caption", "group", "mask")}>
+              <AppearanceSettings selection={selection()} />
+            </Show>
 
-          <Show when={includesTarget("caption")}>
-            <CaptionSettings selection={selection()} />
-          </Show>
+            <Show when={includesTarget("caption")}>
+              <CaptionSettings selection={selection()} />
+            </Show>
 
-          <Show when={includesTarget("caption")}>
-            <CaptionCuts selection={selection()} />
-          </Show>
+            <Show when={includesTarget("caption")}>
+              <CaptionCuts selection={selection()} />
+            </Show>
 
-          <Show when={includesTarget("caption")}>
-            <CaptionTools selection={selection()} />
-          </Show>
+            <Show when={includesTarget("caption")}>
+              <CaptionTools selection={selection()} />
+            </Show>
 
-          <Show when={includesTarget("caption")}>
-            <CaptionWords selection={selection()} />
-          </Show>
+            <Show when={includesTarget("caption")}>
+              <CaptionWords selection={selection()} />
+            </Show>
 
-          <Show when={includesTarget("text", "caption")}>
-            <TextPanel selection={selection()} />
-          </Show>
+            <Show when={includesTarget("text", "caption")}>
+              <TextPanel selection={selection()} />
+            </Show>
 
-          <Show when={includesTarget("shape", "text", "scene")}>
-            <FillsSettings selection={selection()} />
-          </Show>
+            <Show when={includesTarget("shape", "text", "scene")}>
+              <FillsSettings selection={selection()} />
+            </Show>
 
-          <Show when={includesTarget("shape", "caption")}>
-            <SourceSettings selection={selection()} />
-          </Show>
+            <Show when={includesTarget("shape", "caption")}>
+              <SourceSettings selection={selection()} />
+            </Show>
 
-          <Show when={includesTarget("shape", "text", "scene", "caption")}>
-            <StrokesSettings selection={selection()} />
-          </Show>
+            <Show when={includesTarget("shape", "text", "scene", "caption")}>
+              <StrokesSettings selection={selection()} />
+            </Show>
 
-          <Show when={includesTarget("shape", "text", "scene")}>
-            <ShadowsSettings selection={selection()} />
-          </Show>
+            <Show when={includesTarget("shape", "text", "scene")}>
+              <ShadowsSettings selection={selection()} />
+            </Show>
 
-          <Show when={includesTarget("shape", "scene", "group")}>
-            <GradeSettings selection={selection()} />
-          </Show>
+            <Show when={includesTarget("shape", "scene", "group")}>
+              <GradeSettings selection={selection()} />
+            </Show>
 
-          <Show when={includesTarget("shape", "text", "scene", "caption")}>
-            <EffectsSettings selection={selection()} />
-          </Show>
+            <Show when={includesTarget("shape", "text", "scene", "caption")}>
+              <EffectsSettings selection={selection()} />
+            </Show>
 
-          <Show when={includesTarget("shape", "text", "caption", "group", "mask")}>
-            <AnimationsSettings selection={selection()} />
-          </Show>
+            <Show when={includesTarget("shape", "text", "caption", "group", "mask")}>
+              <AnimationsSettings selection={selection()} />
+            </Show>
 
-          <Show when={includesTarget("shape", "text", "caption", "group", "sequence")}>
-            <TransitionSettings selection={selection()} />
-          </Show>
+            <Show when={includesTarget("shape", "text", "caption", "group", "sequence")}>
+              <TransitionSettings selection={selection()} />
+            </Show>
 
-          <Show when={includesTarget("shape", "text", "caption", "group")}>
-            <MasksSettings selection={selection()} />
-          </Show>
+            <Show when={includesTarget("shape", "text", "caption", "group")}>
+              <MasksSettings selection={selection()} />
+            </Show>
 
-          <Show when={includesTarget("shape", "audio", "group")}>
-            <AudioSettings selection={selection()} />
-          </Show>
+            <Show when={includesTarget("shape", "audio", "group")}>
+              <AudioSettings selection={selection()} />
+            </Show>
 
-          <Show when={includesTarget("asset")}>
-            <AssetInfoPanel />
-          </Show>
+            <Show when={includesTarget("asset")}>
+              <AssetInfoPanel />
+            </Show>
 
-          <Show when={includesTarget("keyframe")}>
-            <InterpolationSettings selection={keyframes()} />
-          </Show>
-        </ControlScrollArea>
-      </Show>
+            <Show when={includesTarget("keyframe")}>
+              <InterpolationSettings selection={keyframes()} />
+            </Show>
+
+            <Show when={search.query() && matches() === 0}>
+              <p class="border-t border-border px-4 py-8 text-center text-xs text-muted-foreground">{t("Nothing matches.")}</p>
+            </Show>
+          </ControlScrollArea>
+        </Show>
+      </PanelSearchContext.Provider>
     </div>
   );
 }

@@ -20,6 +20,9 @@ type VisualAsset = Extract<Asset, { type: 'IMAGE' | 'VIDEO' | 'SEQUENCE' }>;
 
 const keyOf = (asset: Asset): string => `${asset.id}:${asset.stat?.mtime ?? ''}`;
 
+// Out of the flow: left in it, an upright picture's own height would stretch the square it is shown in.
+const FITTED = "absolute inset-0 size-full object-contain";
+
 export function AssetInfoPreview(props: { asset: Asset }) {
   const library = useLibrary();
   let mediaRef: HTMLMediaElement | undefined;
@@ -93,8 +96,16 @@ export function AssetInfoPreview(props: { asset: Asset }) {
     return `${formatDuration(currentTime())} / ${formatDuration(duration())}`;
   });
 
+  // An upright picture at full width would push everything under it out of view, so it is shown whole inside a square.
+  const upright = createMemo(() => {
+    if (isAudio() || isTranscript()) return false;
+    const visualAsset = props.asset as VisualAsset;
+    return visualAsset.height > visualAsset.width;
+  });
+
   const aspectRatio = createMemo(() => {
     if (isAudio() || isTranscript()) return '16 / 9';
+    if (upright()) return '1 / 1';
 
     const visualAsset = props.asset as VisualAsset;
     if (visualAsset.width > 0 && visualAsset.height > 0) {
@@ -135,7 +146,7 @@ export function AssetInfoPreview(props: { asset: Asset }) {
             <>
               <Show when={isVideo()}>
                 <video
-                  class="size-full object-cover"
+                  class={upright() ? FITTED : "size-full object-cover"}
                   ref={el => mediaRef = el}
                   src={url()}
                   controls={false}
@@ -175,7 +186,7 @@ export function AssetInfoPreview(props: { asset: Asset }) {
                 />
               </Show>
               <Show when={isImage()}>
-                <img class="size-full object-cover" src={url()} alt={assetName(props.asset)} />
+                <img class={upright() ? FITTED : "size-full object-cover"} src={url()} alt={assetName(props.asset)} />
               </Show>
             </>
           )}

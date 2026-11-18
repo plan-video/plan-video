@@ -13,16 +13,8 @@ import {
   Name,
   Selected,
   Soloed,
-  findGeometryAsset,
   getEntityChildren,
   getParentEntity,
-  isAdjustmentLayer,
-  isCaption,
-  isGroup,
-  isMask,
-  isScene,
-  isSequence,
-  isText,
 } from '@plan.video/runtime';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
@@ -36,18 +28,23 @@ import {
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
 import { Tooltip, TooltipContent, TooltipPortal, TooltipTrigger } from '@/components/ui/tooltip';
-import { useEditor } from '@/engine/hooks';
-import { DEFAULT_CLIP_HEIGHT, MAX_CLIP_HEIGHT, MIN_CLIP_HEIGHT, getClipFallbackName } from '@/engine/timeline';
+import EyeIcon from 'lucide-solid/icons/eye';
+import EyeOffIcon from 'lucide-solid/icons/eye-off';
+import HeadphonesIcon from 'lucide-solid/icons/headphones';
+import Volume2Icon from 'lucide-solid/icons/volume-2';
+import VolumeXIcon from 'lucide-solid/icons/volume-x';
+import { useDerived, useEditor } from '@/engine/hooks';
+import { DEFAULT_CLIP_HEIGHT, MAX_CLIP_HEIGHT, MIN_CLIP_HEIGHT, clipMakesSound, getClipFallbackName } from '@/engine/timeline';
 import { t } from '@/lib/i18n';
-import { NESTED_INDENT_PX } from './config';
 import { useLayerContext } from './context';
 import { setRowHover } from './hover';
+import { Lane } from './lane';
+import { RowLabel } from './row-label';
 
-import type { World } from 'koota';
-import type { TimelineNode } from '@plan.video/runtime';
 import type { LayerRowProps } from './layer';
 
 const MAC = /Mac|iPhone|iPad/.test(navigator.platform);
+const ROW_ICON = 'size-3.5';
 
 export function NodeLayer(props: LayerRowProps) {
   const world = useWorld();
@@ -63,7 +60,7 @@ export function NodeLayer(props: LayerRowProps) {
   const hidden = useTag(entity, Hidden);
   const hovering = useTag(entity, Hovering);
   const selected = useTag(entity, Selected);
-  const controlsVisible = createMemo(() => hovering() || muted() || soloed() || hidden());
+  const sounds = useDerived(() => clipMakesSound(world, entity()));
 
   const { resized: resizedSignal, drag } = useLayerContext();
   const [resized, setResized] = resizedSignal;
@@ -73,7 +70,6 @@ export function NodeLayer(props: LayerRowProps) {
 
   const nameTrait = useTrait(entity, Name);
   const name = createMemo(() => nameTrait()?.value || getClipFallbackName(world, entity()));
-  const icon = createMemo(() => getLayerIcon(world, props.layer));
 
   const toggleMuted = (e?: Event) => {
     e?.stopPropagation();
@@ -134,6 +130,10 @@ export function NodeLayer(props: LayerRowProps) {
     document.addEventListener('pointerup', handleResizeEnd);
   };
 
+  const handleRowDoubleClick = (e: MouseEvent) => {
+    if (!(e.target as HTMLElement).closest('button')) startEditing();
+  };
+
   const handleRemove = () => editor.remove(selected() ? [...world.query(Selected)] : entity());
 
   // The last child is drawn on top, so "front" is the end of the file and "back" the beginning.
@@ -190,114 +190,73 @@ export function NodeLayer(props: LayerRowProps) {
         onPointerEnter={() => setRowHover(world, entity())}
         onPointerLeave={() => setRowHover(world, null)}
         onPointerDown={handleRowPointerDown}
-        classList={{
-          'bg-accent': selected(),
-          'bg-accent/70': !selected() && hovering() && resized() === null && drag.dragging() === null,
-          'bg-accent/40': !selected() && !(hovering() && resized() === null) && props.ancestorSelected,
-          'opacity-60': drag.dragging() === entity(),
-        }}
+        onDblClick={handleRowDoubleClick}
+        classList={{ 'opacity-60': drag.dragging() === entity() }}
         style={{ height: height() + 'px' }}
       >
-        <div class="w-full pl-0.5 pr-2 flex items-center justify-between h-full">
-          <div
-            data-layer-label
-            class="flex-1 min-w-0 overflow-hidden"
-            style={{
-              'mask-image': controlsVisible() && !editing() ? 'linear-gradient(to right, #000 calc(100% - 1.25rem), transparent)' : undefined,
-              '-webkit-mask-image': controlsVisible() && !editing() ? 'linear-gradient(to right, #000 calc(100% - 1.25rem), transparent)' : undefined,
-            }}
-          >
-            <div
-              class="flex items-center gap-0.5 w-max"
-              style={{
-                'padding-left': `${props.depth * NESTED_INDENT_PX}px`,
-                transform: editing() ? 'none' : 'translateX(calc(var(--layer-x, 0px) * -1))',
-              }}
+        <Lane
+          selected={selected()}
+          hovered={hovering() && resized() === null && drag.dragging() === null}
+          nested={props.ancestorSelected}
+        />
+        <div class="relative flex h-full w-full items-center justify-between pl-2.5 pr-0.5">
+          <Show when={props.layer.expandable}>
+            <button
+              onClick={toggleExpanded}
+              class="size-4 shrink-0 flex items-center justify-center overflow-clip invisible group-hover/layers:visible focus-ring rounded-sm"
             >
-              <button
-                disabled={!props.layer.expandable}
-                onClick={toggleExpanded}
-                class="size-4 shrink-0 flex items-center justify-center overflow-clip invisible group-hover/layers:visible focus-ring rounded-sm"
-              >
-                <Show when={props.layer.expandable}>
-                  <Icon name={props.expanded ? "chevron-down" : "chevron-right"} class="size-6 hover:text-foreground" />
-                </Show>
-              </button>
-              <div class="size-4 shrink-0 flex items-center justify-center overflow-clip mr-0.5">
-                <Icon name={icon()} class="size-6" />
-              </div>
+              <Icon name={props.expanded ? "chevron-down" : "chevron-right"} class="size-6 hover:text-foreground" />
+            </button>
+          </Show>
+
+          <div class="ml-auto flex shrink-0 items-center" classList={{ 'invisible': resized() !== null }}>
+            {/* A row with nothing to hear has nothing to mute. */}
+            <Show when={sounds() || muted() || soloed()}>
               <Show
-                when={editing()}
+                when={soloed()}
                 fallback={
-                  <span class="text-xs px-0.5 shrink-0 whitespace-nowrap text-foreground" onDblClick={startEditing}>
-                    {name()}
-                  </span>
+                  <Tooltip placement="bottom">
+                    <TooltipTrigger
+                      as={Button}
+                      variant="ghost"
+                      size="icon"
+                      aria-label={muted() ? t("Unmute") : t("Mute")}
+                      aria-pressed={muted()}
+                      class={muted() ? "text-foreground" : "hover:text-foreground"}
+                      onClick={toggleMuted}
+                    >
+                      <Show when={muted()} fallback={<Volume2Icon class={ROW_ICON} stroke-width={2} />}>
+                        <VolumeXIcon class={ROW_ICON} stroke-width={2} />
+                      </Show>
+                    </TooltipTrigger>
+                    <TooltipPortal>
+                      <TooltipContent>{muted() ? t("Unmute") : t("Mute")}</TooltipContent>
+                    </TooltipPortal>
+                  </Tooltip>
                 }
               >
-                <input
-                  ref={mountNameInput}
-                  type="text"
-                  class="text-xs bg-input border border-primary rounded-sm outline-none px-0.5 w-32 text-foreground"
-                  value={name()}
-                  onInput={handleNameInput}
-                  onKeyDown={handleNameKeyDown}
-                  onBlur={(e) => finishEditing(e.currentTarget)}
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onDblClick={(e) => e.stopPropagation()}
-                />
+                <Tooltip placement="bottom">
+                  <TooltipTrigger as={Button} variant="on" size="icon" aria-label={t("Unsolo")} aria-pressed="true" onClick={toggleSoloed}>
+                    <HeadphonesIcon class={ROW_ICON} stroke-width={2} />
+                  </TooltipTrigger>
+                  <TooltipPortal>
+                    <TooltipContent>{t("Unsolo")}</TooltipContent>
+                  </TooltipPortal>
+                </Tooltip>
               </Show>
-            </div>
-          </div>
-
-          <div
-            class="items-center flex gap-0.5 shrink-0 overflow-hidden group-hover:w-auto"
-            classList={{
-              'hidden': resized() !== null,
-              'w-0': !(muted() || soloed() || hidden()),
-              'w-auto': muted() || soloed() || hidden(),
-            }}
-          >
-            <Tooltip placement="bottom">
-              <TooltipTrigger
-                as={Button}
-                variant={muted() ? "on" : "ghost"}
-                size="icon"
-                class="invisible group-hover:visible"
-                style={{ visibility: muted() ? 'visible' : undefined }}
-                onClick={toggleMuted}
-              >
-                <Icon name="mute" class="size-6" />
-              </TooltipTrigger>
-              <TooltipPortal>
-                <TooltipContent>{muted() ? t("Unmute") : t("Mute")}</TooltipContent>
-              </TooltipPortal>
-            </Tooltip>
-            <Tooltip placement="bottom">
-              <TooltipTrigger
-                as={Button}
-                variant={soloed() ? "on" : "ghost"}
-                size="icon"
-                class="invisible group-hover:visible"
-                style={{ visibility: soloed() ? 'visible' : undefined }}
-                onClick={toggleSoloed}
-              >
-                <Icon name="solo" class="size-6" />
-              </TooltipTrigger>
-              <TooltipPortal>
-                <TooltipContent>{soloed() ? t("Unsolo") : t("Solo")}</TooltipContent>
-              </TooltipPortal>
-            </Tooltip>
+            </Show>
             <Tooltip placement="bottom">
               <TooltipTrigger
                 as={Button}
                 variant="ghost"
                 size="icon"
-                class="invisible group-hover:visible"
+                aria-label={hidden() ? t("Show") : t("Hide")}
+                aria-pressed={hidden()}
+                class={hidden() ? "text-foreground" : "hover:text-foreground"}
                 onClick={toggleHidden}
-                style={{ visibility: hidden() ? 'visible' : undefined }}
               >
-                <Show when={!hidden()} fallback={<Icon name="eye-off" class="size-6" />}>
-                  <Icon name="eye-on" class="size-6" />
+                <Show when={hidden()} fallback={<EyeIcon class={ROW_ICON} stroke-width={2} />}>
+                  <EyeOffIcon class={ROW_ICON} stroke-width={2} />
                 </Show>
               </TooltipTrigger>
               <TooltipPortal>
@@ -306,6 +265,20 @@ export function NodeLayer(props: LayerRowProps) {
             </Tooltip>
           </div>
         </div>
+
+        <Show when={editing()} fallback={<Show when={props.depth > 0}><RowLabel>{name()}</RowLabel></Show>}>
+          <input
+            ref={mountNameInput}
+            type="text"
+            class="absolute left-full top-1/2 z-30 ml-1.5 h-6 w-40 -translate-y-1/2 rounded-sm border border-primary bg-background px-1.5 text-xs text-foreground outline-none"
+            value={name()}
+            onInput={handleNameInput}
+            onKeyDown={handleNameKeyDown}
+            onBlur={(e) => finishEditing(e.currentTarget)}
+            onPointerDown={(e) => e.stopPropagation()}
+            onDblClick={(e) => e.stopPropagation()}
+          />
+        </Show>
 
         <div
           class="absolute bottom-0 left-0 right-0 h-[3px] cursor-ns-resize translate-y-0.5 z-20 group/resize"
@@ -318,7 +291,15 @@ export function NodeLayer(props: LayerRowProps) {
         </div>
       </ContextMenuTrigger>
       <ContextMenuPortal>
-        <ContextMenuContent class="w-[160px]">
+        <ContextMenuContent
+          class="w-[160px]"
+          // The menu hands focus back as it closes, which would blur the field Rename just opened.
+          onCloseAutoFocus={(event: Event) => {
+            if (editing()) event.preventDefault();
+          }}
+        >
+          <ContextMenuItem onSelect={startEditing}>{t("Rename")}</ContextMenuItem>
+          <ContextMenuSeparator />
           <ContextMenuItem onSelect={toggleMuted}>{muted() ? t('Unmute') : t('Mute')}</ContextMenuItem>
           <ContextMenuItem onSelect={toggleSoloed}>{soloed() ? t('Unsolo') : t('Solo')}</ContextMenuItem>
           <ContextMenuItem onSelect={toggleHidden}>{hidden() ? t('Unhide') : t('Hide')}</ContextMenuItem>
@@ -337,28 +318,4 @@ export function NodeLayer(props: LayerRowProps) {
       </ContextMenuPortal>
     </ContextMenu>
   )
-}
-
-function getLayerIcon(world: World, layer: TimelineNode) {
-  const entity = layer.entity;
-
-  if (isMask(entity)) return "mask-small";
-  if (isAdjustmentLayer(entity)) return "adjustment-layer";
-  if (isScene(entity)) return "scene-frame-small";
-  if (isSequence(entity)) return "timeline-sequence-small";
-  if (isGroup(entity)) return "group";
-  if (isCaption(entity)) return "captions-small";
-  if (isText(entity)) return "text-small";
-
-  switch (findGeometryAsset(world, entity)?.type) {
-    case 'IMAGE':
-      return "image-small";
-    case 'VIDEO':
-    case 'SEQUENCE':
-      return "video-small";
-    case 'AUDIO':
-      return "audio-small";
-    default:
-      return "rectangle-small";
-  }
 }

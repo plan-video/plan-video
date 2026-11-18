@@ -28,6 +28,7 @@ import { splitAtPlayhead } from '@/engine/split';
 import { findClipAt } from '@/engine/timeline/render/clip';
 import { TimelineSurface } from '@/engine/timeline/surface';
 import { t } from '@/lib/i18n';
+import { shortcutLabel } from '@/lib/keymap';
 
 import type { JSX } from 'solid-js';
 import type { Asset } from '@plan.video/assets';
@@ -108,7 +109,7 @@ export function TimelineClipMenu(props: { children: JSX.Element }) {
           </ContextMenuItem>
           <ContextMenuItem onSelect={() => splitAtPlayhead(world)}>
             {t('Split at playhead')}
-            <ContextMenuShortcut>⌘B</ContextMenuShortcut>
+            <ContextMenuShortcut>{shortcutLabel('split')}</ContextMenuShortcut>
           </ContextMenuItem>
           <ContextMenuSeparator />
           <ContextMenuItem onSelect={() => deleteSelection(world)}>

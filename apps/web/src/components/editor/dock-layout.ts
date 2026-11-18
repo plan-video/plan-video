@@ -6,6 +6,9 @@ export const PANEL_IDS = ["assets", "canvas", "inspector", "timeline", "mixer"] 
 /** The canvas always stays: it is what the editor is for. */
 export const HIDEABLE_PANELS = ["assets", "inspector", "timeline", "mixer"] as const;
 
+/** Off until asked for, so the timeline gets the width. */
+export const DEFAULT_HIDDEN_PANELS: ("mixer")[] = ["mixer"];
+
 export type PanelId = (typeof PANEL_IDS)[number];
 export type HideablePanel = (typeof HIDEABLE_PANELS)[number];
 export type DockDir = "row" | "col";
@@ -65,29 +68,43 @@ const PREFERRED_SIZES: Record<PanelId, Size> = {
   mixer: { width: 308, height: 234 },
 };
 
+const DEFAULT_TIMELINE_HEIGHT = 234;
+
+const timelineRow = (height: number, mixerWidth = 308): DockNode => ({
+  dir: "row",
+  size: height,
+  children: [
+    { panel: "timeline", size: 0 },
+    { panel: "mixer", size: mixerWidth },
+  ],
+});
+
+const topRow = (assets: number, inspector: number): DockNode => ({
+  dir: "row",
+  size: 0,
+  children: [
+    { panel: "assets", size: assets },
+    { panel: "canvas", size: 0 },
+    { panel: "inspector", size: inspector },
+  ],
+});
+
 export const DEFAULT_DOCK: DockNode = {
   dir: "col",
   size: 0,
-  children: [
-    {
-      dir: "row",
-      size: 0,
-      children: [
-        { panel: "assets", size: 264 },
-        { panel: "canvas", size: 0 },
-        { panel: "inspector", size: 308 },
-      ],
-    },
-    {
-      dir: "row",
-      size: 234,
-      children: [
-        { panel: "timeline", size: 0 },
-        { panel: "mixer", size: 308 },
-      ],
-    },
-  ],
+  children: [topRow(264, 308), timelineRow(DEFAULT_TIMELINE_HEIGHT)],
 };
+
+/** The default layout with a taller timeline, for a window with the height to spare. */
+export function defaultDock(timelineHeight: number): DockNode {
+  if (timelineHeight <= DEFAULT_TIMELINE_HEIGHT) return DEFAULT_DOCK;
+  return { ...DEFAULT_DOCK, children: [topRow(264, 308), timelineRow(timelineHeight)] };
+}
+
+/** A saved copy of the plain default was never a choice, so it can follow the default as it is now. */
+export function isPlainDefault(dock: DockNode): boolean {
+  return dock === DEFAULT_DOCK || JSON.stringify(dock) === JSON.stringify(DEFAULT_DOCK);
+}
 
 const isLeaf = (node: DockNode): node is DockLeaf => "panel" in node;
 const lengthOf = (dir: DockDir): keyof Size => (dir === "row" ? "width" : "height");
@@ -393,39 +410,20 @@ export function readDock(value: unknown): DockNode {
 export const LAYOUT_PRESET_IDS = ["timeline", "canvas", "sidebars"] as const;
 
 export type LayoutPresetId = (typeof LAYOUT_PRESET_IDS)[number];
-export type LayoutSnapshot = { dock: DockNode; layersWidth: number | null; toolbarSlot: string; hidden: HideablePanel[] };
+export type LayoutSnapshot = { dock: DockNode; toolbarSlot: string; hidden: HideablePanel[] };
 export type SavedLayout = LayoutSnapshot & { id: string; name: string };
-
-const timelineRow = (height: number, mixerWidth = 308): DockNode => ({
-  dir: "row",
-  size: height,
-  children: [
-    { panel: "timeline", size: 0 },
-    { panel: "mixer", size: mixerWidth },
-  ],
-});
-
-const topRow = (assets: number, inspector: number): DockNode => ({
-  dir: "row",
-  size: 0,
-  children: [
-    { panel: "assets", size: assets },
-    { panel: "canvas", size: 0 },
-    { panel: "inspector", size: inspector },
-  ],
-});
 
 // Sizes come from the window at the moment of choosing, so a preset looks the same on any screen.
 export function presetLayout(id: LayoutPresetId, window: Size): LayoutSnapshot {
   const toolbarSlot = "bottom";
-  const hidden: HideablePanel[] = [];
+  const hidden: HideablePanel[] = DEFAULT_HIDDEN_PANELS;
   if (id === "timeline") {
     const dock: DockNode = { dir: "col", size: 0, children: [topRow(264, 308), timelineRow(Math.round(window.height * 0.55))] };
-    return { dock, layersWidth: null, toolbarSlot, hidden };
+    return { dock, toolbarSlot, hidden };
   }
   if (id === "canvas") {
     const dock: DockNode = { dir: "col", size: 0, children: [topRow(248, 260), timelineRow(160, 280)] };
-    return { dock, layersWidth: null, toolbarSlot, hidden };
+    return { dock, toolbarSlot, hidden };
   }
   const dock: DockNode = {
     dir: "row",
@@ -450,7 +448,7 @@ export function presetLayout(id: LayoutPresetId, window: Size): LayoutSnapshot {
       },
     ],
   };
-  return { dock, layersWidth: 248, toolbarSlot, hidden };
+  return { dock, toolbarSlot, hidden };
 }
 
 const sameName = (a: string, b: string) => a.trim().toLocaleLowerCase() === b.trim().toLocaleLowerCase();
@@ -481,7 +479,7 @@ export function readSavedLayouts(value: unknown): SavedLayout[] {
   const ids = new Set<string>();
   return value.flatMap((entry): SavedLayout[] => {
     if (typeof entry !== "object" || entry === null) return [];
-    const { id, name, dock, layersWidth, toolbarSlot, hidden } = entry as Record<string, unknown>;
+    const { id, name, dock, toolbarSlot, hidden } = entry as Record<string, unknown>;
     if (typeof id !== "string" || !id || ids.has(id)) return [];
     if (typeof name !== "string" || !name.trim() || !isDock(dock)) return [];
     ids.add(id);
@@ -489,7 +487,6 @@ export function readSavedLayouts(value: unknown): SavedLayout[] {
       id,
       name,
       dock,
-      layersWidth: typeof layersWidth === "number" && Number.isFinite(layersWidth) ? layersWidth : null,
       toolbarSlot: typeof toolbarSlot === "string" ? toolbarSlot : "bottom",
       hidden: readHidden(hidden),
     }];

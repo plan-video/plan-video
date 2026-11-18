@@ -25,6 +25,12 @@ Arrange the video editor however you like:
 - **Your own layouts:** choose **Save current layout…** in the same menu and give it a name. It joins the list, and the **×** beside it removes it. It remembers which sections were hidden too.
 - **Start over:** choose **Reset layout** in the same menu.
 
+## Keyboard shortcuts
+
+Coming from another video editor? Keep the keys you know. Open **Keybinds** from the menu at the top of the editor's rail and choose **CapCut**, **Final Cut Pro**, **DaVinci Resolve** or **Premiere Pro** under **Same keys as**. You can also change it in the dashboard under **Settings** → **Preferences**. The keys change straight away, and **Keybinds** always lists the ones you have now. The choice is kept on this device.
+
+With another app's keys, the arrow keys move the playhead: ← and → step a frame, and ↑ and ↓ jump to the previous or next cut. Hold <kbd>⌥</kbd> with an arrow key to nudge the selected layer instead.
+
 ## Time zone
 
 Your time zone starts as your device's. Change it under **Preferences** → **Time zone**. Scheduling, the calendar and analytics all use it, and posts go out at that time.

@@ -5,7 +5,6 @@
 import {
 	Cache,
 	Computed,
-	Hovering,
 	Keyframe,
 	KeyframeDragOrigin,
 	Selected,
@@ -68,13 +67,6 @@ export function renderKeyframeTrack(
 	ctx.save();
 	ctx.setTransform(transform);
 	ctx.lineWidth = 1;
-
-	if (track.has(Hovering)) {
-		ctx.fillStyle = surface.colors.background.muted;
-		ctx.globalAlpha = 0.6;
-		ctx.fillRect(viewportLeft, 0, viewportRight - viewportLeft, KEYFRAME_TRACK_HEIGHT);
-		ctx.globalAlpha = 1;
-	}
 
 	pointer.scope(String(track.id()));
 

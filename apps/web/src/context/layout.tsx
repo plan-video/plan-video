@@ -6,8 +6,11 @@ import { createContext, createMemo, createSignal, useContext, type Accessor, typ
 import { assert } from '@/utils';
 import { createStoredSignal } from '@/lib/store';
 import { store } from '@/init';
+import { DEFAULT_CLIP_HEIGHT, RULER_HEIGHT, SCROLLBAR_LANE, TIMELINE_BAR_HEIGHT } from '@/engine/timeline/config';
 import {
-  DEFAULT_DOCK,
+  DEFAULT_HIDDEN_PANELS,
+  defaultDock,
+  isPlainDefault,
   presetLayout,
   readDock,
   readHidden,
@@ -21,6 +24,17 @@ import {
   type SavedLayout,
 } from '@/components/editor/dock-layout';
 
+const TIMELINE_SHARE = 0.3;
+const DEFAULT_TIMELINE_ROWS = [4, 8] as const;
+
+/** About a third of the window, at a height that shows whole rows under the timeline's bar and ruler. */
+function startingDock() {
+  const chrome = TIMELINE_BAR_HEIGHT + RULER_HEIGHT + SCROLLBAR_LANE;
+  const rows = Math.round((window.innerHeight * TIMELINE_SHARE - chrome) / DEFAULT_CLIP_HEIGHT);
+  const [fewest, most] = DEFAULT_TIMELINE_ROWS;
+  return defaultDock(chrome + Math.min(most, Math.max(fewest, rows)) * DEFAULT_CLIP_HEIGHT);
+}
+
 /** The toolbar snaps to one of these when dragged. */
 export const TOOLBAR_SLOTS = ['bottom', 'top', 'top-left', 'top-right', 'bottom-left', 'bottom-right'] as const;
 
@@ -31,15 +45,13 @@ type LayoutContextValue = {
   timelineMinimized: Accessor<boolean>;
   dock: Accessor<DockNode>;
   setDock(dock: DockNode): void;
-  layersWidth: Accessor<number | null>;
-  setLayersWidth(width: number | null): void;
   toolbarSlot: Accessor<ToolbarSlot>;
   setToolbarSlot(slot: ToolbarSlot): void;
   toggleUI(): void;
   toggleTimeline(): void;
   resetLayout(): void;
   hiddenSections: Accessor<HideablePanel[]>;
-  /** Shows every section for now, leaving the saved choice alone. */
+  /** Shows every section the tour points at for now, leaving the saved choice alone. */
   setSectionsRevealed(revealed: boolean): void;
   hideSection(panel: HideablePanel): void;
   showSection(panel: HideablePanel): void;
@@ -63,12 +75,10 @@ export function LayoutProvider(props: { children: JSX.Element }) {
   );
 
   const [dock, setDock] = createStoredSignal(
-    store.define<DockNode>('layout.dock', DEFAULT_DOCK, readDock),
-  );
-  const [layersWidth, setLayersWidth] = createStoredSignal(
-    store.define<number | null>('layout.layersWidth', null, (value) =>
-      typeof value === 'number' && Number.isFinite(value) ? value : null,
-    ),
+    store.define<DockNode>('layout.dock', startingDock(), (saved) => {
+      const dock = readDock(saved);
+      return isPlainDefault(dock) ? startingDock() : dock;
+    }),
   );
   const [timelineMinimized, setTimelineMinimized] = createStoredSignal(
     store.define<boolean>('layout.timelineMinimized', false),
@@ -83,10 +93,10 @@ export function LayoutProvider(props: { children: JSX.Element }) {
   const toggleUI = () => setUiVisible(!uiVisible());
 
   const [savedHidden, setSavedHidden] = createStoredSignal(
-    store.define<HideablePanel[]>('layout.hidden', [], readHidden),
+    store.define<HideablePanel[]>('layout.hiddenPanels', DEFAULT_HIDDEN_PANELS, readHidden),
   );
   const [sectionsRevealed, setSectionsRevealed] = createSignal(false);
-  const hiddenSections = () => (sectionsRevealed() ? [] : savedHidden());
+  const hiddenSections = () => (sectionsRevealed() ? savedHidden().filter((panel) => panel === 'mixer') : savedHidden());
   const [customizing, setCustomizing] = createSignal(false);
   const hideSection = (panel: HideablePanel) => setSavedHidden([...savedHidden().filter((id) => id !== panel), panel]);
   const showSection = (panel: HideablePanel) => {
@@ -105,7 +115,7 @@ export function LayoutProvider(props: { children: JSX.Element }) {
     store.define<{ id: string; snapshot: string } | null>('layout.applied', null),
   );
 
-  const snapshot = (): LayoutSnapshot => ({ dock: dock(), layersWidth: layersWidth(), toolbarSlot: toolbarSlot(), hidden: savedHidden() });
+  const snapshot = (): LayoutSnapshot => ({ dock: dock(), toolbarSlot: toolbarSlot(), hidden: savedHidden() });
   // Compared, not cleared on change, so a drag cancelled with Esc still counts as the same layout.
   const activeLayout = createMemo(() => {
     const current = applied();
@@ -114,7 +124,6 @@ export function LayoutProvider(props: { children: JSX.Element }) {
 
   const applySnapshot = (next: LayoutSnapshot, id: string | null) => {
     setDock(next.dock);
-    setLayersWidth(next.layersWidth);
     setToolbarSlot(TOOLBAR_SLOTS.includes(next.toolbarSlot as ToolbarSlot) ? next.toolbarSlot as ToolbarSlot : 'bottom');
     setSavedHidden(next.hidden);
     setTimelineMinimized(false);
@@ -122,7 +131,7 @@ export function LayoutProvider(props: { children: JSX.Element }) {
     setApplied(id ? { id, snapshot: JSON.stringify(snapshot()) } : null);
   };
 
-  const resetLayout = () => applySnapshot({ dock: DEFAULT_DOCK, layersWidth: null, toolbarSlot: 'bottom', hidden: [] }, null);
+  const resetLayout = () => applySnapshot({ dock: startingDock(), toolbarSlot: 'bottom', hidden: DEFAULT_HIDDEN_PANELS }, null);
   const applyPreset = (id: LayoutPresetId) => {
     applySnapshot(presetLayout(id, { width: window.innerWidth, height: window.innerHeight }), id);
   };
@@ -149,8 +158,6 @@ export function LayoutProvider(props: { children: JSX.Element }) {
         timelineMinimized,
         dock,
         setDock,
-        layersWidth,
-        setLayersWidth,
         toolbarSlot,
         setToolbarSlot,
         toggleUI,

@@ -8,26 +8,28 @@ import { CLIP_CORNER_RADIUS } from '../config';
 import { framesToPixels, getResolution } from '../view';
 
 import type { Entity, World } from 'koota';
-import type { RowCursor } from '../layout';
+import type { RowBody } from '../layout';
 import type { TimelineSurfaceState } from '../surface';
 
-const CHILD_TOP = 20;
+/** Under the label. */
+const CHILD_TOP = 18;
 const MIN_CHILD_HEIGHT = 12;
 
-// Clipped to the group's rounded body so a child reaching past its bounds does not spill out.
+// The caller has clipped to the group's rounded body, so a child reaching past its bounds does not spill out.
 export function renderGroup(
 	world: World,
 	scene: Entity,
 	surface: TimelineSurfaceState,
 	entity: Entity,
-	row: RowCursor,
+	body: RowBody,
 ): void {
 	const ctx = surface.ctx!;
 
 	const children = entity.get(Cache)?.children ?? [];
 	if (children.length === 0) return;
 
-	const height = row.height - CHILD_TOP;
+	const top = body.top + CHILD_TOP;
+	const height = body.height - CHILD_TOP;
 	if (height < MIN_CHILD_HEIGHT) return;
 
 	const computed = store(world, Computed);
@@ -35,14 +37,8 @@ export function renderGroup(
 
 	const start = computed.start[entity.id()] ?? 0;
 	const end = computed.end[entity.id()] ?? 0;
-	const left = framesToPixels(start, resolution);
 
 	ctx.save();
-
-	ctx.beginPath();
-	ctx.roundRect(left, 0, framesToPixels(end, resolution) - left, row.height, CLIP_CORNER_RADIUS);
-	ctx.clip();
-
 	ctx.fillStyle = surface.colors.clip.group.primary;
 
 	for (const child of children) {
@@ -51,7 +47,7 @@ export function renderGroup(
 		if (childWidth < 2) continue;
 
 		ctx.beginPath();
-		ctx.roundRect(childLeft, CHILD_TOP, childWidth, height, CLIP_CORNER_RADIUS);
+		ctx.roundRect(childLeft, top, childWidth, height, CLIP_CORNER_RADIUS);
 		ctx.fill();
 	}
 

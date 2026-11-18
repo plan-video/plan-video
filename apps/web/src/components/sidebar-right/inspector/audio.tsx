@@ -64,26 +64,24 @@ function HorizontalMeter(props: HorizontalMeterProps) {
 
   return (
     <div class={cx("relative flex-1 h-[2px] bg-input rounded-sm overflow-visible", props.class)}>
-      <div
-        class="absolute inset-y-0 left-0 bg-meter-green"
-        style={{ width: `${METER_GREEN_END}%` }}
-      />
-      <div
-        class="absolute inset-y-0 bg-meter-yellow"
-        style={{
-          left: `${METER_GREEN_END}%`,
-          width: `${METER_YELLOW_END - METER_GREEN_END}%`,
-        }}
-      />
-      <div
-        class="absolute inset-y-0 right-0 bg-meter-red"
-        style={{ width: `${100 - METER_YELLOW_END}%` }}
-      />
-
-      <div
-        class="absolute inset-y-0 right-0 bg-input transition-none"
-        style={{ width: `${100 - rmsPct()}%` }}
-      />
+      {/* Cut to the level, not covered past it: the track's colour is see-through and would let the bands show. */}
+      <div class="absolute inset-0" style={{ "clip-path": `inset(0 ${100 - rmsPct()}% 0 0)` }}>
+        <div
+          class="absolute inset-y-0 left-0 bg-meter-green"
+          style={{ width: `${METER_GREEN_END}%` }}
+        />
+        <div
+          class="absolute inset-y-0 bg-meter-yellow"
+          style={{
+            left: `${METER_GREEN_END}%`,
+            width: `${METER_YELLOW_END - METER_GREEN_END}%`,
+          }}
+        />
+        <div
+          class="absolute inset-y-0 right-0 bg-meter-red"
+          style={{ width: `${100 - METER_YELLOW_END}%` }}
+        />
+      </div>
 
       <Show when={peakPct() > 0.5}>
         <div

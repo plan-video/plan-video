@@ -13,6 +13,7 @@ import { listWords, type ListedWord, type TimeRange } from "@/lib/caption-edit";
 import { cutByCaption } from "@/lib/caption-cut";
 import { fillerRanges, pauseRanges, wordRanges } from "@/lib/transcript-cuts";
 import { t } from "@/lib/i18n";
+import { sceneSound } from "@/lib/scene-audio";
 import { useCaptionTranscript } from "./use-caption-transcript";
 
 import type { Entity } from "koota";
@@ -60,13 +61,25 @@ export function CaptionCuts(props: CaptionCutsProps) {
     }
   };
 
-  const removePauses = () => {
+  const removePauses = async () => {
+    const scene = getSceneAncestor(entity());
+    if (!transcript() || !scene || busy()) return;
+    setBusy(true);
+    const heard = await sceneSound(world, scene).catch(() => null);
+    setBusy(false);
     const current = transcript();
     if (!current) return;
     // Quiet before the first word counts from where the caption starts.
     const shownFrom = Math.max(0, ((store(world, Computed).start[entity().id()] ?? 0) - origin()) / fps());
+    const offset = origin() / fps();
+    const sound = heard?.map(([from, to]): TimeRange => [from - offset, to - offset]);
+    const ranges = pauseRanges(current, shownFrom, sound);
+    if (ranges.length === 0 && pauseRanges(current, shownFrom).length > 0) {
+      toast(t("No pauses to remove"), { description: t("Something can be heard between the words, so nothing was cut.") });
+      return;
+    }
     void run(
-      pauseRanges(current, shownFrom),
+      ranges,
       t("No pauses to remove"),
       (count) => t("{count, plural, one {Removed # pause} other {Removed # pauses}}", { count }),
     );
@@ -138,7 +151,7 @@ export function CaptionCuts(props: CaptionCutsProps) {
             fallback={<p class="text-xs text-muted-foreground">{t("This caption has no words.")}</p>}
           >
             <div class="flex flex-wrap gap-2">
-              <Button variant="secondary" class="grow basis-0" disabled={busy()} onClick={removePauses}>
+              <Button variant="secondary" class="grow basis-0" disabled={busy()} onClick={() => void removePauses()}>
                 {t("Remove pauses")}
               </Button>
               <Button variant="secondary" class="grow basis-0" disabled={busy()} onClick={removeFillers}>

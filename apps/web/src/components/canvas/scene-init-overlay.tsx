@@ -5,6 +5,8 @@
 import { createEffect, createMemo, createRenderEffect, createSignal, For, onCleanup, Show } from "solid-js";
 import { useQuery, useTrait, useWorld } from "@plan.video/koota-solid";
 import { ChildOf, Library, MIN_CAMERA_ZOOM, RenderSurface, Root, setCamera, Source } from "@plan.video/runtime";
+import FilmIcon from "lucide-solid/icons/film";
+import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import {
   DropdownMenu,
@@ -21,7 +23,7 @@ import {
   PRESET_CATEGORIES,
 } from "@/lib/layout-presets";
 import { setEmptyFrame, useCamera, useEditor } from "@/engine";
-import { droppedFiles, importFiles } from "@/engine/asset-actions";
+import { droppedFiles, importFiles, pickAndImport } from "@/engine/asset-actions";
 import { createScene, insertAssetsInNewScene, sceneFrame } from "@/engine/new-scene";
 import { ASSET_DRAG_TYPE } from "@/components/sidebar-left/folder-item";
 import { msg, t } from "@/lib/i18n";
@@ -72,7 +74,7 @@ export function SceneInitOverlay() {
   const [placed, setPlaced] = createSignal(false);
 
   let overlayRef: HTMLDivElement | undefined;
-  let buttonRef: HTMLButtonElement | undefined;
+  let frameRef: HTMLDivElement | undefined;
   let framedPreset: LayoutPreset | undefined;
 
   const showOverlay = createMemo(() => source()?.value && children().length === 0);
@@ -177,14 +179,14 @@ export function SceneInitOverlay() {
 
   // A dropped asset's scene may not share the placeholder's aspect ratio, so it is fitted inside the frame, not stretched.
   const focusPlaceholder = (rect: Rect) => {
-    const buttonRect = buttonRef?.getBoundingClientRect();
+    const frameRect = frameRef?.getBoundingClientRect();
     // The overlay covers the canvas, so its rect is the canvas rect.
     const canvasRect = overlayRef?.getBoundingClientRect();
-    if (!buttonRect || !canvasRect) return;
+    if (!frameRect || !canvasRect) return;
 
-    const scale = Math.min(buttonRect.width / rect.width, buttonRect.height / rect.height);
-    const screenX = buttonRect.left - canvasRect.left + (buttonRect.width - rect.width * scale) / 2;
-    const screenY = buttonRect.top - canvasRect.top + (buttonRect.height - rect.height * scale) / 2;
+    const scale = Math.min(frameRect.width / rect.width, frameRect.height / rect.height);
+    const screenX = frameRect.left - canvasRect.left + (frameRect.width - rect.width * scale) / 2;
+    const screenY = frameRect.top - canvasRect.top + (frameRect.height - rect.height * scale) / 2;
     setCamera(world, { a: scale, b: 0, c: 0, d: scale, e: screenX - rect.x * scale, f: screenY - rect.y * scale });
   };
 
@@ -197,6 +199,14 @@ export function SceneInitOverlay() {
   const handleInitializeScene = () => {
     const scene = createScene(world, selectedPreset(), sceneOptions());
     if (scene) editor.select(scene);
+  };
+
+  const handleImport = async () => {
+    const library = world.get(Library);
+    if (!library) return;
+
+    const assets = await pickAndImport(library, '');
+    if (assets.length) insertAssetsInNewScene(world, assets, sceneOptions());
   };
 
   const handleDrop = async (event: DragEvent) => {
@@ -296,7 +306,7 @@ export function SceneInitOverlay() {
                                   {t(item.label)}
                                 </span>
                                 <DropdownMenuItemDetail>
-                                  {item.width}x{item.height}
+                                  {item.width} × {item.height}
                                 </DropdownMenuItemDetail>
                               </DropdownMenuItem>
                             )}
@@ -309,15 +319,23 @@ export function SceneInitOverlay() {
               </DropdownMenuPortal>
             </DropdownMenu>
           </div>
-          <button
-            type="button"
-            class="w-full h-full bg-accent/50 border border-border overflow-hidden flex items-center justify-center hover:bg-accent hover:border-input active:bg-muted active:border-input"
-            classList={{ 'bg-accent! border-input!': dropping() }}
-            onClick={handleInitializeScene}
-            ref={buttonRef}
+          <div
+            ref={frameRef}
+            class="flex size-full flex-col items-center justify-center gap-3 overflow-hidden rounded-md border border-dashed border-foreground/20 bg-accent/40 px-4 text-center transition-colors"
+            classList={{ 'border-primary! bg-primary/10!': dropping() }}
           >
-            <Icon name="plus-add" class="size-6 text-muted-foreground" />
-          </button>
+            <FilmIcon class="size-7 text-muted-foreground" stroke-width={1.5} />
+            <span class="text-[13px] font-medium text-foreground">{t("Drop media here")}</span>
+            {/* Quiet on purpose: the Assets panel beside it holds the one blue Import button on this screen. */}
+            <Button variant="secondary" class="px-3" onClick={handleImport}>{t("Import media")}</Button>
+            <button
+              type="button"
+              class="rounded-sm text-xs text-muted-foreground underline-offset-2 outline-none hover:text-foreground hover:underline focus-ring"
+              onClick={handleInitializeScene}
+            >
+              {t("Start with an empty scene")}
+            </button>
+          </div>
         </div>
 
       </div>
