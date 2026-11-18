@@ -236,6 +236,19 @@
               }
             }
           },
+          "pinterest": {
+            "type": "object",
+            "properties": {
+              "board": {
+                "description": "The board it goes on, by name. Required to schedule or publish to Pinterest. A board the account doesn't have yet is made.",
+                "type": "string"
+              },
+              "title": {
+                "description": "The Pin's title, up to 100 characters.",
+                "type": "string"
+              }
+            }
+          },
           "tiktok": {
             "type": "object",
             "properties": {
@@ -644,6 +657,19 @@
                 "items": {
                   "type": "string"
                 }
+              }
+            }
+          },
+          "pinterest": {
+            "type": "object",
+            "properties": {
+              "board": {
+                "description": "The board it goes on, by name. Required to schedule or publish to Pinterest. A board the account doesn't have yet is made.",
+                "type": "string"
+              },
+              "title": {
+                "description": "The Pin's title, up to 100 characters.",
+                "type": "string"
               }
             }
           },

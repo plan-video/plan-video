@@ -41,6 +41,7 @@ const XCallbackPage = page(() => import('@/pages/x-callback'), (module) => modul
 const InstagramCallbackPage = page(() => import('@/pages/meta-callback'), (module) => module.InstagramCallbackPage);
 const FacebookCallbackPage = page(() => import('@/pages/meta-callback'), (module) => module.FacebookCallbackPage);
 const ThreadsCallbackPage = page(() => import('@/pages/meta-callback'), (module) => module.ThreadsCallbackPage);
+const PinterestCallbackPage = page(() => import('@/pages/pinterest-callback'), (module) => module.PinterestCallbackPage);
 const NotFoundPage = page(() => import('@/pages/not-found'), (module) => module.NotFoundPage);
 const UpgradeDialog = page(() => import('@/components/upgrade-dialog'), (module) => module.UpgradeDialog);
 const PurchaseSuccess = page(() => import('@/components/purchase-success'), (module) => module.PurchaseSuccess);
@@ -371,6 +372,7 @@ function App() {
       <Route path="/instagram/callback" component={InstagramCallbackPage} />
       <Route path="/facebook/callback" component={FacebookCallbackPage} />
       <Route path="/threads/callback" component={ThreadsCallbackPage} />
+      <Route path="/pinterest/callback" component={PinterestCallbackPage} />
       <Route path="/login/reviewer" component={LoginRoute} />
       <Route path="/login" component={LoginRoute} />
       <Route path="/signup" component={SignupRoute} />

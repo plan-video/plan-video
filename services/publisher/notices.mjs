@@ -15,7 +15,7 @@ const KEEP_MS = 30 * 24 * 60 * 60_000;
 const BATCH = 200;
 const PAGE = 500;
 
-const NAMES = { tiktok: "TikTok", youtube: "YouTube", bluesky: "Bluesky", linkedin: "LinkedIn", x: "X", instagram: "Instagram", facebook: "Facebook", threads: "Threads" };
+const NAMES = { tiktok: "TikTok", youtube: "YouTube", bluesky: "Bluesky", linkedin: "LinkedIn", x: "X", instagram: "Instagram", facebook: "Facebook", threads: "Threads", pinterest: "Pinterest" };
 const networkName = (platform) => NAMES[platform] ?? platform;
 
 const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";

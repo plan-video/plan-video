@@ -103,6 +103,7 @@ export type SocialConnection = {
   instagram?: MetaSession;
   facebook?: MetaSession;
   threads?: MetaSession;
+  pinterest?: MetaSession;
 };
 
 /** By connection id. */
@@ -227,7 +228,7 @@ function write(userId: string) {
 /** An older Bluesky sign-in stays in its browser. */
 function loginOf(item: SocialConnection): object | undefined {
   if (item.platform === "bluesky") return item.bluesky && (!item.bluesky.oauth || item.bluesky.server) ? item.bluesky : undefined;
-  return item.tiktok ?? item.youtube ?? item.linkedin ?? item.x ?? item.instagram ?? item.facebook ?? item.threads;
+  return item.tiktok ?? item.youtube ?? item.linkedin ?? item.x ?? item.instagram ?? item.facebook ?? item.threads ?? item.pinterest;
 }
 
 function withoutLogin(item: SocialConnection): SocialConnection {
@@ -238,6 +239,7 @@ function withoutLogin(item: SocialConnection): SocialConnection {
   if (item.instagram) return { ...item, instagram: withoutSecrets(item.instagram) };
   if (item.facebook) return { ...item, facebook: withoutSecrets(item.facebook) };
   if (item.threads) return { ...item, threads: withoutSecrets(item.threads) };
+  if (item.pinterest) return { ...item, pinterest: withoutSecrets(item.pinterest) };
   if (item.bluesky) return { ...item, bluesky: withoutSecrets(item.bluesky) };
   return item;
 }
@@ -552,7 +554,7 @@ export function connectX(userId: string, account: { handle: string; avatarUrl?: 
 }
 
 /** The same account replaces its old login, and one added by name before it could sign in takes the login. */
-export function connectMeta(userId: string, platform: "instagram" | "facebook" | "threads", account: { handle: string; avatarUrl?: string } & MetaSession): string | null {
+export function connectMeta(userId: string, platform: "instagram" | "facebook" | "threads" | "pinterest", account: { handle: string; avatarUrl?: string } & MetaSession): string | null {
   const clean = cleanHandle(account.handle);
   if (!userId || !clean || !account.ticket || !account.accountId) return t("{network} didn't return an account.", { network: PLATFORMS.find((item) => item.id === platform)?.name ?? platform });
   loadSocialConnections(userId);

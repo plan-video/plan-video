@@ -44,7 +44,7 @@ import {
   WEEKDAY_NAMES,
 } from "./utils";
 import type { Base } from "@/lib/post-sync-core";
-import type { TikTokPostSettings, YouTubePostSettings } from "@/lib/social";
+import type { PinterestPostSettings, TikTokPostSettings, YouTubePostSettings } from "@/lib/social";
 import type {
   Calendar,
   CalendarEvent,
@@ -976,6 +976,7 @@ export type PostPatch = {
   link?: string;
   tiktok?: TikTokPostSettings | null;
   youtube?: YouTubePostSettings | null;
+  pinterest?: PinterestPostSettings | null;
   captions?: Partial<Record<string, string>>;
   /** `null` or empty removes them. */
   thread?: StoredEvent["thread"] | null;
@@ -1009,6 +1010,7 @@ export function revisePost(id: string, patch: PostPatch): string | undefined {
 
   const tiktok = patch.tiktok === undefined ? existing.tiktok : (patch.tiktok ?? undefined);
   const youtube = patch.youtube === undefined ? existing.youtube : (patch.youtube ?? undefined);
+  const pinterest = patch.pinterest === undefined ? existing.pinterest : (patch.pinterest ?? undefined);
   const dayChanged = day !== existing.day;
   const repeatChanged = recurrence !== existing.recurrence;
 
@@ -1032,6 +1034,8 @@ export function revisePost(id: string, patch: PostPatch): string | undefined {
   else delete next.tiktok;
   if (youtube) next.youtube = youtube;
   else delete next.youtube;
+  if (pinterest) next.pinterest = pinterest;
+  else delete next.pinterest;
   const thread = patch.thread === undefined ? existing.thread : (patch.thread ?? undefined);
   if (thread?.length) next.thread = thread;
   else delete next.thread;

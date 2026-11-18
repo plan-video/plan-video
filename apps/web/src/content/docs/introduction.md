@@ -17,7 +17,7 @@ plan.video is the all-in-one social media scheduler, with a video editor built i
 
 ## What you can do
 
-- **Schedule posts** to TikTok, YouTube, Instagram, Facebook, Threads, X, LinkedIn and Bluesky from one calendar. Pinterest is [coming soon](/docs/coming-soon).
+- **Schedule posts** to TikTok, YouTube, Instagram, Facebook, Threads, X, LinkedIn, Bluesky and Pinterest from one calendar.
 - **Edit videos** in [the editor](/docs/editor), with auto-captions, transcript cutting, transitions, effects and colour grading.
 - **Post in bulk** with [Bulk tools](/docs/bulk-tools): drop in a batch of files and schedule them all at once.
 - **See what works** in [Analytics](/docs/analytics), and post at your best times.
