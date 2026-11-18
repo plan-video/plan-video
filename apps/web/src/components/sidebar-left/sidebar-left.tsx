@@ -5,10 +5,10 @@
 import { Assets } from "./assets";
 import { TemplatePanel } from "./templates";
 import { TextPanel } from "./text-presets";
+import { CaptionsPanel } from "./captions-panel";
 import { ExtensionsPanel } from "./extensions";
 import { TransitionsPanel } from "./transitions-panel";
 import { EffectsPanel } from "./effects-panel";
-import { WorkflowsPanel } from "@/components/workflows/workflows-panel";
 import { sidebarTab } from "@/agent-chat";
 import { useLayout } from "@/context/layout";
 import { createSignal, Show } from "solid-js";
@@ -27,11 +27,11 @@ export function SidebarLeft() {
       <div classList={{ contents: sidebarTab() === "assets", hidden: sidebarTab() !== "assets" }}>
         <Assets />
       </div>
-      <Show when={sidebarTab() === "workflows"}>
-        <WorkflowsPanel />
-      </Show>
       <Show when={sidebarTab() === "text"}>
         <TextPanel />
+      </Show>
+      <Show when={sidebarTab() === "captions"}>
+        <CaptionsPanel />
       </Show>
       <Show when={sidebarTab() === "transitions"}>
         <TransitionsPanel />

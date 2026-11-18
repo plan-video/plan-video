@@ -33,7 +33,7 @@ import type { ProjectInfo } from "@/projects";
 import { attachmentFromPath, attachmentPaths, type Attachment } from "./attachments";
 import { client, hasHost } from "./connection";
 
-export type SidebarTab = "assets" | "workflows" | "text" | "transitions" | "effects" | "templates" | "extensions";
+export type SidebarTab = "assets" | "workflows" | "text" | "captions" | "transitions" | "effects" | "templates" | "extensions";
 
 export type Draft = { text: string; attachments: Attachment[] };
 

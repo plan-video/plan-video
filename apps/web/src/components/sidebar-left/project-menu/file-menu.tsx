@@ -27,7 +27,6 @@ import { useProject } from "@/context/project";
 import { useExport } from "@/context/export";
 import { getDefaultExportTemplate } from "@/components/sidebar-right/inspector/export-templates";
 import { t } from "@/lib/i18n";
-import { setSaveRequest } from "@/components/workflows/workflow-ui";
 import { mimeTypeToExtension } from "@/utils";
 
 import type { Entity } from "koota";
@@ -90,9 +89,6 @@ export function FileMenu() {
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={handleDuplicateProject}>
           {t("Duplicate project")}
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => setSaveRequest({})}>
-          {t("Save as workflow...")}
         </DropdownMenuItem>
       </DropdownMenuGroup>
 
