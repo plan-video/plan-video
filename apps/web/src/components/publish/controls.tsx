@@ -9,7 +9,7 @@ import { tileViewBox } from "@/components/brand/tile-box";
 import { YouTubeBare, YouTubeSlot, YouTubeWhiteTile } from "@/components/brand/youtube-icon";
 import { AccountAvatar } from "@/components/publish/account-avatar";
 import { Icon } from "@/components/dashboard/dashboard-icon";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Switch, SwitchControl, SwitchInput, SwitchLabel, SwitchThumb } from "@/components/ui/switch";
 import { cx } from "@/lib/cva";
 import { intlLocale, msg, t } from "@/lib/i18n";
@@ -335,11 +335,18 @@ export function PlatformPicker(props: {
     </div>
   );
 
-  // Every network and Add fill a row when there's room, else rows of five or three.
+  // Every network and Add fill a row when there's room, else rows of up to five or three, as even as they go.
   if (props.variant === "logos") {
+    const columns = (most: number, least: number) => {
+      const count = Math.max(1, offered().length + 1);
+      return `repeat(${Math.max(least, Math.ceil(count / Math.ceil(count / most)))}, minmax(0, 1fr))`;
+    };
     return (
       <div class={cx("@container", props.class)}>
-        <div class="grid grid-cols-3 gap-1 @sm:grid-cols-5 @2xl:grid-cols-9">
+        <div
+          class="grid grid-cols-3 gap-1 @sm:grid-cols-(--some) @2xl:grid-cols-(--all)"
+          style={{ "--some": columns(5, 4), "--all": columns(9, 6) }}
+        >
           <For each={offered()} fallback={noneOffered(true)}>
             {(platform) => {
               const on = () => props.value.includes(platform.id);
@@ -742,8 +749,7 @@ export function FormSection(props: { title: string; hint?: string; action?: JSX.
   );
 }
 
-export const dropZoneAction =
-  "flex h-7 items-center gap-1 rounded-md bg-secondary px-3 text-xs font-medium text-foreground press hover:bg-secondary-hover focus-ring";
+export const dropZoneAction = cx(buttonVariants({ variant: "secondary" }), "button-type gap-1 px-3");
 
 export function DropZone(props: {
   title: string;

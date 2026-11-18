@@ -98,7 +98,7 @@ export function CalendarAccounts() {
                 active={groupFilter()?.id === group.id}
                 label={group.name}
                 count={scheduled().get(group.id)}
-                leading={<GroupLogos platforms={groupPlatforms(group)} />}
+                leading={<GroupLogos stacked platforms={groupPlatforms(group)} />}
                 onClick={() => setGroupFilter(groupFilter()?.id === group.id ? null : group.id)}
               />
             )}
