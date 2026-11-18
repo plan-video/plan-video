@@ -5,6 +5,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { mkdtemp, readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { once } from "node:events";
 import { PassThrough } from "node:stream";
 
 import { handleTranscribe, json, queued, Refused, saveBody, wavSeconds } from "./handler.mjs";
@@ -237,9 +238,10 @@ test("an upload that stalls or only trickles is dropped, so it can't hold a slot
     await feed(req);
     return saving;
   };
+  // The clock is fake but the disk isn't: each write is waited on until saveBody has taken it, or a slow disk looks like a stall.
   const ticks = async (seconds, each) => {
     for (let i = 0; i < seconds; i += 5) {
-      each?.();
+      await each?.();
       await new Promise((resolve) => setImmediate(resolve));
       t.mock.timers.tick(5000);
       await new Promise((resolve) => setImmediate(resolve));
@@ -247,7 +249,7 @@ test("an upload that stalls or only trickles is dropped, so it can't hold a slot
   };
   assert.match(await upload((req) => ticks(35)), /didn't arrive/);
   assert.match(await upload((req) => ticks(35, () => req.write(Buffer.alloc(10)))), /didn't arrive/);
-  assert.equal(await upload(async (req) => { await ticks(35, () => req.write(Buffer.alloc(60_000))); req.end(); }), "saved");
+  assert.equal(await upload(async (req) => { await ticks(35, () => req.write(Buffer.alloc(60_000)) || once(req, "drain")); req.end(); }), "saved");
 });
 
 test("a burst of clips sent at once can't each pass on the same old total", async () => {
