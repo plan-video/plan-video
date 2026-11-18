@@ -6,17 +6,19 @@ Your videos live under **Projects** in the dashboard. Click **New project** to s
 
 ## Add to your video
 
+A new project opens on **Drop media here**. Drop a video onto it, click **Import media**, or choose **Start with an empty scene** to begin with text or shapes.
+
 The tabs on the editor's rail hold what you can add:
 
 | Tab | What's in it |
 | --- | --- |
-| **Assets** | Your project's files. **Add media** brings in more, and **From library** uses your [media library](/docs/media-library). |
-| **Text** | **Add a text box** |
+| **Assets** | Your project's files. **Add media** brings in more, and **From library** uses your [media library](/docs/media-library). Drag a file onto the timeline or the canvas, or hover it and click **+** to add it at the playhead. |
+| **Text** | **Add a text box**, or a ready-made style. Many styles move: they float, pulse, wiggle or flicker for as long as the text is on screen. Hover a style to see it move. |
+| **Captions** | Caption styles that play as you look at them. Pick one, then **Generate captions** writes captions from the scene's speech. See [Captions](/docs/captions). |
 | **Transitions** | **Dissolve**, **Whip**, **Wipe** and more, between two clips or on every cut |
 | **Effects** | **Auto zoom**, **Blur**, **Shake**, **Slow motion** and more, for the selected clip or the one at the playhead |
 | **Layout** | Scene sizes like **Short-form 9:16** and **Square video 1:1** |
 | **Extensions** | Add-ons like **Progress bar** and **Killfeed** |
-| **Workflows** | Steps you've saved, to run on a new clip |
 
 ## Change what's selected
 
@@ -27,16 +29,14 @@ Select something, and the inspector shows what it can do:
 - **Add color grade**, with **Looks**, **Adjust** and **Wheels**, and **Save grade** to use it again.
 - **Captions**, with their own tools. See [Captions](/docs/captions) and [Cut the transcript](/docs/cut-the-transcript).
 
-The toolbar above the canvas changes with your selection too: **Auto-Captions**, **Remove background**, **Fit scene to video**, and undo and redo.
+Looking for one setting? Click the search icon at the top of the inspector and type its name, like "opacity" or "volume". Only the matching sections stay.
 
-## Workflows
-
-Do the same edits to every video? Choose **Save as workflow**, and it keeps those steps. Drop in a new clip and click **Run on this clip** to do them again. A workflow can also carry a post template, so the finished video is ready to schedule.
+A bar at the bottom of the canvas changes with your selection too: **Auto-Captions**, **Remove background** and **Fit scene to video**. Undo and redo sit in the timeline's bar, next to the tools.
 
 ## Post or save it
 
-- **Schedule post** opens [New post](/docs/create-a-post) with the project attached. plan.video exports it for you when it's time to go out.
-- **Export** saves a file. See [Export](/docs/export).
+- **Schedule post** opens [New post](/docs/create-a-post) with the project attached. The video is made as a Full HD MP4 while you write the post.
+- **Export** lets you choose the quality, then **Save to computer** or **Schedule post** with it. See [Export](/docs/export).
 
 ## Find your way around
 
