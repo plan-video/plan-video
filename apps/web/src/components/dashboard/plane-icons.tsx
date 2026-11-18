@@ -4,7 +4,7 @@
 
 import { For } from "solid-js";
 import ClockLucide from "lucide-solid/icons/clock";
-import CircleAlertLucide from "lucide-solid/icons/circle-alert";
+import CircleAlertLucide from "lucide-solid/icons/circle-exclamation-point";
 import CalendarClockLucide from "lucide-solid/icons/calendar-clock";
 import CalendarDaysLucide from "lucide-solid/icons/calendar-days";
 import ChartLineLucide from "lucide-solid/icons/chart-line";

@@ -8,7 +8,7 @@ import ArrowUpLucide from "lucide-solid/icons/arrow-up";
 import AtSignLucide from "lucide-solid/icons/at-sign";
 import CheckLucide from "lucide-solid/icons/check";
 import ChevronDownLucide from "lucide-solid/icons/chevron-down";
-import CircleAlertLucide from "lucide-solid/icons/circle-alert";
+import CircleAlertLucide from "lucide-solid/icons/circle-exclamation-point";
 import CopyLucide from "lucide-solid/icons/copy";
 import ImagePlusLucide from "lucide-solid/icons/image-plus";
 import RefreshCwLucide from "lucide-solid/icons/refresh-cw";

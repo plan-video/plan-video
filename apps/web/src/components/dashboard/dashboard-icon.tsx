@@ -10,7 +10,7 @@ import { Show, type Component, type JSX } from "solid-js";
 import ActivityLucide from "lucide-solid/icons/activity";
 import ArrowUpLucide from "lucide-solid/icons/arrow-up";
 import BellLucide from "lucide-solid/icons/bell";
-import BoldLucide from "lucide-solid/icons/bold";
+import BoldLucide from "lucide-solid/icons/letter-b";
 import CameraLucide from "lucide-solid/icons/camera";
 import CircleCheckLucide from "lucide-solid/icons/circle-check";
 import ClapperboardLucide from "lucide-solid/icons/clapperboard";
@@ -50,7 +50,7 @@ import SquareTerminalLucide from "lucide-solid/icons/square-terminal";
 import GripVerticalLucide from "lucide-solid/icons/grip-vertical";
 import ShuffleLucide from "lucide-solid/icons/shuffle";
 import StarLucide from "lucide-solid/icons/star";
-import TriangleAlertLucide from "lucide-solid/icons/triangle-alert";
+import TriangleAlertLucide from "lucide-solid/icons/triangle-exclamation-point";
 import TypeLucide from "lucide-solid/icons/type";
 import VideoLucide from "lucide-solid/icons/video";
 
