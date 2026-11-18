@@ -8,6 +8,7 @@ import {
 	hasHtmlPaint,
 	hasSurfacePaint,
 	isAdjustmentLayer,
+	isAudio,
 	isCaption,
 	isGroup,
 	isMask,
@@ -81,4 +82,12 @@ export function getClipFallbackName(world: World, entity: Entity): string {
 
 export function getClipAsset(world: World, entity: Entity): Asset | null {
 	return findGeometryAsset(world, entity);
+}
+
+/** Whether muting it could change what is heard: it plays sound itself, or holds layers that might. */
+export function clipMakesSound(world: World, entity: Entity): boolean {
+	if (isAudio(entity) || isGroup(entity) || isScene(entity) || isSequence(entity)) return true;
+
+	const asset = getClipAsset(world, entity);
+	return asset?.type === 'AUDIO' || (asset?.type === 'VIDEO' && !!asset.sampleRate);
 }

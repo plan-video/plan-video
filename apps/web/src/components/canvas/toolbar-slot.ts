@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import { useLayout } from "@/context/layout";
+
 import type { ToolbarSlot } from "@/context/layout";
 
 export const TOOLBAR_SLOT_CLASS: Record<ToolbarSlot, string> = {
@@ -32,3 +34,16 @@ export const TOOLBAR_SLOT_ANCHOR: Record<ToolbarSlot, { x: number; y: number }> 
 };
 
 export const isTopSlot = (slot: ToolbarSlot) => slot.startsWith("top");
+
+/** The toolbar lives in the timeline's bar and only floats over the canvas while that bar is gone. */
+export function useToolbarFloating(): () => boolean {
+  const { uiVisible, hiddenSections } = useLayout();
+  return () => !uiVisible() || hiddenSections().includes("timeline");
+}
+
+/** A bar of actions sits beside the floating toolbar, and takes its place while the toolbar is docked. */
+export function useBarSlotClass(): () => string {
+  const { toolbarSlot } = useLayout();
+  const floating = useToolbarFloating();
+  return () => (floating() ? BAR_SLOT_CLASS : TOOLBAR_SLOT_CLASS)[toolbarSlot()];
+}

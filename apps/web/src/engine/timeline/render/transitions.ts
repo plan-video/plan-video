@@ -6,6 +6,7 @@ import { Computed, Selected, Transition, TransitionIn, getTransitionWindow, stor
 
 import { getDocumentEditor } from '../../editor';
 import { joinAfter, joinBefore, sequenceJoins, takesTransition } from '../../transitions';
+import { CLIP_INSET, CLIP_LABEL_X } from '../config';
 import { framesToPixels, getResolution } from '../view';
 
 import type { Entity, World } from 'koota';
@@ -14,7 +15,16 @@ import type { TimelineSurfaceState, TransitionDrop } from '../surface';
 
 const MARKER_SIZE = 16;
 const MARKER_RADIUS = 5;
+const MARKER_GAP = 6;
 const STRIPE = 6;
+
+const markerSize = (row: RowCursor): number => Math.max(10, Math.min(MARKER_SIZE, row.height - 12));
+
+/** How far a clip's own opening transition reaches in from its left edge, so its name can start after the marker. */
+export function leadingMarkerReach(world: World, clip: Entity, row: RowCursor): number {
+	if (clip.get(TransitionIn)?.duration === undefined || !takesTransition(clip) || joinBefore(world, clip)) return 0;
+	return markerSize(row) + MARKER_GAP;
+}
 
 const stripes = new Map<string, CanvasPattern | null>();
 
@@ -55,7 +65,7 @@ export function renderTransitionMarkers(
 	const resolution = getResolution(world, scene);
 	const dpr = window.devicePixelRatio;
 	const matrix = ctx.getTransform();
-	const size = Math.max(10, Math.min(MARKER_SIZE, row.height - 6));
+	const size = markerSize(row);
 	const mid = row.height / 2;
 
 	for (const join of sequenceJoins(world, sequence)) {
@@ -77,7 +87,7 @@ export function renderTransitionMarkers(
 				ctx.save();
 				ctx.globalAlpha = 0.45;
 				ctx.fillStyle = pattern;
-				ctx.fillRect(from, 2, to - from, row.height - 4);
+				ctx.fillRect(from, CLIP_INSET, to - from, row.height - CLIP_INSET * 2);
 				ctx.restore();
 			}
 		}
@@ -132,7 +142,7 @@ export function renderEdgeMarkers(
 	const resolution = getResolution(world, scene);
 	const dpr = window.devicePixelRatio;
 	const matrix = ctx.getTransform();
-	const size = Math.max(10, Math.min(MARKER_SIZE, row.height - 6));
+	const size = markerSize(row);
 	const mid = row.height / 2;
 
 	for (const clip of clips) {
@@ -160,13 +170,14 @@ export function renderEdgeMarkers(
 					ctx.save();
 					ctx.globalAlpha = 0.45;
 					ctx.fillStyle = pattern;
-					ctx.fillRect(from, 2, reach, row.height - 4);
+					ctx.fillRect(from, CLIP_INSET, reach, row.height - CLIP_INSET * 2);
 					ctx.restore();
 				}
 			}
 
-			if (end - start < size + 8) continue;
-			const left = edge === 'in' ? start + 4 : end - 4 - size;
+			// Inside the trim handle a selected clip draws at each end.
+			if (end - start < size + CLIP_LABEL_X * 2) continue;
+			const left = edge === 'in' ? start + CLIP_LABEL_X : end - CLIP_LABEL_X - size;
 			const active = dropping || clip.has(Selected);
 			const centre = left + size / 2;
 			const glyph = size * 0.3;

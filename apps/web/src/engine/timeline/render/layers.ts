@@ -9,13 +9,15 @@ import {
 	Geometry,
 	Group,
 	Hovering,
+	Selected,
 	Sequential,
 	buildTimelineLayers,
 	store,
 } from '@plan.video/runtime';
 import { Or } from 'koota';
 
-import { getNodeHeight, getRowTransform, getSubtreeHeight } from '../layout';
+import { LANE_OPACITY } from '../config';
+import { getNodeHeight, getRowBody, getRowTransform, getSubtreeHeight } from '../layout';
 import { getResolution, getViewport, pixelsToFrames } from '../view';
 import { isDragging } from '../drag';
 import { getClipAlpha, renderClip } from './clip';
@@ -79,9 +81,51 @@ export function renderLayers(world: World, scene: Entity, surface: TimelineSurfa
 		}
 	};
 
-	walk(buildTimelineLayers(world, scene), null);
+	const layers = buildTimelineLayers(world, scene);
+
+	renderLanes(world, scene, surface, layers);
+	walk(layers, null);
 
 	ctx.restore();
+}
+
+/**
+ * Every row gets a band, clip or not, so an empty stretch of the timeline still reads as rows
+ * and each row's controls line up with what they act on.
+ */
+function renderLanes(world: World, scene: Entity, surface: TimelineSurfaceState, layers: TimelineNode[]): void {
+	const ctx = surface.ctx!;
+	const [left, right] = getViewport(world, scene, surface.layout.width);
+	const row: RowCursor = { top: 0, height: 0 };
+
+	ctx.fillStyle = surface.colors.background.accent;
+
+	const walk = (nodes: TimelineNode[], nested: boolean): void => {
+		for (const node of nodes) {
+			row.height = getNodeHeight(node);
+
+			const transform = getRowTransform(world, scene, row.top);
+			const selected = node.entity.has(Selected);
+
+			if (transform) {
+				const body = getRowBody(row);
+
+				ctx.setTransform(transform);
+				ctx.globalAlpha = selected
+					? LANE_OPACITY.selected
+					: node.entity.has(Hovering)
+						? LANE_OPACITY.hovered
+						: nested ? LANE_OPACITY.nested : LANE_OPACITY.rest;
+				ctx.fillRect(left, body.top, right - left, body.height);
+			}
+
+			row.top += row.height;
+			walk(node.children, nested || selected);
+		}
+	};
+
+	walk(layers, false);
+	ctx.globalAlpha = 1;
 }
 
 // A sequence has no time of its own to show, so it is drawn as its children
@@ -102,14 +146,6 @@ function renderRow(
 
 	row.height = getNodeHeight(node);
 	ctx.globalAlpha = getClipAlpha(node.entity);
-
-	if (node.entity.has(Hovering)) {
-		const [left, right] = getViewport(world, scene, surface.layout.width);
-		ctx.globalAlpha = 0.5;
-		ctx.fillStyle = surface.colors.background.accent;
-		ctx.fillRect(left, 0, right - left, row.height);
-		ctx.globalAlpha = 1;
-	}
 
 	if (!node.entity.has(Sequential)) {
 		renderClip(world, scene, surface, node.entity, row);

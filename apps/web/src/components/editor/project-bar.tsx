@@ -9,10 +9,10 @@ export const PROJECT_BAR_HEIGHT = 44;
 export function ProjectBar() {
   return (
     <div
-      class="flex shrink-0 items-center border-b border-border px-2"
+      class="flex shrink-0 items-center border-b border-border px-2.5"
       style={{ height: `${PROJECT_BAR_HEIGHT}px` }}
     >
-      <ProjectNameInput class="ml-0 min-w-0 px-1.5 text-[13px] font-medium text-foreground" />
+      <ProjectNameInput class="ml-0 h-7 min-w-0 rounded-md px-1.5 text-[13px] font-medium text-foreground transition-colors hover:bg-accent focus:bg-input" />
     </div>
   );
 }

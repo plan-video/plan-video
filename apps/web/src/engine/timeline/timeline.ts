@@ -7,7 +7,7 @@
 
 import { useCursor } from '@/hooks/use-cursor';
 import { RULER_HEIGHT, SCROLLBAR_LANE } from './config';
-import { renderLayers, renderMarquee, renderPlayhead, renderRuler, renderScrollbar, renderSnapLine, renderWorkarea, updateMarquee } from './render';
+import { renderDropAim, renderLayers, renderMarquee, renderPlayhead, renderRuler, renderScrollbar, renderSnapLine, renderWorkarea, updateMarquee } from './render';
 import { updateDragGestures } from './drag';
 import { TimelineSurface } from './surface';
 import { getTimelineScene, updateTimelineTransform } from './view';
@@ -66,6 +66,7 @@ export function timelineSystem(world: World): void {
 
 		if (!surface.minimized) {
 			renderSnapLine(world, scene, surface);
+			renderDropAim(world, scene, surface);
 			renderScrollbar(world, scene, surface);
 		}
 

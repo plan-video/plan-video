@@ -12,15 +12,18 @@ import { createPointer } from './pointer';
 import { TimelineSurface } from './surface';
 import { timelineSystem } from './timeline';
 import {
+	getCurrentFrame,
 	getResolution,
 	getScrollX,
 	getScrollY,
 	getTimelineScene,
 	pixelsToFrames,
+	resolutionToZoom,
 	setResolution,
 	setScrollX,
 	setScrollY,
 	updateTimelineTransform,
+	zoomToResolution,
 } from './view';
 import {
 	SCROLL_X_SENSITIVITY,
@@ -47,8 +50,6 @@ export function createTimelineController(world: World) {
 
 	let layersEl: HTMLElement | null = null;
 	let layersViewportEl: HTMLElement | null = null;
-	// Pixels. Same for every scene, so kept on the DOM side rather than the scene's.
-	let layerScrollX = 0;
 
 	const withScene = (action: (scene: Entity) => void): void => {
 		const scene = getTimelineScene(world);
@@ -95,7 +96,7 @@ export function createTimelineController(world: World) {
 		withScene((scene) => updateTimelineTransform(world, scene));
 	});
 
-	/** Labels are DOM, so they are translated to match the canvas scroll. */
+	/** The gutter is DOM, so it is translated to match the canvas scroll. */
 	const applyScroll = (): void => {
 		if (!layersEl || !layersViewportEl) return;
 
@@ -104,18 +105,19 @@ export function createTimelineController(world: World) {
 			setScrollY(world, scene, scrollY);
 			layersEl!.style.transform = `translateY(${-scrollY}px)`;
 		});
-
-		let maxScrollX = 0;
-		for (const label of layersEl.querySelectorAll<HTMLElement>('[data-layer-label]')) {
-			maxScrollX = Math.max(maxScrollX, label.scrollWidth - label.clientWidth);
-		}
-		layerScrollX = clamp(layerScrollX, 0, maxScrollX);
-		layersEl.style.setProperty('--layer-x', `${layerScrollX}px`);
 	};
 
 	const rowsOverflow = (): boolean => (
 		layersEl !== null && layersViewportEl !== null && layersEl.scrollHeight > layersViewportEl.clientHeight
 	);
+
+	/** Keeps the frame `anchor` pixels into the view still while the scale changes. */
+	const zoomAround = (scene: Entity, next: number, anchor: number): void => {
+		const resolution = getResolution(world, scene);
+		const scrollX = getScrollX(world, scene);
+		setResolution(world, scene, next);
+		setScrollX(world, scene, scrollX + anchor / resolution - anchor / next);
+	};
 
 	/**
 	 * A mouse wheel only turns one way, so it scrolls sideways with Shift held
@@ -146,9 +148,7 @@ export function createTimelineController(world: World) {
 					1 / TIMELINE_RESOLUTION_RANGE[0],
 				);
 
-				// Keep the frame under the pointer still while the scale changes.
-				setResolution(world, scene, next);
-				setScrollX(world, scene, scrollX + anchor / resolution - anchor / next);
+				zoomAround(scene, next, anchor);
 			} else if (Math.abs(deltaX) > Math.abs(deltaY)) {
 				setScrollX(world, scene, scrollX + (deltaX * SCROLL_X_SENSITIVITY) / resolution);
 			} else {
@@ -165,14 +165,7 @@ export function createTimelineController(world: World) {
 		event.preventDefault();
 
 		withScene((scene) => {
-			const { deltaX, deltaY } = normalizeWheel(event);
-
-			if (Math.abs(deltaX) > Math.abs(deltaY)) {
-				layerScrollX += deltaX;
-			} else {
-				setScrollY(world, scene, getScrollY(world, scene) + deltaY);
-			}
-
+			setScrollY(world, scene, getScrollY(world, scene) + normalizeWheel(event).deltaY);
 			applyScroll();
 			updateTimelineTransform(world, scene);
 			reportView(scene);
@@ -199,6 +192,22 @@ export function createTimelineController(world: World) {
 	};
 
 	const clientToTime = (clientX: number): number => clientToFrame(clientX) / getFrameRate(world);
+
+	const getZoom = (): number => {
+		const scene = getTimelineScene(world);
+		return scene === null ? 0 : resolutionToZoom(getResolution(world, scene));
+	};
+
+	/** Around the playhead while it is in view, so what is being edited stays put. */
+	const setZoom = (zoom: number): void => {
+		withScene((scene) => {
+			const { width } = surface.layout;
+			const playhead = (getCurrentFrame(world, scene) - getScrollX(world, scene)) * getResolution(world, scene);
+			zoomAround(scene, zoomToResolution(zoom), playhead >= 0 && playhead <= width ? playhead : width / 2);
+			updateTimelineTransform(world, scene);
+			reportView(scene);
+		});
+	};
 
 	const setMinimized = (minimized: boolean): void => {
 		surface.minimized = minimized;
@@ -271,6 +280,8 @@ export function createTimelineController(world: World) {
 		scrollBy,
 		clientToFrame,
 		clientToTime,
+		getZoom,
+		setZoom,
 		setMinimized,
 	};
 }

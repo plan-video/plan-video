@@ -14,6 +14,8 @@ import { framesToPixels, getFrameRate, pixelsToFrames } from '../view';
 import type { TranscriptWord, WordGroup } from '@plan.video/assets';
 import type { Entity, World } from 'koota';
 import type { ClipStyle } from '../style';
+import { getRowBody } from '../layout';
+
 import type { RowCursor } from '../layout';
 import type { TimelineSurfaceState } from '../surface';
 
@@ -53,6 +55,7 @@ export function renderCaptionWords(
 	const fps = getFrameRate(world);
 	const origin = computed.origin[entity.id()] ?? 0;
 	const editor = getDocumentEditor(world);
+	const box = getRowBody(row);
 	const hits: number[] = [];
 
 	for (let index = 0; index < words.length; index++) {
@@ -96,7 +99,7 @@ export function renderCaptionWords(
 
 		ctx.save();
 		ctx.beginPath();
-		ctx.roundRect(left, 0, width, row.height, CLIP_CORNER_RADIUS);
+		ctx.roundRect(left, box.top, width, box.height, CLIP_CORNER_RADIUS);
 		ctx.fillStyle = style.background;
 		ctx.fill();
 		ctx.clip();
@@ -109,10 +112,11 @@ export function renderCaptionWords(
 		const text = truncateText(ctx, word.text, width - CLIP_LABEL_X * 2, CLIP_FONT);
 		if (text) ctx.fillText(text, left + CLIP_LABEL_X, Math.round(row.height / 2));
 
+		// Clipped to the word, so half of each stroke shows: a hairline at rest, two pixels when picked.
 		const picked = captionWordSelection();
 		const selected = picked?.entity === entity && picked.indices.has(index);
 		ctx.strokeStyle = selected ? surface.colors.border.ring : style.border ?? surface.colors.border.darker;
-		ctx.lineWidth = selected ? 3 : 2;
+		ctx.lineWidth = selected ? 4 : 2;
 		ctx.stroke();
 		ctx.restore();
 	}

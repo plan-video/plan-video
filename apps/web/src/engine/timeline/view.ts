@@ -8,7 +8,7 @@
 
 import { Computed, FrameRate, Timeline, getActiveEntity, store } from '@plan.video/runtime';
 
-import { DEFAULT_TIMELINE_RESOLUTION, RULER_HEIGHT, TIMELINE_PADDING_LEFT } from './config';
+import { DEFAULT_TIMELINE_RESOLUTION, RULER_HEIGHT, TIMELINE_PADDING_LEFT, TIMELINE_RESOLUTION_RANGE } from './config';
 
 import type { Entity, World } from 'koota';
 
@@ -58,6 +58,18 @@ export function setScrollY(world: World, scene: Entity, pixels: number): void {
 
 export function setResolution(world: World, scene: Entity, resolution: number): void {
 	store(world, Timeline).resolution[scene.id()] = resolution;
+}
+
+const MIN_RESOLUTION = 1 / TIMELINE_RESOLUTION_RANGE[1];
+const MAX_RESOLUTION = 1 / TIMELINE_RESOLUTION_RANGE[0];
+
+/** 0 to 1 on a log scale: pixels per frame span 4000x, and each step should look like the same step. */
+export function resolutionToZoom(resolution: number): number {
+	return Math.log(resolution / MIN_RESOLUTION) / Math.log(MAX_RESOLUTION / MIN_RESOLUTION);
+}
+
+export function zoomToResolution(zoom: number): number {
+	return MIN_RESOLUTION * (MAX_RESOLUTION / MIN_RESOLUTION) ** Math.min(1, Math.max(0, zoom));
 }
 
 export function framesToPixels(frames: number, resolution: number): number {

@@ -4,36 +4,32 @@
 
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Icon } from "@/components/ui/icon";
 import { cx } from "@/lib/cva";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuPortal,
-  DropdownMenuShortcut,
-} from "@/components/ui/dropdown-menu";
 import { PromptInput } from "../genai/prompt-input";
 import { ActionBar } from "../genai/action-bar";
-import { For, Show, createEffect, createSignal, onCleanup } from "solid-js";
+import { For, Show, createEffect, createSignal, onCleanup, type JSX } from "solid-js";
 import { Tool, ToolType } from "@plan.video/runtime";
 import { useWorld } from "@plan.video/koota-solid";
 import { getEditHistory, useTool } from "@/engine";
+import { splitAtPlayhead } from "@/engine/split";
 import { setSidebarTab } from "@/agent-chat";
 import { usePromptInput } from "@/context/prompt-input";
 import { TOOLBAR_SLOTS, useLayout } from "@/context/layout";
-import { TOOLBAR_SLOT_ANCHOR, TOOLBAR_SLOT_CLASS, isTopSlot } from "./toolbar-slot";
+import { TOOLBAR_SLOT_ANCHOR, TOOLBAR_SLOT_CLASS, isTopSlot, useToolbarFloating } from "./toolbar-slot";
 import { ZoomMenu } from "@/components/sidebar-right/inspector/inspector-header";
 import { t } from "@/lib/i18n";
-import { MoveIcon } from "./move-icon";
-import HandIcon from "lucide-solid/icons/hand";
-import FrameIcon from "lucide-solid/icons/frame";
-import SquareIcon from "lucide-solid/icons/square";
-import TypeIcon from "lucide-solid/icons/type";
-import Undo2Icon from "lucide-solid/icons/undo-2";
-import Redo2Icon from "lucide-solid/icons/redo-2";
+import { shortcutLabel } from "@/lib/keymap";
+import {
+  ToolFrameIcon,
+  ToolHandIcon,
+  ToolMoveIcon,
+  ToolRectangleIcon,
+  ToolRedoIcon,
+  ToolSplitIcon,
+  ToolTextIcon,
+  ToolUndoIcon,
+} from "@/components/editor/rail-icons";
 
 import type { ToolbarSlot } from "@/context/layout";
 
@@ -42,6 +38,7 @@ const DRAG_THRESHOLD = 4;
 export function Toolbar() {
   const { promptInputOpen, promptInputConfig } = usePromptInput();
   const { toolbarSlot, setToolbarSlot } = useLayout();
+  const floating = useToolbarFloating();
 
   let toolbar!: HTMLDivElement;
   const [dropSlot, setDropSlot] = createSignal<ToolbarSlot>();
@@ -150,7 +147,7 @@ export function Toolbar() {
       <Show when={!promptInputOpen()}>
         <ActionBar />
       </Show>
-      <Show when={dragging()}>
+      <Show when={floating() && dragging()}>
         <For each={TOOLBAR_SLOTS}>
           {(slot) => (
             <div
@@ -169,67 +166,73 @@ export function Toolbar() {
           )}
         </For>
       </Show>
-      {/* Its own drag, never the browser's: no text selection, no dragged image or link. */}
-      <div
-        ref={toolbar}
-        class={cx(
-          "absolute z-10 flex items-center rounded-lg border border-border-input bg-background p-1 select-none touch-none",
-          dragging()
-            ? "cursor-grabbing shadow-[0_8px_24px_rgb(0_0_0/0.28)] [&_*]:cursor-grabbing"
-            : TOOLBAR_SLOT_CLASS[toolbarSlot()],
-        )}
-        style={dragging() ? { left: `${position().x}px`, top: `${position().y}px` } : undefined}
-        onPointerDown={handlePointerDown}
-        onDragStart={(event) => event.preventDefault()}
-      >
-        <HistoryButtons />
-        <Separator orientation="vertical" class="min-h-4 mx-1.5" />
-        <CanvasTools placement={top() ? "bottom-start" : "top-start"} />
-        <Separator orientation="vertical" class="min-h-4 mx-1.5" />
-        <ZoomMenu placement={top() ? "bottom-end" : "top-end"} />
-      </div>
+      <Show when={floating()}>
+        {/* Its own drag, never the browser's: no text selection, no dragged image or link. */}
+        <div
+          ref={toolbar}
+          class={cx(
+            "absolute z-10 flex items-center rounded-lg border border-border-input bg-background p-1 select-none touch-none",
+            dragging()
+              ? "cursor-grabbing shadow-[0_8px_24px_rgb(0_0_0/0.28)] [&_*]:cursor-grabbing"
+              : TOOLBAR_SLOT_CLASS[toolbarSlot()],
+          )}
+          style={dragging() ? { left: `${position().x}px`, top: `${position().y}px` } : undefined}
+          onPointerDown={handlePointerDown}
+          onDragStart={(event) => event.preventDefault()}
+        >
+          <CanvasTools />
+          <Separator orientation="vertical" class="min-h-4 mx-2" />
+          <ZoomMenu placement={top() ? "bottom-end" : "top-end"} />
+          <Separator orientation="vertical" class="min-h-4 mx-2" />
+          <HistoryButtons />
+        </div>
+      </Show>
     </>
   );
 }
 
-function HistoryButtons() {
+function ToolButton(props: {
+  label: string;
+  shortcut?: string;
+  on?: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+  children: JSX.Element;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        as={Button}
+        size="icon-square"
+        variant="ghost"
+        aria-label={props.label}
+        disabled={props.disabled}
+        class={cx("size-8 text-foreground hover:text-foreground", props.on && "bg-secondary hover:bg-secondary-hover")}
+        onClick={props.onClick}
+      >
+        {props.children}
+      </TooltipTrigger>
+      <TooltipContent shortcut={props.shortcut}>{props.label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+export function HistoryButtons() {
   const history = getEditHistory(useWorld());
 
   return (
-    <div class="flex items-center gap-0.5">
-      <Tooltip>
-        <TooltipTrigger
-          as={Button}
-          size="icon-square"
-          variant="ghost"
-          aria-label={t("Undo")}
-          class="text-muted-foreground hover:text-foreground"
-          disabled={!history.canUndo()}
-          onClick={() => history.undo()}
-        >
-          <Undo2Icon class="size-4" stroke-width={2} />
-        </TooltipTrigger>
-        <TooltipContent shortcut="⌘Z">{t("Undo")}</TooltipContent>
-      </Tooltip>
-      <Tooltip>
-        <TooltipTrigger
-          as={Button}
-          size="icon-square"
-          variant="ghost"
-          aria-label={t("Redo")}
-          class="text-muted-foreground hover:text-foreground"
-          disabled={!history.canRedo()}
-          onClick={() => history.redo()}
-        >
-          <Redo2Icon class="size-4" stroke-width={2} />
-        </TooltipTrigger>
-        <TooltipContent shortcut="⇧⌘Z">{t("Redo")}</TooltipContent>
-      </Tooltip>
+    <div class="flex items-center gap-1">
+      <ToolButton label={t("Undo")} shortcut="⌘Z" disabled={!history.canUndo()} onClick={() => history.undo()}>
+        <ToolUndoIcon />
+      </ToolButton>
+      <ToolButton label={t("Redo")} shortcut="⇧⌘Z" disabled={!history.canRedo()} onClick={() => history.redo()}>
+        <ToolRedoIcon />
+      </ToolButton>
     </div>
   );
 }
 
-export function CanvasTools(props: { placement?: "top-start" | "bottom-start" }) {
+export function CanvasTools() {
   const world = useWorld();
   const selectedTool = useTool();
 
@@ -238,112 +241,37 @@ export function CanvasTools(props: { placement?: "top-start" | "bottom-start" })
     if (tool === ToolType.SCENE) setSidebarTab("templates");
   }
 
-  const toolClass = (on: boolean) => on
-    ? "bg-secondary text-foreground hover:bg-secondary-hover"
-    : "text-muted-foreground hover:text-foreground";
-
-  const pointerTool = () => [ToolType.MOVE, ToolType.HAND].includes(selectedTool());
-
   return (
-    <div class="flex items-center gap-0.5" data-tour="tools">
-      <div class="flex items-center rounded-md" classList={{ "bg-secondary": pointerTool() }}>
-        <Tooltip>
-          <TooltipTrigger
-            as={Button}
-            size="icon-square"
-            variant="ghost"
-            aria-label={selectedTool() === ToolType.HAND ? t('Hand') : t('Move')}
-            class={pointerTool() ? "text-foreground hover:bg-secondary-hover" : "text-muted-foreground hover:text-foreground"}
-            onClick={() => handleToolChange(
-              selectedTool() === ToolType.HAND ? ToolType.HAND : ToolType.MOVE
-            )}
-          >
-            <Show when={selectedTool() === ToolType.HAND} fallback={<MoveIcon />}>
-              <HandIcon class="size-4" stroke-width={2} />
-            </Show>
-          </TooltipTrigger>
-          <TooltipContent shortcut={selectedTool() === ToolType.HAND ? 'H' : 'V'}>
-            {selectedTool() === ToolType.HAND ? t('Hand') : t('Move')}
-          </TooltipContent>
-        </Tooltip>
-        <DropdownMenu placement={props.placement ?? "top-start"}>
-          <Tooltip>
-            <TooltipTrigger<typeof DropdownMenuTrigger>
-              as={(triggerProps: object) => (
-                <DropdownMenuTrigger<typeof Button>
-                  {...triggerProps}
-                  as={(buttonProps) => (
-                    <Button {...buttonProps} size="icon-select" variant="ghost" aria-label={t("Select tool")} class="text-muted-foreground hover:bg-transparent hover:text-foreground data-[expanded]:bg-transparent">
-                      <Icon name="chevron-down" />
-                    </Button>
-                  )}
-                />
-              )}
-            />
-            <TooltipContent>{t("Select tool")}</TooltipContent>
-          </Tooltip>
-          <DropdownMenuPortal>
-            <DropdownMenuContent>
-              <DropdownMenuItem class="px-0 pr-2 gap-0.5" onSelect={() => handleToolChange(ToolType.MOVE)}>
-                <div classList={{ "visible": selectedTool() === ToolType.MOVE }} class="invisible">
-                  <Icon name="confirm-check" class="text-foreground" />
-                </div>
-                <span class="grid size-6 place-items-center text-foreground"><MoveIcon /></span>
-                <span class="min-w-12 mx-1">{t("Move")}</span>
-                <DropdownMenuShortcut>V</DropdownMenuShortcut>
-              </DropdownMenuItem>
-              <DropdownMenuItem class="px-0 pr-2 gap-0.5" onSelect={() => handleToolChange(ToolType.HAND)}>
-                <div classList={{ "visible": selectedTool() === ToolType.HAND }} class="invisible">
-                  <Icon name="confirm-check" class="text-foreground" />
-                </div>
-                <span class="grid size-6 place-items-center text-foreground"><HandIcon class="size-4" stroke-width={2} /></span>
-                <span class="min-w-12 mx-1">{t("Hand")}</span>
-                <DropdownMenuShortcut>H</DropdownMenuShortcut>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenuPortal>
-        </DropdownMenu>
-      </div>
-      <Separator orientation="vertical" class="min-h-4 mx-1.5" />
-      <Tooltip>
-        <TooltipTrigger
-          as={Button}
-          size="icon-square"
-          variant="ghost"
-          aria-label={t("Frame")}
-          onClick={() => handleToolChange(ToolType.SCENE)}
-          class={toolClass(selectedTool() === ToolType.SCENE)}
-        >
-          <FrameIcon class="size-4" stroke-width={2} />
-        </TooltipTrigger>
-        <TooltipContent shortcut="F">{t("Frame")}</TooltipContent>
-      </Tooltip>
-      <Tooltip>
-        <TooltipTrigger
-          as={Button}
-          size="icon-square"
-          variant="ghost"
-          aria-label={t("Rectangle")}
-          onClick={() => handleToolChange(ToolType.RECT)}
-          class={toolClass(selectedTool() === ToolType.RECT)}
-        >
-          <SquareIcon class="size-4" stroke-width={2} />
-        </TooltipTrigger>
-        <TooltipContent shortcut="R">{t("Rectangle")}</TooltipContent>
-      </Tooltip>
-      <Tooltip>
-        <TooltipTrigger
-          as={Button}
-          size="icon-square"
-          variant="ghost"
-          aria-label={t("Text")}
-          onClick={() => handleToolChange(ToolType.TEXT)}
-          class={toolClass(selectedTool() === ToolType.TEXT)}
-        >
-          <TypeIcon class="size-4" stroke-width={2} />
-        </TooltipTrigger>
-        <TooltipContent shortcut="T">{t("Text")}</TooltipContent>
-      </Tooltip>
+    <div class="flex items-center gap-1" data-tour="tools">
+      <ToolButton
+        label={t("Move")}
+        shortcut={shortcutLabel("moveTool")}
+        on={selectedTool() === ToolType.MOVE}
+        onClick={() => handleToolChange(ToolType.MOVE)}
+      >
+        <ToolMoveIcon />
+      </ToolButton>
+      <ToolButton label={t("Split at playhead")} shortcut={shortcutLabel("split")} onClick={() => splitAtPlayhead(world)}>
+        <ToolSplitIcon />
+      </ToolButton>
+      <ToolButton
+        label={t("Hand")}
+        shortcut={shortcutLabel("handTool")}
+        on={selectedTool() === ToolType.HAND}
+        onClick={() => handleToolChange(ToolType.HAND)}
+      >
+        <ToolHandIcon />
+      </ToolButton>
+      <Separator orientation="vertical" class="min-h-4 mx-2" />
+      <ToolButton label={t("Frame")} shortcut="F" on={selectedTool() === ToolType.SCENE} onClick={() => handleToolChange(ToolType.SCENE)}>
+        <ToolFrameIcon />
+      </ToolButton>
+      <ToolButton label={t("Rectangle")} shortcut="R" on={selectedTool() === ToolType.RECT} onClick={() => handleToolChange(ToolType.RECT)}>
+        <ToolRectangleIcon />
+      </ToolButton>
+      <ToolButton label={t("Text")} shortcut="T" on={selectedTool() === ToolType.TEXT} onClick={() => handleToolChange(ToolType.TEXT)}>
+        <ToolTextIcon />
+      </ToolButton>
     </div>
   );
 }

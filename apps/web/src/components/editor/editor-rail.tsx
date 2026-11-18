@@ -18,11 +18,11 @@ export function EditorRail(props: { side: "left" | "right"; style?: JSX.CSSPrope
   const tooltipSide = () => (props.side === "left" ? "right" : "left");
 
   return (
-    <nav class="flex min-h-0 shrink-0 flex-col items-center gap-1 pb-1.5" style={props.style} aria-label={t("Panels")}>
-      <div class="relative z-30 flex h-11 shrink-0 items-center">
+    <nav class="flex min-h-0 shrink-0 flex-col items-center gap-1.5 pb-1.5" style={props.style} aria-label={t("Panels")}>
+      <div class="relative z-30 mb-1 flex h-11 shrink-0 items-center">
         <ProjectMenu compact />
       </div>
-      <div class="flex flex-col items-center gap-1" data-tour="sidebar">
+      <div class="flex flex-col items-center gap-1.5" data-tour="sidebar">
         <For each={SIDEBAR_TABS}>
           {(tab) => (
             <RailButton
@@ -58,12 +58,11 @@ function RailButton(props: { label: string; tooltipSide: "left" | "right"; activ
         type="button"
         aria-label={props.label}
         aria-current={props.active ? "page" : undefined}
-        class="press relative z-30 grid size-8 place-items-center rounded-md outline-none focus-ring transition-colors"
+        class="press relative z-30 grid size-9 place-items-center rounded-md outline-none focus-ring transition-colors"
         classList={{
           "bg-secondary text-foreground": props.active,
-          "text-muted-foreground hover:bg-accent hover:text-foreground": !props.active,
+          "text-foreground hover:bg-accent": !props.active,
         }}
-       
         onClick={props.onClick}
       >
         {props.children}

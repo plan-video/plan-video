@@ -25,8 +25,9 @@ import { Tooltip, TooltipContent, TooltipPortal, TooltipTrigger } from '@/compon
 import { useDerived } from '@/engine/hooks';
 import { KEYFRAME_TRACK_HEIGHT } from '@/engine/timeline';
 import { msg, t } from '@/lib/i18n';
-import { NESTED_INDENT_PX } from './config';
 import { setRowHover } from './hover';
+import { Lane } from './lane';
+import { RowLabel } from './row-label';
 
 import type { Entity } from 'koota';
 import type { PropertyPath } from '@plan.video/runtime';
@@ -83,34 +84,14 @@ export function KeyframeLayer(props: LayerRowProps) {
 
   return (
     <div
-      class="w-full flex items-center text-muted-foreground justify-between pl-0.5 pr-2"
-      classList={{
-        'bg-accent': selected(),
-        'bg-accent/70': !selected() && hovering(),
-        'bg-accent/40': !selected() && !hovering() && props.ancestorSelected,
-      }}
+      class="relative w-full flex items-center text-muted-foreground justify-end pr-0.5"
       onPointerEnter={() => setRowHover(world, entity())}
       onPointerLeave={() => setRowHover(world, null)}
       style={{ height: KEYFRAME_TRACK_HEIGHT + 'px' }}
     >
-      <div data-layer-label class="flex-1 min-w-0 overflow-hidden">
-        <div
-          class="flex items-center gap-0.5 w-max"
-          style={{
-            'padding-left': `${props.depth * NESTED_INDENT_PX}px`,
-            transform: 'translateX(calc(var(--layer-x, 0px) * -1))',
-          }}
-        >
-          <div class="size-4 shrink-0" />
-          <div class="size-4 shrink-0 mr-0.5 flex items-center justify-center overflow-clip">
-            <Icon name="keyframe-indicator-default" class="size-6" />
-          </div>
-          <span class="text-xs px-0.5 shrink-0 whitespace-nowrap text-muted-foreground">
-            {t(formatProperty(path()))}
-          </span>
-        </div>
-      </div>
-      <div class="flex items-center gap-0.5 shrink-0">
+      <Lane selected={selected()} hovered={hovering()} nested={props.ancestorSelected} />
+      <RowLabel>{t(formatProperty(path()))}</RowLabel>
+      <div class="relative flex items-center shrink-0">
         <Tooltip placement="top">
           <TooltipTrigger
             as={Button}

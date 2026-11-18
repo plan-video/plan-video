@@ -43,6 +43,8 @@ export type TimelineSurfaceState = {
 	replaceDrop: Entity[] | null;
 	/** In timeline pixels. */
 	snapX: number | null;
+	/** Where media dragged over the timeline would start: its x in CSS pixels of the canvas, and when it was last reported. */
+	dropAim: { x: number; at: number } | null;
 	colors: TimelineColors;
 	/** In canvas pixels. */
 	joins: JoinMark[];
@@ -87,6 +89,7 @@ export function createTimelineSurface(): TimelineSurfaceState {
 		clips: [],
 		replaceDrop: null,
 		snapX: null,
+		dropAim: null,
 		colors: COLORS,
 		joins: [],
 		transitionDrop: null,
