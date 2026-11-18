@@ -542,54 +542,54 @@ html.moving-step .step-actions {
 
 /* Set on <html> so menus, tooltips and dialogs mounted on <body> get the same palette. */
 html.dashboard-theme {
-  --plane-canvas: #070605;
-  --plane-surface-1: #0c0a09;
-  --plane-surface-2: #110f0e;
-  --plane-layer-1: #110f0e;
-  --plane-layer-1-hover: #171513;
-  --plane-layer-2: #171513;
-  --plane-layer-2-hover: #1c1a18;
-  --plane-layer-2-active: #24211f;
-  --plane-layer-3: #1c1a18;
-  --plane-layer-3-hover: #24211f;
+  --plane-canvas: #0e0f11;
+  --plane-surface-1: #1c1d1f;
+  --plane-surface-2: #222325;
+  --plane-layer-1: #222325;
+  --plane-layer-1-hover: #28292b;
+  --plane-layer-2: #28292b;
+  --plane-layer-2-hover: #2d2e30;
+  --plane-layer-2-active: #333436;
+  --plane-layer-3: #2d2e30;
+  --plane-layer-3-hover: #333436;
   --plane-layer-transparent-hover: oklch(1 0 0 / 5%);
   --plane-layer-transparent-active: oklch(1 0 0 / 9%);
   --plane-layer-transparent-selected: oklch(1 0 0 / 13%);
-  --plane-border-subtle: #1d1a18;
-  --plane-border-subtle-1: #262321;
-  --plane-border-strong: #2f2b29;
-  --plane-border-strong-1: #3b3734;
-  --plane-text-primary: #ededed;
-  --plane-text-secondary: #a1a1a1;
-  --plane-text-tertiary: #7d7d7d;
-  --plane-text-placeholder: #666666;
-  --plane-text-disabled: #4a4a4a;
+  --plane-border-subtle: #2b2c2e;
+  --plane-border-subtle-1: #323335;
+  --plane-border-strong: #3b3c3e;
+  --plane-border-strong-1: #454648;
+  --plane-text-primary: #edeeef;
+  --plane-text-secondary: #ababac;
+  --plane-text-tertiary: #8c8c8d;
+  --plane-text-placeholder: #747475;
+  --plane-text-disabled: #585859;
   /* The brightest blue that still carries white text at 4.5:1. */
   --plane-accent-primary: #2f6ff0;
   --plane-accent-primary-hover: #3d7bf3;
   --plane-accent-primary-active: #2563eb;
   --plane-accent-secondary: #7aa7f7;
-  --plane-accent-subtle: #0f1a2e;
-  --plane-accent-subtle-active: #17284a;
+  --plane-accent-subtle: #233049;
+  --plane-accent-subtle-active: #283f6a;
   --plane-danger-primary: oklch(0.4446 0.1774 26.79);
-  --plane-danger-subtle: oklch(0.2615 0.085 24.41);
-  --plane-danger-text: oklch(0.7022 0.1892 22.23);
+  --plane-danger-subtle: oklch(0.31 0.09 24.41);
+  --plane-danger-text: oklch(0.74 0.17 22.23);
   --plane-shadow-raised-100: 0px 1px 6px -1px #00000014, 0px 1px 4px 0px #0000001a;
   --plane-shadow-overlay-200: 0px 10px 10px -10px #0000001f, 0px 30px 60px -12px #00000066;
   --plane-fill-faint: rgb(255 255 255 / 0.03);
   --plane-fill-subtle: rgb(255 255 255 / 0.07);
   --plane-fill-recessed: rgb(0 0 0 / 0.2);
   --plane-chart-muted: rgb(255 255 255 / 0.42);
-  --art-card: #151515;
-  --art-card-edge: #262626;
-  --art-line: #2e2e2e;
-  --art-line-soft: #222222;
-  --art-video: #1a2a4a;
-  --art-video-ink: #7aa7f7;
-  --art-audio: #143c2f;
-  --art-audio-ink: #34d399;
-  --art-text: #2e3239;
-  --art-text-ink: #8fa3bb;
+  --art-card: #252628;
+  --art-card-edge: #38393b;
+  --art-line: #404143;
+  --art-line-soft: #303133;
+  --art-video: #355187;
+  --art-video-ink: #b9d2ff;
+  --art-audio: #126147;
+  --art-audio-ink: #88e8bf;
+  --art-text: #415566;
+  --art-text-ink: #b8d5ef;
   --logo-tile: #ffffff;
   --logo-ink: #000000;
   --scrollbar-thumb: rgb(255 255 255 / 0.13);
@@ -757,26 +757,26 @@ html.site-light .site-dark {
   --site-scrollbar: rgb(255 255 255 / 0.13);
   --site-scrollbar-hover: rgb(255 255 255 / 0.26);
   /* Must match engine/timeline/constants.ts. */
-  --clip-video-bg: #1a2a4a;
-  --clip-video-edge: #2a4785;
-  --clip-video-ink: #7aa7f7;
-  --clip-video-label: #d6e4ff;
-  --clip-video-film: rgb(26 42 74 / 0.55);
-  --clip-audio-bg: #143c2f;
-  --clip-audio-edge: #17664a;
-  --clip-audio-ink: #34d399;
-  --clip-audio-label: #c9f5e3;
-  --clip-text-bg: #2e3239;
-  --clip-text-edge: #4b525d;
-  --clip-text-label: #e2e8f0;
-  --clip-caption-bg: #45213a;
-  --clip-caption-edge: #7a2f5c;
-  --clip-caption-ink: #8e3566;
-  --clip-caption-label: #fbd5e8;
-  --clip-group-bg: #202227;
-  --clip-group-edge: #363a42;
-  --clip-group-ink: #3a3f47;
-  --clip-group-label: #e5e7eb;
+  --clip-video-bg: #355187;
+  --clip-video-edge: #5078c4;
+  --clip-video-ink: #b9d2ff;
+  --clip-video-label: #f2f7ff;
+  --clip-video-film: rgb(53 81 135 / 0.55);
+  --clip-audio-bg: #126147;
+  --clip-audio-edge: #208f69;
+  --clip-audio-ink: #88e8bf;
+  --clip-audio-label: #ecfbf4;
+  --clip-text-bg: #415566;
+  --clip-text-edge: #627e96;
+  --clip-text-label: #f2f7fc;
+  --clip-caption-bg: #783a5a;
+  --clip-caption-edge: #b05885;
+  --clip-caption-ink: #af4d80;
+  --clip-caption-label: #fff3f8;
+  --clip-group-bg: #34383f;
+  --clip-group-edge: #565b64;
+  --clip-group-ink: #50555e;
+  --clip-group-label: #ebeff4;
 }
 
 html.site-light {
@@ -1074,7 +1074,8 @@ html.dashboard-theme {
   --button-ghost-text-hover: var(--plane-text-primary);
 }
 
-html.dashboard-theme [data-slot="button"][data-size="default"] {
+/* A picker or trigger styled as a button isn't caught by the slot, so it opts in with .button-type. */
+html.dashboard-theme :is([data-slot="button"][data-size="default"], .button-type) {
   font-size: 13px;
   font-weight: var(--font-weight-medium);
 }
@@ -1194,39 +1195,44 @@ html.editor-theme .font-450 {
 }
 
 html.editor-theme[data-kb-theme="dark"] {
-  --canvas: #070605;
-  --background: #0c0a09;
-  --foreground: #d4d4d4;
-  --card: #0c0a09;
-  --card-foreground: #d4d4d4;
-  --popover: #110f0e;
-  --popover-foreground: #d4d4d4;
+  --canvas: #0e0f11;
+  --background: #1c1d1f;
+  --foreground: #dbdbdc;
+  --card: #1c1d1f;
+  --card-foreground: #dbdbdc;
+  --popover: #2e2f31;
+  --popover-foreground: #dbdbdc;
   --primary: #2f6ff0;
-  --primary-foreground: rgb(255 255 255 / 0.9);
+  --primary-foreground: #ffffff;
   --primary-hover: #3d7bf3;
   --primary-pressing: #2563eb;
   --secondary: rgb(255 255 255 / 0.06);
-  --secondary-foreground: #d4d4d4;
+  --secondary-foreground: #dbdbdc;
   --secondary-hover: rgb(255 255 255 / 0.09);
   --secondary-pressing: rgb(255 255 255 / 0.13);
-  --tertiary: #17284a;
-  --tertiary-foreground: #cfe0ff;
-  --tertiary-hover: #1c3159;
-  --tertiary-pressing: #12203c;
+  --tertiary: #283f6a;
+  --tertiary-foreground: #cddfff;
+  --tertiary-hover: #233049;
+  --tertiary-pressing: #233049;
   --muted: rgb(255 255 255 / 0.08);
-  --muted-foreground: #a1a1a1;
-  --disabled-foreground: #4a4a4a;
+  --muted-foreground: #ababac;
+  --disabled-foreground: #636364;
   --accent: rgb(255 255 255 / 0.05);
-  --accent-foreground: #a1a1a1;
-  --border: #1b1917;
-  --border-strong: #201d1b;
-  --border-input: #272422;
-  --border-darker: #0c0a09;
+  --accent-foreground: #ababac;
+  --border: #2a2b2d;
+  --border-strong: #333436;
+  --border-input: #3d3e40;
+  --border-darker: #1c1d1f;
   --input: rgb(255 255 255 / 0.05);
   --ring: #2f6ff0;
   --inset: rgb(255 255 255 / 0.08);
-  --selection: #17284a;
-  --selection-foreground: #cfe0ff;
+  --selection: #283f6a;
+  --selection-foreground: #cddfff;
+  /* The timeline's audio and caption clips, so a file looks the same in Assets as on its row. */
+  --audio-background: #126147;
+  --audio-primary: #88e8bf;
+  --caption-background: #783a5a;
+  --caption-accent: rgb(255 243 248 / 0.18);
 }
 
 html.editor-theme[data-kb-theme="light"] {
@@ -1245,12 +1251,19 @@ html.editor-theme[data-kb-theme="light"] {
   --border-input: #e0e0e0;
 }
 
-html.editor-theme :is([data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="select-content"]) {
+/* The line tokens are steps above the panel colour, which is where a raised surface already sits: its lines step up with it. */
+html.editor-theme[data-kb-theme="dark"] .bg-popover {
+  --border: color-mix(in oklab, var(--popover) 92%, var(--foreground));
+  --border-strong: color-mix(in oklab, var(--popover) 88%, var(--foreground));
+  --border-input: color-mix(in oklab, var(--popover) 83%, var(--foreground));
+}
+
+html.editor-theme :is([data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="select-content"], [data-slot="context-menu-content"], [data-slot="context-menu-sub-content"]) {
   border-color: var(--border-input);
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.12), 0 12px 32px -8px rgb(0 0 0 / 0.4);
 }
 
-html.editor-theme[data-kb-theme="light"] :is([data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="select-content"]) {
+html.editor-theme[data-kb-theme="light"] :is([data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="select-content"], [data-slot="context-menu-content"], [data-slot="context-menu-sub-content"]) {
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.06), 0 12px 32px -8px rgb(0 0 0 / 0.16);
 }
 

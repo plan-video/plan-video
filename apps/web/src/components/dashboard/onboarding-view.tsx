@@ -78,7 +78,7 @@ const CURRENT_THEME: Palette = {
   bar: "var(--plane-border-strong)",
   accent: "var(--plane-accent-primary)",
 };
-const DARK: Palette = { canvas: "#060606", surface: "#0b0b0b", line: "#1c1c1c", ink: "#e8e8e8", faint: "#6e6e6e", bar: "#2c2c2c", accent: "#2f6ff0" };
+const DARK: Palette = { canvas: "#0e0f11", surface: "#1c1d1f", line: "#2b2c2e", ink: "#edeeef", faint: "#8c8c8d", bar: "#3b3c3e", accent: "#2f6ff0" };
 const LIGHT: Palette = { canvas: "#f3f3f3", surface: "#ffffff", line: "#ebebeb", ink: "#1c1c1c", faint: "#8e8e8e", bar: "#dcdcdc", accent: "#2563eb" };
 
 const PICTURE_RAIL: { icon: PlaneIconName; label: string }[] = [

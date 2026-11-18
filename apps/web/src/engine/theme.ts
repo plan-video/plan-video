@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { DEFAULT_GENERATING_PULSE, DefaultBackground, GeneratingPulse } from '@plan.video/runtime';
+import { DefaultBackground, GeneratingPulse } from '@plan.video/runtime';
 
 import { isDefaultTheme, resolvePalette, type ThemeSpec } from '@/lib/theme-palette';
 
@@ -14,12 +14,12 @@ import type { World } from 'koota';
 
 /** Must match `--canvas` in each theme. */
 const CANVAS_BACKGROUND: Record<EditorThemeMode, number> = {
-	dark: 0x070605,
+	dark: 0x0e0f11,
 	light: 0xf3f3f3,
 };
 
 const GENERATING_PULSE: Record<EditorThemeMode, { from: number; to: number }> = {
-	dark: DEFAULT_GENERATING_PULSE,
+	dark: { from: 0x1b1c1e, to: 0x28292b },
 	light: { from: 0xebebeb, to: 0xdcdcdc },
 };
 
