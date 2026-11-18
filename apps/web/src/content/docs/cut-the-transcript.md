@@ -2,7 +2,7 @@ Edit your video by editing its words. Once your video has captions, select them 
 
 ## Remove pauses
 
-Click **Remove pauses** to cut the silent gaps between words.
+Click **Remove pauses** to cut the silent gaps between words. plan.video listens to the audio first, so only real quiet is cut: a laugh, music, game sounds or another voice between the words stays in.
 
 ## Remove filler words
 
