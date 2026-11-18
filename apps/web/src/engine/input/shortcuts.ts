@@ -37,24 +37,20 @@ import { Not, Or } from 'koota';
 
 import { setSidebarTab } from '@/agent-chat/store';
 import { clearCaptionWordClipboard, copyPickedCaptionWords, cutPickedCaptionWords, pasteCaptionWords, removePickedCaptionWords } from '@/lib/caption-transcript';
+import { activeBindings, matchesKeys, type KeyCommand } from '@/lib/keymap';
 import { zoomBy, zoomTo, zoomToFit, zoomToSelection } from '../camera';
 import { getDocumentEditor } from '../editor';
 import { groupSelection, ungroupSelection, unwrapSequenceSelection, wrapSelectionInScene, wrapSelectionInSequence } from '../group';
 import { getEditHistory } from '../history';
 import { setPreviewQuality } from '../preview-quality';
 import { splitAtPlayhead } from '../split';
-import { Keys, MODIFIER_KEYS, Pointer } from '../traits';
+import { Keys, Pointer } from '../traits';
 import { nudgeCaptionWords } from '@/lib/caption-word-move';
 import { editTransform } from './interactions';
 
 import type { TransformWrite } from './interactions';
 import type { CameraMatrix } from '@plan.video/runtime';
 import type { Entity, World } from 'koota';
-
-type Shortcut = {
-	keys: string[];
-	action: (world: World) => void;
-}
 
 const NODES = Or(Geometry, Group, AdjustmentLayer);
 
@@ -287,6 +283,29 @@ export function seekToTimelineEdge(world: World, edge: 'start' | 'end'): void {
 const seekTimelineEdge = (edge: 'start' | 'end') => (world: World): void =>
 	seekToTimelineEdge(world, edge);
 
+// Clips inside a sequence are the timeline's real cuts, so the walk opens sequences up.
+export function seekToAdjacentCut(world: World, direction: 1 | -1): void {
+	const scene = getActiveEntity(world);
+	if (scene === null) return;
+
+	const computed = store(world, Computed);
+	const here = computed.localTime[scene.id()] ?? 0;
+	const cuts: number[] = [];
+
+	const collect = (parent: Entity): void => {
+		for (const node of world.query(NODES, ChildOf(parent))) {
+			if (isSequence(node)) collect(node);
+			else cuts.push(computed.start[node.id()] ?? 0, computed.end[node.id()] ?? 0);
+		}
+	};
+	collect(scene);
+
+	const ahead = cuts.filter(frame => direction > 0 ? frame > here : frame < here);
+	if (ahead.length) setPlayhead(world, scene, direction > 0 ? Math.min(...ahead) : Math.max(...ahead));
+}
+
+const seekCut = (direction: 1 | -1) => (world: World): void => seekToAdjacentCut(world, direction);
+
 const ZOOM_STEP = 1.25;
 
 const zoom = (factor: number) => (world: World): void => zoomBy(world, factor);
@@ -386,99 +405,73 @@ function deselect(world: World): void {
 	if (tool !== ToolType.MOVE && tool !== ToolType.HAND) selectTool(ToolType.MOVE)(world);
 }
 
-const PRESSED_SHORTCUTS: readonly Shortcut[] = [
-	{ keys: ['z', 'mod', '!shift'], action: undoEdit },
-	{ keys: ['z', 'mod', 'shift'], action: redoEdit },
-	{ keys: ['backspace'], action: deleteSelection },
-	{ keys: ['delete'], action: deleteSelection },
-	{ keys: ['d', 'mod', '!shift'], action: duplicateSelection },
-	{ keys: ['g', 'mod', '!shift'], action: groupSelection },
-	{ keys: ['g', 'mod', 'shift'], action: ungroupSelection },
-	{ keys: ['enter', 'mod', '!shift', '!alt'], action: wrapSelectionInScene },
-	{ keys: ['enter', 'mod', 'alt', '!shift'], action: wrapSelectionInSequence },
-	{ keys: ['enter', 'mod', 'alt', 'shift'], action: unwrapSequenceSelection },
-	{ keys: ['b', 'mod'], action: splitAtPlayhead },
-	{ keys: ['c', 'mod'], action: copySelection },
-	{ keys: ['v', 'mod'], action: pasteSelection },
-	{ keys: ['x', 'mod'], action: cutSelection },
-	{ keys: ['h', 'mod', 'shift'], action: toggleSelectionHidden },
-	{ keys: ['a', 'mod'], action: selectAll },
-	{ keys: ['=', 'mod'], action: zoom(ZOOM_STEP) },
-	{ keys: ['+', 'mod'], action: zoom(ZOOM_STEP) },
-	{ keys: ['-', 'mod'], action: zoom(1 / ZOOM_STEP) },
-	{ keys: ['0', 'mod'], action: zoomActualSize },
-	{ keys: ['1', 'mod'], action: zoomToFit },
-	{ keys: ['2', 'mod'], action: zoomToSelection },
-	{ keys: ['j', 'mod', '!shift'], action: previewAt(1) },
-	{ keys: ['j', 'mod', 'shift'], action: previewAt(0.5) },
-	{ keys: ['v', '!mod'], action: selectTool(ToolType.MOVE) },
-	{ keys: ['h', '!mod'], action: selectTool(ToolType.HAND) },
-	{ keys: ['f', '!mod'], action: selectTool(ToolType.SCENE) },
-	{ keys: ['t', '!mod'], action: selectTool(ToolType.TEXT) },
-	{ keys: ['r', '!mod'], action: selectTool(ToolType.RECT) },
-	{ keys: ['a', '!mod'], action: seekFrames(-1) },
-	{ keys: ['d', '!mod'], action: seekFrames(1) },
-	{ keys: ['w', '!mod'], action: seekSeconds(1) },
-	{ keys: ['s', '!mod'], action: seekSeconds(-1) },
-	{ keys: [';', '!mod'], action: seekSelectionEdge('start') },
-	{ keys: ["'", '!mod'], action: seekSelectionEdge('end') },
-	// fn ←/→ on macOS, Home/End elsewhere.
-	{ keys: ['home'], action: seekTimelineEdge('start') },
-	{ keys: ['end'], action: seekTimelineEdge('end') },
-	{ keys: ['j', '!mod'], action: shuttle(-1) },
-	{ keys: ['k', '!mod'], action: stopActivePlayback },
-	{ keys: ['l', '!mod'], action: shuttle(1) },
-	{ keys: [']', '!mod'], action: restack('front') },
-	{ keys: ['[', '!mod'], action: restack('back') },
-	{ keys: ['\\', '!mod'], action: selectParents },
-	{ keys: ['enter', '!mod'], action: selectChildren },
-	{ keys: ['escape'], action: deselect },
-	{ keys: ['arrowleft', '!shift'], action: nudge(-NUDGE, 0) },
-	{ keys: ['arrowright', '!shift'], action: nudge(NUDGE, 0) },
-	{ keys: ['arrowup', '!shift'], action: nudge(0, -NUDGE) },
-	{ keys: ['arrowdown', '!shift'], action: nudge(0, NUDGE) },
-	{ keys: ['arrowleft', 'shift'], action: nudge(-NUDGE_FAST, 0) },
-	{ keys: ['arrowright', 'shift'], action: nudge(NUDGE_FAST, 0) },
-	{ keys: ['arrowup', 'shift'], action: nudge(0, -NUDGE_FAST) },
-	{ keys: ['arrowdown', 'shift'], action: nudge(0, NUDGE_FAST) },
-	{ keys: [' '], action: onSpacePressed },
-];
-
-const LIFTED_SHORTCUTS: readonly Shortcut[] = [
-	{ keys: [' '], action: onSpaceLifted },
-];
-
-// The trigger is matched against `moved`, not `held`: a lift takes it out of
-// `held`, and a sub-frame tap is over before the frame runs. Only a
-// non-modifier can trigger, since macOS drops the key-up of a key released
-// while ⌘ is down, leaving a stale letter in `held`.
-function matches(shortcut: Shortcut, moved: Set<string>, held: Set<string>): boolean {
-	let triggered = false;
-
-	for (const key of shortcut.keys) {
-		if (key.startsWith('!')) {
-			if (held.has(key.slice(1))) return false;
-		} else if (moved.has(key) && !MODIFIER_KEYS.has(key)) {
-			triggered = true;
-		} else if (!held.has(key)) {
-			return false;
-		}
-	}
-
-	return triggered;
-}
+const ACTIONS: Record<KeyCommand, (world: World) => void> = {
+	undo: undoEdit,
+	redo: redoEdit,
+	delete: deleteSelection,
+	duplicate: duplicateSelection,
+	group: groupSelection,
+	ungroup: ungroupSelection,
+	wrapInScene: wrapSelectionInScene,
+	wrapInSequence: wrapSelectionInSequence,
+	unwrapSequence: unwrapSequenceSelection,
+	split: splitAtPlayhead,
+	copy: copySelection,
+	paste: pasteSelection,
+	cut: cutSelection,
+	hide: toggleSelectionHidden,
+	selectAll,
+	zoomIn: zoom(ZOOM_STEP),
+	zoomOut: zoom(1 / ZOOM_STEP),
+	zoomActual: zoomActualSize,
+	zoomFit: zoomToFit,
+	zoomSelection: zoomToSelection,
+	previewFull: previewAt(1),
+	previewHalf: previewAt(0.5),
+	moveTool: selectTool(ToolType.MOVE),
+	handTool: selectTool(ToolType.HAND),
+	frameTool: selectTool(ToolType.SCENE),
+	textTool: selectTool(ToolType.TEXT),
+	rectTool: selectTool(ToolType.RECT),
+	previousFrame: seekFrames(-1),
+	nextFrame: seekFrames(1),
+	forwardSecond: seekSeconds(1),
+	backSecond: seekSeconds(-1),
+	previousCut: seekCut(-1),
+	nextCut: seekCut(1),
+	selectionStart: seekSelectionEdge('start'),
+	selectionEnd: seekSelectionEdge('end'),
+	timelineStart: seekTimelineEdge('start'),
+	timelineEnd: seekTimelineEdge('end'),
+	shuttleBack: shuttle(-1),
+	stop: stopActivePlayback,
+	shuttleForward: shuttle(1),
+	bringToFront: restack('front'),
+	sendToBack: restack('back'),
+	selectParent: selectParents,
+	selectChildren,
+	deselect,
+	nudgeLeft: nudge(-NUDGE, 0),
+	nudgeRight: nudge(NUDGE, 0),
+	nudgeUp: nudge(0, -NUDGE),
+	nudgeDown: nudge(0, NUDGE),
+	nudgeFastLeft: nudge(-NUDGE_FAST, 0),
+	nudgeFastRight: nudge(NUDGE_FAST, 0),
+	nudgeFastUp: nudge(0, -NUDGE_FAST),
+	nudgeFastDown: nudge(0, NUDGE_FAST),
+	play: onSpacePressed,
+};
 
 export function shortcutSystem(world: World): void {
 	const keys = world.get(Keys);
 	if (!keys) return;
 
 	if (keys.pressed.size) {
-		PRESSED_SHORTCUTS.find(shortcut => matches(shortcut, keys.pressed, keys.held))?.action(world);
+		const binding = activeBindings().find(({ keys: combo }) => matchesKeys(combo, keys.pressed, keys.held));
+		if (binding) ACTIONS[binding.command](world);
 	}
 
-	if (keys.lifted.size) {
-		LIFTED_SHORTCUTS.find(shortcut => matches(shortcut, keys.lifted, keys.held))?.action(world);
-	}
+	if (matchesKeys([' '], keys.lifted, keys.held)) onSpaceLifted(world);
 
 	updateSpaceHold(world, keys.held);
 }
