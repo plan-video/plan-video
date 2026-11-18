@@ -164,7 +164,7 @@ import {
 } from "@/lib/social-media";
 import { projectKey, type ProjectInfo } from "@/projects";
 import { createPostProject } from "@/projects/post";
-import { exportProjectVideo } from "@/projects/post-export";
+import { exportProjectVideo, takePostVideo, type PostVideo } from "@/projects/post-export";
 
 const MAX_IMAGES = MEDIA_LIMITS.maxImages;
 const COVER_FRAMES = 8;
@@ -343,8 +343,11 @@ const copyOwnMedia = () =>
     Object.entries(post.ownMedia).map(([id, own]) => [id, { items: [...own!.items], cover: own!.cover }]),
   ) as Composer["ownMedia"];
 
-async function attachProject(project: ProjectInfo & { cover?: Blob | null }) {
+let linkedVideo: PostVideo | null = null;
+
+async function attachProject(project: ProjectInfo & { cover?: Blob | null }, handed: PostVideo | null = null) {
   pendingCover = null;
+  linkedVideo = handed;
   const linked = await linkProject(project);
   if (post.kind === "text" || post.kind === "image") setKind("video");
   setPost("project", linked);
@@ -391,7 +394,9 @@ function exportLinkedProject(key: string) {
     try {
       const project = await findProject(key);
       if (!project) throw new Error(msg("That project is no longer on your list."));
-      const { file, credits, words } = await exportProjectVideo(project, {
+      const handed = linkedVideo?.key === key ? linkedVideo : null;
+      const { file, credits, words } = handed?.made ?? await exportProjectVideo(project, {
+        settings: handed?.settings,
         signal: abort.signal,
         onProgress: (progress) => !abort.signal.aborted && setProjectExport({ key, progress }),
       });
@@ -796,9 +801,10 @@ export function DashboardNewPostView() {
       async (key) => {
         if (typeof key !== "string" || !key) return;
         setParams({ project: undefined }, { replace: true });
+        const handed = takePostVideo(key);
         const project = await findProject(key);
         if (project) {
-          await attachProject(project);
+          await attachProject(project, handed);
         } else toast.error(t("That project is no longer on your list"));
       },
     ),

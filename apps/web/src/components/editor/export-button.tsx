@@ -6,7 +6,6 @@ import { Show, createSignal } from "solid-js";
 import { toast } from "somoto";
 import { useWorld } from "@plan.video/koota-solid";
 import { getActiveEntity, getParentNode } from "@plan.video/runtime";
-import DownloadIcon from "lucide-solid/icons/download";
 
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -53,13 +52,11 @@ export function ExportButton() {
           as={Button}
           ref={trigger}
           variant="secondary"
-          class="gap-1.5 pl-2 pr-2.5"
-         
+          class="shrink-0 px-2.5"
           disabled={exporting() || !index().root}
           onClick={toggle}
           data-tour="export-button"
         >
-          <DownloadIcon class="size-3.5" stroke-width={2} />
           {t("Export")}
         </TooltipTrigger>
         <TooltipContent>{t("Save the video to your computer")}</TooltipContent>

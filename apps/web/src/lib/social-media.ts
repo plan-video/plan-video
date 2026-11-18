@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { intlLocale, localized, t } from "./i18n";
+import { intlLocale, localized, msg, t } from "./i18n";
 import type { PictureEdit } from "./picture-edit";
 import { formatDuration, isAspect, type MediaSummary } from "./social";
 
@@ -80,6 +80,19 @@ export function videoProblems(media: Pick<PostMedia, "duration" | "width" | "hei
     problems.push(t("Videos need to be {shapes}.", { shapes: SHAPE_LIST().format(labels) }));
   }
   return problems;
+}
+
+export const NOT_POSTABLE = msg("Networks take an MP4 or MOV with H.264 video and AAC sound. Pick a preset like Full HD to schedule it.");
+
+/** What every network takes: an MP4 or MOV with H.264 picture and AAC sound (or none). */
+export function postableExport(settings: {
+  format?: string;
+  video?: { enabled?: boolean; codec?: string };
+  audio?: { enabled?: boolean; codec?: string };
+}): boolean {
+  if (settings.format !== "mp4" && settings.format !== "mov") return false;
+  if (settings.video?.enabled === false || (settings.video?.codec ?? "avc") !== "avc") return false;
+  return settings.audio?.enabled === false || (settings.audio?.codec ?? "aac") === "aac";
 }
 
 export function mediaProblems(items: readonly PostMedia[]): string[] {

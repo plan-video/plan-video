@@ -24,8 +24,10 @@ import {
 
 import { createCapture } from "@/engine/capture";
 import { attachLibrary } from "@/engine/library";
-import { getDefaultExportTemplate } from "@/components/sidebar-right/inspector/export-templates";
+import { MIME_TYPES, getDefaultExportTemplate, type ExportConfig } from "@/components/sidebar-right/inspector/export-templates";
 import { t } from "@/lib/i18n";
+import { postableExport } from "@/lib/social-media";
+import { allowedExport } from "@/lib/paid-tools";
 import { attachAi } from "@/utils/gen-ai";
 import { version } from "../../package.json";
 
@@ -38,6 +40,8 @@ import type { Capture } from "@/engine/capture";
 import type { ProjectInfo } from "@/projects/types";
 
 export type PostExportOptions = {
+  /** Must pass `postableExport`; the default is Full HD. */
+  settings?: ExportConfig;
   onProgress?(percent: number): void;
   signal?: AbortSignal;
 };
@@ -48,12 +52,29 @@ export type PostExport = {
   words: string;
 };
 
+/** What the editor hands New post with a project: the settings to export it with, or the video it already made. */
+export type PostVideo = { key: string; settings?: ExportConfig; made?: PostExport };
+
+let handed: PostVideo | null = null;
+
+export function handPostVideo(video: PostVideo | null) {
+  handed = video;
+}
+
+export function takePostVideo(key: string): PostVideo | null {
+  const found = handed?.key === key ? handed : null;
+  handed = null;
+  return found;
+}
+
 const canceled = () => new DOMException("The export was canceled", "AbortError");
 
-// Default export settings (H.264 + AAC, 1080p), not the scene's own: those are for the
-// editor's saved file and may name a container a platform turns away.
+// Not the scene's saved settings: those are for the editor's own file and may name a format a network turns away.
 export async function exportProjectVideo(project: ProjectInfo, options: PostExportOptions = {}): Promise<PostExport> {
   const { signal, onProgress } = options;
+  const asked = options.settings && postableExport(options.settings) ? options.settings : getDefaultExportTemplate();
+  const settings = allowedExport(asked) ?? asked;
+  const format = settings.format === "mov" ? "mov" : "mp4";
   const dir = project.dir;
   const world = createRuntimeWorld(project.id || project.name);
   const library = attachLibrary(world, dir);
@@ -71,14 +92,13 @@ export async function exportProjectVideo(project: ProjectInfo, options: PostExpo
     const scene = getActiveEntity(world) ?? (root ? getEntityChildren(world, root)[0] : undefined);
     if (!scene) throw new Error(t("The project is empty. Add a clip to it in the editor, and it exports from there."));
 
-    const template = getDefaultExportTemplate();
-    capture = await createCapture(world, scene, { frameRate: template.video?.fps, mode: "offline-video" });
+    capture = await createCapture(world, scene, { frameRate: settings.video?.fps, mode: "offline-video" });
     if (signal?.aborted) throw canceled();
 
     const encoder = await createEncoder(capture.world, {
-      format: "mp4",
-      video: template.video,
-      audio: template.audio,
+      format,
+      video: settings.video,
+      audio: settings.audio,
       comment: `Made with Plan Video v${version}`,
       onProgress: (progress) => onProgress?.(Math.round((progress.progress / progress.total) * 100)),
     });
@@ -89,8 +109,8 @@ export async function exportProjectVideo(project: ProjectInfo, options: PostExpo
     if (rendered.type === "error") throw rendered.error;
     if (!rendered.data) throw new Error(t("The export came out empty"));
 
-    const name = `${(project.displayName || project.name).replace(/[\\/:*?"<>|]+/g, "-").trim() || "video"}.mp4`;
-    const file = new File([rendered.data], name, { type: "video/mp4", lastModified: Date.now() });
+    const name = `${(project.displayName || project.name).replace(/[\\/:*?"<>|]+/g, "-").trim() || "video"}.${format}`;
+    const file = new File([rendered.data], name, { type: MIME_TYPES[format], lastModified: Date.now() });
     // The capture's copy of the scene is the one its assets were bound in.
     return {
       file,
@@ -105,7 +125,7 @@ export async function exportProjectVideo(project: ProjectInfo, options: PostExpo
   }
 }
 
-function sceneCredits(world: World, library: AssetLibrary, scene: Entity): string[] {
+export function sceneCredits(world: World, library: AssetLibrary, scene: Entity): string[] {
   const credits = new Set<string>();
   const visit = (entity: Entity) => {
     const id = entity.get(AssetId)?.value;
@@ -117,7 +137,7 @@ function sceneCredits(world: World, library: AssetLibrary, scene: Entity): strin
   return [...credits];
 }
 
-async function sceneWords(world: World, library: AssetLibrary, scene: Entity): Promise<string> {
+export async function sceneWords(world: World, library: AssetLibrary, scene: Entity): Promise<string> {
   const captions: Entity[] = [];
   const visit = (entity: Entity) => {
     if (entity.has(Hidden)) return;

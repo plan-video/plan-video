@@ -321,7 +321,7 @@ function WorkflowDetail(props: { workflow: Workflow }) {
             {(finished) => (
               <>
                 <Show when={finished().post && finished().state === "done"}>
-                  <Button class="w-full" onClick={schedulePost}>
+                  <Button class="w-full" onClick={() => schedulePost()}>
                     {t("Schedule post")}
                   </Button>
                 </Show>

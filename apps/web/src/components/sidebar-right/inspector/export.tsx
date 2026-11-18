@@ -4,7 +4,6 @@
 
 import { A } from "@solidjs/router";
 import { Show, children, createMemo, createResource } from "solid-js";
-import DownloadIcon from "lucide-solid/icons/download";
 import RotateCcwIcon from "lucide-solid/icons/rotate-ccw";
 import { canEncodeVideo } from "mediabunny";
 import { computeOutputSize } from "@plan.video/encoder";
@@ -36,6 +35,8 @@ import { Computed, FrameRate, Source } from "@plan.video/runtime";
 import { useDerived } from "@/engine/hooks";
 import { useProjectConfig } from "@/engine/project-config";
 import { useExport } from "@/context/export";
+import { useSchedulePost } from "@/components/editor/schedule-post-button";
+import { NOT_POSTABLE, postableExport } from "@/lib/social-media";
 import { dashboardRoute } from "@/hooks/use-project-route";
 import { inGuestMode } from "@/lib/guest";
 import { t } from "@/lib/i18n";
@@ -176,15 +177,16 @@ function useSceneExport(entity: () => Entity) {
   };
 
   // `template` is the panel's own label, no part of how the file is made.
-  const runExport = () => {
-    const current = effective();
-    if (!current) return;
-    void exportScene(entity(), {
-      format: current.format,
-      video: current.video,
-      audio: current.audio,
-    });
+  const fileSettings = () => {
+    const { format, video, audio } = effective();
+    return { format, video, audio };
   };
+
+  const runExport = () => void exportScene(entity(), fileSettings());
+
+  const postable = createMemo(() => postableExport(effective()));
+  const schedulePost = useSchedulePost();
+  const schedule = () => schedulePost({ settings: fileSettings() });
 
   const estimatedFileSize = createMemo(() => {
     const size = selectedResolution();
@@ -204,33 +206,45 @@ function useSceneExport(entity: () => Entity) {
     patchSettings,
     reset: () => write(null),
     runExport,
+    postable,
+    schedule,
   };
 }
 
 type SceneExport = ReturnType<typeof useSceneExport>;
 
-function RunExportButton(props: { scene: SceneExport; onClick?: () => void }) {
-  const run = () => {
+function ExportActions(props: { scene: SceneExport; onClick?: () => void }) {
+  const unsupported = () =>
+    t("This browser cannot encode {codec} at {width}×{height}. Choose a lower resolution, a lower bitrate, or another codec.", {
+      codec: (props.scene.effective().video?.codec ?? "avc").toUpperCase(),
+      width: props.scene.selectedResolution()?.width,
+      height: props.scene.selectedResolution()?.height,
+    });
+  const run = (action: () => void) => () => {
     props.onClick?.();
-    props.scene.runExport();
+    action();
   };
+  const scheduleBlocked = () => (!props.scene.exportSupported() ? unsupported() : !props.scene.postable() ? t(NOT_POSTABLE) : null);
 
   return (
-    <Tooltip disabled={props.scene.exportSupported()}>
-      <TooltipTrigger as="div" class="w-full">
-        <Button variant="secondary" class="w-full gap-1.5" onClick={run} disabled={props.scene.exporting() || !props.scene.exportSupported()}>
-          <DownloadIcon class="size-3.5" stroke-width={2} />
-          {t("Export")}
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent class="max-w-64">
-        {t("This browser cannot encode {codec} at {width}×{height}. Choose a lower resolution, a lower bitrate, or another codec.", {
-          codec: (props.scene.effective().video?.codec ?? "avc").toUpperCase(),
-          width: props.scene.selectedResolution()?.width,
-          height: props.scene.selectedResolution()?.height,
-        })}
-      </TooltipContent>
-    </Tooltip>
+    <div class="flex flex-col gap-2">
+      <Tooltip disabled={props.scene.exportSupported()}>
+        <TooltipTrigger as="div" class="w-full">
+          <Button variant="secondary" class="w-full" onClick={run(props.scene.runExport)} disabled={props.scene.exporting() || !props.scene.exportSupported()}>
+            {t("Save to computer")}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent class="max-w-64">{unsupported()}</TooltipContent>
+      </Tooltip>
+      <Tooltip disabled={!scheduleBlocked()}>
+        <TooltipTrigger as="div" class="w-full">
+          <Button class="w-full" onClick={run(props.scene.schedule)} disabled={props.scene.exporting() || !!scheduleBlocked()}>
+            {t("Schedule post")}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent class="max-w-64">{scheduleBlocked()}</TooltipContent>
+      </Tooltip>
+    </div>
   );
 }
 
@@ -257,7 +271,7 @@ export function ExportSettingsDialog(props: { scene: Entity; anchorRef: HTMLElem
               {t("File size {size}", { size: formatBytes(scene.estimatedFileSize()) })}
             </span>
           </div>
-          <RunExportButton scene={scene} onClick={props.onClose} />
+          <ExportActions scene={scene} onClick={props.onClose} />
         </div>
       }
     />
@@ -290,7 +304,7 @@ function ExportInspector(props: ExportInspectorProps) {
   const footer = children(() => props.footer);
 
   return (
-    <FloatingInspector open anchorRef={props.anchorRef} width={272}>
+    <FloatingInspector open anchorRef={props.anchorRef} width={288}>
       <FloatingInspectorHeader class="items-center justify-between px-2">
         <Select
           value={templateId()}
@@ -345,7 +359,7 @@ function ExportInspector(props: ExportInspectorProps) {
       <FloatingInspectorSeparator />
       <FloatingInspectorContent class="p-4">
         <div class="flex flex-col gap-2">
-          <ControlRow label={t("Video")}>
+          <ControlRow labelClass="w-20" label={t("Video")}>
             <Switch
               checked={config().video?.enabled != false}
               onChange={(checked) => write({ video: { enabled: checked } })}
@@ -363,7 +377,7 @@ function ExportInspector(props: ExportInspectorProps) {
               "pointer-events-none": config().video?.enabled == false,
             }}
           >
-            <ControlRow label={t("Resolution")}>
+            <ControlRow labelClass="w-20" label={t("Resolution")}>
               <Select<ResolutionOption>
                 value={props.selectedResolution ?? undefined}
                 options={props.resolutionOptions}
@@ -414,7 +428,7 @@ function ExportInspector(props: ExportInspectorProps) {
                 </Show>
               </p>
             </Show>
-            <ControlRow label={t("Bitrate")}>
+            <ControlRow labelClass="w-20" label={t("Bitrate")}>
               <SliderInput
                 value={(config().video?.bitrate ?? 10e6) / 1e6}
                 onChange={(value) => write({ video: { bitrate: value * 1e6 } })}
@@ -423,7 +437,7 @@ function ExportInspector(props: ExportInspectorProps) {
                 step={1}
               />
             </ControlRow>
-            <ControlRow label={t("Codec")}>
+            <ControlRow labelClass="w-20" label={t("Codec")}>
               <Select
                 value={config().video?.codec ?? "avc"}
                 options={[...VIDEO_CODEC_OPTIONS]}
@@ -440,7 +454,7 @@ function ExportInspector(props: ExportInspectorProps) {
                 </SelectPortal>
               </Select>
             </ControlRow>
-            <ControlRow label={t("Format")}>
+            <ControlRow labelClass="w-20" label={t("Format")}>
               <Select
                 value={config().format ?? "mp4"}
                 options={[...VIDEO_FORMAT_OPTIONS]}
@@ -457,7 +471,7 @@ function ExportInspector(props: ExportInspectorProps) {
                 </SelectPortal>
               </Select>
             </ControlRow>
-            <ControlRow label={t("Frame rate")}>
+            <ControlRow labelClass="w-20" label={t("Frame rate")}>
               <Select
                 value={config().video?.fps ?? 30}
                 options={[...FRAME_RATE_OPTIONS]}
@@ -480,7 +494,7 @@ function ExportInspector(props: ExportInspectorProps) {
         <Separator class="my-3" />
 
         <div class="flex flex-col gap-2">
-          <ControlRow label={t("Audio")}>
+          <ControlRow labelClass="w-20" label={t("Audio")}>
             <Switch
               checked={config().audio?.enabled != false}
               onChange={(checked) => write({ audio: { enabled: checked } })}
@@ -498,7 +512,7 @@ function ExportInspector(props: ExportInspectorProps) {
               "pointer-events-none": config().audio?.enabled == false,
             }}
           >
-            <ControlRow label={t("Codec")}>
+            <ControlRow labelClass="w-20" label={t("Codec")}>
               <Select
                 value={config().audio?.codec ?? "aac"}
                 options={[...AUDIO_CODEC_OPTIONS]}
@@ -515,7 +529,7 @@ function ExportInspector(props: ExportInspectorProps) {
                 </SelectPortal>
               </Select>
             </ControlRow>
-            <ControlRow label={t("Sample rate")}>
+            <ControlRow labelClass="w-20" label={t("Sample rate")}>
               <Select
                 value={config().audio?.sampleRate ?? 48000}
                 options={[...SAMPLE_RATE_OPTIONS]}
