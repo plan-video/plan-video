@@ -40,7 +40,6 @@ export function ProgressSlider(props: ProgressSliderProps) {
   const step = () => local.step ?? 1
 
   const currentValue = createMemo(() => clamp(local.value, minValue(), maxValue()))
-  const hasProgress = createMemo(() => currentValue() > minValue())
 
   const handleChange = (values: number[]) => {
     local.onChange(clamp(values[0] ?? minValue(), minValue(), maxValue()))
@@ -49,8 +48,9 @@ export function ProgressSlider(props: ProgressSliderProps) {
   return (
     <SliderPrimitive
       data-slot="progress-slider"
+      // The thumb is centred on its value, so its travel stops half a thumb short of each end and the bar is drawn behind, full width.
       class={cx(
-        "relative flex w-full touch-none select-none items-center data-disabled:opacity-50",
+        "relative flex w-full touch-none select-none items-center px-[7px] data-disabled:opacity-50 before:absolute before:inset-0 before:my-auto before:h-3 before:rounded-full before:bg-input",
         local.class,
       )}
       minValue={minValue()}
@@ -64,23 +64,19 @@ export function ProgressSlider(props: ProgressSliderProps) {
     >
       <SliderPrimitive.Track
         data-slot="progress-slider-track"
-        class={cx(
-          "bg-input relative h-3 w-full rounded-full",
-          local.trackClass,
-        )}
+        class={cx("relative h-3 w-full", local.trackClass)}
       >
         <SliderPrimitive.Fill
           data-slot="progress-slider-fill"
           class={cx(
-            "bg-primary absolute inset-y-0 left-0 rounded-full",
+            "bg-primary absolute inset-y-0 left-0 -ml-[7px] rounded-full",
             local.fillClass,
           )}
         />
         <SliderPrimitive.Thumb
           data-slot="progress-slider-thumb"
           class={cx(
-            "border-primary-foreground -translate-y-px size-3.5 rounded-full border-[3px] shadow-sm transition-[color,box-shadow] outline-none focus-visible:outline-solid focus-visible:outline-1 focus-visible:outline-ring focus-visible:-outline-offset-1 disabled:pointer-events-none",
-            hasProgress() ? "bg-primary" : "bg-input",
+            "bg-primary border-primary-foreground -translate-y-px size-3.5 rounded-full border-[3px] shadow-sm transition-[color,box-shadow] outline-none focus-visible:outline-solid focus-visible:outline-1 focus-visible:outline-ring focus-visible:-outline-offset-1 disabled:pointer-events-none",
             local.thumbClass,
           )}
         >

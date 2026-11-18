@@ -82,7 +82,7 @@ export function TransitionsPanel() {
       </div>
 
       <div class="min-h-0 flex-1 overflow-y-auto">
-        <div class="p-3">
+        <div class="p-4">
           <PresetGrid>
             <For each={TRANSITION_OPTIONS}>
               {(option) => (
@@ -103,7 +103,7 @@ export function TransitionsPanel() {
       <Show
         when={current() === null}
         fallback={
-          <div class="shrink-0 border-t border-border p-3">
+          <div class="shrink-0 border-t border-border px-4 py-3">
             <button
               type="button"
               class="flex h-8 w-full min-w-0 items-center justify-center rounded-md bg-secondary px-2 text-xs font-450 text-secondary-foreground transition-colors hover:bg-secondary-hover focus-ring"
@@ -116,6 +116,7 @@ export function TransitionsPanel() {
       >
         <Show when={cuts() > 0}>
           <AddButton
+            class="px-4"
             label={t("Add {name} to every cut", { name: t(pickedLabel()) })}
             onClick={() => applyTransitionEverywhere(world, pickedTransition())}
           />

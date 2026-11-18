@@ -4,7 +4,6 @@
 
 import { For, Show, createSignal } from "solid-js";
 import { Icon } from "@/components/ui/icon";
-import { PanelSection } from "@/components/ui/panel-section";
 import { useWorld } from "@plan.video/koota-solid";
 import { Scene, SolidPaint } from "@plan.video/reconciler";
 import { Root, Source, Tool, ToolType, getActiveEntity, getNextName, getViewport, isScene, screenToWorld } from "@plan.video/runtime";
@@ -65,30 +64,26 @@ export function SceneTemplatePanel() {
   };
 
   return (
-    <PanelSection
-      title={
-        <div class="flex items-center gap-4" role="tablist">
-          <For each={TEMPLATE_TABS}>
-            {(tab) => (
-              <button
-                type="button"
-                role="tab"
-                aria-selected={templateTab() === tab.id}
-                class="text-xs font-450 transition-colors focus-ring rounded-sm"
-                classList={{
-                  "text-foreground": templateTab() === tab.id,
-                  "text-muted-foreground hover:text-foreground": templateTab() !== tab.id,
-                }}
-                onClick={() => setTemplateTab(tab.id)}
-              >
-                {t(tab.label)}
-              </button>
-            )}
-          </For>
-        </div>
-      }
-      class="px-0 pt-0 pb-0 gap-0"
-    >
+    <>
+      <div class="flex h-10 items-center gap-4 px-4" role="tablist">
+        <For each={TEMPLATE_TABS}>
+          {(tab) => (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={templateTab() === tab.id}
+              class="text-xs font-450 transition-colors focus-ring rounded-sm"
+              classList={{
+                "text-foreground": templateTab() === tab.id,
+                "text-muted-foreground hover:text-foreground": templateTab() !== tab.id,
+              }}
+              onClick={() => setTemplateTab(tab.id)}
+            >
+              {t(tab.label)}
+            </button>
+          )}
+        </For>
+      </div>
       <Show when={templateTab() === "layouts"}>
         <LayoutGrid />
       </Show>
@@ -97,7 +92,7 @@ export function SceneTemplatePanel() {
           {(category) => <PresetGroup category={category} onSelect={applyPreset} />}
         </For>
       </Show>
-    </PanelSection>
+    </>
   );
 }
 
@@ -129,7 +124,7 @@ function LayoutGrid() {
               >
                 <LayoutThumbnail layout={layout} active={active()} />
                 <span
-                  class="truncate text-[11px] transition-colors"
+                  class="line-clamp-2 text-[11px] leading-[1.25] transition-colors"
                   classList={{
                     "text-foreground": active(),
                     "text-muted-foreground group-hover:text-foreground": !active(),
@@ -159,7 +154,7 @@ export function LayoutThumbnail(props: { layout: StreamLayout; active: boolean }
 
   return (
     <div
-      class="relative w-full overflow-hidden rounded-md border bg-[light-dark(#ececec,#000)] transition-colors"
+      class="relative w-full overflow-hidden rounded-md border bg-[light-dark(#ececec,var(--canvas))] transition-colors"
       classList={{
         "border-primary": props.active,
         "border-border group-hover:border-border-strong": !props.active,

@@ -97,7 +97,7 @@ function WorkflowList() {
       <For
         each={workflows()}
         fallback={
-          <div class="m-1 flex flex-col gap-2.5 rounded-lg bg-accent p-3">
+          <div class="m-2 flex flex-col gap-2.5 rounded-lg bg-accent p-3">
             <p class="text-xs text-muted-foreground">{t("Set a clip up the way you like it, then save it as a workflow to do it all again in one go.")}</p>
             <Button variant="secondary" class="w-full" onClick={() => setSaveRequest({})}>
               {t("Save as workflow")}
@@ -119,7 +119,7 @@ function ListRow(props: { workflow: Workflow }) {
   return (
     <button
       type="button"
-      class="flex w-full min-w-0 items-center gap-2.5 rounded-md p-1.5 text-left transition-colors hover:bg-accent focus-ring"
+      class="flex w-full min-w-0 items-center gap-2.5 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent focus-ring"
       onClick={() => showWorkflow(props.workflow.id)}
     >
       <div class="h-12 w-[27px] shrink-0 overflow-hidden rounded-[4px] border border-border">

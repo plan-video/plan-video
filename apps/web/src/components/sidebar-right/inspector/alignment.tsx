@@ -77,7 +77,7 @@ export function Alignment() {
     <div
       role="toolbar"
       aria-label={t("Alignment")}
-      class="flex h-12 items-center gap-2 border-t border-border px-4"
+      class="flex h-12 items-center justify-between border-t border-border px-4"
     >
       <For each={ALIGNMENT_ACTIONS}>
         {(item) => (

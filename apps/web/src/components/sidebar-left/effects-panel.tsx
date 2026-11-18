@@ -65,7 +65,7 @@ export function EffectsPanel() {
       </div>
 
       <div class="min-h-0 flex-1 overflow-y-auto">
-        <div class="p-3">
+        <div class="p-4">
           <PresetGrid>
             <For each={EFFECTS}>
               {(effect) => (

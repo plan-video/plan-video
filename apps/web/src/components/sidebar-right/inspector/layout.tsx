@@ -183,7 +183,7 @@ export function LayoutPanel(props: LayoutPanelProps) {
                               {t(item.label)}
                             </span>
                             <DropdownMenuItemDetail>
-                              {item.width}x{item.height}
+                              {item.width} × {item.height}
                             </DropdownMenuItemDetail>
                           </DropdownMenuItem>
                         )
