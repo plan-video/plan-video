@@ -8,7 +8,7 @@ import { toast } from "somoto";
 import CheckIcon from "lucide-solid/icons/check";
 import ChevronDownIcon from "lucide-solid/icons/chevron-down";
 import ChevronLeftIcon from "lucide-solid/icons/chevron-left";
-import CircleAlertIcon from "lucide-solid/icons/circle-alert";
+import CircleAlertIcon from "lucide-solid/icons/circle-exclamation-point";
 import CircleMinusIcon from "lucide-solid/icons/circle-minus";
 import EllipsisIcon from "lucide-solid/icons/ellipsis";
 import LoaderCircleIcon from "lucide-solid/icons/loader-circle";
