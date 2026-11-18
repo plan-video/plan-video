@@ -152,7 +152,7 @@ test("a video reaches the upload address whole, as a form S3 takes, with its len
 test("an upload that stops tries again, and no Pin is made", async (t) => {
   const { pins } = fakePinterest(t, [["POST /media", { body: { media_id: "555", upload_url: "https://uploads.example/", upload_parameters: {} } }]]);
   const real = globalThis.fetch;
-  t.mock.method(globalThis, "fetch", (url, init) => (String(url).startsWith("https://uploads.example") ? Promise.resolve(new Response("<Error/>", { status: 403 })) : real(url, init)));
+  t.mock.method(globalThis, "fetch", (url, init) => (new URL(String(url)).host === "uploads.example" ? Promise.resolve(new Response("<Error/>", { status: 403 })) : real(url, init)));
   await assert.rejects(pinterest.send({ post: post(), session: SESSION, files: [video("v1")], media: { stream: async () => new Blob(["hello video"]).stream() }, delivery: delivery() }), (error) => error.retry);
   assert.equal(pins().length, 0);
 });

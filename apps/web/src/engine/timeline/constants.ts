@@ -61,8 +61,8 @@ export const RULER_INTERVALS = [
 
 export type TimelineColors = {
   background: { default: string; muted: string; accent: string };
-  border: { darker: string; input: string; ring: string; scrubber: string };
-  ruler: { tick: string; text: string };
+  border: { darker: string; input: string; ring: string; playhead: string; scrubber: string };
+  ruler: { tick: string; major: string; text: string };
   keyframe: string;
   clip: Record<'group' | 'video' | 'audio' | 'caption' | 'image' | 'text' | 'shape' | 'scene' | 'mask' | 'adjustment' | 'html' | 'failed', {
     background: string;
@@ -74,86 +74,89 @@ export type TimelineColors = {
 
 export const COLORS = {
   background: {
-    default: '#0B0B0B',
-    muted: '#161616',
-    accent: '#161616',
+    default: '#1C1D1F',
+    muted: '#27282A',
+    accent: '#27282A',
   },
   border: {
-    darker: '#0B0B0B',
-    input: '#2E2E2E',
+    darker: '#1C1D1F',
+    input: '#3D3E40',
     ring: '#2f6ff0',
+    playhead: '#2f6ff0',
     scrubber: '#F43535',
   },
   ruler: {
-    tick: 'rgba(255, 255, 255, 0.1)',
-    text: 'rgba(255, 255, 255, 0.36)',
+    tick: 'rgba(255, 255, 255, 0.12)',
+    major: 'rgba(255, 255, 255, 0.28)',
+    text: 'rgba(255, 255, 255, 0.56)',
   },
   keyframe: 'rgba(237, 237, 237, 0.64)',
+  // Every kind shares one lightness per role, so no clip outweighs another: fills 0.44, borders 0.58, labels 0.975 (OKLCH).
   clip: {
     group: {
-      background: '#202227',
-      border: '#363A42',
-      primary: '#3A3F47',
-      foreground: '#E5E7EB',
+      background: '#34383F',
+      border: '#565B64',
+      primary: '#50555E',
+      foreground: '#EBEFF4',
     },
     video: {
-      background: '#1A2A4A',
-      border: '#2A4785',
-      primary: '#7AA7F7', // Waveform
-      foreground: '#D6E4FF', // Label
+      background: '#355187',
+      border: '#5078C4',
+      primary: '#B9D2FF', // Waveform
+      foreground: '#F2F7FF', // Label
     },
     audio: {
-      background: '#143C2F',
-      border: '#17664A',
-      primary: '#34D399',
-      foreground: '#C9F5E3',
+      background: '#126147',
+      border: '#208F69',
+      primary: '#88E8BF',
+      foreground: '#ECFBF4',
     },
     caption: {
-      background: '#45213A',
-      border: '#7A2F5C',
-      primary: '#8E3566', // Word background
-      foreground: '#FBD5E8',
+      background: '#783A5A',
+      border: '#B05885',
+      primary: '#AF4D80', // Word background
+      foreground: '#FFF3F8',
     },
     image: {
-      background: '#463415',
-      border: '#7A5516',
-      foreground: '#FDE8C4',
+      background: '#6E4B0F',
+      border: '#A16F1C',
+      foreground: '#FEF5EA',
     },
     text: {
-      background: '#2E3239',
-      border: '#4B525D',
-      foreground: '#E2E8F0',
+      background: '#415566',
+      border: '#627E96',
+      foreground: '#F2F7FC',
     },
     shape: {
-      background: '#452222',
-      border: '#782D2D',
-      foreground: '#FDE2E2',
+      background: '#7B4028',
+      border: '#B4603E',
+      foreground: '#FFF4F0',
     },
     scene: {
-      background: '#123A42',
-      border: '#126170',
-      primary: '#22D3EE',
-      foreground: '#CFF7FD',
+      background: '#005D6D',
+      border: '#0089A0',
+      primary: '#7BE2FB',
+      foreground: '#EBFAFE',
     },
     mask: {
-      background: '#282A4A',
-      border: '#3F417F',
-      foreground: '#E0E1FD',
+      background: '#494B86',
+      border: '#6D70C2',
+      foreground: '#F5F6FF',
     },
     adjustment: {
-      background: '#30274A',
-      border: '#513A82',
-      foreground: '#ECE4FE',
+      background: '#5B457F',
+      border: '#8667B9',
+      foreground: '#F8F5FF',
     },
     html: {
-      background: '#163B37',
-      border: '#17635B',
-      foreground: '#CCF5EF',
+      background: '#00605C',
+      border: '#018D87',
+      foreground: '#EBFAF9',
     },
     failed: {
-      background: '#2A1616',
-      border: '#5C2424',
-      foreground: '#FF8A8A',
+      background: '#4A2420',
+      border: '#A83634',
+      foreground: '#FFA09C',
     },
   },
 } satisfies TimelineColors;
@@ -168,11 +171,13 @@ export const LIGHT_COLORS = {
     darker: '#FFFFFF',
     input: '#D4D4D4',
     ring: '#2563eb',
+    playhead: '#2563eb',
     scrubber: '#E5252A',
   },
   ruler: {
-    tick: 'rgba(0, 0, 0, 0.12)',
-    text: 'rgba(0, 0, 0, 0.42)',
+    tick: 'rgba(0, 0, 0, 0.14)',
+    major: 'rgba(0, 0, 0, 0.3)',
+    text: 'rgba(0, 0, 0, 0.5)',
   },
   keyframe: 'rgba(0, 0, 0, 0.5)',
   clip: {
@@ -211,9 +216,9 @@ export const LIGHT_COLORS = {
       foreground: '#3D4E63',
     },
     shape: {
-      background: '#FBE7E4',
-      border: '#F1C3BC',
-      foreground: '#A3301F',
+      background: '#FAE6DF',
+      border: '#F2C6B5',
+      foreground: '#9B3B08',
     },
     scene: {
       background: '#DFF3F9',

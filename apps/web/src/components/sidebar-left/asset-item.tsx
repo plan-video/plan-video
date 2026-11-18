@@ -16,7 +16,9 @@ import {
   ContextMenuShortcut,
   ContextMenuTrigger,
 } from "../ui/context-menu";
+import PlusIcon from "lucide-solid/icons/plus";
 import { AssetThumbnail } from "../ui/asset-thumbnail";
+import { Tooltip, TooltipContent, TooltipPortal, TooltipTrigger } from "../ui/tooltip";
 import { formatAssetDuration } from "@/utils";
 import { useLibrary } from "@/engine/library";
 import { t } from "@/lib/i18n";
@@ -107,7 +109,7 @@ export function LazyAssetItem(props: LazyAssetItemProps) {
     <ContextMenu>
       <ContextMenuTrigger
         as="div"
-        class="flex flex-col gap-1 text-left"
+        class="group/asset flex flex-col gap-1 text-left"
         data-asset-id={props.asset.id}
         draggable={true}
         onDragStart={handleDragStart}
@@ -117,7 +119,7 @@ export function LazyAssetItem(props: LazyAssetItemProps) {
         <div
           ref={ref}
           data-selected={props.selected}
-          class="relative aspect-video w-full overflow-clip rounded bg-muted after:pointer-events-none after:absolute after:inset-0 after:rounded after:opacity-0 after:ring-2 after:ring-inset after:ring-ring after:z-10 data-[selected=true]:after:opacity-100"
+          class="relative aspect-video w-full overflow-clip rounded-md bg-muted before:pointer-events-none before:absolute before:inset-0 before:z-10 before:rounded-md before:inset-ring-1 before:inset-ring-foreground/8 after:pointer-events-none after:absolute after:inset-0 after:rounded-md after:opacity-0 after:ring-2 after:ring-inset after:ring-ring after:z-10 data-[selected=true]:after:opacity-100"
         >
           <Show when={isVisible()}>
             <AssetThumbnail asset={props.asset} class="absolute inset-0" cache={library()?.cache} />
@@ -131,6 +133,24 @@ export function LazyAssetItem(props: LazyAssetItemProps) {
               </div>
             )}
           </Show>
+          <Tooltip placement="top">
+            <TooltipTrigger
+              as="button"
+              type="button"
+              aria-label={t("Insert at playhead")}
+              class="press absolute bottom-1 right-1 z-20 grid size-5 place-items-center rounded-full bg-overlay text-primary-foreground opacity-0 outline-none group-hover/asset:opacity-100 hover:bg-primary focus-visible:opacity-100 focus-ring"
+              // The tile's own click selects the asset; adding it should leave the new clip selected instead.
+              onClick={(event: MouseEvent) => {
+                event.stopPropagation();
+                handleInsertToTimeline();
+              }}
+            >
+              <PlusIcon class="size-3.5" stroke-width={2.25} />
+            </TooltipTrigger>
+            <TooltipPortal>
+              <TooltipContent>{t("Insert at playhead")}</TooltipContent>
+            </TooltipPortal>
+          </Tooltip>
         </div>
         <Show
           when={isRenaming()}

@@ -82,7 +82,7 @@ export function PresetTile(props: PresetTileProps) {
         />
       </div>
       <Show when={props.label}>
-        <div class="flex w-full min-w-0 items-center gap-1.5 px-0.5">
+        <div class="flex w-full min-w-0 items-center gap-1.5">
           <span class="min-w-0 truncate text-xs text-foreground">{props.label}</span>
           <Show when={props.tag}>
             {(tag) => (

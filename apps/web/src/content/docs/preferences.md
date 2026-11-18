@@ -8,7 +8,11 @@ Change it in the dashboard under **Settings** → **Preferences**, or from the l
 
 ## Theme
 
-Pick **Dark** or **Light** under **Preferences** → **Appearance**, or with the switch at the bottom of the site. One pick applies everywhere. Until you pick, the site starts light, and the dashboard and editor start dark. The docs follow the same choice; use the switch in the top bar.
+Pick **Light**, **Dark** or **System** (follow your device) under **Preferences** → **Appearance**, or use the switch at the bottom of the site. One pick applies everywhere. Until you pick, the site starts light, and the dashboard and editor start dark. The docs follow the same choice; use the switch in the top bar.
+
+Below that, choose a ready-made theme or click **New theme** to build your own: accent colour, background, contrast, corners and font, plus the playhead and clip colours on the timeline. The dashboard and the video editor always share one theme, and text stays readable whatever you pick.
+
+To share a theme, open its **⋯** menu and choose **Copy theme code**. To add one, click the arrow next to **New theme**, choose **Import a theme** and paste the code.
 
 ## Editor layout
 
@@ -20,6 +24,12 @@ Arrange the video editor however you like:
 - **Ready-made layouts:** open the menu at the top of the rail, then **View** → **Layout**. **Timeline focus**, **Canvas focus** and **Tall sidebars** are one click away.
 - **Your own layouts:** choose **Save current layout…** in the same menu and give it a name. It joins the list, and the **×** beside it removes it. It remembers which sections were hidden too.
 - **Start over:** choose **Reset layout** in the same menu.
+
+## Keyboard shortcuts
+
+Coming from another video editor? Keep the keys you know. Open **Keybinds** from the menu at the top of the editor's rail and choose **CapCut**, **Final Cut Pro**, **DaVinci Resolve** or **Premiere Pro** under **Same keys as**. You can also change it in the dashboard under **Settings** → **Preferences**. The keys change straight away, and **Keybinds** always lists the ones you have now. The choice is kept on this device.
+
+With another app's keys, the arrow keys move the playhead: ← and → step a frame, and ↑ and ↓ jump to the previous or next cut. Hold <kbd>⌥</kbd> with an arrow key to nudge the selected layer instead.
 
 ## Time zone
 

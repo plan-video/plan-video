@@ -144,3 +144,27 @@ test("a video's init that went unanswered is tried again, since nothing is up ye
     tiktok.restore();
   }
 });
+
+test("starting a video upload is tried again when TikTok is busy, since nothing goes out until it's all up", async (t) => {
+  for (const status of [500, 503, 429]) {
+    t.mock.method(globalThis, "fetch", async () => Response.json({ error: { code: "internal_error", message: "Busy" } }, { status }), { times: 1 });
+    await assert.rejects(
+      createTikTok().send({ post: post(), session: { accessToken: "a" }, files: [VIDEO], media, delivery: { user_id: "u1" }, progress: async () => {} }),
+      (error) => error instanceof PublishError && error.retry === true,
+      `after ${status}`,
+    );
+  }
+});
+
+test("a video upload TikTok turns down isn't tried again, and neither is a busy answer to a photo post, which may have made it", async (t) => {
+  t.mock.method(globalThis, "fetch", async () => Response.json({ error: { code: "invalid_params", message: "No" } }, { status: 400 }), { times: 1 });
+  await assert.rejects(
+    createTikTok().send({ post: post(), session: { accessToken: "a" }, files: [VIDEO], media, delivery: { user_id: "u1" }, progress: async () => {} }),
+    (error) => error instanceof PublishError && error.retry === false,
+  );
+  t.mock.method(globalThis, "fetch", async () => Response.json({ error: { code: "internal_error", message: "Busy" } }, { status: 503 }), { times: 1 });
+  await assert.rejects(
+    createTikTok({ photos }).send({ post: post(), session: { accessToken: "a" }, files: [PICTURE], media, delivery: { user_id: "u1" }, progress: async () => {} }),
+    (error) => error instanceof PublishError && error.retry === false,
+  );
+});

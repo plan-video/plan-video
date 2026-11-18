@@ -2,9 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import { flushPostSync } from "@/lib/post-sync";
 import { createSignal } from "solid-js";
 
-import { ownCaptions, postFileStates } from "@/components/calendar/store";
+import { allPosts, ownCaptions, postFileStates } from "@/components/calendar/store";
 import type { PostStatus, StoredEvent } from "@/components/calendar/types";
 import { platformName } from "@/components/calendar/utils";
 import { t } from "@/lib/i18n";
@@ -150,7 +151,9 @@ export async function sharePost(post: StoredEvent): Promise<{ id: string } | { e
   const existing = previewOf(post.id);
   if (!existing && paidToolsLocked()) return { error: t("Preview links come with a paid plan.") };
   const owner = subject.owner;
-  const snapshot = await snapshotOf(post);
+  // A workspace's post must be saved before the database lets anyone in it share it.
+  if (!existing && !(await flushPostSync(post.id))) return { error: t("Sharing isn't available right now.") };
+  const snapshot = await snapshotOf(allPosts().find((item) => item.id === post.id) ?? post);
   const updatedAt = new Date().toISOString();
   // An upsert counts as adding one, which the database refuses on Free even for a link made before a downgrade.
   const { data, error } = await (existing

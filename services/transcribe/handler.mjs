@@ -9,6 +9,8 @@ import { pipeline } from "node:stream/promises";
 
 const SCRIBE = "https://api.elevenlabs.io/v1/speech-to-text";
 const MAX_AUDIO_BYTES = 100 * 1024 * 1024;
+const STALL_MS = 30_000;
+const SLOWEST_BYTES_PER_SECOND = 8 * 1024;
 
 const PAUSE_SECONDS = 0.45;
 
@@ -23,6 +25,7 @@ const PERSON_SLOTS = 3;
 const SERVER_SLOTS = 12;
 const QUEUE_MAX = 40;
 const HEADER_BYTES = 64 * 1024;
+const WAV_HEADER_BYTES = 44;
 
 const sessions = new Map();
 const windows = new Map();
@@ -230,28 +233,31 @@ function resetDay() {
 
 // The editor only sends 16-bit PCM mono, so anything else is refused rather than measured.
 // `audio` can be the start of the file, with `total` its whole length in bytes.
+// Billed by the file's size past a plain header: a decoder may hear any byte, wherever a chunk says it ends.
 export function wavSeconds(audio, total = audio.length) {
-  if (audio.length < 44 || audio.toString("ascii", 0, 4) !== "RIFF" || audio.toString("ascii", 8, 12) !== "WAVE") return null;
+  if (audio.length < WAV_HEADER_BYTES || audio.toString("ascii", 0, 4) !== "RIFF" || audio.toString("ascii", 8, 12) !== "WAVE") return null;
   let byteRate = 0;
   let offset = 12;
   while (offset + 8 <= audio.length) {
     const id = audio.toString("ascii", offset, offset + 4);
     const size = audio.readUInt32LE(offset + 4);
     const body = offset + 8;
-    if (id === "fmt " && body + 16 <= audio.length) {
+    const end = body + size + (size % 2);
+    if (id === "fmt ") {
+      if (byteRate || size < 16 || body + 16 > audio.length) return null;
       const format = audio.readUInt16LE(body);
       const channels = audio.readUInt16LE(body + 2);
       const sampleRate = audio.readUInt32LE(body + 4);
       const bits = audio.readUInt16LE(body + 14);
-      if ((format !== 1 && format !== 0xfffe) || channels !== 1 || bits !== 16 || sampleRate < 8000 || sampleRate > 192000) return null;
+      if (format !== 1 || channels !== 1 || bits !== 16 || sampleRate < 8000 || sampleRate > 192000) return null;
       byteRate = sampleRate * 2;
     } else if (id === "data") {
       if (!byteRate) return null;
-      // A streamed WAV can leave the size at 0 or all ones: count what arrived.
-      const bytes = Math.min(size || Infinity, total - body);
-      return bytes / byteRate;
+      // A streamed WAV can leave the size at 0 or all ones. Any other must reach the end of the file.
+      if (size !== 0 && end < total) return null;
+      return (total - WAV_HEADER_BYTES) / byteRate;
     }
-    offset = body + size + (size % 2);
+    offset = end;
   }
   return null;
 }
@@ -321,7 +327,7 @@ async function transcribe(req, res, env, user) {
 
     const form = new FormData();
     form.set("model_id", "scribe_v2");
-    form.set("file", await openAsBlob(file, { type: req.headers["content-type"] || "audio/wav" }), "audio");
+    form.set("file", await openAsBlob(file, { type: "audio/wav" }), "audio");
     form.set("timestamps_granularity", "word");
     // Captions show what was said. "(gunshots)" is not a word.
     form.set("tag_audio_events", "false");
@@ -394,11 +400,20 @@ function errorOf(payload) {
   return typeof detail?.message === "string" ? detail.message : undefined;
 }
 
-async function saveBody(req, file, max) {
+export async function saveBody(req, file, max) {
   let size = 0;
+  const started = Date.now();
+  let last = started;
+  // A slot is held while this runs, so a sender has to keep sending. The floor is far under what speech audio needs.
+  const watch = setInterval(() => {
+    const at = Date.now();
+    if (at - last >= STALL_MS || (at - started >= STALL_MS && size / ((at - started) / 1000) < SLOWEST_BYTES_PER_SECOND)) req.destroy(new Error("stalled"));
+  }, 5000);
+  watch.unref?.();
   const cap = new Transform({
     transform(chunk, _encoding, done) {
       size += chunk.length;
+      last = Date.now();
       if (size > max) done(new Refused(413, "The scene audio is too large to transcribe."));
       else done(null, chunk);
     },
@@ -409,6 +424,8 @@ async function saveBody(req, file, max) {
     req.destroy();
     if (error instanceof Refused) throw error;
     throw new Refused(400, "The audio didn't arrive in full. Try again.");
+  } finally {
+    clearInterval(watch);
   }
   return size;
 }

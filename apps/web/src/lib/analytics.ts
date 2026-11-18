@@ -7,6 +7,7 @@
  * to main. Pageviews are auto-tracked; call `track` only for custom events.
  */
 
+import { scrubAddressFields } from "@/lib/sentry-scrub";
 import { capturePostHog, identifyPostHog, resetPostHog } from "@/lib/posthog";
 
 type UmamiEventData = Record<string, string | number | boolean | undefined>;
@@ -41,6 +42,9 @@ export function initAnalytics(): void {
   script.setAttribute("data-domains", domains);
   script.setAttribute("data-tag", "web-app-v1");
   script.setAttribute("data-performance", "true");
+  // An address can be a client link or a shared post, which work for whoever has them.
+  (window as unknown as Record<string, unknown>).umamiBeforeSend = (_type: string, payload: Record<string, unknown>) => scrubAddressFields(payload);
+  script.setAttribute("data-before-send", "umamiBeforeSend");
   document.head.appendChild(script);
 }
 

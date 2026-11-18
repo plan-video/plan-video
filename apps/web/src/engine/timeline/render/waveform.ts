@@ -4,6 +4,8 @@
 
 import {
 	Computed,
+	Muted,
+	getParentEntity,
 	getSourceWindow,
 	readSpeedCurve,
 	sourceFrameAtOffset,
@@ -11,22 +13,25 @@ import {
 	timelineOffsetAtSource,
 } from '@plan.video/runtime';
 
-import { CLIP_BREAKPOINTS, CLIP_CORNER_RADIUS } from '../config';
 import { SAMPLE_WIDTH, getClipSamples, requestPeaks } from '../peaks';
 import { framesToPixels, getFrameRate, getResolution, getViewport, pixelsToFrames } from '../view';
 
 import type { AudioAsset, VideoAsset } from '@plan.video/assets';
 import type { Entity, World } from 'koota';
-import type { RowCursor } from '../layout';
 import type { TimelineSurfaceState } from '../surface';
 
 const VIEWPORT_MARGIN = 5;
+const PADDING = 2;
+const MUTED_ALPHA = 0.3;
 
 export type WaveformOptions = {
 	asset: AudioAsset | VideoAsset;
 	color: string;
-	offsetY: number;
-	padding: number;
+	/** The band it fills, from the row's top. */
+	top: number;
+	height: number;
+	/** Grown from the middle; otherwise it stands on the band's bottom edge. */
+	centred: boolean;
 };
 
 // Peaks are asked for at one per pixel and only for the on-screen stretch, then
@@ -37,12 +42,11 @@ export function renderWaveform(
 	scene: Entity,
 	surface: TimelineSurfaceState,
 	entity: Entity,
-	row: RowCursor,
 	options: WaveformOptions,
 ): void {
 	const ctx = surface.ctx!;
 
-	if (!options.asset.sampleRate) return;
+	if (!options.asset.sampleRate || options.height <= PADDING) return;
 
 	const eid = entity.id();
 	const computed = store(world, Computed);
@@ -51,18 +55,16 @@ export function renderWaveform(
 
 	const clipLeft = framesToPixels(computed.start[eid] ?? 0, resolution);
 	const clipWidth = framesToPixels(computed.end[eid] ?? 0, resolution) - clipLeft;
-	const maskHeight = row.height - options.offsetY;
-	if (maskHeight <= 0) return;
 
 	const [viewportLeft, viewportRight] = getViewport(world, scene, surface.layout.width);
 
 	ctx.save();
 
 	ctx.beginPath();
-	ctx.roundRect(clipLeft, options.offsetY, clipWidth, maskHeight, CLIP_CORNER_RADIUS);
+	ctx.rect(clipLeft, options.top, clipWidth, options.height);
 	ctx.clip();
 
-	const waveformHeight = maskHeight - options.padding;
+	const room = options.height - (options.centred ? PADDING * 2 : PADDING);
 
 	const playbackRate = computed.playbackRate[eid] || 1;
 	const curve = readSpeedCurve(entity);
@@ -102,15 +104,14 @@ export function renderWaveform(
 	});
 
 	ctx.fillStyle = options.color;
-
-	const anchor = maskHeight > CLIP_BREAKPOINTS.sm ? 0.5 : 1;
-	const minSampleHeight = maskHeight > CLIP_BREAKPOINTS.sm ? 1 : 0;
-
-	if (row.height <= CLIP_BREAKPOINTS.sm) ctx.globalAlpha *= 0.6;
-
-	ctx.translate(originPx, options.offsetY + options.padding * anchor);
+	// Silenced sound stays on show, faded: the shape is still what people cut by.
+	if (entity.has(Muted) || getParentEntity(entity)?.has(Muted)) ctx.globalAlpha *= MUTED_ALPHA;
+	ctx.translate(originPx, options.top);
 
 	const samples = getClipSamples(eid);
+
+	// One path, one fill: a clip the width of the screen is a few thousand bars.
+	ctx.beginPath();
 
 	for (let x = firstSample; samples && x < lastSample; x += SAMPLE_WIDTH) {
 		const time = sourceSecondsAt(x);
@@ -119,9 +120,11 @@ export function renderWaveform(
 		const peak = samples.data[Math.floor((time - samples.start) * samples.peaksPerSecond)];
 		if (peak === undefined) continue;
 
-		const height = Math.max((peak / 255) * waveformHeight, minSampleHeight);
-		ctx.fillRect(x, (waveformHeight - height) * anchor, SAMPLE_WIDTH, height);
+		// A centred waveform keeps a hairline through silence, so a quiet stretch still reads as sound.
+		const height = Math.max((peak / 255) * room, options.centred ? 1 : 0);
+		ctx.rect(x, options.centred ? (options.height - height) / 2 : options.height - height, SAMPLE_WIDTH, height);
 	}
 
+	ctx.fill();
 	ctx.restore();
 }

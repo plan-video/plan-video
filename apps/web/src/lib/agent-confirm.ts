@@ -16,6 +16,8 @@ export type ConfirmRequest = {
   time: string | null;
   channels: { platform: string; handle: string }[];
   soon: boolean;
+  /** A scheduled post this would stop going out. */
+  leavesSchedule?: boolean;
   /** The person's yes is their yes to TikTok's terms. */
   tiktok: { branded: boolean } | null;
   /** Shown in full so nothing rides along unseen. Unset for a delete. */
@@ -30,7 +32,7 @@ export type ConfirmDetails = {
   repeat: { recurrence: string; end: string | null } | null;
   youtube: { title: string; privacy: string; madeForKids: boolean; tags: string[] } | null;
   /** Null when it goes to the TikTok inbox or not to TikTok. */
-  tiktokPrivacy: string | null;
+  tiktok: { privacy: string; comments: boolean; duet: boolean; stitch: boolean; yourBrand: boolean; brandedContent: boolean } | null;
   captions: { platform: string; text: string }[];
   /** `delay` is minutes after the one before; `files` is how many each carries. */
   thread: { text: string; delay: number; files: number }[];
@@ -46,9 +48,9 @@ export function isSoon(at: Date | null, now = Date.now()): boolean {
 }
 
 /** `every` is for agents at plan.video/mcp: any scheduled post waits, however far out. */
-export function needsConfirm(input: { tool: ConfirmTool; scheduled?: boolean; at?: Date | null; tiktokYes?: boolean; every?: boolean; now?: number }): boolean {
+export function needsConfirm(input: { tool: ConfirmTool; scheduled?: boolean; leavesSchedule?: boolean; at?: Date | null; tiktokYes?: boolean; every?: boolean; now?: number }): boolean {
   if (input.tool === "publish_post" || input.tool === "delete_post") return true;
-  if (!input.scheduled) return false;
+  if (!input.scheduled) return !!input.every && !!input.leavesSchedule;
   return !!input.every || !!input.tiktokYes || isSoon(input.at ?? null, input.now);
 }
 

@@ -9,10 +9,14 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/dashboard/dashboard-icon";
 import { useAuth } from "@/context/auth";
 import { t } from "@/lib/i18n";
+import { smoothly } from "@/lib/motion";
+import { reopenOnboarding } from "@/lib/onboarding";
 import { CHANGELOG_URL, DOCS_URL, ROADMAP_URL, SUPPORT_URL } from "@/lib/site-links";
 import { site } from "@/lib/site";
+import { activeShared } from "@/lib/workspaces";
 
 import {
+  DashboardInfoActionRow,
   DashboardLabelValue,
   DashboardDividedStack,
   DashboardScrollView,
@@ -75,6 +79,29 @@ export function DashboardHelpView() {
 
   return (
     <DashboardScrollView>
+      {/* Another's workspace isn't this person's to name or connect accounts to. */}
+      <Show when={!auth.isGuest() && !activeShared() && userId()}>
+        <DashboardSurfaceSection title={t("Get started")}>
+          <DashboardInfoActionRow
+            title={t("Setup guide")}
+            description={t("Name your workspace, choose your look, connect your accounts and set your posting times.")}
+            action={
+              <Button
+                variant="secondary"
+                onClick={() =>
+                  smoothly(async () => {
+                    await import("./onboarding-view");
+                    reopenOnboarding(userId());
+                  })
+                }
+              >
+                {t("Open")}
+              </Button>
+            }
+          />
+        </DashboardSurfaceSection>
+      </Show>
+
       <DashboardSurfaceSection title={t("Resources")}>
         <DashboardDividedStack>
           <Show when={site}>

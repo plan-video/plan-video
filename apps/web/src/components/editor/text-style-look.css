@@ -1,0 +1,125 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* Tile previews of the runtime's motions (runtime systems/motion.ts), sized to a tile.
+ * Loops are at rest at their start. An in plays in the first 40% of its cycle and then
+ * holds, and `--still` parks it in that hold, so a resting tile shows the words. */
+.text-style-look[data-motion] {
+  animation-duration: var(--motion-duration, 1s);
+  animation-iteration-count: infinite;
+  animation-timing-function: ease-in-out;
+  transform-origin: center;
+}
+
+.text-style-look[data-motion="float"] { animation-name: text-look-float; }
+.text-style-look[data-motion="pulse"] { animation-name: text-look-pulse; }
+.text-style-look[data-motion="wiggle"] { animation-name: text-look-wiggle; }
+.text-style-look[data-motion="breathe"] { animation-name: text-look-breathe; }
+.text-style-look[data-motion="shake"] { animation-name: text-look-shake; animation-timing-function: step-end; }
+.text-style-look[data-motion="flicker"] { animation-name: text-look-flicker; animation-timing-function: step-end; }
+
+.text-style-look:is(
+  [data-motion="fade"],
+  [data-motion="slideUp"],
+  [data-motion="pop"],
+  [data-motion="bounce"],
+  [data-motion="grow"],
+  [data-motion="blur"],
+  [data-motion="appearChar"]
+) {
+  --still: calc(var(--motion-duration, 1s) * -2);
+  animation-duration: calc(var(--motion-duration, 1s) * 2.5);
+  animation-timing-function: ease-out;
+}
+
+.text-style-look[data-motion="fade"] { animation-name: text-look-fade; }
+.text-style-look[data-motion="slideUp"] { animation-name: text-look-slide-up; }
+.text-style-look[data-motion="pop"] { animation-name: text-look-pop; }
+.text-style-look[data-motion="bounce"] { animation-name: text-look-bounce; }
+.text-style-look[data-motion="grow"] { animation-name: text-look-grow; }
+.text-style-look[data-motion="blur"] { animation-name: text-look-blur; }
+.text-style-look[data-motion="appearChar"] { animation-name: text-look-type; animation-timing-function: steps(8, end); }
+
+@keyframes text-look-float {
+  25% { transform: translateY(-4%); }
+  75% { transform: translateY(4%); }
+}
+
+@keyframes text-look-pulse {
+  50% { transform: scale(1.08); }
+}
+
+@keyframes text-look-wiggle {
+  25% { transform: rotate(5deg); }
+  75% { transform: rotate(-5deg); }
+}
+
+@keyframes text-look-breathe {
+  50% { opacity: 0.55; }
+}
+
+@keyframes text-look-shake {
+  0% { transform: none; }
+  8% { transform: translate(1.5%, -2%) rotate(0.8deg); }
+  17% { transform: translate(-2%, 1%) rotate(-1deg); }
+  25% { transform: translate(1%, 2%) rotate(0.5deg); }
+  33% { transform: translate(-1.5%, -1.5%) rotate(-0.6deg); }
+  42% { transform: translate(2%, 0.5%) rotate(1deg); }
+  50% { transform: translate(-0.5%, 2%) rotate(-0.4deg); }
+  58% { transform: translate(-2%, -1%) rotate(0.7deg); }
+  67% { transform: translate(1.5%, 1%) rotate(-0.9deg); }
+  75% { transform: translate(-1%, -2%) rotate(0.3deg); }
+  83% { transform: translate(2%, -0.5%) rotate(-0.5deg); }
+  92% { transform: translate(-1.5%, 1.5%) rotate(0.6deg); }
+  100% { transform: none; }
+}
+
+@keyframes text-look-flicker {
+  0% { opacity: 1; }
+  10% { opacity: 0.25; }
+  14% { opacity: 1; }
+  17% { opacity: 0.6; }
+  20% { opacity: 1; }
+  54% { opacity: 0.35; }
+  57% { opacity: 1; }
+}
+
+@keyframes text-look-fade {
+  0% { opacity: 0; }
+  40%, 100% { opacity: 1; }
+}
+
+@keyframes text-look-slide-up {
+  0% { opacity: 0; transform: translateY(14%); }
+  40%, 100% { opacity: 1; transform: none; }
+}
+
+@keyframes text-look-pop {
+  0% { transform: scale(0); }
+  22% { transform: scale(1.2); }
+  33% { transform: scale(0.92); }
+  40%, 100% { transform: none; }
+}
+
+@keyframes text-look-bounce {
+  0% { transform: scale(0); }
+  22% { transform: scale(1.35); }
+  33% { transform: scale(0.92); }
+  40%, 100% { transform: none; }
+}
+
+@keyframes text-look-grow {
+  0% { transform: scale(0.5); }
+  40%, 100% { transform: none; }
+}
+
+@keyframes text-look-blur {
+  0% { filter: blur(6px); opacity: 0.4; }
+  40%, 100% { filter: none; opacity: 1; }
+}
+
+@keyframes text-look-type {
+  0% { clip-path: inset(0 100% 0 0); }
+  40%, 100% { clip-path: inset(0 0 0 0); }
+}

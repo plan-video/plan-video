@@ -29,20 +29,27 @@ const chipClass = (on: boolean) =>
 const MORE_CLASS = "gap-1 pr-1.5 pl-2.5";
 
 const NEW_GROUP_CLASS =
-  "flex h-7 shrink-0 items-center gap-1 rounded-full border border-dashed border-(--border-input) pr-2.5 pl-1.5 text-xs text-muted-foreground press hover:bg-accent hover:text-foreground focus-ring";
+  "flex h-7 shrink-0 items-center gap-1 rounded-full pr-2.5 pl-1.5 text-xs text-muted-foreground press hover:bg-accent hover:text-foreground focus-ring";
 
 const LABEL_CLASS =
   "-ml-1 flex h-7 shrink-0 items-center gap-0.5 rounded-md pr-0.5 pl-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-ring data-[expanded]:bg-accent data-[expanded]:text-foreground";
 
 const ROW_ACTION_CLASS = "grid size-6 place-items-center rounded-md text-muted-foreground press hover:bg-background hover:text-foreground focus-ring";
 
-/** Nothing may overlap YouTube's icon. */
-export function GroupLogos(props: { platforms: readonly PlatformId[] }) {
+/** `stacked` overlaps them where a row is narrow. Nothing may overlap YouTube's icon. */
+export function GroupLogos(props: { platforms: readonly PlatformId[]; stacked?: boolean }) {
+  const stacked = () => !!props.stacked && !props.platforms.slice(0, 4).includes("youtube");
   return (
-    <span class={cx("flex shrink-0 items-center", props.platforms.slice(0, 4).includes("youtube") ? "gap-1" : "-space-x-1")}>
+    <span class={cx("flex shrink-0 items-center", stacked() ? "-space-x-1" : "gap-1")}>
       {/* YouTube's small on its white tile, the size of the others (see brand/youtube-icon). */}
       <For each={props.platforms.slice(0, 4)}>
-        {(id) => (id === "youtube" ? <YouTubeWhiteTile class="size-4 rounded-full" /> : <PlatformLogo id={id} class="size-4 rounded-full ring-2 ring-background" />)}
+        {(id) =>
+          id === "youtube" ? (
+            <YouTubeWhiteTile class="size-4 rounded-full" />
+          ) : (
+            <PlatformLogo id={id} class={cx("size-4 rounded-full", stacked() && "ring-2 ring-background")} />
+          )
+        }
       </For>
     </span>
   );
@@ -168,7 +175,9 @@ export function AccountGroupPicker(props: {
                         closeList();
                       }}
                     >
-                      <GroupLogos platforms={selection().platforms} />
+                      <span class="flex w-19 shrink-0">
+                        <GroupLogos platforms={selection().platforms} />
+                      </span>
                       <span class={cx("min-w-0 flex-1 truncate", isActive(group) ? "text-foreground" : "text-muted-foreground")}>{group.name}</span>
                       <Show
                         when={isActive(group)}

@@ -132,7 +132,10 @@ export type TransitionSpec = {
   color?: string;
 };
 
-/** "appearWord" / "appearChar" / "scramble" apply only to text; "gain" ramps audio and has no visual effect. */
+/**
+ * "appearWord" / "appearChar" / "scramble" apply only to text; "gain" ramps audio and has no visual effect.
+ * "float" to "breathe" are made for `phase="loop"`: each cycle starts and ends at rest.
+ */
 export type AnimationType =
   | "fade"
   | "gain"
@@ -149,7 +152,13 @@ export type AnimationType =
   | "appearChar"
   | "scramble"
   | "pop"
-  | "bounce";
+  | "bounce"
+  | "float"
+  | "pulse"
+  | "wiggle"
+  | "shake"
+  | "flicker"
+  | "breathe";
 
 /** How glyphs are cased when drawn, whatever the text says. Default "original". */
 export type TextCase = "original" | "upper" | "lower";
@@ -544,13 +553,13 @@ export type GradeProps = Pick<CompositeProps, "hidden"> & {
 /** Played over the clip's head or tail. Several stack, later ones winning; a `<keyframeTrack>` on the same property overrides it while it has keyframes. */
 export type AnimationProps = {
   type: AnimationType;
-  /** "in" plays from the clip's head, "out" into its tail. Default "in". */
-  phase?: "in" | "out";
-  /** Length of the animation. Any `Time` format. Default 1 second. */
+  /** "in" plays from the clip's head, "out" into its tail, "loop" over and over until the tail. Default "in". */
+  phase?: "in" | "out" | "loop";
+  /** Length of the animation, or of one cycle of a loop. Any `Time` format. Default 1 second. */
   duration?: Time;
   /**
-   * Gap between the clip edge and the animation: after the head for "in",
-   * before the tail for "out". Any `Time` format. Default 0.
+   * Gap between the clip edge and the animation: after the head for "in" and
+   * "loop", before the tail for "out". Any `Time` format. Default 0.
    */
   delay?: Time;
 };

@@ -102,7 +102,8 @@ async function setup(t, { level = 2, limit = 40, connections = [] } = {}) {
       this.started.push({ owner, handle });
       return "https://bsky.social/oauth/authorize?x=1";
     },
-    async callback(holder) {
+    async callback(holder, _query, browser) {
+      this.finishedIn = browser;
       const until = String(Date.now() + 15 * 60_000);
       const nonce = "ab".repeat(12);
       return { did: DID, ticket: `${until}.${nonce}.${mac(holder, DID, until, nonce)}` };
@@ -167,6 +168,18 @@ async function ownerLink(ask) {
   return made.link.link;
 }
 
+test("only a paid plan makes a client link, while one already made keeps working", async (t) => {
+  const free = await setup(t, { level: 1 });
+  const refused = await free.ask(OWNER, "connect-link/create", { workspace: "brand", workspaceName: "Acme", fromName: "Meta Support" });
+  assert.equal(refused.status, 403);
+  assert.equal(free.db.tables.connect_links.length, 0);
+
+  const paid = await setup(t, { level: 2 });
+  const link = await ownerLink(paid.ask);
+  paid.db.tables.user_data[0].access_level = 1;
+  assert.equal((await paid.ask(null, "connect-link/open", { link })).status, 200);
+});
+
 test("a client with the link sees whose workspace it is and what they can connect, without signing in", async (t) => {
   const { ask } = await setup(t);
   const link = await ownerLink(ask);
@@ -180,8 +193,9 @@ test("a client with the link sees whose workspace it is and what they can connec
 });
 
 test("X isn't offered for an owner on Free, as Connections doesn't offer it", async (t) => {
-  const { ask } = await setup(t, { level: 1 });
+  const { ask, db } = await setup(t);
   const link = await ownerLink(ask);
+  db.tables.user_data[0].access_level = 1;
   const opened = await ask(null, "connect-link/open", { link });
   assert.ok(!opened.networks.includes("x"));
   const refused = await ask(null, "connect-link/authorize", { link, network: "x", redirectUri: "https://plan.video/x/callback", state: "s".repeat(20), codeChallenge: "c".repeat(43) });
@@ -240,10 +254,11 @@ test("a Facebook login keeps each Page shared, and Bluesky's sign-in starts and 
   const pages = await ask(null, "connect-link/exchange", { link, network: "facebook", code: "c", redirectUri: "https://plan.video/facebook/callback" });
   assert.equal(pages.status, 200, pages.error);
   assert.deepEqual(pages.accounts.map((account) => account.handle), ["page 1001", "page 1002"]);
-  const started = await ask(null, "connect-link/authorize", { link, network: "bluesky", handle: "@acme.bsky.social" });
+  const started = await ask(null, "connect-link/authorize", { link, network: "bluesky", handle: "@acme.bsky.social", state: "tab-0123456789abcdef" });
   assert.equal(started.status, 200, started.error);
   assert.deepEqual(bluesky.started, [{ owner: OWNER, handle: "acme.bsky.social" }]);
-  const signedIn = await ask(null, "connect-link/exchange", { link, network: "bluesky", query: "code=c&state=s" });
+  const signedIn = await ask(null, "connect-link/exchange", { link, network: "bluesky", query: "code=c&state=s", state: "tab-0123456789abcdef" });
+  assert.equal(bluesky.finishedIn, "tab-0123456789abcdef");
   assert.equal(signedIn.status, 200, signedIn.error);
   const sky = brand().find((row) => row.platform === "bluesky");
   assert.deepEqual(sky.bluesky, { did: DID, pds: "", oauth: true, server: true });

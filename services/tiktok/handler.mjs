@@ -229,6 +229,9 @@ export function chunkPlan(videoSize) {
   return { chunkSize, total: Math.floor(videoSize / chunkSize) };
 }
 
+/** Refusals of TikTok's that say nothing about the token, sometimes in an answer of 200. */
+const TOKEN_BUSY = new Set(["internal_error", "rate_limit_exceeded", "server_error", "temporarily_unavailable"]);
+
 export async function tokenRequest(env, fields) {
   const form = new URLSearchParams({ client_key: env.clientKey, client_secret: env.clientSecret, ...fields });
   const response = await fetch(`${TIKTOK}/v2/oauth/token/`, {
@@ -241,7 +244,10 @@ export async function tokenRequest(env, fields) {
   const accessToken = token?.access_token;
   const described =
     payload?.error_description || (typeof payload?.error === "string" ? payload.error : payload?.error?.message) || payload?.message;
-  if (!response.ok || !accessToken) return { error: described || "TikTok refused the login." };
+  if (!response.ok || !accessToken) {
+    const busy = response.status === 429 || response.status >= 500 || !described || TOKEN_BUSY.has(payload?.error);
+    return { error: described || "TikTok refused the login.", busy };
+  }
   return {
     accessToken,
     refreshToken: token?.refresh_token || "",
@@ -263,7 +269,7 @@ export async function tiktok(accessToken, method, path, body) {
   if (!response) return { error: "plan.video couldn't reach TikTok.", unreachable: true };
   const payload = await response.json().catch(() => null);
   const code = payload?.error?.code;
-  if (!response.ok || (code && code !== "ok")) return { error: explain(payload?.error) };
+  if (!response.ok || (code && code !== "ok")) return { error: explain(payload?.error), busy: response.status === 429 || response.status >= 500 };
   return { data: payload?.data ?? {} };
 }
 

@@ -100,10 +100,22 @@ test("a file that isn't a picture, or is far too big to be one, can't be made an
   await assert.rejects(make("tiktok", notPicture), cantBeMade);
   await assert.rejects(maker.forBluesky(notPicture, "image/jpeg", 10), cantBeMade);
   assert.deepEqual(await maker.forBluesky(notPicture, "image/jpeg", 1000), { bytes: notPicture, type: "image/jpeg", aspectRatio: undefined });
+  const drawing = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="40" height="30"><rect width="40" height="30" fill="#2563eb"/></svg>');
+  await assert.rejects(make("tiktok", drawing), cantBeMade);
+  await assert.rejects(make("feed", drawing), cantBeMade);
+  await assert.rejects(maker.forBluesky(drawing, "image/png", 10), cantBeMade);
+  assert.equal((await fetch(`${url}/size`, { method: "POST", body: drawing })).status, 422);
+  assert.equal((await shapeOf(await make("tiktok", await picture(40, 30, "webp")))).format, "jpeg");
   const tooBig = await fetch(`${url}/feed`, { method: "POST", body: Buffer.alloc(33 * 1024 * 1024) });
   assert.equal(tooBig.status, 422);
   assert.match(await tooBig.text(), /Over the size/);
   assert.equal((await shapeOf(await make("tiktok", await picture(40, 30)))).format, "jpeg");
+});
+
+test("a big progressive JPEG, which has to be held whole to decode, isn't worked on; a normal one is", async () => {
+  const big = (progressive) => sharp({ create: { width: 7000, height: 7500, channels: 3, background: { r: 30, g: 90, b: 200 } } }).jpeg({ quality: 50, progressive }).toBuffer();
+  await assert.rejects(make("tiktok", await big(true)), cantBeMade);
+  assert.equal((await shapeOf(await make("tiktok", await sharp({ create: { width: 1200, height: 800, channels: 3, background: { r: 30, g: 90, b: 200 } } }).jpeg({ progressive: true }).toBuffer()))).format, "jpeg");
 });
 
 test("only the shapes it knows are answered", async () => {

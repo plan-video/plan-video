@@ -36,6 +36,7 @@ export const confirmTitle = (request: ConfirmRequest) => t(TITLES[request.tool])
 export function confirmDetail(request: ConfirmRequest): string {
   if (request.tool === "publish_post") return t("It goes out right away, and can't be taken back from here.");
   if (request.tool === "delete_post") return t("It comes off your calendar for good.");
+  if (request.leavesSchedule) return t("It comes off the schedule and won't go out on its own.");
   if (request.soon) return t("It goes out in a few minutes.");
   if (request.tiktok) return t("It goes to your TikTok profile.");
   return t("It goes out on its own at the time shown.");
@@ -81,9 +82,14 @@ export function confirmFacts(request: ConfirmRequest): { label: string; value: s
     if (tags.length) parts.push(`${t("Tags")}: ${tags.join(", ")}`);
     facts.push({ label: "YouTube", value: parts.join(" · ") });
   }
-  if (details.tiktokPrivacy) {
-    const privacy = TIKTOK_PRIVACY[details.tiktokPrivacy] ? t(TIKTOK_PRIVACY[details.tiktokPrivacy]) : details.tiktokPrivacy;
-    facts.push({ label: "TikTok", value: `${t("Who can watch")}: ${privacy}` });
+  if (details.tiktok) {
+    const { privacy, comments, duet, stitch, yourBrand, brandedContent } = details.tiktok;
+    const allowed = [comments && t("Comments"), duet && t("Duet"), stitch && t("Stitch")].filter(Boolean);
+    const promotes = [yourBrand && t("Your brand"), brandedContent && t("Branded content")].filter(Boolean);
+    const parts = [`${t("Who can watch")}: ${TIKTOK_PRIVACY[privacy] ? t(TIKTOK_PRIVACY[privacy]) : privacy}`];
+    if (allowed.length) parts.push(`${t("Allow users to")}: ${allowed.join(", ")}`);
+    if (promotes.length) parts.push(promotes.join(", "));
+    facts.push({ label: "TikTok", value: parts.join(" · ") });
   }
   for (const own of details.captions) facts.push({ label: t("Words for {network}", { network: platformName(own.platform) }), value: own.text });
   (details.thread ?? []).forEach((reply, index) => {

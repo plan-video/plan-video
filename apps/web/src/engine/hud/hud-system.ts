@@ -4,11 +4,11 @@
 
 import { Not, Or } from 'koota';
 import {
-	Active, Computed, Culled, Geometry, Group, Hidden,
+	Active, Cache, Computed, Culled, Geometry, Group, Hidden,
 	HitRegions, Hovering, IsMask, Name, Playback, RenderSurface, Root, Selected,
 	Sequential, ChildOf,
 	entityQuad, entityWorldMat, getMaskSelection, getSelectionMask, getSourceFailure, selectionSubject,
-	invert2D, isGenerating,
+	invert2D, isAudio, isGenerating, isScene,
 	multiply2D, rectToQuad, rotate2D, scale2D, sortByItemIndex, store, transformPoint,
 	translate2D,
 } from '@plan.video/runtime';
@@ -66,13 +66,18 @@ export function hudSystem(world: World): void {
 	const painted = [...world.query(Or(Geometry, Group), ChildOf(world.get(Root)!), Not(Culled))].sort(sortByItemIndex);
 	const quads = painted.map((entity) => (entity.has(Hidden) || entity.has(IsMask) ? null : entityQuad(world, entity)));
 
+	// "Active" tells scenes apart; a project with one scene has nothing to tell apart.
+	const severalScenes = world.query(ChildOf(world.get(Root)!)).filter(isScene).length > 1;
+
 	for (const entity of world.query(ChildOf(world.get(Root)!), Not(Culled), Not(Hidden))) {
 		const index = painted.indexOf(entity);
 		const above = index < 0 ? [] : quads.slice(index + 1).filter((quad): quad is Quad => quad !== null);
-		drawHeader(world, ctx, entity, resolution, above);
+		drawHeader(world, ctx, entity, resolution, above, severalScenes);
 	}
 
-	const mask = world.get(Hud)?.mode === 'moving' || getEditingText() ? null : getSelectionMask(world);
+	const mask = world.get(Hud)?.mode === 'moving' || getEditingText() || selectionIsUnseen(world)
+		? null
+		: getSelectionMask(world);
 
 	if (mask) {
 		drawSelectionMask(world, ctx, mask, resolution);
@@ -81,6 +86,16 @@ export function hudSystem(world: World): void {
 
 	drawMarquee(world, ctx, resolution);
 	drawTextInput(world, ctx, resolution);
+}
+
+/** A sound is heard, not shown: unless it was given a fill, the canvas has nothing of it to outline or pull by the corners. */
+function isUnseen(entity: Entity): boolean {
+	return isAudio(entity) && !entity.get(Cache)?.fills?.length;
+}
+
+function selectionIsUnseen(world: World): boolean {
+	const selection = getMaskSelection(world);
+	return selection.length > 0 && selection.every(isUnseen);
 }
 
 function drawSnapLines(world: World, ctx: Ctx2D, resolution: number): void {
@@ -119,6 +134,8 @@ function drawSnapLines(world: World, ctx: Ctx2D, resolution: number): void {
 
 function drawHoverOutlines(world: World, ctx: Ctx2D, resolution: number): void {
 	for (const entity of world.query(Hovering, Or(Geometry, Group), Not(Sequential), Not(Culled))) {
+		if (isUnseen(entity)) continue;
+
 		ctx.resetTransform();
 		traceQuad(ctx, entityQuad(world, entity));
 		ctx.strokeStyle = ACCENT;
@@ -127,7 +144,7 @@ function drawHoverOutlines(world: World, ctx: Ctx2D, resolution: number): void {
 	}
 }
 
-function drawHeader(world: World, ctx: Ctx2D, entity: Entity, resolution: number, above: Quad[]): void {
+function drawHeader(world: World, ctx: Ctx2D, entity: Entity, resolution: number, above: Quad[], severalScenes: boolean): void {
 	const failure = getSourceFailure(entity);
 	const label = failure || (isGenerating(entity) ? t('Generating...') : entity.get(Name)?.value);
 	if (!label) return;
@@ -141,7 +158,7 @@ function drawHeader(world: World, ctx: Ctx2D, entity: Entity, resolution: number
 
 	const playback = entity.get(Playback);
 	const selected = entity.has(Selected);
-	const active = entity.has(Active);
+	const active = severalScenes && entity.has(Active);
 	const colors = HEADER_COLORS[world.get(EditorTheme)?.mode ?? 'dark'];
 	const foreground = failure ? colors.error : selected ? colors.selected : colors.label;
 	const regions = world.get(HitRegions)!.list;
@@ -392,7 +409,7 @@ function drawDimensions(world: World, ctx: Ctx2D, mask: { width: number; height:
 	mat = multiply2D(mat, translate2D(center / resolution, offset));
 	ctx.setTransform(mat.a, mat.b, mat.c, mat.d, mat.e, mat.f);
 
-	const text = `${Math.round(width * 100) / 100}x${Math.round(height * 100) / 100}`;
+	const text = `${Math.round(width * 100) / 100} × ${Math.round(height * 100) / 100}`;
 	ctx.textAlign = 'center';
 	ctx.textBaseline = 'middle';
 	ctx.font = '500 11px Geist, Inter, sans-serif';

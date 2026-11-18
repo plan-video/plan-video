@@ -3,14 +3,14 @@ import test from "node:test";
 
 import { PublishError } from "./errors.mjs";
 import { fakeDb } from "./fake-db.mjs";
-import { createPlanLimits } from "./plans.mjs";
+import { FREE_POST_NOW_PER_DAY, createPlanLimits } from "./plans.mjs";
 import { GRACE_MS, LATE, accountsFor, createWorker, nextUuid } from "./worker.mjs";
 
 const T0 = Date.parse("2026-10-12T16:00:00Z");
 const VIDEO = { key: "posts/u1/p1", size: 10, type: "video/mp4", kind: "video" };
 const picture = (id) => ({ key: `posts/u1/${id}`, size: 10, type: "image/jpeg", kind: "image" });
 
-function setup({ posts, send, check, publish, file = VIDEO, sendFrom = 0 } = {}) {
+function setup({ posts, send, check, publish, file = VIDEO, sendFrom = 0, wait = async () => {} } = {}) {
   let clock = T0;
   const stored = new Map([["p1", file]]);
   const looked = [];
@@ -53,6 +53,7 @@ function setup({ posts, send, check, publish, file = VIDEO, sendFrom = 0 } = {})
       media,
       networks: { tiktok: network("tiktok"), youtube: network("youtube"), bluesky: network("bluesky"), linkedin },
       sendFrom,
+      wait,
       now: () => clock,
       log: { error() {} },
     });
@@ -94,6 +95,16 @@ test("two publishers looking at the same moment send a due post once", async () 
   await Promise.all([worker.tick(), restart().tick()]);
   assert.deepEqual(calls.map((call) => call.name).sort(), ["tiktok", "youtube"]);
   assert.deepEqual(db.tables.post_deliveries.map((row) => row.state), ["sent", "sent"]);
+});
+
+test("a delivery records the files it carried, its follow-ups' too", async () => {
+  const entry = scheduled({ platforms: ["bluesky"], files: ["p1", "p1_a"], thread: [{ text: "More", files: ["p1_r", "other_x"] }] });
+  entry.connections = [{ id: "bs1", platform: "bluesky" }];
+  const { db, worker, setFile } = setup({ posts: [entry], file: picture("p1") });
+  setFile(picture("p1_a"), "p1_a");
+  await worker.tick();
+  assert.equal(db.tables.post_deliveries[0].state, "sent");
+  assert.deepEqual(db.tables.post_deliveries[0].files, ["p1", "p1_a", "p1_r"]);
 });
 
 test("each workspace's posts go out from its own accounts", async () => {
@@ -218,6 +229,54 @@ test("a post whose account was removed fails instead of going out from the one l
   assert.deepEqual(calls.map((call) => call.connection), ["yt1", "tt1"]);
 });
 
+test("a delivery waiting to try again doesn't go out from an account taken off the post, but still says when one was disconnected", async () => {
+  let busy = true;
+  const send = () => {
+    if (busy) throw new PublishError("TikTok is busy.", { retry: true });
+    return { state: "sent", publishId: "tiktok-id" };
+  };
+  const swapped = scheduled({ platforms: ["tiktok"], accounts: { tiktok: ["tt1"] } });
+  swapped.connections = [...swapped.connections, { id: "tt2", platform: "tiktok" }];
+  const first = setup({ posts: [swapped], send });
+  await first.worker.tick();
+  busy = false;
+  swapped.post.accounts = { tiktok: ["tt2"] };
+  first.advance(10 * 60_000);
+  await first.worker.tick();
+  assert.deepEqual(first.calls.slice(1).map((call) => call.connection), ["tt2"]);
+  assert.deepEqual(first.db.tables.post_deliveries.map((row) => row.connection_id), ["tt2"]);
+
+  busy = true;
+  const dropped = scheduled({ platforms: ["tiktok"], accounts: { tiktok: ["tt1"] } });
+  const second = setup({ posts: [dropped], send });
+  await second.worker.tick();
+  busy = false;
+  dropped.connections = dropped.connections.filter((item) => item.id !== "tt1");
+  second.advance(10 * 60_000);
+  await second.worker.tick();
+  assert.equal(second.db.tables.post_deliveries.length, 1);
+});
+
+test("a post isn't marked as posted while the account it was moved to hasn't been planned yet", async () => {
+  let busy = true;
+  const send = (name) => {
+    if (name === "tiktok" && busy) throw new PublishError("TikTok is busy.", { retry: true });
+    return { state: "sent", publishId: `${name}-id` };
+  };
+  const entry = scheduled({ accounts: { tiktok: ["tt1"], youtube: ["yt1"] } });
+  entry.connections = [...entry.connections, { id: "tt2", platform: "tiktok" }];
+  const { worker, calls, advance } = setup({ posts: [entry], send });
+  await worker.tick();
+  busy = false;
+  entry.post.accounts = { tiktok: ["tt2"], youtube: ["yt1"] };
+  advance(10 * 60_000);
+  await worker.dispatch();
+  assert.equal(entry.post.status, "scheduled");
+  await worker.tick();
+  assert.ok(calls.some((call) => call.connection === "tt2"));
+  assert.equal(entry.post.status, "posted");
+});
+
 test("a send that may work later is tried again with a wait, then fails for good", async () => {
   const { db, worker, calls, advance } = setup({
     posts: [scheduled({ platforms: ["youtube"] })],
@@ -300,6 +359,365 @@ test("an upload the network is still processing is checked until it's up", async
   await worker.tick();
   assert.equal(db.tables.post_deliveries[0].state, "sent");
   assert.equal(db.tables.post_deliveries[0].publish_id, "pub1");
+});
+
+test("a post a network's limit stops once its file is up waits for the limit, then goes out once", async () => {
+  const until = T0 + 20 * 60 * 60_000;
+  let limited = true;
+  const { db, worker, advance, published } = setup({
+    posts: [{ ...scheduled({ platforms: ["linkedin"] }), connections: [{ id: "li1", platform: "linkedin" }] }],
+    send: () => ({ state: "processing", publishId: "image:a" }),
+    check: () => ({ state: "ready" }),
+    publish: () => {
+      if (limited) throw new PublishError("Limited for today.", { until });
+      return { state: "sent", publishId: "linkedin-id" };
+    },
+  });
+  await worker.tick();
+  advance(60_000);
+  await worker.tick();
+  const [row] = db.tables.post_deliveries;
+  assert.equal(row.state, "processing");
+  assert.equal(row.error, "Limited for today.");
+  assert.equal(Date.parse(row.next_at), until);
+  advance(60_000);
+  await worker.tick();
+  assert.equal(published.length, 1);
+
+  limited = false;
+  advance(until - T0);
+  await worker.tick();
+  assert.equal(db.tables.post_deliveries[0].state, "sent");
+  assert.equal(db.tables.post_deliveries[0].error, null);
+  assert.equal(published.length, 2);
+});
+
+test("after a limit's wait a busy check looks again, and its wait doesn't use up the check limit", async () => {
+  const until = T0 + 20 * 60 * 60_000;
+  let limited = true;
+  let busy = false;
+  const { db, worker, advance, setClock, published } = setup({
+    posts: [{ ...scheduled({ platforms: ["linkedin"] }), connections: [{ id: "li1", platform: "linkedin" }] }],
+    send: () => ({ state: "processing", publishId: "image:a" }),
+    check: () => {
+      if (busy) throw new PublishError("LinkedIn is busy.", { retry: true });
+      return { state: "ready" };
+    },
+    publish: () => {
+      if (limited) throw new PublishError("Limited for today.", { until });
+      return { state: "sent", publishId: "linkedin-id" };
+    },
+  });
+  await worker.tick();
+  advance(60_000);
+  await worker.tick();
+  const [waiting] = db.tables.post_deliveries;
+  assert.equal(waiting.updated_at, new Date(T0 + 60_000).toISOString(), "the dashboard's copy follows updated_at, so it moves, but never past now");
+
+  busy = true;
+  limited = false;
+  setClock(until);
+  await worker.tick();
+  assert.equal(db.tables.post_deliveries[0].state, "processing");
+  assert.equal(db.tables.post_deliveries[0].error, null);
+  assert.equal(published.length, 1);
+
+  busy = false;
+  advance(60_000);
+  await worker.tick();
+  assert.equal(db.tables.post_deliveries[0].state, "sent");
+  assert.equal(published.length, 2);
+});
+
+test("a check still busy two hours after a limit's wait gives up", async () => {
+  const until = T0 + 20 * 60 * 60_000;
+  let busy = false;
+  const { db, worker, advance, setClock } = setup({
+    posts: [{ ...scheduled({ platforms: ["linkedin"] }), connections: [{ id: "li1", platform: "linkedin" }] }],
+    send: () => ({ state: "processing", publishId: "image:a" }),
+    check: () => {
+      if (busy) throw new PublishError("LinkedIn is busy.", { retry: true });
+      return { state: "ready" };
+    },
+    publish: () => {
+      throw new PublishError("Limited for today.", { until });
+    },
+  });
+  await worker.tick();
+  advance(60_000);
+  await worker.tick();
+  busy = true;
+  setClock(until);
+  await worker.tick();
+  assert.equal(db.tables.post_deliveries[0].state, "processing");
+  advance(2 * 60 * 60_000 + 1);
+  await worker.tick();
+  assert.equal(db.tables.post_deliveries[0].state, "failed");
+});
+
+test("a post moved later while its file waits isn't made early: it goes again at its new time, once", async () => {
+  const until = T0 + 20 * 60 * 60_000;
+  let limited = true;
+  const posts = [{ ...scheduled({ platforms: ["linkedin"] }), connections: [{ id: "li1", platform: "linkedin" }] }];
+  const uploads = [];
+  const { db, worker, advance, setClock, published } = setup({
+    posts,
+    send: () => (uploads.push(1), { state: "processing", publishId: "image:a" }),
+    check: () => ({ state: "ready" }),
+    publish: () => {
+      if (limited) throw new PublishError("Limited for today.", { until });
+      return { state: "sent", publishId: "linkedin-id" };
+    },
+  });
+  await worker.tick();
+  advance(60_000);
+  await worker.tick();
+  assert.equal(published.length, 1);
+
+  posts[0].post.day = "2026-10-19";
+  limited = false;
+  setClock(until);
+  await worker.tick();
+  assert.equal(published.length, 1, "not made at the old wait's end");
+  const newTime = Date.parse("2026-10-19T16:00:00Z");
+  const [held] = db.tables.post_deliveries;
+  assert.equal(held.state, "queued");
+  assert.equal(held.publish_id, null, "a network's upload may be gone by then, so it starts afresh");
+  assert.equal(Date.parse(held.next_at), newTime);
+  assert.equal(Date.parse(held.due_at), newTime);
+
+  setClock(newTime);
+  await worker.tick();
+  advance(60_000);
+  await worker.tick();
+  assert.equal(uploads.length, 2);
+  assert.equal(published.length, 2);
+  assert.equal(db.tables.post_deliveries[0].state, "sent");
+  advance(60_000);
+  await worker.tick();
+  assert.equal(published.length, 2);
+});
+
+test("a network that already has a post keeps checking on it when it's moved later, and Post now isn't held to its time", async () => {
+  const posts = [scheduled({ platforms: ["tiktok"] })];
+  const { db, worker, advance } = setup({
+    posts,
+    send: () => ({ state: "processing", publishId: "tt" }),
+    check: () => ({ state: "processing", publishId: "tt" }),
+  });
+  await worker.tick();
+  posts[0].post.day = "2026-10-19";
+  advance(60_000);
+  await worker.tick();
+  assert.equal(db.tables.post_deliveries[0].state, "processing");
+  assert.equal(db.tables.post_deliveries[0].publish_id, "tt");
+
+  const later = [{ ...scheduled({ platforms: ["linkedin"], day: "2026-10-19" }), connections: [{ id: "li1", platform: "linkedin" }] }];
+  const now = setup({ posts: later, send: () => ({ state: "processing", publishId: "image:a" }), check: () => ({ state: "ready" }) });
+  await now.worker.request("u1", "p1");
+  await now.worker.dispatch();
+  await now.worker.pool.idle();
+  now.advance(60_000);
+  await now.worker.tick();
+  assert.equal(now.published.length, 1);
+  assert.equal(now.db.tables.post_deliveries[0].state, "sent");
+});
+
+test("a network blip on a status check, before anything is claimed, looks again until the check limit", async () => {
+  let blip = true;
+  const { db, worker, advance, published } = setup({
+    posts: [{ ...scheduled({ platforms: ["linkedin"] }), connections: [{ id: "li1", platform: "linkedin" }] }],
+    send: () => ({ state: "processing", publishId: "image:a" }),
+    check: () => {
+      if (blip) throw new TypeError("fetch failed");
+      return { state: "ready" };
+    },
+  });
+  await worker.tick();
+  advance(60_000);
+  await worker.tick();
+  assert.equal(db.tables.post_deliveries[0].state, "processing");
+  assert.equal(published.length, 0);
+
+  blip = false;
+  advance(60_000);
+  await worker.tick();
+  assert.equal(db.tables.post_deliveries[0].state, "sent");
+  assert.equal(published.length, 1);
+});
+
+test("a status check that keeps failing gives up at the limit, without saying it'll try again", async () => {
+  const { db, worker, advance } = setup({
+    posts: [{ ...scheduled({ platforms: ["linkedin"] }), connections: [{ id: "li1", platform: "linkedin" }] }],
+    send: () => ({ state: "processing", publishId: "image:a" }),
+    check: () => {
+      throw new TypeError("fetch failed");
+    },
+  });
+  await worker.tick();
+  advance(2 * 60 * 60_000 + 1);
+  await worker.tick();
+  const [row] = db.tables.post_deliveries;
+  assert.equal(row.state, "failed");
+  assert.doesNotMatch(row.error, /Trying again/);
+});
+
+test("a plain error once a post is claimed isn't looked at again: a cut-off publish must not double", async () => {
+  const { db, worker, advance, published } = setup({
+    posts: [{ ...scheduled({ platforms: ["linkedin"] }), connections: [{ id: "li1", platform: "linkedin" }] }],
+    send: () => ({ state: "processing", publishId: "image:a" }),
+    check: () => ({ state: "ready" }),
+    publish: () => {
+      throw new TypeError("socket hang up");
+    },
+  });
+  await worker.tick();
+  advance(60_000);
+  await worker.tick();
+  assert.equal(db.tables.post_deliveries[0].state, "failed");
+  advance(60 * 60_000);
+  await worker.tick();
+  assert.equal(published.length, 1);
+});
+
+test("a database blip right after the claim leaves a post free to go on its next try, not as one that may have gone out", async () => {
+  let down = false;
+  let blips = 1;
+  const waits = [];
+  const { db, worker, calls, advance } = setup({
+    posts: [scheduled({ platforms: ["youtube"] })],
+    wait: async (ms) => {
+      waits.push(ms);
+      if (waits.length === 2) down = false;
+    },
+  });
+  await worker.pass();
+  const { rpc, update } = db;
+  db.rpc = async function (name, args) {
+    if (down && name === "publisher_post") throw new PublishError("The database didn't answer.", { retry: true });
+    return rpc.call(this, name, args);
+  };
+  db.update = async function (table, filter, values) {
+    if (down && values.state !== "sending") throw new PublishError("The database didn't answer.", { retry: true });
+    const rows = await update.call(this, table, filter, values);
+    if (values.state === "sending" && blips-- > 0) down = true;
+    return rows;
+  };
+  await worker.dispatch();
+  await worker.pool.idle();
+  assert.equal(calls.length, 0);
+  const [row] = db.tables.post_deliveries;
+  assert.equal(row.state, "queued");
+  assert.match(row.error, /didn't answer/);
+  assert.ok(waits.slice(0, 2).every((ms) => ms > 0));
+
+  advance(31 * 60_000);
+  await worker.tick();
+  assert.equal(db.tables.post_deliveries[0].state, "sent");
+  assert.equal(calls.length, 1);
+});
+
+test("a row that still can't be kept after about a minute is left, without trying for ever", async () => {
+  const waits = [];
+  const { db, worker } = setup({
+    posts: [scheduled({ platforms: ["youtube"] })],
+    wait: async (ms) => waits.push(ms),
+  });
+  await worker.pass();
+  const { update } = db;
+  db.update = async function (table, filter, values) {
+    if (values.state !== "sending") throw new PublishError("The database didn't answer.", { retry: true });
+    return update.call(this, table, filter, values);
+  };
+  await worker.dispatch();
+  await worker.pool.idle();
+  assert.equal(db.tables.post_deliveries[0].state, "sending");
+  const total = waits.reduce((sum, ms) => sum + ms, 0);
+  assert.ok(total >= 45_000 && total <= 90_000, `${total} ms`);
+});
+
+test("a refusal of the row by the database isn't tried again", async () => {
+  const waits = [];
+  const { db, worker } = setup({
+    posts: [scheduled({ platforms: ["youtube"] })],
+    wait: async (ms) => waits.push(ms),
+  });
+  await worker.pass();
+  const { update } = db;
+  db.update = async function (table, filter, values) {
+    if (values.state !== "sending") throw new PublishError("The database refused PATCH post_deliveries: no.");
+    return update.call(this, table, filter, values);
+  };
+  await worker.dispatch();
+  await worker.pool.idle();
+  assert.deepEqual(waits, []);
+});
+
+test("a post moved later and then earlier goes at its earlier time, not the one it was waiting for", async () => {
+  const posts = [scheduled({ platforms: ["bluesky"] })];
+  posts[0].connections = [{ id: "bs1", platform: "bluesky" }];
+  let fail = true;
+  const { db, worker, advance, setClock, calls } = setup({
+    posts,
+    send: () => {
+      if (fail) throw new PublishError("Busy.", { retry: true });
+      return { state: "sent", publishId: "bs" };
+    },
+  });
+  await worker.tick();
+  fail = false;
+  Object.assign(posts[0].post, { day: "2026-10-13", start: "09:00" });
+  advance(3 * 60_000);
+  await worker.tick();
+  assert.equal(db.tables.post_deliveries[0].next_at, "2026-10-13T09:00:00.000Z");
+
+  Object.assign(posts[0].post, { day: "2026-10-12", start: "18:00" });
+  setClock(Date.parse("2026-10-12T18:00:30Z"));
+  await worker.tick();
+  assert.equal(db.tables.post_deliveries[0].state, "sent");
+  assert.equal(db.tables.post_deliveries[0].due_at, "2026-10-12T18:00:00.000Z");
+  assert.equal(calls.length, 2);
+});
+
+test("a post moved earlier but not due yet keeps waiting until its new time", async () => {
+  const posts = [scheduled({ platforms: ["bluesky"] })];
+  posts[0].connections = [{ id: "bs1", platform: "bluesky" }];
+  let fail = true;
+  const { db, worker, advance, calls } = setup({
+    posts,
+    send: () => {
+      if (fail) throw new PublishError("Busy.", { retry: true });
+      return { state: "sent", publishId: "bs" };
+    },
+  });
+  await worker.tick();
+  fail = false;
+  Object.assign(posts[0].post, { day: "2026-10-13", start: "09:00" });
+  advance(3 * 60_000);
+  await worker.tick();
+  Object.assign(posts[0].post, { day: "2026-10-13", start: "06:00" });
+  advance(60_000);
+  await worker.tick();
+  assert.equal(calls.length, 1);
+  assert.equal(db.tables.post_deliveries[0].state, "queued");
+});
+
+test("editing a post waiting for its retry doesn't cut the wait short", async () => {
+  const posts = [scheduled({ platforms: ["bluesky"] })];
+  posts[0].connections = [{ id: "bs1", platform: "bluesky" }];
+  const { db, worker, advance, calls } = setup({
+    posts,
+    send: () => {
+      throw new PublishError("Busy.", { retry: true });
+    },
+  });
+  await worker.tick();
+  const { next_at: waiting } = db.tables.post_deliveries[0];
+  posts[0].post.title = "A new title";
+  advance(30_000);
+  await worker.tick();
+  assert.equal(db.tables.post_deliveries[0].next_at, waiting);
+  assert.equal(calls.length, 1);
 });
 
 test("a video still uploading to storage is waited for", async () => {
@@ -510,7 +928,7 @@ test("a send the network took, whose keeping failed, is never sent again", async
   const update = db.update.bind(db);
   let updates = 0;
   db.update = async (...args) => {
-    if (++updates === 2) throw new Error("connection lost");
+    if (++updates >= 2) throw new Error("connection lost");
     return update(...args);
   };
   await worker.tick();
@@ -522,6 +940,20 @@ test("a send the network took, whose keeping failed, is never sent again", async
   assert.equal(calls.length, 1);
   assert.equal(db.tables.post_deliveries[0].state, "failed");
   assert.match(db.tables.post_deliveries[0].error, /may have gone out/);
+});
+
+test("a blip keeping a send the network took doesn't leave it reading as one that may have gone out", async () => {
+  const { db, worker, calls } = setup({ posts: [scheduled({ platforms: ["youtube"] })] });
+  await worker.plan();
+  const update = db.update.bind(db);
+  let updates = 0;
+  db.update = async (...args) => {
+    if (++updates === 2) throw new Error("connection lost");
+    return update(...args);
+  };
+  await worker.tick();
+  assert.equal(calls.length, 1);
+  assert.equal(db.tables.post_deliveries[0].state, "sent");
 });
 
 // LinkedIn with a file: uploaded on send, made into a post once LinkedIn has it ready.
@@ -797,7 +1229,7 @@ test("the hourly look reads every scheduled post, past the database's 1000 rows 
     return name === "publisher_posts" ? rows.slice(0, 1000) : rows;
   };
   await worker.sweep();
-  assert.deepEqual(asked, [500, 500, 201]);
+  assert.deepEqual(asked, [...Array(12).fill(100), 1]);
 });
 
 test("the hourly look reads a database from before the paged functions in one call", async () => {
@@ -813,17 +1245,17 @@ test("the hourly look reads a database from before the paged functions in one ca
 test("logins in account state are read a page at a time", async () => {
   const db = fakeDb();
   const asked = [];
-  const logins = Array.from({ length: 600 }, (_, index) => ({ user_id: "u1", workspace_id: "w1", connection_id: `c${String(index).padStart(3, "0")}`, platform: "tiktok", session: { accessToken: "a" } }));
+  const logins = Array.from({ length: 150 }, (_, index) => ({ user_id: "u1", workspace_id: "w1", connection_id: `c${String(index).padStart(3, "0")}`, platform: "tiktok", session: { accessToken: "a" } }));
   db.rpc = async (name, args) => {
     asked.push({ name, after: args?.after_connection ?? null });
     return logins.filter((row) => row.connection_id > (args.after_connection ?? "")).slice(0, args.size);
   };
   const kept = [];
   const worker = createWorker({ db, vault: { put: async (...args) => kept.push(args[1]) }, media: {}, networks: {} });
-  assert.equal(await worker.adopt(), 600);
+  assert.equal(await worker.adopt(), 150);
   assert.deepEqual(asked, [
     { name: "publisher_legacy_logins_after", after: null },
-    { name: "publisher_legacy_logins_after", after: "c499" },
+    { name: "publisher_legacy_logins_after", after: "c099" },
   ]);
 });
 
@@ -884,7 +1316,7 @@ function planned(posts) {
     db,
     vault: { fresh: async () => ({ platform: "bluesky", session: {} }) },
     media: { postFile: async () => null },
-    networks: { bluesky },
+    networks: { bluesky, threads: bluesky },
     planLimits: createPlanLimits({ db, now: () => T0, log: { error() {} } }),
     now: () => T0,
     log: { error: (...args) => errors.push(args) },
@@ -902,6 +1334,60 @@ const onBluesky = (user, post) => ({
 
 const SOMEONE = "11111111-1111-4111-8111-111111111111";
 const EVERYONE_ELSE = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+
+function postedNow(user, level, times, age, post) {
+  const { db, worker, sent } = planned([onBluesky(user, { id: "fresh", ...post })]);
+  db.tables.user_data.push({ id: user, access_level: level });
+  for (let index = 0; index < times; index++) {
+    db.tables.post_deliveries.push({ id: `old-${index}`, user_id: user, workspace_id: "w1", post_id: `old-${index}`, occurrence: "once", platform: "bluesky", connection_id: "bs1", state: "sent", attempts: 1, requested: true, due_at: new Date(T0 - age).toISOString(), next_at: new Date(T0 - age).toISOString(), created_at: new Date(T0 - age).toISOString() });
+  }
+  return { db, worker, sent };
+}
+
+test("Post now stops at the Free plan's daily sends, leaving the post unsent", async () => {
+  const { db, worker } = postedNow(SOMEONE, 1, FREE_POST_NOW_PER_DAY, 60_000);
+  await assert.rejects(worker.request(SOMEONE, "fresh"), { message: new RegExp(`Post now can send up to ${FREE_POST_NOW_PER_DAY} times a day`) });
+  assert.equal(db.tables.post_deliveries.filter((row) => row.post_id === "fresh").length, 0);
+});
+
+test("Post now still sends just under the limit, on a paid plan, and once a day has passed", async () => {
+  for (const [level, times, age] of [[1, FREE_POST_NOW_PER_DAY - 1, 60_000], [2, FREE_POST_NOW_PER_DAY, 60_000], [1, FREE_POST_NOW_PER_DAY, 25 * 60 * 60_000]]) {
+    const { worker, sent } = postedNow(SOMEONE, level, times, age);
+    await worker.request(SOMEONE, "fresh");
+    await worker.tick();
+    assert.ok(sent.includes(`${SOMEONE}/fresh`), JSON.stringify({ level, times, age }));
+  }
+});
+
+test("trying a failed post again isn't held to the Free plan's Post now limit", async () => {
+  const { db, worker, sent } = postedNow(SOMEONE, 1, FREE_POST_NOW_PER_DAY, 60_000);
+  db.tables.post_deliveries.push({ id: "failed", user_id: SOMEONE, workspace_id: "w1", post_id: "fresh", occurrence: "once", platform: "bluesky", connection_id: "bs1", state: "failed", error: "busy", attempts: 5, requested: false, due_at: new Date(T0 - 60_000).toISOString(), next_at: new Date(T0 - 60_000).toISOString(), created_at: new Date(T0 - 60_000).toISOString() });
+  await worker.request(SOMEONE, "fresh");
+  await worker.tick();
+  assert.deepEqual(sent, [`${SOMEONE}/fresh`]);
+});
+
+test("a new account on a post that already has a run is held to Post now's limit", async () => {
+  const { db, worker } = postedNow(SOMEONE, 1, FREE_POST_NOW_PER_DAY, 60_000);
+  db.tables.post_deliveries.push({ id: "other", user_id: SOMEONE, workspace_id: "w1", post_id: "fresh", occurrence: "once", platform: "bluesky", connection_id: "gone", state: "failed", error: "busy", attempts: 5, requested: false, due_at: new Date(T0 - 60_000).toISOString(), next_at: new Date(T0 - 60_000).toISOString(), created_at: new Date(T0 - 60_000).toISOString() });
+  await assert.rejects(worker.request(SOMEONE, "fresh"), { message: /Post now can send up to/ });
+});
+
+test("a retry isn't refused at the limit because the post also names a network with no account", async () => {
+  const { db, worker, sent } = postedNow(SOMEONE, 1, FREE_POST_NOW_PER_DAY, 60_000, { platforms: ["bluesky", "threads"] });
+  db.tables.post_deliveries.push({ id: "failed", user_id: SOMEONE, workspace_id: "w1", post_id: "fresh", occurrence: "once", platform: "bluesky", connection_id: "bs1", state: "failed", error: "busy", attempts: 5, requested: false, due_at: new Date(T0 - 60_000).toISOString(), next_at: new Date(T0 - 60_000).toISOString(), created_at: new Date(T0 - 60_000).toISOString() });
+  await worker.request(SOMEONE, "fresh");
+  await worker.tick();
+  assert.deepEqual(sent, [`${SOMEONE}/fresh`]);
+});
+
+test("failed sends don't use up Post now's limit", async () => {
+  const { db, worker, sent } = postedNow(SOMEONE, 1, FREE_POST_NOW_PER_DAY, 60_000);
+  for (const row of db.tables.post_deliveries) row.state = "failed";
+  await worker.request(SOMEONE, "fresh");
+  await worker.tick();
+  assert.deepEqual(sent, [`${SOMEONE}/fresh`]);
+});
 
 test("one account's post that can't be read holds up nobody else's", async () => {
   for (const odd of [{ day: ["2026-10-27"] }, { start: ["08:00"] }, { platforms: { bluesky: true } }, { id: 7 }, { recurrence: "every:1:day", day: { y: 2026 } }]) {
@@ -939,4 +1425,108 @@ test("the uuid after one is the next in the order Postgres sorts them", () => {
   assert.equal(nextUuid("0000000f-ffff-ffff-ffff-ffffffffffff"), "00000010-0000-0000-0000-000000000000");
   assert.equal(nextUuid("ffffffff-ffff-ffff-ffff-ffffffffffff"), null);
   assert.equal(nextUuid("u1"), null);
+});
+
+test("a limit that lasts for days ends in a failed post with an email, not a wait without end", async () => {
+  const { db, worker, advance } = setup({
+    posts: [onLinkedIn()],
+    send: () => {
+      throw new PublishError("Limited for today.", { until: T0 + 60_000 });
+    },
+  });
+  await worker.tick();
+  assert.equal(db.tables.post_deliveries[0].state, "queued");
+  advance(GRACE_MS + 60_000);
+  await worker.tick();
+  const [row] = db.tables.post_deliveries;
+  assert.equal(row.state, "failed");
+  assert.equal(row.error, LATE);
+});
+
+test("a limit that would wait past the post's day fails then, rather than sending it two days late", async () => {
+  const { db, worker } = setup({
+    posts: [onLinkedIn()],
+    send: () => {
+      throw new PublishError("Limited for today.", { until: T0 + GRACE_MS + 2 * 60 * 60_000 });
+    },
+  });
+  await worker.tick();
+  const [row] = db.tables.post_deliveries;
+  assert.equal(row.state, "failed");
+  assert.equal(row.error, LATE);
+});
+
+test("a post due just before midnight still gets its wait when it's picked up just after", async () => {
+  const { db, worker } = setup({
+    posts: [onLinkedIn()],
+    send: () => {
+      throw new PublishError("Limited for today.", { until: T0 + GRACE_MS + 60_000 });
+    },
+  });
+  await worker.tick();
+  assert.equal(db.tables.post_deliveries[0].state, "queued");
+});
+
+test("a limit met at the publish step after the post's day has gone by fails too", async () => {
+  const { db, worker, advance } = setup({
+    posts: [onLinkedIn()],
+    send: () => ({ state: "processing", publishId: "image:a" }),
+    check: () => ({ state: "ready" }),
+    publish: () => {
+      throw new PublishError("Limited for today.", { until: T0 + 2 * 60_000 });
+    },
+  });
+  await worker.tick();
+  advance(60_000);
+  await worker.tick();
+  assert.equal(db.tables.post_deliveries[0].state, "processing");
+  advance(GRACE_MS);
+  await worker.tick();
+  const [row] = db.tables.post_deliveries;
+  assert.equal(row.state, "failed");
+  assert.equal(row.error, LATE);
+});
+
+test("Post now on a post that failed long ago waits out a limit, instead of calling it too late", async () => {
+  const { db, worker, advance } = setup({
+    posts: [onLinkedIn()],
+    send: () => {
+      throw new PublishError("Limited for today.", { until: T0 + 60_000 });
+    },
+  });
+  await worker.tick();
+  advance(GRACE_MS + 60_000);
+  await worker.tick();
+  assert.equal(db.tables.post_deliveries[0].state, "failed");
+  advance(2 * GRACE_MS);
+  await worker.request("u1", "p1");
+  await worker.tick();
+  const [row] = db.tables.post_deliveries;
+  assert.equal(row.state, "queued");
+  assert.equal(row.error, "Limited for today.");
+});
+
+test("a failed post's words don't promise another go, however the network worded it", async () => {
+  const { db, worker, advance } = setup({
+    posts: [onLinkedIn()],
+    send: () => {
+      throw new PublishError("The upload stopped. Carrying on soon.", { retry: true });
+    },
+  });
+  for (let i = 0; i < 12; i++) {
+    await worker.tick();
+    advance(6 * 60 * 60_000);
+    if (db.tables.post_deliveries[0]?.state === "failed") break;
+  }
+  const [row] = db.tables.post_deliveries;
+  assert.equal(row.state, "failed");
+  assert.equal(row.error, "The upload stopped.");
+});
+
+test("stopping saves a renewed login that couldn't be saved earlier, and survives a failure to", async () => {
+  let saved = 0;
+  const stopWith = (vault) => createWorker({ db: fakeDb(), vault, networks: {}, media: {}, log: { error() {}, warn() {}, info() {} } }).stop(10);
+  assert.equal(await stopWith({ saveRenewed: async () => saved++ }), true);
+  assert.equal(saved, 1);
+  assert.equal(await stopWith({ saveRenewed: async () => { throw new Error("database down"); } }), true);
 });

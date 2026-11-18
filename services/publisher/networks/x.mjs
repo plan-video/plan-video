@@ -60,13 +60,14 @@ function processing(info) {
 }
 
 /** When X's answer is lost it may have made the post anyway, so that's never tried again on its own. */
-async function makePost(session, text, mediaIds = [], replyTo = null) {
+async function makePost(session, text, mediaIds = [], replyTo = null, audience = {}) {
   const payload = await call(POSTS_URL, session.accessToken, {
     method: "POST",
     body: JSON.stringify({
       ...(text ? { text } : {}),
       ...(mediaIds.length ? { media: { media_ids: mediaIds } } : {}),
       ...(replyTo ? { reply: { in_reply_to_tweet_id: replyTo } } : {}),
+      ...audience,
     }),
   }).catch((error) => {
     if (error instanceof PublishError && error.retry && !/limiting|can't post/.test(error.message)) {
@@ -113,6 +114,21 @@ export function hasLink(text) {
 
 const textOf = (post) => [...captionOf(post, "x").trim()].slice(0, TEXT_LIMIT).join("");
 
+/** From `x.com/i/communities/123…`, or the number on its own, as the composer takes it. */
+const COMMUNITY = /^\d{5,19}$|^(?:https?:\/\/)?(?:www\.|mobile\.)?(?:twitter|x)\.com\/i\/communities\/(\d{5,19})\/?(?:[?#]\S*)?$/i;
+const REPLY_SETTINGS = { following: "following", mentioned: "mentionedUsers" };
+
+/** A post in a community can be answered by its members, so who can reply only applies to the timeline. */
+function audienceOf(post) {
+  const community = typeof post.x?.community === "string" ? post.x.community.trim() : "";
+  if (community) {
+    const found = COMMUNITY.exec(community);
+    if (!found) throw new PublishError("That X community link isn't right. Use one like x.com/i/communities/123…, or leave it empty.");
+    return { community_id: found[1] ?? found[0] };
+  }
+  return Object.hasOwn(REPLY_SETTINGS, post.x?.replies ?? "") ? { reply_settings: REPLY_SETTINGS[post.x.replies] } : {};
+}
+
 const uploads = (delivery) => String(delivery.publish_id ?? "").split(",").filter((id) => /^\d{1,30}$/.test(id));
 
 /** A follow-up's uploads X is still working on, as its row keeps them: `media:<when started>:<id>,<id>`. */
@@ -123,13 +139,13 @@ export function createX({ limits, log = console }) {
   const turns = new Map();
 
   /** Waits for the owner's plan to have room, then counts the post; one X may have made without saying so counts too. */
-  function makeWithin(userId, session, text, mediaIds, replyTo = null) {
+  function makeWithin(userId, session, text, mediaIds, replyTo = null, audience = {}) {
     const link = hasLink(text);
     const run = async () => {
       await limits.xAllowed(userId, link);
       const count = () => limits.countX(userId, link).catch((error) => log.error("[publisher] couldn't count an X post", error instanceof Error ? error.message : error));
       try {
-        const result = await makePost(session, text, mediaIds, replyTo);
+        const result = await makePost(session, text, mediaIds, replyTo, audience);
         await count();
         return result;
       } catch (error) {
@@ -152,18 +168,19 @@ export function createX({ limits, log = console }) {
 
     async send({ post, session, files, media, delivery }) {
       const text = textOf(post);
+      const audience = audienceOf(post);
       // Asked before anything is uploaded too, so a post that can't go doesn't send its video for nothing.
       await limits.xAllowed(delivery.user_id, hasLink(text));
       const video = files.find((file) => file.kind === "video");
       const chosen = video ? [video] : files.filter((file) => file.kind === "image").slice(0, MAX_PICTURES);
       if (!chosen.length) {
         if (!text) throw new PublishError("Write something for X, or attach a video or picture.");
-        return makeWithin(delivery.user_id, session, text, []);
+        return makeWithin(delivery.user_id, session, text, [], null, audience);
       }
       const uploaded = [];
       for (const file of chosen) uploaded.push(await upload(session, media, file));
       const ids = uploaded.map((item) => item.mediaId);
-      if (uploaded.every((item) => item.ready)) return makeWithin(delivery.user_id, session, text, ids);
+      if (uploaded.every((item) => item.ready)) return makeWithin(delivery.user_id, session, text, ids, null, audience);
       return { state: "processing", publishId: ids.join(",") };
     },
 
@@ -179,7 +196,7 @@ export function createX({ limits, log = console }) {
     },
 
     async publish({ post, session, delivery }) {
-      return makeWithin(delivery.user_id, session, textOf(post), uploads(delivery));
+      return makeWithin(delivery.user_id, session, textOf(post), uploads(delivery), null, audienceOf(post));
     },
 
     replyMedia: true,

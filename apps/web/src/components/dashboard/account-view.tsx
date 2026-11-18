@@ -205,6 +205,10 @@ function DashboardAccountPersonalDetailsSection() {
       if (updateError) throw updateError;
 
       await auth.refreshSession();
+      // Best effort: only the newest is shown, and the folder has a limit.
+      const { data: kept } = await supabase.storage.from("avatars").list(userId, { limit: 100 });
+      const older = (kept ?? []).map((file) => `${userId}/${file.name}`).filter((path) => path !== filePath);
+      if (older.length) await supabase.storage.from("avatars").remove(older);
       toast.success(t("Profile photo updated"));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("Upload failed"));

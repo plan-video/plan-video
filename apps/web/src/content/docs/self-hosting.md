@@ -67,7 +67,7 @@ The services reach R2 at its EU address, `<account>.eu.r2.cloudflarestorage.com`
 
 ## Give yourself a plan
 
-Plans are kept in `user_data.access_level`: 1 is Free, 2 Creator, 3 Pro and 4 Agency. Without the billing service, everyone stays on Free, with its limits: 3 social accounts, 10 scheduled posts waiting per account, 1080p export, and no X, team members, Bulk tools or preview links, and no new templates or Vault items. Give yourself Agency in the SQL editor:
+Plans are kept in `user_data.access_level`: 1 is Free, 2 Creator, 3 Pro and 4 Agency. Without the billing service, everyone stays on Free, with its limits: 3 social accounts, 10 scheduled posts waiting per account, 1080p export, and no X, team members, Bulk tools, preview links or client links, and no new templates or Vault items. Give yourself Agency in the SQL editor:
 
 ```sql
 update public.user_data set access_level = 4
@@ -83,7 +83,7 @@ Out of the box, only emails you let in can use your copy: the database saves not
 Your site's address is a setting, with plan.video's as the default:
 
 - `VITE_APP_URL` in `apps/web/.env`, for the website
-- `PUBLIC_URL` in `publisher.env`, `billing.env`, `mcp.env` and `monitor.env`, for the services
+- `PUBLIC_URL` in `r2.env`, `publisher.env`, `billing.env`, `mcp.env` and `monitor.env`, for the services
 
 The email templates in `supabase/templates` take their links and logo from the Site URL you set in Supabase. The networks' sign-in callbacks follow `PUBLIC_URL`: see [Network apps](/docs/network-apps#your-domain).
 

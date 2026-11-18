@@ -8,6 +8,7 @@ const KEY = Buffer.alloc(32, 3).toString("base64");
 const DID = "did:plc:aaaaaaaaaaaaaaaaaaaaaaaa";
 const PDS = "https://pds.example";
 const ISSUER = "https://entryway.example";
+const TAB = "tab-0123456789abcdef";
 
 test("a Node without its undici version can't sign in with Bluesky, and says so", () => {
   // The server's distro Node: same version, no undici reported.
@@ -25,7 +26,7 @@ test("a Bluesky handle that is an internal or non-public address can't make the 
   // publisher's own services is ever reached.
   const oauth = await createBlueskyOAuth({ db: fakeDb(), sealKey: KEY, privateJwk: await makeBlueskyKey(), publicUrl: "https://plan.video" });
   for (const target of ["http://127.0.0.1:8798", "http://169.254.169.254", "https://127.0.0.1", "https://10.0.0.1", "https://192.168.1.1:8798", "https://[::1]"]) {
-    await assert.rejects(oauth.authorize("u1", target), `expected ${target} to be refused`);
+    await assert.rejects(oauth.authorize("u1", target, TAB), `expected ${target} to be refused`);
   }
 });
 
@@ -79,8 +80,8 @@ function standInBluesky(t) {
 const comeBack = (server) => new URLSearchParams({ state: server.states.at(-1), iss: ISSUER, code: "code" }).toString();
 
 async function signIn(oauth, server, userId) {
-  await oauth.authorize(userId, DID);
-  return oauth.callback({ person: userId, owner: userId }, comeBack(server));
+  await oauth.authorize(userId, DID, TAB);
+  return oauth.callback({ person: userId, owner: userId }, comeBack(server), TAB);
 }
 
 async function tokenOf(oauth, server, userId) {
@@ -115,18 +116,30 @@ test("people who connect the same Bluesky account each keep their own session", 
 test("a Bluesky sign-in finishes only for the person who started it", async (t) => {
   const server = standInBluesky(t);
   const oauth = await createBlueskyOAuth({ db: fakeDb(), sealKey: KEY, privateJwk: await makeBlueskyKey(), publicUrl: "https://plan.video" });
-  await oauth.authorize("u1", DID);
-  await assert.rejects(oauth.callback({ person: "u2", owner: "u2" }, comeBack(server)), /didn't finish/);
+  await oauth.authorize("u1", DID, TAB);
+  await assert.rejects(oauth.callback({ person: "u2", owner: "u2" }, comeBack(server), TAB), /didn't finish/);
   assert.equal(server.tokens, 0);
-  assert.equal((await oauth.callback({ person: "u1", owner: "u1" }, comeBack(server))).did, DID);
+  assert.equal((await oauth.callback({ person: "u1", owner: "u1" }, comeBack(server), TAB)).did, DID);
+});
+
+test("a Bluesky sign-in finishes only in the browser that started it", async (t) => {
+  const server = standInBluesky(t);
+  const oauth = await createBlueskyOAuth({ db: fakeDb(), sealKey: KEY, privateJwk: await makeBlueskyKey(), publicUrl: "https://plan.video" });
+  const owner = { person: "u1", owner: "u1" };
+  await oauth.authorize("u1", DID, TAB);
+  await assert.rejects(oauth.callback(owner, comeBack(server), "tab-somewhere-else-000"), /started somewhere else/);
+  assert.equal(server.revoked.length, 1);
+  await oauth.authorize("u1", DID, TAB);
+  await assert.rejects(oauth.callback(owner, comeBack(server)), /started somewhere else/);
+  await assert.rejects(oauth.authorize("u1", DID), /sign-in/i);
 });
 
 test("a sign-in ticket attaches only that Bluesky account, for that person and workspace, for 15 minutes", async (t) => {
   const server = standInBluesky(t);
   const oauth = await createBlueskyOAuth({ db: fakeDb(), sealKey: KEY, privateJwk: await makeBlueskyKey(), publicUrl: "https://plan.video" });
   const admin = { person: "u2", owner: "u1", workspace: "brand" };
-  await oauth.authorize("u1", DID);
-  const { ticket } = await oauth.callback(admin, comeBack(server));
+  await oauth.authorize("u1", DID, TAB);
+  const { ticket } = await oauth.callback(admin, comeBack(server), TAB);
   const now = Date.now();
   t.mock.method(Date, "now", () => now);
   assert.match(oauth.openTicket(admin, DID, ticket).nonce, /^[0-9a-f]{24}$/);

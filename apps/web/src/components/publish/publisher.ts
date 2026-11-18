@@ -5,11 +5,12 @@
 import { createSignal } from "solid-js";
 import { toast } from "somoto";
 
-import { allPosts, ensurePostInCloud, hydrateCalendar, postFileIds, postFileStates, setDelivery, setPostCaptions, uploadProblem } from "@/components/calendar/store";
+import { allPosts, ensurePostInCloud, hydrateCalendar, isUploading, postFileIds, postFileStates, setDelivery, setEventStatus, setPostCaptions, timeIsUp, uploadProblem } from "@/components/calendar/store";
 import type { Delivery, StoredEvent } from "@/components/calendar/types";
-import { rememberRows, settled, type DeliveryRow } from "@/components/publish/deliveries";
+import { deliveryRows, rememberRows, settled, type DeliveryRow } from "@/components/publish/deliveries";
 import { flushAccountSync } from "@/lib/account-sync";
 import { flushPostSync, postSyncProblem, refusedPosts, unsyncedPosts } from "@/lib/post-sync";
+import { TOO_MANY_POSTS } from "@/lib/post-sync-core";
 import { msg, t } from "@/lib/i18n";
 import { requestSend } from "@/lib/publishing";
 import { flushTeamSync } from "@/lib/team-sync";
@@ -37,12 +38,15 @@ export const isGoingOut = (post: StoredEvent) => deliveriesOf(post).some(({ deli
 export type HeldBack = { label: string; detail: string };
 
 export function heldBack(post: Pick<StoredEvent, "id" | "status">): HeldBack | null {
+  // A draft too: none of these reach the account until there's room.
+  if (refusedPosts().get(post.id) === TOO_MANY_POSTS) return { label: t("Not synced"), detail: t(TOO_MANY_POSTS) };
   if (post.status !== "scheduled") return null;
   if ((postSyncProblem() || refusedPosts().has(post.id)) && unsyncedPosts().has(post.id)) {
     return { label: t("Not synced"), detail: t("Your account doesn't have this version yet, so it won't go out as it shows. plan.video keeps trying.") };
   }
   const upload = uploadProblem(post.id);
   if (upload) return { label: t("Not uploaded"), detail: t("Its file hasn't uploaded, so it can't go out with it. {problem}", { problem: t(upload) }) };
+  if (isUploading(post.id)) return { label: t("Uploading"), detail: t("Keep this tab open until it's uploaded. The post can't go out without its files.") };
   return null;
 }
 
@@ -87,6 +91,7 @@ export async function sendPost(postId: string, userId: string | undefined, capti
     }
     // The publisher reads the post, accounts and file from the server, so they must be synced first.
     if (!(await (team ? flushTeamSync() : flushAccountSync())) || !(await flushPostSync(postId))) {
+      if (refusedPosts().get(postId) === TOO_MANY_POSTS) throw new Error(TOO_MANY_POSTS);
       throw new Error(msg("This post isn't saved to your account yet, so plan.video can't send it. Check the connection and try again."));
     }
     if (!(await ensurePostInCloud(postId))) throw new Error(msg("The post's media didn't reach plan.video's storage. Check the connection and try again."));
@@ -103,7 +108,14 @@ export async function sendPost(postId: string, userId: string | undefined, capti
       const before = allPosts().find((item) => item.id === postId)?.deliveries?.[platform];
       setDelivery(postId, platform, { state: "failed", error: message, attempts: before?.attempts ?? 1, at: new Date().toISOString(), publishId: before?.publishId });
     }
-    toast.error(t("Didn't post it"), { description: t(message), action: { label: t("Retry"), onClick: () => void sendPost(postId, userId) } });
+    // Scheduled with its time gone by, the publisher would send it once it syncs, after this said it failed. Asking still sends a draft.
+    const now = allPosts().find((item) => item.id === postId);
+    const stopped = !!now && now.status === "scheduled" && timeIsUp(now) && !deliveryRows(postId).length && !Object.values(now.deliveries ?? {}).some((delivery) => delivery?.state === "sent");
+    if (stopped) setEventStatus(postId, "draft");
+    toast.error(t("Didn't post it"), {
+      description: stopped ? `${t(message)} ${t("It's saved as a draft, so it won't go out by itself.")}` : t(message),
+      action: { label: t("Retry"), onClick: () => void sendPost(postId, userId) },
+    });
     return "failed";
   } finally {
     setRunning((ids) => {

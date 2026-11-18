@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { For, Show, createEffect, createMemo, createSignal, on, onCleanup, type JSX } from "solid-js";
+import { Portal } from "solid-js/web";
 
 import { PlatformLogo, Segmented } from "@/components/publish/controls";
 import { Icon } from "@/components/dashboard/dashboard-icon";
@@ -52,18 +53,24 @@ import {
   analyticsInterval,
   analyticsMetric,
   analyticsRange,
+  movePostColumn,
+  POST_COLUMNS,
+  postColumns,
+  postColumnsMoved,
   setAnalyticsInterval,
   setAnalyticsMetric,
   setAnalyticsRange,
+  setPostColumns,
+  type PostColumn,
 } from "./analytics-state";
 import type { AnalyticsSection, DashboardView } from "./types";
 
-type PostSort = AnalyticsMetric | "engagement";
-
-const POST_SORTS: readonly { id: PostSort; label: string }[] = [
-  ...ANALYTICS_METRICS,
-  { id: "engagement", label: msg("Engagement") },
-];
+const POST_COLUMN_LABELS: Record<PostColumn, string> = {
+  views: msg("Views"),
+  likes: msg("Likes"),
+  comments: msg("Comments"),
+  engagement: msg("Engagement"),
+};
 
 const EMPTY_RANGE: Record<AnalyticsMetric, string> = {
   views: msg("No views in this range"),
@@ -874,6 +881,14 @@ function PostCover(props: { src: string | undefined }) {
   );
 }
 
+const COLUMN_DRAG_START_PX = 4;
+const COLUMN_GLIDE: KeyframeAnimationOptions = { duration: 200, easing: "cubic-bezier(0.2, 0, 0, 1)", composite: "add" };
+
+function glideFrom(cell: HTMLElement, shift: number) {
+  // "add" stacks on a glide still running, so quick moves in a row never jump.
+  cell.animate([{ transform: `translateX(${shift}px)` }, { transform: "translateX(0)" }], COLUMN_GLIDE);
+}
+
 function PostsTable(props: {
   posts: readonly AnalyticsPost[];
   onOpen(post: AnalyticsPost): void;
@@ -881,11 +896,110 @@ function PostsTable(props: {
   title?: string;
   onSeeAll?(): void;
 }) {
-  const [sort, setSort] = createSignal<PostSort>("views");
+  const [sort, setSort] = createSignal<PostColumn>("views");
+  const [drag, setDrag] = createSignal<{ id: PostColumn; ghost: number; drop: number; line: number; lineShown: boolean; lineSlides: boolean } | null>(null);
+  const draggingId = createMemo(() => drag()?.id);
   const score = (post: AnalyticsPost) => (sort() === "engagement" ? engagement(post) : post[sort() as AnalyticsMetric]);
   const sorted = createMemo(() => [...props.posts].sort((a, b) => score(b) - score(a)));
   const shown = () => (props.limit ? sorted().slice(0, props.limit) : sorted());
-  const cell = (id: PostSort) => `w-20 shrink-0 text-right text-xs tabular-nums ${sort() === id ? "text-foreground" : "text-muted-foreground"}`;
+  const cell = (id: PostColumn) =>
+    `w-20 shrink-0 text-right text-xs tabular-nums transition-opacity motion-reduce:transition-none ${sort() === id ? "text-foreground" : "text-muted-foreground"} ${draggingId() === id ? "opacity-30" : ""}`;
+  const cellText = (post: AnalyticsPost, id: PostColumn) => (id === "engagement" ? percent(engagement(post)) : compactNumber(post[id]));
+
+  let table: HTMLDivElement | undefined;
+  let dragged = false;
+  const headers = () => [...table!.querySelectorAll<HTMLElement>("button[data-post-column]")];
+
+  const arrange = (next: readonly PostColumn[], ghost?: { id: PostColumn; left: number }) => {
+    const before = postColumns();
+    if (next.every((id, index) => id === before[index])) return;
+    setPostColumns(next);
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const [first, second] = headers();
+    const step = second!.offsetLeft - first!.offsetLeft;
+    for (const item of table!.querySelectorAll<HTMLElement>("[data-post-column]")) {
+      const id = item.dataset.postColumn as PostColumn;
+      const box = item.getBoundingClientRect();
+      if (box.bottom < 0 || box.top > innerHeight) continue;
+      const shift = ghost?.id === id && item.localName === "button" ? ghost.left - item.offsetLeft : (before.indexOf(id) - next.indexOf(id)) * step;
+      if (shift) glideFrom(item, shift);
+    }
+  };
+
+  let stopDrag: (() => void) | undefined;
+  onCleanup(() => stopDrag?.());
+
+  const startDrag = (event: PointerEvent, id: PostColumn) => {
+    dragged = false;
+    // A finger on the header scrolls the table sideways instead.
+    if (event.button !== 0 || event.pointerType === "touch") return;
+    const button = event.currentTarget as HTMLElement;
+    const startX = event.clientX;
+    const grab = startX - button.getBoundingClientRect().left;
+    const pointerId = event.pointerId;
+    const lefts = headers().map((header) => header.offsetLeft);
+    const step = lefts[1]! - lefts[0]!;
+
+    const update = (clientX: number) => {
+      const x = clientX - table!.getBoundingClientRect().left;
+      const from = postColumns().indexOf(id);
+      const drop = Math.max(0, Math.min(lefts.length, Math.round((x - lefts[0]!) / step)));
+      const before = drag();
+      const lineShown = drop !== from && drop !== from + 1;
+      setDrag({
+        id,
+        ghost: Math.max(lefts[0]!, Math.min(lefts.at(-1)!, x - grab)),
+        drop,
+        line: lineShown ? lefts[0]! + drop * step : (before?.line ?? lefts[0]!),
+        lineShown,
+        // Only between two spots it's visible at: otherwise it jumps while hidden, then fades in.
+        lineSlides: lineShown && !!before?.lineShown,
+      });
+    };
+    const finish = (commit: boolean) => {
+      stopDrag?.();
+      const state = drag();
+      setDrag(null);
+      if (commit && state) arrange(movePostColumn(postColumns(), state.id, state.drop), { id: state.id, left: state.ghost });
+    };
+    const onMove = (move: PointerEvent) => {
+      if (move.pointerId !== pointerId) return;
+      if (!drag() && Math.abs(move.clientX - startX) < COLUMN_DRAG_START_PX) return;
+      dragged = true;
+      update(move.clientX);
+    };
+    const onUp = (up: PointerEvent) => up.pointerId === pointerId && finish(true);
+    const onCancel = (cancel: PointerEvent) => cancel.pointerId === pointerId && finish(false);
+    const onKey = (key: KeyboardEvent) => {
+      if (key.key === "Escape" && drag()) {
+        key.preventDefault();
+        key.stopPropagation();
+        finish(false);
+      }
+    };
+    stopDrag = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onCancel);
+      window.removeEventListener("keydown", onKey, true);
+      stopDrag = undefined;
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onCancel);
+    window.addEventListener("keydown", onKey, true);
+  };
+
+  const nudge = (event: KeyboardEvent, id: PostColumn) => {
+    if (!event.altKey || (event.key !== "ArrowLeft" && event.key !== "ArrowRight")) return;
+    event.preventDefault();
+    const from = postColumns().indexOf(id);
+    const to = event.key === "ArrowLeft" ? from - 1 : from + 2;
+    if (to < 0 || to > POST_COLUMNS.length) return;
+    const button = event.currentTarget as HTMLElement;
+    arrange(movePostColumn(postColumns(), id, to));
+    button.focus();
+  };
 
   return (
     <section class={`${card} flex min-w-0 flex-col`}>
@@ -906,25 +1020,73 @@ function PostsTable(props: {
       </Show>
       <Show when={props.posts.length} fallback={<p class="py-12 text-center text-xs text-muted-foreground">{t("No posts in this range.")}</p>}>
         <div class="overflow-x-auto">
-          <div class="flex min-w-[40rem] flex-col">
+          <div ref={table} class="relative flex min-w-[40rem] flex-col">
             <div class="flex items-center gap-3 border-b border-border-strong py-2 pr-4 pl-4 text-xs text-muted-foreground" classList={{ "border-t": !!props.title }}>
-              <span class="flex-1">{t({ message: "Post", context: "noun" })}</span>
-              <For each={POST_SORTS}>
-                {(option) => (
+              <span class="flex min-w-0 flex-1 items-center gap-2">
+                {t({ message: "Post", context: "noun" })}
+                <Show when={postColumnsMoved(postColumns())}>
                   <button
                     type="button"
-                    aria-pressed={sort() === option.id}
-                    class={`flex w-20 shrink-0 items-center justify-end gap-0.5 rounded-sm text-right hover:text-foreground focus-ring ${sort() === option.id ? "text-foreground" : ""}`}
-                    onClick={() => setSort(option.id)}
+                    class="-my-1 h-6 rounded-md px-1.5 hover:bg-(--plane-layer-transparent-hover) hover:text-foreground focus-ring"
+                    onClick={(event) => {
+                      const viaKeyboard = !event.detail;
+                      arrange(POST_COLUMNS);
+                      if (viaKeyboard) headers()[0]?.focus();
+                    }}
                   >
-                    <Show when={sort() === option.id}>
+                    {t("Reset columns")}
+                  </button>
+                </Show>
+              </span>
+              <For each={postColumns()}>
+                {(id) => (
+                  <button
+                    type="button"
+                    data-post-column={id}
+                    aria-pressed={sort() === id}
+                    aria-keyshortcuts="Alt+ArrowLeft Alt+ArrowRight"
+                    class={`-mx-1.5 -my-1 flex h-6 w-23 shrink-0 cursor-grab items-center justify-end gap-0.5 rounded-md px-1.5 text-right transition-opacity select-none hover:bg-(--plane-layer-transparent-hover) hover:text-foreground focus-ring motion-reduce:transition-none ${sort() === id ? "text-foreground" : ""} ${draggingId() === id ? "opacity-30" : ""}`}
+                    onPointerDown={(event) => startDrag(event, id)}
+                    onKeyDown={(event) => nudge(event, id)}
+                    onClick={(event) => {
+                      if (dragged && event.detail) return;
+                      setSort(id);
+                    }}
+                  >
+                    <Show when={sort() === id}>
                       <Icon name="arrow-top" class="size-3.5 rotate-180" />
                     </Show>
-                    {t(option.label)}
+                    {t(POST_COLUMN_LABELS[id])}
                   </button>
                 )}
               </For>
             </div>
+            <Show when={drag()}>
+              {(state) => (
+                <>
+                  <span
+                    aria-hidden="true"
+                    class={`pointer-events-none absolute inset-y-0 left-0 z-10 w-px bg-(--plane-accent-primary) duration-150 ease-out motion-reduce:transition-none ${state().lineSlides ? "transition-[opacity,transform]" : "transition-opacity"}`}
+                    style={{ transform: `translateX(${state().line}px)`, opacity: state().lineShown ? 1 : 0 }}
+                  />
+                  <span
+                    aria-hidden="true"
+                    class={`pointer-events-none absolute ${props.title ? "top-[5px]" : "top-1"} left-0 z-20 flex w-23 justify-end`}
+                    style={{ transform: `translateX(${state().ghost}px)` }}
+                  >
+                    <span class="flex h-6 items-center gap-0.5 rounded-md bg-popover px-1.5 text-xs whitespace-nowrap text-foreground shadow-lg ring-1 ring-(--plane-border-strong)">
+                      <Show when={sort() === state().id}>
+                        <Icon name="arrow-top" class="size-3.5 rotate-180" />
+                      </Show>
+                      {t(POST_COLUMN_LABELS[state().id])}
+                    </span>
+                  </span>
+                  <Portal>
+                    <div class="fixed inset-0 z-50 cursor-grabbing" />
+                  </Portal>
+                </>
+              )}
+            </Show>
             <For each={shown()}>
               {(post) => {
                 const item = platform(post.platform);
@@ -959,10 +1121,13 @@ function PostsTable(props: {
                         </span>
                       </div>
                     </div>
-                    <span class={cell("views")}>{compactNumber(post.views)}</span>
-                    <span class={cell("likes")}>{compactNumber(post.likes)}</span>
-                    <span class={cell("comments")}>{compactNumber(post.comments)}</span>
-                    <span class={cell("engagement")}>{percent(engagement(post))}</span>
+                    <For each={postColumns()}>
+                      {(id) => (
+                        <span data-post-column={id} class={cell(id)}>
+                          {cellText(post, id)}
+                        </span>
+                      )}
+                    </For>
                   </button>
                 );
               }}

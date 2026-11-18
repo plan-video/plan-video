@@ -65,7 +65,7 @@ export function PartialAssetItem(props: PartialAssetItemProps) {
           <TooltipTrigger
             as="div"
             data-selected={props.selected}
-            class="relative aspect-video w-full overflow-clip rounded bg-muted after:pointer-events-none after:absolute after:inset-0 after:rounded after:opacity-0 after:ring-2 after:ring-inset after:ring-ring after:z-10 data-[selected=true]:after:opacity-100"
+            class="relative aspect-video w-full overflow-clip rounded-md bg-muted before:pointer-events-none before:absolute before:inset-0 before:z-10 before:rounded-md before:inset-ring-1 before:inset-ring-foreground/8 after:pointer-events-none after:absolute after:inset-0 after:rounded-md after:opacity-0 after:ring-2 after:ring-inset after:ring-ring after:z-10 data-[selected=true]:after:opacity-100"
             classList={{ "animate-pulse": !failed() }}
           >
             <div class="absolute inset-0 flex items-center justify-center text-muted-foreground">

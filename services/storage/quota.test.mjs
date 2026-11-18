@@ -69,6 +69,13 @@ const stored = (key, size) => bucket.set(key, { size, at: Date.now() - 30 * 24 *
 const delivered = new Set();
 /** The tokens and owners the deliveries were asked about with. */
 const askedDeliveries = [];
+/** `${owner}/${post}` → what the post's row lists in file_ids. */
+const listed = new Map();
+const lists = (owner, post, ...files) => listed.set(`${owner}/${post}`, [post, ...files]);
+/** `${owner}/${post}` → the files its delivery recorded, when not simply what it lists. */
+const carried = new Map();
+const askedPosts = [];
+let postsDown = false;
 let deliveriesDown = false;
 const original = globalThis.fetch;
 
@@ -91,7 +98,19 @@ before(() => {
       const owner = params.get("user_id").slice(3);
       const posts = params.get("post_id").slice(4, -1).split(",");
       askedDeliveries.push({ token, owner, posts });
-      return Response.json(posts.filter((post) => delivered.has(`${owner}/${post}`)).map((post_id) => ({ post_id })));
+      return Response.json(posts.filter((post) => delivered.has(`${owner}/${post}`)).map((post_id) => {
+        const key = `${owner}/${post_id}`;
+        return { post_id, files: carried.has(key) ? carried.get(key) : (listed.get(key) ?? null) };
+      }));
+    }
+    if (address.pathname === "/rest/v1/posts") {
+      if (postsDown) return new Response("{}", { status: 500 });
+      const params = address.searchParams;
+      assert.equal(params.get("select"), "id,file_ids");
+      const owner = params.get("owner_id").slice(3);
+      const posts = params.get("id").slice(4, -1).split(",");
+      askedPosts.push({ token, owner, posts });
+      return Response.json(posts.filter((post) => listed.has(`${owner}/${post}`)).map((post) => ({ id: post, file_ids: listed.get(`${owner}/${post}`) })));
     }
     return new Response("{}", { status: 404 });
   };
@@ -239,6 +258,7 @@ test("a file sent: true of a post that didn't go out is stored as waiting, on th
 test("a file sent: true of a post the publisher sent goes to sent/, off the plan", async () => {
   const user = someone();
   delivered.add(`${user.id}/went`);
+  lists(user.id, "went", "went_abc123");
   const own = await video(user, "went", 1000, { sent: true });
   const extra = await video(user, "went_abc123", 2000, { sent: true });
   assert.equal(own.key, `sent/${user.id}/went`);
@@ -248,9 +268,89 @@ test("a file sent: true of a post the publisher sent goes to sent/, off the plan
   assert.equal((await video(user, "went_x_abc", 1000, { sent: true })).key, `posts/${user.id}/went_x_abc`);
 });
 
+test("one post that went out doesn't make every file named after it a sent file", async () => {
+  const user = someone();
+  delivered.add(`${user.id}/went`);
+  // Its picture, one network's own version, and a follow-up's file, all as post_file_ids lists them.
+  lists(user.id, "went", "went_picture", "went_tiktok", "went_reply");
+  for (const id of ["went_picture", "went_tiktok", "went_reply"]) assert.equal((await video(user, id, 1000, { sent: true })).key, `sent/${user.id}/${id}`);
+  assert.equal((await usage(user)).used, 0);
+
+  // Not listed: on the plan, and refused once the plan is full, however many are asked for.
+  const size = 400 * MiB;
+  const fits = Math.floor((5 * GB) / size);
+  const answers = [];
+  for (let index = 0; index < fits + 3; index++) answers.push(await status(video(user, `went_fill${index}`, size, { sent: true })));
+  assert.equal(answers.filter((answer) => answer === 200).length, fits);
+  assert.equal(answers.filter((answer) => answer === 413).length, 3);
+  assert.equal((await usage(user)).used, fits * size);
+  assert.deepEqual(askedPosts.at(-1), { token: "owner-token", owner: user.id, posts: ["went"] });
+
+  // Nor can settle move one.
+  stored(`posts/${user.id}/went_stray`, 500);
+  stored(`posts/${user.id}/went_reply2`, 600);
+  lists(user.id, "went", "went_reply2");
+  const moved = await settle(user, { files: [{ id: "went_stray", size: 500 }, { id: "went_reply2", size: 600 }] }, req());
+  assert.deepEqual(moved.unsent, ["went_stray"]);
+  assert.deepEqual(moved.sent, [{ id: "went_reply2", key: `sent/${user.id}/went_reply2` }]);
+});
+
+test("only files the post carried when it went out go to sent/, not ones added to it since", async () => {
+  const user = someone();
+  delivered.add(`${user.id}/went`);
+  lists(user.id, "went", "went_real", "went_added");
+  carried.set(`${user.id}/went`, ["went", "went_real"]);
+  assert.equal((await video(user, "went_real", 1000, { sent: true })).key, `sent/${user.id}/went_real`);
+  assert.equal((await video(user, "went_added", 1000, { sent: true })).key, `posts/${user.id}/went_added`);
+
+  delivered.add(`${user.id}/older`);
+  lists(user.id, "older", "older_extra");
+  carried.set(`${user.id}/older`, null);
+  assert.equal((await video(user, "older", 1000, { sent: true })).key, `sent/${user.id}/older`);
+  assert.equal((await video(user, "older_extra", 1000, { sent: true })).key, `posts/${user.id}/older_extra`);
+});
+
+test("a sent post can't vouch for a file of another post that went out and doesn't list it", async () => {
+  const user = someone();
+  delivered.add(`${user.id}/first`);
+  delivered.add(`${user.id}/second`);
+  lists(user.id, "first");
+  lists(user.id, "second", "first_stray", "second_own");
+  stored(`posts/${user.id}/first_stray`, 500);
+  stored(`posts/${user.id}/second_own`, 600);
+  const moved = await settle(user, { files: [{ id: "first_stray", size: 500 }, { id: "second_own", size: 600 }] }, req());
+  assert.deepEqual(moved.unsent, ["first_stray"]);
+  assert.deepEqual(moved.sent, [{ id: "second_own", key: `sent/${user.id}/second_own` }]);
+});
+
+test("a deleted post that went out lists no more files", async () => {
+  const user = someone();
+  delivered.add(`${user.id}/gone`);
+  // post_file_ids of a deleted post: its own id alone.
+  lists(user.id, "gone");
+  assert.equal((await video(user, "gone", 1000, { sent: true })).key, `sent/${user.id}/gone`);
+  assert.equal((await video(user, "gone_abc123", 1000, { sent: true })).key, `posts/${user.id}/gone_abc123`);
+});
+
+test("when Supabase can't say what a post lists, nothing goes to sent/", async () => {
+  const user = someone();
+  delivered.add(`${user.id}/out`);
+  lists(user.id, "out", "out_abc123");
+  stored(`posts/${user.id}/out_abc123`, 500);
+  postsDown = true;
+  try {
+    assert.equal(await status(settle(user, { files: [{ id: "out_abc123", size: 500 }] }, req())), 503);
+    assert.equal(await status(video(user, "out_abc123", 500, { sent: true })), 503);
+  } finally {
+    postsDown = false;
+  }
+  assert.ok(bucket.has(`posts/${user.id}/out_abc123`));
+});
+
 test("settle moves only the files of posts that went out", async () => {
   const user = someone();
   delivered.add(`${user.id}/out`);
+  lists(user.id, "out", "out_abc123");
   stored(`posts/${user.id}/out_abc123`, 500);
   stored(`posts/${user.id}/waiting_abc123`, 700);
   const result = await settle(
@@ -306,10 +406,17 @@ test("someone in a shared workspace uploads, and settles, on its owner's plan", 
 
   // A post of the workspace that went out: asked with the member's own token, about the owner's posts.
   delivered.add(`${OWNER}/teampost`);
+  lists(OWNER, "teampost", "teampost_abc123", "teampost_def456");
   const sent = await ask("/api/storage/upload-url", { purpose: "posts", id: "teampost_abc123", contentType: "video/mp4", size: 1000, sent: true, team });
   assert.equal(sent.status, 200);
   assert.equal(sent.key, `sent/${OWNER}/teampost_abc123`);
   assert.deepEqual(askedDeliveries.at(-1), { token: "member-token", owner: OWNER, posts: ["teampost_abc123", "teampost"] });
+
+  const shouted = await ask("/api/storage/upload-url", { purpose: "media", id: "shouted", contentType: "video/mp4", size: 1000, team: { owner: OWNER.toUpperCase(), workspace: "brand" } });
+  assert.equal(shouted.status, 200, shouted.error);
+  assert.equal(shouted.key, `media/${OWNER}/shouted`);
+
+  assert.deepEqual(askedPosts.at(-1), { token: "member-token", owner: OWNER, posts: ["teampost"] });
 
   stored(`posts/${OWNER}/teampost_def456`, 900);
   stored(`posts/${OWNER}/teamdraft`, 800);

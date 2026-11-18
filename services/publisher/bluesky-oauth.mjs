@@ -17,6 +17,8 @@ const SCOPE = "atproto transition:generic";
  * The library's SSRF guard needs the undici version Node reports, and distro builds leave it out,
  * so every sign-in and Bluesky post would fail while the rest of the publisher looks fine.
  */
+const BROWSER = /^[A-Za-z0-9_-]{16,100}$/;
+
 export function blueskyNodeProblem(versions = process.versions) {
   const [major = 0, minor = 0, patch = 0] = (versions.undici || "").split(".").map(Number);
   const ok = major > 6 || (major === 6 && (minor > 11 || (minor === 11 && patch >= 1)));
@@ -101,16 +103,17 @@ export async function createBlueskyOAuth({ db, sealKey, privateJwk, publicUrl })
     metadata: () => clientMetadata,
     jwks: () => jwks,
 
-    async authorize(userId, handle) {
-      const nonce = randomBytes(8).toString("hex");
-      const url = await clientFor(userId).authorize(handle || "https://bsky.social", { scope: SCOPE, state: `${userId}:${nonce}` }).catch((error) => {
+    /** `browser` is a random value the browser that starts it keeps, so a callback address finishes nowhere else. */
+    async authorize(userId, handle, browser) {
+      if (!BROWSER.test(browser ?? "")) throw new PublishError("Bluesky's sign-in didn't start. Reload the page and try again.");
+      const url = await clientFor(userId).authorize(handle || "https://bsky.social", { scope: SCOPE, state: `${userId}:${browser}` }).catch((error) => {
         throw new PublishError(/resolve|handle/i.test(String(error?.message)) ? "Bluesky couldn't find that handle. Check it and try again." : "Bluesky's sign-in didn't start. Try again in a moment.");
       });
       return url.toString();
     },
 
     /** Returns the account and a ticket to attach it for `holder` (ticketBinding in vault.mjs). */
-    async callback(holder, query) {
+    async callback(holder, query, browser) {
       const userId = holder.owner;
       const params = new URLSearchParams(query);
       if (!params.get("code")) throw new PublishError("Bluesky sent the sign-in back without a code. Try again.");
@@ -118,9 +121,9 @@ export async function createBlueskyOAuth({ db, sealKey, privateJwk, publicUrl })
       const { session, state } = await client.callback(params).catch(() => {
         throw new PublishError("Bluesky's sign-in didn't finish. Start it again from Connections.");
       });
-      if (!state?.startsWith(`${userId}:`)) {
+      if (!browser || state !== `${userId}:${browser}`) {
         await client.revoke(session.did).catch(() => undefined);
-        throw new PublishError("That Bluesky sign-in was started by someone else. Start it again from Connections.");
+        throw new PublishError("That Bluesky sign-in was started somewhere else. Start it again from Connections.");
       }
       const until = String(Date.now() + TICKET_MS);
       const nonce = randomBytes(12).toString("hex");

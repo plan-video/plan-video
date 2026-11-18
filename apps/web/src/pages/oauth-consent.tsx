@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import { authorizationIdFrom } from '@/lib/oauth-consent-id';
 import { useNavigate } from '@solidjs/router';
 import { createEffect, createResource, createSignal, Show } from 'solid-js';
 
@@ -78,7 +79,7 @@ async function loadDetails(id: string): Promise<Details | { redirect: string }> 
 
 export function OAuthConsentPage() {
   const auth = useAuth();
-  const id = new URLSearchParams(window.location.search).get('authorization_id');
+  const id = authorizationIdFrom(window.location.search);
   const [busy, setBusy] = createSignal(false);
   const [problem, setProblem] = createSignal<string | null>(null);
 

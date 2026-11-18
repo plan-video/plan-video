@@ -21,8 +21,9 @@ import { useEditor } from '@/engine/hooks';
 import { KEYFRAME_TRACK_HEIGHT } from '@/engine/timeline';
 import { effectOption } from '@/components/sidebar-right/inspector/effect-types';
 import { msg, t } from '@/lib/i18n';
-import { NESTED_INDENT_PX } from './config';
 import { setRowHover } from './hover';
+import { Lane } from './lane';
+import { RowLabel } from './row-label';
 
 import type { Entity } from 'koota';
 import type { LayerRowProps } from './layer';
@@ -56,39 +57,22 @@ export function SubItemLayer(props: LayerRowProps) {
 
   return (
     <div
-      class="w-full pl-0.5 pr-2 flex items-center text-muted-foreground justify-between"
-      classList={{
-        'bg-accent': selected(),
-        'bg-accent/70': !selected() && hovering(),
-        'bg-accent/40': !selected() && !hovering() && props.ancestorSelected,
-      }}
+      class="relative w-full pl-2.5 flex items-center text-muted-foreground"
       onPointerEnter={() => setRowHover(world, entity())}
       onPointerLeave={() => setRowHover(world, null)}
       style={{ height: KEYFRAME_TRACK_HEIGHT + 'px' }}
     >
-      <div data-layer-label class="flex-1 min-w-0 overflow-hidden">
-        <div
-          class="flex items-center gap-0.5 w-max"
-          style={{
-            'padding-left': `${props.depth * NESTED_INDENT_PX}px`,
-            transform: 'translateX(calc(var(--layer-x, 0px) * -1))',
-          }}
-        >
-          <div class="size-4 shrink-0" />
-          <button
-            disabled={!props.layer.expandable}
-            onClick={toggleExpanded}
-            class="size-4 shrink-0 flex items-center justify-center overflow-clip invisible group-hover/layers:visible focus-ring rounded-sm mr-0.5"
-          >
-            <Show when={props.layer.expandable}>
-              <Icon name={props.expanded ? "chevron-down" : "chevron-right"} class="size-6 hover:text-foreground" />
-            </Show>
-          </button>
-          <span class="text-xs px-0.5 shrink-0 whitespace-nowrap text-foreground">
-            {name()}
-          </span>
-        </div>
-      </div>
+      <Lane selected={selected()} hovered={hovering()} nested={props.ancestorSelected} />
+      <button
+        disabled={!props.layer.expandable}
+        onClick={toggleExpanded}
+        class="relative size-4 shrink-0 flex items-center justify-center overflow-clip invisible group-hover/layers:visible focus-ring rounded-sm"
+      >
+        <Show when={props.layer.expandable}>
+          <Icon name={props.expanded ? "chevron-down" : "chevron-right"} class="size-6 hover:text-foreground" />
+        </Show>
+      </button>
+      <RowLabel>{name()}</RowLabel>
     </div>
   )
 }

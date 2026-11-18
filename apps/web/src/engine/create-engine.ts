@@ -121,7 +121,7 @@ class Engine {
 		if (
 			event.target instanceof HTMLInputElement
 			|| event.target instanceof HTMLTextAreaElement
-			|| (event.target instanceof HTMLElement && event.target.isContentEditable)
+			|| (event.target instanceof HTMLElement && (event.target.isContentEditable || event.target.closest('[role="listbox"]')))
 		) return;
 
 		const keys = this.world.get(Keys)!;

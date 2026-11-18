@@ -1,12 +1,14 @@
 // The fake server keeps posts like the posts table: a version per change, writes only over the version read,
 // deletion markers, a time per change, and thumbnails apart.
 
+import { readFileSync } from "node:fs";
+
 import { describe, expect, test } from "vitest";
 
 import type { AccountMedia } from "@/components/calendar/store";
 import type { StoredEvent } from "@/components/calendar/types";
 
-import { OVERLAP_MS, stable, syncPosts, type Base, type PostData, type PostRow, type Sent, type SyncIO } from "./post-sync-core";
+import { OVERLAP_MS, stable, syncPosts, TOO_MANY_POSTS, type Base, type PostData, type PostRow, type Sent, type SyncIO } from "./post-sync-core";
 
 const filesOf = (post: Pick<StoredEvent, "id" | "files" | "ownFiles" | "thread">) => [
   ...new Set([...(post.files ?? [post.id]), ...Object.values(post.ownFiles ?? {}).flatMap((ids) => ids ?? []), ...(post.thread ?? []).flatMap((reply) => reply.files ?? [])]),
@@ -21,6 +23,8 @@ class Server {
   refuse = "refused by the server";
   /** Ids in another of the owner's workspaces: taken, but not readable from this one. */
   elsewhere = new Set<string>();
+  /** At the owner's limit of posts: no new one is taken. */
+  full = false;
 
   tick() {
     this.clock += 1000;
@@ -55,6 +59,8 @@ class Device {
   known: Record<string, string> | null = null;
   /** Runs between reading this device's posts and writing them back, like an edit made meanwhile. */
   meanwhile: (() => void) | null = null;
+  /** Off: a file it hasn't got stays that way, as when cloud storage didn't send it. */
+  downloads = true;
 
   constructor(readonly server: Server) {}
 
@@ -84,7 +90,12 @@ class Device {
           else this.events.delete(id);
         }
         const listed = new Set([...this.events.values()].flatMap(filesOf));
-        for (const item of media) this.media.set(item.id, structuredClone(item));
+        // As writeWorkspacePosts: a record needs its file here, or a cloud copy to fetch it from.
+        for (const item of media) {
+          const here = this.media.get(item.id);
+          if (here) this.media.set(item.id, { ...here, ...(item.cloud ? { cloud: item.cloud } : {}) });
+          else if (item.cloud && this.downloads) this.media.set(item.id, structuredClone(item));
+        }
         for (const id of [...this.media.keys()]) if (!listed.has(id)) this.media.delete(id);
         return kept;
       },
@@ -109,6 +120,7 @@ class Device {
         server.calls.push(`insert ${id}`);
         if (data.title === server.refuse) return { refused: "This post names a file of another workspace." };
         if (server.rows.has(id) || server.elsewhere.has(id)) return { exists: true };
+        if (server.full) return { refused: TOO_MANY_POSTS };
         return { ok: server.write(id, data) };
       },
       update: async (id, version, values): Promise<Sent> => {
@@ -387,6 +399,59 @@ describe("files, refusals and ids", () => {
     expect(server.rows.get("p1")?.data).toMatchObject({ files: ["p1_new"], description: "B's caption" });
   });
 
+  test("a device without a post's file keeps its listing, so two devices don't fight over it", async () => {
+    for (const cloud of [{ key: "posts/u/p1_a", at: "2026-10-26T09:00:00Z" }, undefined]) {
+      const { server, a, b } = pair();
+      b.downloads = false;
+      a.put(post("p1", { files: ["p1_a"] }));
+      a.media.set("p1_a", { id: "p1_a", name: "a.mp4", type: "video/mp4", lastModified: 1, ...(cloud ? { cloud } : {}) });
+      await a.sync();
+      const listed = server.rows.get("p1")?.data?.media;
+      expect(listed).toEqual([a.media.get("p1_a")]);
+      for (let round = 0; round < 4; round++) {
+        await b.sync();
+        await a.sync();
+      }
+      expect(b.media.has("p1_a")).toBe(false);
+      expect(server.rows.get("p1")?.version).toBe(1);
+      expect(server.rows.get("p1")?.data?.media).toEqual(listed);
+    }
+  });
+
+  test("a post changed on the device without its file keeps the file's listing", async () => {
+    const { server, a, b } = pair();
+    b.downloads = false;
+    a.put(post("p1", { files: ["p1_a"] }));
+    a.media.set("p1_a", { id: "p1_a", name: "a.mp4", type: "video/mp4", lastModified: 1 });
+    await a.sync();
+    await b.sync();
+    b.edit("p1", { title: "Edited without the file" });
+    await b.sync();
+    await a.sync();
+    expect(server.rows.get("p1")?.data).toMatchObject({ title: "Edited without the file", media: [a.media.get("p1_a")] });
+    expect(a.events.get("p1")?.title).toBe("Edited without the file");
+  });
+
+  test("a file's newer cloud copy reaches a device that has the file, and isn't sent back over", async () => {
+    const { server, a, b } = pair();
+    const file = { id: "p1_a", name: "a.mp4", type: "video/mp4", lastModified: 1 };
+    a.put(post("p1", { files: ["p1_a"] }));
+    a.media.set("p1_a", { ...file, cloud: { key: "posts/u/p1_a", at: "2026-10-26T09:00:00Z" } });
+    await a.sync();
+    await b.sync();
+    expect(b.media.has("p1_a")).toBe(true);
+    const renewed = { key: "posts/u/p1_a", at: "2026-12-20T09:00:00Z" };
+    a.media.set("p1_a", { ...file, cloud: renewed });
+    await a.sync();
+    const version = server.rows.get("p1")?.version;
+    for (let round = 0; round < 3; round++) {
+      await b.sync();
+      await a.sync();
+    }
+    expect(b.media.get("p1_a")?.cloud).toEqual(renewed);
+    expect(server.rows.get("p1")?.version).toBe(version);
+  });
+
   test("a post the server turns down doesn't make the run fail for the others", async () => {
     const { server, a } = pair();
     a.put(post("bad", { title: server.refuse }));
@@ -409,6 +474,72 @@ describe("files, refusals and ids", () => {
     server.rows.set("p1", row);
     await a.settle();
     expect(server.rows.get("p1")?.data?.title).toBe("Changed while paused");
+  });
+
+  test("a post past the limit is turned down in the database's own words, and not tried again while nothing changes", async () => {
+    const { server, a } = pair();
+    server.full = true;
+    a.put(post("over"));
+    const first = await a.sync();
+    expect(first.refused.get("over")).toBe(TOO_MANY_POSTS);
+    expect(first.unsynced.has("over")).toBe(true);
+    expect(first.ok).toBe(true);
+    server.calls = [];
+    await a.sync();
+    await a.sync();
+    expect(server.calls.filter((call) => call !== "all" && call !== "changes")).toEqual([]);
+    const migration = readFileSync(new URL("../../../../supabase/migrations/20261105120000_limits.sql", import.meta.url), "utf8");
+    expect(migration).toContain(`'${TOO_MANY_POSTS}' using errcode = '54000'`);
+  });
+
+  test("deleting a post, here or elsewhere, sends the ones past the limit again", async () => {
+    const { server, a, b } = pair();
+    a.put(post("old1"));
+    a.put(post("old2"));
+    await a.settle();
+    await b.settle();
+    server.full = true;
+    a.put(post("over"));
+    expect((await a.sync()).refused.has("over")).toBe(true);
+
+    server.full = false;
+    a.events.delete("old1");
+    await a.sync();
+    await a.sync();
+    expect(server.rows.get("over")?.data?.title).toBe("over");
+    expect(a.bases.get("over")?.refused).toBeUndefined();
+
+    server.full = true;
+    a.put(post("over2"));
+    expect((await a.sync()).refused.has("over2")).toBe(true);
+    server.full = false;
+    await b.settle();
+    b.events.delete("old2");
+    await b.sync();
+    const after = await a.sync();
+    expect(after.refused.has("over2")).toBe(false);
+    expect(server.rows.get("over2")?.data?.title).toBe("over2");
+  });
+
+  test("a deletion that doesn't make room asks once for each post past the limit, then stops", async () => {
+    const { server, a } = pair();
+    a.put(post("old1"));
+    await a.settle();
+    server.full = true;
+    a.put(post("over1"));
+    a.put(post("over2"));
+    a.put(post("over3"));
+    await a.sync();
+    a.events.delete("old1");
+    await a.sync();
+
+    const inserts = async () => {
+      server.calls = [];
+      const result = await a.sync();
+      expect(result.refused.size).toBe(3);
+      return server.calls.filter((call) => call.startsWith("insert")).length;
+    };
+    expect([await inserts(), await inserts(), await inserts(), await inserts(), await inserts()]).toEqual([1, 1, 1, 0, 0]);
   });
 
   test("an id another workspace has is turned down with a reason, not tried for ever", async () => {

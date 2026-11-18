@@ -238,6 +238,12 @@ export const ANIMATION_TYPES: Record<string, AnimationType> = {
 	scramble: AnimationType.SCRAMBLE,
 	pop: AnimationType.POP,
 	bounce: AnimationType.BOUNCE,
+	float: AnimationType.FLOAT,
+	pulse: AnimationType.PULSE,
+	wiggle: AnimationType.WIGGLE,
+	shake: AnimationType.SHAKE,
+	flicker: AnimationType.FLICKER,
+	breathe: AnimationType.BREATHE,
 };
 
 export const CAPTION_PRESETS: Record<string, CaptionType> = {
@@ -1126,7 +1132,7 @@ export class RuntimeDocument implements ProjectDocument<SceneNode> {
 			}
 			case 'phase': {
 				if (!entity.has(Animation)) return;
-				entity.set(Animation, { phase: value === 'out' ? AnimationPhase.OUT : AnimationPhase.IN });
+				entity.set(Animation, { phase: value === 'out' ? AnimationPhase.OUT : value === 'loop' ? AnimationPhase.LOOP : AnimationPhase.IN });
 				return;
 			}
 			case 'duration':

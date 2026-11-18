@@ -365,3 +365,28 @@ test("losing the follower count to a network failure keeps the post numbers", as
   assert.equal(found.followers, null);
   assert.equal(found.videos[0].views, 9);
 });
+
+test("a post LinkedIn's daily limit stops waits for the limit to reset, at any step that can hit it", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"], now: Date.parse("2026-11-05T15:30:00Z") });
+  const midnight = Date.parse("2026-11-06T00:00:00Z");
+  t.mock.method(globalThis, "fetch", async () => Response.json({ message: "Too many" }, { status: 429 }));
+  const session = { accessToken: "a", personId: "p" };
+  const page = { accessToken: "a", organizationId: "9" };
+  const media = { stream: async () => new ReadableStream() };
+  const picture = { kind: "image", size: 1, type: "image/png", key: "k" };
+  const steps = {
+    "words": () => linkedin.send({ post: { description: "Hi" }, session, files: [], media }),
+    "a picture's upload": () => linkedin.send({ post: { description: "Hi" }, session, files: [picture], media }),
+    "a Page's picture": () => linkedin.send({ post: { description: "Hi" }, session: page, files: [picture], media }),
+    "a Page's video": () => linkedin.send({ post: { description: "Hi" }, session: page, files: [{ kind: "video", size: 1, type: "video/mp4", key: "k" }], media }),
+    "a post with its file": () => linkedin.publish({ post: { description: "Hi" }, session, delivery: { publish_id: "image:urn:li:digitalmediaAsset:1" } }),
+    "a follow-up": () => linkedin.reply({ session, text: "More", root: "urn:li:share:1" }),
+  };
+  for (const [step, sending] of Object.entries(steps)) {
+    await assert.rejects(sending(), (error) => {
+      assert.equal(error.until, midnight, step);
+      assert.match(error.message, /Trying again tomorrow/, step);
+      return true;
+    });
+  }
+});

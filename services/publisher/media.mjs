@@ -10,6 +10,11 @@ const ID = /^[A-Za-z0-9_-]{1,100}$/;
 /** More than any network takes in one post. */
 const MAX_FILES = 35;
 const FOLDERS = ["media", "posts", "projects", "sent"];
+const CONNECT_MS = 10_000;
+/** Until the store starts to answer. */
+const REQUEST_MS = 60_000;
+/** A download waiting this long for its next bytes has stalled. */
+const IDLE_MS = 60_000;
 
 /** A network's own files, else the post's. Null for a post saved before posts listed their files. */
 export function fileIdsOf(post, platform) {
@@ -29,13 +34,36 @@ export function r2Endpoint(env) {
   return `https://${env.R2_ACCOUNT_ID}.${jurisdiction === "default" ? "" : `${jurisdiction}.`}r2.cloudflarestorage.com`;
 }
 
-export function createMedia(env) {
+/**
+ * The clock runs only while waiting on the store, so a slow network reading a stream never trips it. The SDK's
+ * socketTimeout can't do this: over 6 s it's cancelled when headers come within 3 s, and otherwise it also fires on a paused download.
+ */
+async function* watched(body, idleMs) {
+  const chunks = body[Symbol.asyncIterator]();
+  try {
+    for (;;) {
+      let timer;
+      const stalled = new Promise((_resolve, reject) => {
+        timer = setTimeout(() => reject(new PublishError("Cloud storage stopped sending the post's file.", { retry: true })), idleMs);
+      });
+      const next = await Promise.race([chunks.next(), stalled]).finally(() => clearTimeout(timer));
+      if (next.done) return;
+      yield next.value;
+    }
+  } finally {
+    body.destroy();
+  }
+}
+
+export function createMedia(env, { idleMs = IDLE_MS, requestMs = REQUEST_MS } = {}) {
   const s3 = new S3Client({
     region: "auto",
     endpoint: r2Endpoint(env),
     credentials: { accessKeyId: env.R2_ACCESS_KEY_ID, secretAccessKey: env.R2_SECRET_ACCESS_KEY },
     requestChecksumCalculation: "WHEN_REQUIRED",
     responseChecksumValidation: "WHEN_REQUIRED",
+    // Without throwOnRequestTimeout the SDK only logs a warning when requestTimeout passes.
+    requestHandler: { connectionTimeout: CONNECT_MS, requestTimeout: requestMs, throwOnRequestTimeout: true },
   });
   const bucket = env.R2_BUCKET;
 
@@ -69,13 +97,13 @@ export function createMedia(env) {
 
     /** Both ends included. */
     async bytes(key, start, end) {
-      const body = await get(key, [start, end]);
-      return Buffer.from(await body.transformToByteArray());
+      const chunks = [];
+      for await (const chunk of watched(await get(key, [start, end]), idleMs)) chunks.push(chunk);
+      return Buffer.concat(chunks);
     },
 
     async stream(key, range) {
-      const body = await get(key, range);
-      return body.transformToWebStream();
+      return ReadableStream.from(watched(await get(key, range), idleMs));
     },
 
     /** Throws when any may be left. */

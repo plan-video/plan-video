@@ -49,7 +49,7 @@ describe("chooseAccounts", () => {
 
 describe("posting tools", () => {
   it("keeps scheduling and publishing apart", () => {
-    expect(toolByName("schedule_post").description.toLowerCase()).toContain("does not publish");
+    expect(toolByName("schedule_post").description.toLowerCase()).toContain("goes out on its own");
     expect(toolByName("publish_post").description.toLowerCase()).toContain("cannot be undone");
     expect("publish" in toolByName("publish_post").input.shape).toBe(false);
     expect(toolByName("update_post").input.shape.caption.description).toContain("caption");

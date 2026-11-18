@@ -54,6 +54,8 @@ function hostElement<P extends object>(tag: string): (props: P) => SolidJSX.Elem
 
 /** Builds host nodes from an `AuthoredTree` into whatever document is active; an editor renders it inside `insertElement`'s thunk to duplicate a subtree. */
 export function renderAuthored(tree: AuthoredTree): unknown {
+  // A capital makes createElement build a composition node; anything that doesn't start with a letter would be parsed as HTML.
+  if (!/^[A-Za-z][A-Za-z0-9]*$/.test(tree.tag)) throw new Error("Not a layer.");
   const node = createElement(tree.tag.charAt(0).toUpperCase() + tree.tag.slice(1));
   for (const [name, value] of Object.entries(tree.props)) {
     setProp(node, name, value);

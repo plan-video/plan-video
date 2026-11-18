@@ -201,19 +201,25 @@ const pending = new Map<string, Job>();
 const held = new Map<string, { job: Job; problem: string; kind: Exclude<Kind, "stopped"> }>();
 const tries = new Map<string, number>();
 let running = false;
+let current: string | null = null;
 let pause: { problem: string; timer: ReturnType<typeof setTimeout> } | null = null;
 let pauses = 0;
 let heldTimer: ReturnType<typeof setTimeout> | undefined;
 
 const [holdUps, setHoldUps] = createSignal<ReadonlyMap<string, string>>(new Map());
+const [uploads, setUploads] = createSignal<ReadonlySet<string>>(new Set());
 
 export const cloudHoldUps = holdUps;
+/** Jobs that stop with this tab and that staying can still finish, so not one storage turned down. */
+export const cloudUploads = uploads;
 
 function publish() {
   const next = new Map<string, string>();
   for (const [name, { problem }] of held) next.set(name, problem);
   if (pause) for (const name of pending.keys()) next.set(name, pause.problem);
   setHoldUps(next);
+  const unfinished = new Set([...(current ? [current] : []), ...pending.keys(), ...[...held].flatMap(([name, entry]) => (entry.kind === "unreachable" ? [name] : []))]);
+  setUploads((known) => (known.size === unfinished.size && [...known].every((name) => unfinished.has(name)) ? known : unfinished));
 }
 
 // One job at a time in order, so a delete and an Undo that re-uploads can't pass each other.
@@ -252,6 +258,7 @@ async function drain() {
     while (pending.size && !pause) {
       const [name, job] = pending.entries().next().value!;
       pending.delete(name);
+      current = name;
       try {
         await job();
         tries.delete(name);
@@ -261,6 +268,7 @@ async function drain() {
       } catch (error) {
         hold(name, job, error);
       }
+      current = null;
       publish();
     }
   } finally {

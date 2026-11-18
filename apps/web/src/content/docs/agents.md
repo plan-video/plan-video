@@ -25,7 +25,7 @@ plan.video runs an MCP server at `https://plan.video/mcp`. Any agent that suppor
 - publish a post when you ask, once you've allowed it in your tab
 
 <Warning>
-Keep plan.video open in a browser tab, signed in, while your agent works. The agent's requests run through that tab. Once a post is scheduled, it goes out on time whether the tab is open or not.
+Keep plan.video open in a browser tab, signed in, while your agent works. The agent's requests run through that tab. Once a post is scheduled and its files have uploaded, it goes out on time whether the tab is open or not.
 </Warning>
 
 ## Works with

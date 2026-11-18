@@ -1,11 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Agent, createServer, request } from "node:http";
+import { mkdtempSync, rmSync } from "node:fs";
 import { mkdtemp, readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { PassThrough } from "node:stream";
 
-import { handleTranscribe, json, queued, Refused, wavSeconds } from "./handler.mjs";
+import { handleTranscribe, json, queued, Refused, saveBody, wavSeconds } from "./handler.mjs";
 
 const SUPABASE = "https://db.test";
 const RATE = 16000;
@@ -176,6 +178,76 @@ test("wavSeconds measures from the header and the file's whole length", () => {
   assert.equal(wavSeconds(Buffer.concat([head, Buffer.alloc(bytes)])), 600);
   assert.equal(wavSeconds(head, head.length + bytes), 600);
   assert.equal(wavSeconds(Buffer.from("not a wav at all, not a wav at all, not a wav")), null);
+});
+
+test("wavSeconds bills every byte, whatever chunks a file is cut into", () => {
+  const { head } = wavHeader(0);
+  const chunk = (id, bytes) => {
+    const header = Buffer.alloc(8);
+    header.write(id, 0, "ascii");
+    header.writeUInt32LE(bytes, 4);
+    return Buffer.concat([header, Buffer.alloc(bytes + (bytes % 2))]);
+  };
+  const fmt = head.subarray(12, 36);
+  const riff = head.subarray(0, 12);
+  const hour = 3600 * RATE * 2;
+
+  // Audio past a short `data` chunk would be heard but not counted.
+  assert.equal(wavSeconds(Buffer.concat([riff, fmt, chunk("data", 2), chunk("data", hour)])), null);
+  assert.equal(wavSeconds(Buffer.concat([riff, fmt, chunk("data", 2), chunk("LIST", 40)])), null);
+  // A second `fmt ` could tell a decoder another rate than the one billed.
+  assert.equal(wavSeconds(Buffer.concat([riff, fmt, fmt, chunk("data", 32000)])), null);
+  // What a decoder skips over is billed too.
+  assert.equal(wavSeconds(Buffer.concat([riff, fmt, chunk("LIST", 32000), chunk("data", 32000)])), 2.00025);
+
+  for (const size of [0, 0xffffffff]) {
+    const streamed = Buffer.concat([head, Buffer.alloc(32000)]);
+    streamed.writeUInt32LE(size, 40);
+    assert.equal(wavSeconds(streamed), 1);
+    // Measured from the start of the file, as the upload gives it.
+    assert.equal(wavSeconds(streamed.subarray(0, 44), 44 + hour), 3600);
+  }
+
+  const odd = Buffer.concat([riff, fmt, chunk("data", 32001)]);
+  assert.equal(odd.length, 44 + 32002);
+  assert.ok(wavSeconds(odd) > 1);
+  // A size past what arrived is a file cut short: only what arrived counts.
+  const cut = Buffer.concat([head, Buffer.alloc(32000)]);
+  cut.writeUInt32LE(64000, 40);
+  assert.equal(wavSeconds(cut), 1);
+});
+
+test("an extensible-format WAV, whose real encoding the header doesn't show, isn't accepted", () => {
+  const wav = Buffer.alloc(44 + 32000);
+  wav.write("RIFF", 0); wav.writeUInt32LE(wav.length - 8, 4); wav.write("WAVE", 8); wav.write("fmt ", 12);
+  wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20); wav.writeUInt16LE(1, 22); wav.writeUInt32LE(16000, 24); wav.writeUInt32LE(32000, 28); wav.writeUInt16LE(2, 32); wav.writeUInt16LE(16, 34);
+  wav.write("data", 36); wav.writeUInt32LE(32000, 40);
+  assert.equal(wavSeconds(wav, wav.length), 1);
+  wav.writeUInt16LE(0xfffe, 20);
+  assert.equal(wavSeconds(wav, wav.length), null);
+});
+
+test("an upload that stalls or only trickles is dropped, so it can't hold a slot", async (t) => {
+  t.mock.timers.enable({ apis: ["setInterval", "Date"], now: 1_000_000 });
+  const dir = mkdtempSync(join(tmpdir(), "stall-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const upload = async (feed) => {
+    const req = new PassThrough();
+    const saving = saveBody(req, join(dir, "a.wav"), 1_000_000).then(() => "saved", (error) => error.message);
+    await feed(req);
+    return saving;
+  };
+  const ticks = async (seconds, each) => {
+    for (let i = 0; i < seconds; i += 5) {
+      each?.();
+      await new Promise((resolve) => setImmediate(resolve));
+      t.mock.timers.tick(5000);
+      await new Promise((resolve) => setImmediate(resolve));
+    }
+  };
+  assert.match(await upload((req) => ticks(35)), /didn't arrive/);
+  assert.match(await upload((req) => ticks(35, () => req.write(Buffer.alloc(10)))), /didn't arrive/);
+  assert.equal(await upload(async (req) => { await ticks(35, () => req.write(Buffer.alloc(60_000))); req.end(); }), "saved");
 });
 
 test("a burst of clips sent at once can't each pass on the same old total", async () => {

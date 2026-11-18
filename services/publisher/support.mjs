@@ -5,6 +5,8 @@
 import { createHash } from "node:crypto";
 import { isIP } from "node:net";
 
+import { createWindows } from "./windows.mjs";
+
 export const SUPPORT_PATH = "/api/publisher/support";
 
 export const KINDS = { bug: "Bug", feature: "Feature request", other: "Question" };
@@ -19,8 +21,8 @@ const DAY = 24 * HOUR;
 const LIMITS = [
   { scope: "ip", max: 5, ms: HOUR },
   { scope: "ip", max: 15, ms: DAY },
-  { scope: "email", max: 10, ms: DAY },
   { scope: "site", max: 300, ms: DAY },
+  { scope: "email", max: 10, ms: DAY },
 ];
 
 const escape = (text) =>
@@ -92,19 +94,7 @@ export function composeReport(report, { account, at }) {
 
 /** Without `mailer` or `to`, the form says to email instead. */
 export function createSupport({ mailer, to, supabaseUrl, anonKey, readBody, json, now = () => Date.now(), fetch: call = fetch, log = console }) {
-  const windows = new Map();
-
-  function allowed(key, max, ms) {
-    const at = now();
-    const entry = windows.get(key);
-    if (!entry || entry.reset <= at) {
-      if (windows.size > 20_000) windows.clear();
-      windows.set(key, { count: 1, reset: at + ms });
-      return true;
-    }
-    entry.count += 1;
-    return entry.count <= max;
-  }
+  const windows = createWindows(now);
 
   async function accountOf(req) {
     const header = req.headers.authorization ?? "";
@@ -136,7 +126,7 @@ export function createSupport({ mailer, to, supabaseUrl, anonKey, readBody, json
     const ip = clientIp(req);
     const keys = { ip: `ip:${ip}`, email: `email:${report.email}`, site: "site" };
     for (const { scope, max, ms } of LIMITS) {
-      if (!allowed(`${keys[scope]}:${ms}`, max, ms)) {
+      if (!windows.allowed(`${keys[scope]}:${ms}`, max, ms)) {
         return json(res, 429, { error: "That's a lot of reports at once. Try again later, or email hello@plan.video." });
       }
     }

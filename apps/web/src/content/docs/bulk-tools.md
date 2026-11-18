@@ -18,7 +18,7 @@
 ## Change one post, or a few
 
 - **Type on a row** to write that post's caption, or click its time to change it. What you set on a row stays when you change the panel. Press Enter to move to the next post's caption, and Shift+Enter for a new line.
-- **Give a post a title** in the **Title** column, which appears when a post is going to YouTube or Pinterest. Left empty, the post is titled after its file.
+- **Give a post a title** in the **Title** column, which appears when a post is going to YouTube. Left empty, the post is titled after its file.
 - **Paste a column** from a spreadsheet onto a caption or a title to fill it down the rows, starting there. Line breaks inside a caption's cell stay.
 - **Drag a post by its handle** to change the order, or choose **Shuffle** from the **⋯** menu. The times follow the rows, apart from any you set by hand. With the keyboard, focus the handle and use the up and down arrows.
 - **Select posts** to have the panel change only those, even if you set them by hand. Hold Shift to select a range.

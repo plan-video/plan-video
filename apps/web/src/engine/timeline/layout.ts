@@ -7,7 +7,7 @@
 
 import { ClipHeight, Timeline, store } from '@plan.video/runtime';
 
-import { DEFAULT_CLIP_HEIGHT, KEYFRAME_TRACK_HEIGHT } from './config';
+import { CLIP_INSET, DEFAULT_CLIP_HEIGHT, KEYFRAME_TRACK_HEIGHT } from './config';
 
 import type { TimelineNode } from '@plan.video/runtime';
 import type { Entity, World } from 'koota';
@@ -17,6 +17,16 @@ export type RowCursor = {
 	top: number;
 	height: number;
 };
+
+/** Where a row draws its clips, from the row's own top. */
+export type RowBody = {
+	top: number;
+	height: number;
+};
+
+export function getRowBody(row: RowCursor): RowBody {
+	return { top: CLIP_INSET, height: row.height - CLIP_INSET * 2 };
+}
 
 export function getNodeHeight(node: TimelineNode): number {
 	if (node.kind === 'geometry') {

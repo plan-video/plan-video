@@ -98,7 +98,8 @@ export const youtube = {
         madeForKids: chosen.madeForKids === true,
         short,
       });
-      if (started.error) throw new PublishError(started.error);
+      // Only a start: nothing is on YouTube yet, so a busy answer is safe to try again.
+      if (started.error) throw new PublishError(started.error, { retry: !!started.busy });
       uploadUrl = started.uploadUrl;
       await progress(`upload:${uploadUrl}`);
     }

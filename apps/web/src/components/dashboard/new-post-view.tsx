@@ -14,6 +14,8 @@ import { capCentered } from "@/components/ui/cap-label";
 import { Icon } from "@/components/dashboard/dashboard-icon";
 import { DashboardPageHeader } from "@/components/dashboard/page-header";
 import { useAskToUpgrade } from "@/components/dashboard/paid-lock";
+import { PlaneButton } from "@/components/dashboard/plane-button";
+import { PlaneIcon } from "@/components/dashboard/plane-icons";
 import { Slider, SliderLabel, SliderThumb, SliderTrack } from "@/components/ui/slider";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverPortal, PopoverTrigger } from "@/components/ui/popover";
@@ -61,7 +63,7 @@ import {
   timeOf,
   timeZoneName,
 } from "@/components/publish/save";
-import { allPosts, loadPostFiles, ownCaptions as savedCaptions, setPostThumbnail, type PostFiles } from "@/components/calendar/store";
+import { allPosts, isUploading, loadPostFiles, ownCaptions as savedCaptions, setPostThumbnail, type PostFiles } from "@/components/calendar/store";
 import { shrinkToThumbnail, thumbnailFromFile } from "@/lib/post-thumbnail";
 import type { StoredEvent } from "@/components/calendar/types";
 import {
@@ -88,6 +90,7 @@ import { projectRoute, useReturnHere } from "@/hooks/use-project-route";
 import { track } from "@/lib/analytics";
 import { cx } from "@/lib/cva";
 import { localized, msg, t } from "@/lib/i18n";
+import { warnBeforeLeaving } from "@/lib/leave-guard";
 import { paidToolsLocked } from "@/lib/paid-tools";
 import {
   captionLength,
@@ -163,7 +166,7 @@ import {
 } from "@/lib/social-media";
 import { projectKey, type ProjectInfo } from "@/projects";
 import { createPostProject } from "@/projects/post";
-import { exportProjectVideo } from "@/projects/post-export";
+import { exportProjectVideo, takePostVideo, type PostVideo } from "@/projects/post-export";
 
 const MAX_IMAGES = MEDIA_LIMITS.maxImages;
 const COVER_FRAMES = 8;
@@ -290,6 +293,29 @@ const allMedia = () => [...post.media, ...Object.values(post.ownMedia).flatMap((
 const threadMedia = () => post.thread.flatMap((reply) => reply.media);
 const keptReplies = () => post.thread.filter(replyHasContent).slice(0, MAX_REPLIES);
 
+const hasContent = () =>
+  post.media.length > 0 ||
+  post.project !== null ||
+  post.caption.trim().length > 0 ||
+  Object.keys(post.overrides).length > 0 ||
+  Object.keys(post.ownMedia).length > 0 ||
+  post.thread.some(replyHasContent);
+
+const fileMark = (item: PostMedia) => [item.file.name, item.file.size, item.file.lastModified];
+const contentMark = () =>
+  JSON.stringify([
+    post.caption,
+    post.overrides,
+    post.project?.key ?? null,
+    post.media.map(fileMark),
+    Object.entries(post.ownMedia).map(([id, own]) => [id, own?.items.map(fileMark)]),
+    post.thread.map((reply) => [reply.text, reply.media.map(fileMark)]),
+  ]);
+/** A saved post opened as it was has nothing to lose. */
+let savedMark: string | null = null;
+
+warnBeforeLeaving(() => hasContent() && contentMark() !== savedMark);
+
 /** Platforms can share a file, so one is only let go once nothing in the post holds it. */
 function releaseUnused(items: readonly PostMedia[]) {
   const held = new Set([...allMedia(), ...threadMedia()].map((item) => item.id));
@@ -319,8 +345,11 @@ const copyOwnMedia = () =>
     Object.entries(post.ownMedia).map(([id, own]) => [id, { items: [...own!.items], cover: own!.cover }]),
   ) as Composer["ownMedia"];
 
-async function attachProject(project: ProjectInfo & { cover?: Blob | null }) {
+let linkedVideo: PostVideo | null = null;
+
+async function attachProject(project: ProjectInfo & { cover?: Blob | null }, handed: PostVideo | null = null) {
   pendingCover = null;
+  linkedVideo = handed;
   const linked = await linkProject(project);
   if (post.kind === "text" || post.kind === "image") setKind("video");
   setPost("project", linked);
@@ -367,7 +396,9 @@ function exportLinkedProject(key: string) {
     try {
       const project = await findProject(key);
       if (!project) throw new Error(msg("That project is no longer on your list."));
-      const { file, credits, words } = await exportProjectVideo(project, {
+      const handed = linkedVideo?.key === key ? linkedVideo : null;
+      const { file, credits, words } = handed?.made ?? await exportProjectVideo(project, {
+        settings: handed?.settings,
         signal: abort.signal,
         onProgress: (progress) => !abort.signal.aborted && setProjectExport({ key, progress }),
       });
@@ -515,6 +546,7 @@ async function loadPost(saved: StoredEvent, replace: boolean) {
       },
     }),
   );
+  savedMark = contentMark();
 }
 
 async function putFiles(files: File[]) {
@@ -771,9 +803,10 @@ export function DashboardNewPostView() {
       async (key) => {
         if (typeof key !== "string" || !key) return;
         setParams({ project: undefined }, { replace: true });
+        const handed = takePostVideo(key);
         const project = await findProject(key);
         if (project) {
-          await attachProject(project);
+          await attachProject(project, handed);
         } else toast.error(t("That project is no longer on your list"));
       },
     ),
@@ -826,14 +859,6 @@ export function DashboardNewPostView() {
     return null;
   };
 
-  const hasContent = () =>
-    post.media.length > 0 ||
-    post.project !== null ||
-    post.caption.trim().length > 0 ||
-    Object.keys(post.overrides).length > 0 ||
-    Object.keys(post.ownMedia).length > 0 ||
-    post.thread.some(replyHasContent);
-
   const toInbox = () => post.kind !== "story" && post.platforms.length > 0 && post.platforms.every((id) => id === "tiktok") && post.settings.tiktok.inbox;
   const livePlatforms = () => post.platforms.filter((id) => PUBLISHING_PLATFORMS.includes(id));
   const ready = () => post.platforms.length > 0 && errors().length === 0 && mediaErrors().length === 0 && !busy();
@@ -843,6 +868,7 @@ export function DashboardNewPostView() {
     for (const item of [...allMedia(), ...threadMedia()]) releaseMedia(item);
     setPost(reconcile(freshComposer([...post.platforms], post.kind)));
     setEditing("all");
+    savedMark = null;
   };
 
   const openCalendar = (when: Date) => setParams({ dashboard: "calendar", date: localDateKey(when), view: undefined });
@@ -913,6 +939,7 @@ export function DashboardNewPostView() {
       toast.error(t("Could not save the post"), { description: t(error) });
       return null;
     }
+    savedMark = contentMark();
     keepThumbnail(id);
     if (post.platforms.includes("pinterest") && post.kind !== "story") rememberPinterestBoard(post.settings.pinterest.board);
     return { when, id };
@@ -996,6 +1023,7 @@ export function DashboardNewPostView() {
     const names = listNames(live);
     toast(inbox && live.length === 1 ? t("Sending to your TikTok inbox") : t("Publishing to {platforms}", { platforms: names }), {
       description: [
+        isUploading(saved.id) ? t("Uploading now. Keep this tab open until it's done.") : null,
         inbox && live.length === 1 ? t("Open the notification in TikTok to edit it and post it.") : null,
         inbox && live.length > 1 ? t("TikTok sends it to your inbox.") : null,
         staying.length ? t("{count, plural, one {{names} stays a draft.} other {{names} stay a draft.}}", { count: staying.length, names: listNames(staying) }) : null,
@@ -1056,9 +1084,12 @@ export function DashboardNewPostView() {
         const end = cadence ? resolveRepeatEnd(post.repeatEnd, post.repeat, localDateKey(when)) : null;
         const repeats = cadence && (end ? t("{cadence} until {date}", { cadence, date: formatCalendarDay(end) }) : cadence);
         toast.success(t("Scheduled for {date}", { date: formatWhen(shown) }), {
-          description: [repeats ? t("Then {repeats}", { repeats }) : null, post.platforms.map((id) => socialPlatform(id).name).join(", ")]
+          description: [
+            isUploading(saved.id) ? t("Uploading now. Keep this tab open until it's done.") : null,
+            [repeats ? t("Then {repeats}", { repeats }) : null, post.platforms.map((id) => socialPlatform(id).name).join(", ")].filter(Boolean).join(". "),
+          ]
             .filter(Boolean)
-            .join(". "),
+            .join(" "),
           icon: <StashMark />,
           action: { label: t("Open calendar"), onClick: () => openCalendar(shown) },
         });
@@ -1120,9 +1151,9 @@ export function DashboardNewPostView() {
       <main class="flex min-w-0 flex-1 flex-col">
         <DashboardPageHeader>
           <Show when={hasContent()}>
-            <Button variant="ghost" class="text-muted-foreground" onClick={reset}>
+            <PlaneButton variant="ghost" size="lg" onClick={reset}>
               {t("Start over")}
-            </Button>
+            </PlaneButton>
           </Show>
           <TemplatesMenu canSave={hasContent() || post.platforms.length > 0} />
         </DashboardPageHeader>
@@ -1218,7 +1249,7 @@ export function DashboardNewPostView() {
                 </Button>
               </Show>
               <Tooltip>
-                <TooltipTrigger as={Button} class="gap-1.5 px-3" disabled={!canSubmit()} onClick={() => void submit()}>
+                <TooltipTrigger as={Button} class="button-type gap-1.5 px-3" disabled={!canSubmit()} onClick={() => void submit()}>
                   <Show when={busy() === "post" && !nowFrom()}>
                     <Icon name="spinner-loader" class="-ml-1 size-5 animate-spin" />
                   </Show>
@@ -1345,7 +1376,7 @@ function MediaSection() {
       title={t("Media")}
       hint={hint()}
       action={
-        <>
+        <span class="-mr-1 flex items-center gap-2">
           <Show when={canBeStory()}>
             <Button variant="link" size="small" class="text-xs" onClick={toggleStory}>
               {post.kind === "story" ? t("Make it a post") : t("Make it a story")}
@@ -1358,7 +1389,7 @@ function MediaSection() {
               </Button>
             )}
           </Show>
-        </>
+        </span>
       }
     >
       <Switch>
@@ -1434,7 +1465,7 @@ function SharedMediaNotice(props: { platform: PlatformId }) {
 
   return (
     <div class="flex flex-col gap-3 rounded-xl border border-(--border-input) p-3">
-      <Show when={post.media.length}>
+      <Show when={post.media.length > 1}>
         <div class="flex flex-wrap gap-1.5">
           <For each={post.media}>
             {(item, index) => (
@@ -1454,6 +1485,17 @@ function SharedMediaNotice(props: { platform: PlatformId }) {
         </div>
       </Show>
       <div class="flex items-center gap-3">
+        <Show when={post.media.length === 1 && post.media[0]}>
+          {(item) => (
+            <img
+              src={item().poster}
+              alt=""
+              class="h-12 shrink-0 rounded-md bg-black object-cover"
+              style={{ "aspect-ratio": `${item().width || 9} / ${item().height || 16}` }}
+              draggable={false}
+            />
+          )}
+        </Show>
         <div class="flex min-w-0 flex-1 flex-col gap-0.5">
           <span class="text-xs text-foreground">{t("{platform} posts the shared media", { platform: name() })}</span>
           <span class="text-xs leading-4 text-muted-foreground">{detail()}</span>
@@ -1619,6 +1661,9 @@ function MediaEditor(props: { slot: MediaSlot }) {
   const libraryKinds = () => (post.kind === "image" ? (["image"] as const) : post.kind === "video" ? (["video"] as const) : (["video", "image"] as const));
   const video = () => (items()[0]?.kind === "video" ? items()[0] : undefined);
   const youtube = () => (slot.platform ? slot.platform === "youtube" : sharingMedia().includes("youtube"));
+  const tall = (item: PostMedia) => item.height > item.width;
+  const hasMore = () =>
+    mediaProblems(items()).length > 0 || (post.kind !== "story" && takesCover(slot.platform)) || (!slot.platform && !!post.project);
 
   return (
     <>
@@ -1656,20 +1701,20 @@ function MediaEditor(props: { slot: MediaSlot }) {
               {...handlers}
             >
               <div class="flex gap-4">
-                <CoverImage src={project().cover} class="h-24 w-36 rounded-md" />
+                <CoverImage src={project().cover} class="h-24 w-36 rounded-lg" />
                 <div class="flex min-w-0 flex-1 flex-col gap-1 py-0.5">
                   <span class="flex items-center gap-1 text-xs text-muted-foreground">
                     <Icon name="link" class="-ml-1 size-4" />
                     {t("Linked project")}
                   </span>
-                  <span class="truncate text-xs text-foreground">{project().name}</span>
+                  <span class="truncate text-sm text-foreground">{project().name}</span>
                   <span class="text-xs text-muted-foreground">{formatEditedAt(project().modifiedAt)}</span>
                   <div class="mt-auto flex flex-wrap items-center gap-1.5 pt-2">
                     <Button variant="secondary" class="gap-1 pl-1" onClick={() => openProject(project().key)}>
                       <Icon name="edit-video" class="size-5" />
                       {t("Open project")}
                     </Button>
-                    <ProjectPicker class={cx(buttonVariants({ variant: "secondary" }))} onPick={(next) => void attachProject(next)}>
+                    <ProjectPicker class={cx(buttonVariants({ variant: "secondary" }), "button-type")} onPick={(next) => void attachProject(next)}>
                       {t("Change")}
                     </ProjectPicker>
                     <span class="flex-1" />
@@ -1689,14 +1734,15 @@ function MediaEditor(props: { slot: MediaSlot }) {
         </Match>
         <Match when={video()}>
           {(item) => (
+            <div class="@container">
             <div
-              class="flex flex-col gap-4 rounded-xl border p-3 transition-colors"
+              class="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-4 gap-y-3 rounded-xl border p-3 transition-colors"
               classList={{ "border-primary bg-primary/5": dragging(), "border-(--border-input)": !dragging() }}
               {...handlers}
             >
-              <div class="flex gap-4">
                 <div
-                  class="relative w-24 shrink-0 overflow-hidden rounded-md bg-black"
+                  class="relative overflow-hidden rounded-lg bg-black"
+                  classList={{ "w-24": tall(item()), "@xl:row-span-2 @xl:w-36": tall(item()) && hasMore(), "w-28 @xl:w-40": !tall(item()) }}
                   style={{ "aspect-ratio": `${item().width || 9} / ${item().height || 16}` }}
                 >
                   <img src={slot.cover()?.src ?? item().poster} alt="" class="size-full object-cover" draggable={false} />
@@ -1704,22 +1750,22 @@ function MediaEditor(props: { slot: MediaSlot }) {
                     {formatDuration(item().duration)}
                   </span>
                 </div>
-                <div class="flex min-w-0 flex-1 flex-col gap-1 py-0.5">
-                  <span class="truncate text-xs text-foreground">{item().file.name}</span>
-                  <span class="text-xs text-muted-foreground">
-                    {item().width}×{item().height} · {formatBytes(item().file.size)}
-                  </span>
-                  <span class="text-xs text-muted-foreground">
-                    {item().height > item().width ? t("Vertical") : item().height === item().width ? t("Square") : t("Horizontal")}
-                    {youtube()
-                      ? ` · ${youtubeFormat(summarizeMedia(items())) === "short" ? t("YouTube files it as a Short") : t("YouTube files it as a video")}`
-                      : ""}
-                  </span>
-                  <div class="mt-auto flex flex-wrap items-center gap-1.5 pt-2">
+                <div class="flex min-w-0 flex-col gap-2.5 py-0.5">
+                  <div class="flex flex-col gap-1">
+                    <span class="truncate text-sm text-foreground">{item().file.name}</span>
+                    <span class="text-xs leading-4 text-muted-foreground">
+                      {tall(item()) ? t("Vertical") : item().height === item().width ? t("Square") : t("Horizontal")} · {item().width}×{item().height} ·{" "}
+                      {formatBytes(item().file.size)}
+                      {youtube()
+                        ? ` · ${youtubeFormat(summarizeMedia(items())) === "short" ? t("YouTube files it as a Short") : t("YouTube files it as a video")}`
+                        : ""}
+                    </span>
+                  </div>
+                  <div class="flex flex-wrap items-center gap-1.5">
                     <Button variant="secondary" onClick={() => void pick()}>
                       {t("Replace")}
                     </Button>
-                    <MediaPicker class={cx(buttonVariants({ variant: "secondary" }))} kinds={libraryKinds()} max={1} onPick={(files) => void addFiles(files)}>
+                    <MediaPicker class={cx(buttonVariants({ variant: "secondary" }), "button-type")} kinds={libraryKinds()} max={1} onPick={(files) => void addFiles(files)}>
                       {t("From library")}
                     </MediaPicker>
                     <Show when={!slot.platform}>
@@ -1732,7 +1778,7 @@ function MediaEditor(props: { slot: MediaSlot }) {
                     </Show>
                     <Show when={!post.project && !slot.platform}>
                       <ProjectPicker
-                        class={cx(buttonVariants({ variant: "ghost" }), "gap-1 pl-1 text-muted-foreground")}
+                        class={cx(buttonVariants({ variant: "ghost" }), "button-type gap-1 pl-1 text-muted-foreground")}
                         onPick={(project) => void attachProject(project)}
                       >
                         <Icon name="link" class="size-5" />
@@ -1745,24 +1791,34 @@ function MediaEditor(props: { slot: MediaSlot }) {
                     </Button>
                   </div>
                 </div>
-              </div>
-              <MediaProblems slot={slot} />
-              <Show when={post.kind !== "story" && takesCover(slot.platform)}>
-                <CoverPicker slot={slot} media={item()} />
+              <Show when={hasMore()}>
+                <div class="col-span-2 flex min-w-0 flex-col gap-3" classList={{ "@xl:col-span-1 @xl:col-start-2": tall(item()) }}>
+                  <MediaProblems slot={slot} />
+                  <Show when={post.kind !== "story" && takesCover(slot.platform)}>
+                    <CoverPicker slot={slot} media={item()} />
+                  </Show>
+                  <Show when={!slot.platform}>
+                    <LinkedProjectRow />
+                  </Show>
+                </div>
               </Show>
-              <Show when={!slot.platform}>
-                <LinkedProjectRow />
-              </Show>
+            </div>
             </div>
           )}
         </Match>
         <Match when={items()[0]?.kind === "image"}>
-          <ImageGrid slot={slot} dragging={dragging()} handlers={handlers} onAdd={() => void pick()} onRemove={remove} onEdit={(item) => setEditingPicture({ slot, item })} />
-          <CropNote slot={slot} />
-          <MediaProblems slot={slot} />
-          <Show when={!slot.platform}>
-            <LinkedProjectRow bare />
-          </Show>
+          <div
+            class="flex flex-col gap-3 rounded-xl border p-3 transition-colors"
+            classList={{ "border-primary bg-primary/5": dragging(), "border-(--border-input)": !dragging() }}
+            {...handlers}
+          >
+            <ImageGrid slot={slot} onAdd={() => void pick()} onRemove={remove} onEdit={(item) => setEditingPicture({ slot, item })} />
+            <CropNote slot={slot} />
+            <MediaProblems slot={slot} />
+            <Show when={!slot.platform}>
+              <LinkedProjectRow />
+            </Show>
+          </div>
         </Match>
       </Switch>
     </>
@@ -1886,18 +1942,18 @@ function MediaProblems(props: { slot: MediaSlot }) {
   );
 }
 
-function LinkedProjectRow(props: { bare?: boolean }) {
+function LinkedProjectRow() {
   return (
     <Show when={post.project}>
       {(project) => (
-        <div class="flex items-center gap-2.5" classList={{ "border-t border-(--border-input) pt-3": !props.bare }}>
+        <div class="flex items-center gap-2.5 border-t border-(--border-input) pt-3">
           <CoverImage src={project().cover} class="h-8 w-12 rounded-md" />
           <div class="flex min-w-0 flex-1 flex-col gap-0.5">
             <span class="truncate text-xs text-foreground">{project().name}</span>
             <span class="truncate text-xs text-muted-foreground">{t("Linked project · {edited}", { edited: formatEditedAt(project().modifiedAt) })}</span>
           </div>
           <ProjectPicker
-            class={cx(buttonVariants({ variant: "ghost" }), "text-muted-foreground")}
+            class={cx(buttonVariants({ variant: "ghost" }), "button-type text-muted-foreground")}
             placement="bottom-end"
             onPick={(next) => void attachProject(next)}
           >
@@ -1978,6 +2034,9 @@ function CoverPicker(props: { slot: MediaSlot; media: PostMedia }) {
     void sharpen(frame.time);
   };
 
+  const pickable = () => !failed() && frames().length > 0 && props.media.duration > 0;
+  const shape = () => (props.media.width > props.media.height ? "16 / 9" : props.media.width === props.media.height ? "1 / 1" : "3 / 4");
+
   const scrub = (time: number) => {
     const nearest = frames().reduce<Cover | undefined>(
       (best, frame) => (!best || Math.abs(frame.time - time) < Math.abs(best.time - time) ? frame : best),
@@ -1997,12 +2056,12 @@ function CoverPicker(props: { slot: MediaSlot; media: PostMedia }) {
         when={!failed()}
         fallback={<span class="text-xs leading-4 text-muted-foreground">{t("Couldn't read frames from this video.")}</span>}
       >
-      <div class="grid gap-1" style={{ "grid-template-columns": `repeat(${COVER_FRAMES}, minmax(0, 1fr))` }}>
+      <div class="grid gap-0.5 overflow-hidden rounded-lg" style={{ "grid-template-columns": `repeat(${COVER_FRAMES}, minmax(0, 1fr))` }}>
         <Show
           when={frames().length}
           fallback={
             <For each={Array.from({ length: COVER_FRAMES })}>
-              {() => <span class="aspect-[9/12] animate-pulse rounded-md bg-accent" />}
+              {() => <span class="animate-pulse bg-accent" style={{ "aspect-ratio": shape() }} />}
             </For>
           }
         >
@@ -2012,9 +2071,10 @@ function CoverPicker(props: { slot: MediaSlot; media: PostMedia }) {
                 type="button"
                 aria-pressed={cover()?.time === frame.time}
                 aria-label={t("Cover from {time}", { time: formatDuration(frame.time) })}
-                class="relative aspect-[9/12] overflow-hidden rounded-md bg-black press focus-ring"
+                class="relative overflow-hidden bg-black press focus-ring"
+                style={{ "aspect-ratio": shape() }}
                 classList={{
-                  "ring-2 ring-primary": cover()?.time === frame.time,
+                  "outline-2 -outline-offset-2 outline-primary": cover()?.time === frame.time,
                   "opacity-60 hover:opacity-100": cover() !== null && cover()!.time !== frame.time,
                 }}
                 onClick={() => choose(frame)}
@@ -2025,7 +2085,7 @@ function CoverPicker(props: { slot: MediaSlot; media: PostMedia }) {
           </For>
         </Show>
       </div>
-      <Show when={frames().length && props.media.duration > 0}>
+      <Show when={pickable()}>
         <Slider
           minValue={0}
           maxValue={props.media.duration}
@@ -2036,17 +2096,23 @@ function CoverPicker(props: { slot: MediaSlot; media: PostMedia }) {
           class="py-1.5"
         >
           <SliderLabel class="sr-only">{t("Cover time")}</SliderLabel>
-          <SliderTrack>
+          <SliderTrack class="bg-(--plane-fill-subtle)">
             <SliderThumb classList={{ "opacity-50": !cover() }} />
           </SliderTrack>
         </Slider>
-        <span class="text-xs leading-4 text-muted-foreground">{t("Drag to pick any moment, or tap a frame.")}</span>
       </Show>
       </Show>
-      <Show when={ownCover().length}>
-        <span class="text-xs leading-4 text-muted-foreground">
-          {t("{count, plural, one {{names} picks its own cover.} other {{names} pick their own cover.}}", { count: ownCover().length, names: listNames(ownCover()) })}
-        </span>
+      <Show when={pickable() || ownCover().length}>
+        <p class="text-xs leading-4 text-muted-foreground">
+          {[
+            pickable() ? t("Drag to pick any moment, or tap a frame.") : "",
+            ownCover().length
+              ? t("{count, plural, one {{names} picks its own cover.} other {{names} pick their own cover.}}", { count: ownCover().length, names: listNames(ownCover()) })
+              : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+        </p>
       </Show>
     </div>
   );
@@ -2054,8 +2120,6 @@ function CoverPicker(props: { slot: MediaSlot; media: PostMedia }) {
 
 function ImageGrid(props: {
   slot: MediaSlot;
-  dragging: boolean;
-  handlers: ReturnType<typeof createDropHandlers>;
   onAdd(): void;
   onRemove(id: string): void;
   onEdit(item: PostMedia): void;
@@ -2071,11 +2135,7 @@ function ImageGrid(props: {
   };
 
   return (
-    <div
-      class="grid grid-cols-5 gap-2 rounded-md"
-      classList={{ "outline-dashed outline-1 outline-offset-8 outline-primary": props.dragging }}
-      {...props.handlers}
-    >
+    <div class="grid grid-cols-5 gap-2">
       <For each={props.slot.items()}>
         {(item, index) => (
           <div
@@ -2117,7 +2177,7 @@ function ImageGrid(props: {
             >
               <Icon name="close-remove-small" class="size-4" />
             </button>
-            <EditPictureButton class="absolute bottom-1 right-1" onClick={() => props.onEdit(item)} />
+            <EditPictureButton class="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 focus-visible:opacity-100" onClick={() => props.onEdit(item)} />
           </div>
         )}
       </For>
@@ -2166,9 +2226,9 @@ function TemplatesMenu(props: { canSave: boolean }) {
   return (
     <>
       <DropdownMenu placement="bottom-end">
-        <DropdownMenuTrigger as={Button} variant="ghost" class="gap-0.5 pr-1 text-muted-foreground">
+        <DropdownMenuTrigger as={PlaneButton} variant="ghost" size="lg" class="gap-1 pr-1.5">
           {t("Templates")}
-          <Icon name="chevron-down" class="size-5" />
+          <PlaneIcon name="chevron-down" class="size-3.5 text-(--plane-text-placeholder)" />
         </DropdownMenuTrigger>
         <DropdownMenuPortal>
           <DropdownMenuContent class="w-64">
@@ -2370,7 +2430,7 @@ function CaptionSection() {
       title={t("Caption")}
       hint={active() === "all" ? undefined : t("Only for {platform}", { platform: socialPlatform(active() as PlatformId).name })}
       action={
-        <>
+        <span class="-mr-1 flex items-center gap-2">
           <Show when={active() !== "all" && post.overrides[active() as PlatformId] !== undefined}>
             <Button variant="link" size="small" class="text-xs" onClick={() => resetOverride(active() as PlatformId)}>
               {t("Use the shared caption")}
@@ -2386,13 +2446,13 @@ function CaptionSection() {
               {t("Save to vault")}
             </Button>
           </Show>
-        </>
+        </span>
       }
     >
-      <div class="flex flex-col overflow-hidden rounded-xl border border-(--border-input) bg-input transition-colors focus-within:border-primary">
+      <div class="flex flex-col overflow-hidden rounded-xl border border-(--border-input) transition-colors focus-within:border-primary">
         <textarea
           ref={field}
-          class="min-h-40 w-full resize-y bg-transparent px-3.5 pt-3 pb-2.5 text-[15px] leading-relaxed text-foreground outline-none placeholder:text-muted-foreground"
+          class="field-sizing-content max-h-[32rem] min-h-40 w-full resize-y bg-transparent px-3.5 pt-3 pb-1 text-[15px] leading-relaxed text-foreground outline-none placeholder:text-muted-foreground supports-[field-sizing:content]:resize-none"
           placeholder={active() === "all" ? t("Write a caption. Add #hashtags and @mentions.") : t("Write a caption just for this platform.")}
           value={value()}
           onInput={(event) => write(event.currentTarget.value)}
@@ -2421,7 +2481,7 @@ function CaptionSection() {
             </div>
           )}
         </Show>
-        <div class="flex h-10 items-center gap-3 border-t border-(--border-input) pr-3 pl-2.5 text-xs">
+        <div class="flex h-10 items-center gap-3 pr-3 pl-1.5 text-xs">
           <CaptionTools field={() => field} onVaultPick={(item) => write(insertVaultText(value(), item))} />
           <span class="flex-1" />
           <Show when={tags()}>
@@ -2442,6 +2502,9 @@ function CaptionSection() {
     </FormSection>
   );
 }
+
+const ADD_REPLY =
+  "flex shrink-0 items-center gap-1.5 rounded-md px-2 text-sm text-muted-foreground press hover:bg-accent hover:text-foreground focus-ring disabled:pointer-events-none disabled:opacity-50";
 
 function ThreadSection() {
   const networks = () => threadPlatforms(post.platforms);
@@ -2471,17 +2534,28 @@ function ThreadSection() {
 
   return (
     <Show when={networks().length || post.thread.length}>
-      <FormSection title={t("Thread")} hint={hint()}>
+      <FormSection
+        title={t("Thread")}
+        hint={hint()}
+        action={
+          <Show when={!post.thread.length}>
+            <button type="button" class={cx(ADD_REPLY, "-mr-2 h-6")} onClick={add}>
+              <Icon name="plus-add" class="size-5" />
+              {t("Add a follow-up")}
+            </button>
+          </Show>
+        }
+      >
         <For each={post.thread}>
           {(reply, index) => (
-            <div class="flex flex-col overflow-hidden rounded-xl border border-(--border-input) bg-input transition-colors focus-within:border-primary">
+            <div class="flex flex-col overflow-hidden rounded-xl border border-(--border-input) transition-colors focus-within:border-primary">
               <textarea
                 ref={(field) => {
                   if (!focusNext) return;
                   focusNext = false;
                   queueMicrotask(() => field.focus());
                 }}
-                class="min-h-24 w-full resize-y bg-transparent px-3.5 pt-3 pb-2.5 text-[15px] leading-relaxed text-foreground outline-none placeholder:text-muted-foreground"
+                class="field-sizing-content max-h-[32rem] min-h-24 w-full resize-y bg-transparent px-3.5 pt-3 pb-1 text-[15px] leading-relaxed text-foreground outline-none placeholder:text-muted-foreground supports-[field-sizing:content]:resize-none"
                 aria-label={t("Follow-up {number}", { number: index() + 1 })}
                 placeholder={index() === 0 ? t("Write what goes under the post, like a link or the next part.") : t("Write the next part.")}
                 value={reply.text}
@@ -2492,13 +2566,13 @@ function ThreadSection() {
                 }}
               />
               <ReplyMedia index={index()} />
-              <div class="flex h-10 items-center gap-1 border-t border-(--border-input) pr-2 pl-1.5 text-xs">
+              <div class="flex h-10 items-center gap-1 px-1.5 text-xs">
                 <ReplyMediaButton index={index()} />
                 <DelaySelect value={reply.delay} first={index() === 0} onChange={(minutes) => setPost("thread", index(), "delay", minutes)} />
                 <span class="flex-1" />
                 <Show when={reply.text.trim() ? limit() : null}>
                   {(current) => (
-                    <span class="flex items-center gap-1.5">
+                    <span class="mr-1 flex items-center gap-1.5">
                       <Show when={networks().length > 1}>
                         <span class="text-muted-foreground">{current().name}</span>
                       </Show>
@@ -2506,20 +2580,25 @@ function ThreadSection() {
                     </span>
                   )}
                 </Show>
-                <Button variant="ghost" class="text-muted-foreground" onClick={() => remove(index())}>
-                  {t("Remove")}
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger
+                    as={Button}
+                    variant="ghost"
+                    size="icon-square"
+                    class="text-muted-foreground"
+                    aria-label={t("Remove {name}", { name: t("Follow-up {number}", { number: index() + 1 }) })}
+                    onClick={() => remove(index())}
+                  >
+                    <Icon name="trash" class="size-5" />
+                  </TooltipTrigger>
+                  <TooltipContent>{t("Remove")}</TooltipContent>
+                </Tooltip>
               </div>
             </div>
           )}
         </For>
-        <Show when={post.thread.length < MAX_REPLIES}>
-          <button
-            type="button"
-            class="-mx-2 flex h-8 w-fit items-center gap-1.5 rounded-md px-2 text-sm text-muted-foreground press hover:bg-accent hover:text-foreground focus-ring disabled:pointer-events-none disabled:opacity-50"
-            disabled={!networks().length}
-            onClick={add}
-          >
+        <Show when={post.thread.length && post.thread.length < MAX_REPLIES}>
+          <button type="button" class={cx(ADD_REPLY, "-mx-2 h-8 w-fit")} disabled={!networks().length} onClick={add}>
             <Icon name="plus-add" class="size-5" />
             {t("Add a follow-up")}
           </button>
@@ -2604,7 +2683,7 @@ function ReplyMedia(props: { index: number }) {
                 }}
               />
               <Show when={item.kind === "image"}>
-                <EditPictureButton class="absolute right-1 bottom-1" onClick={() => setEditing(item)} />
+                <EditPictureButton class="absolute right-1 bottom-1 opacity-0 group-hover/tile:opacity-100 focus-visible:opacity-100" onClick={() => setEditing(item)} />
               </Show>
             </div>
           )}
@@ -2740,8 +2819,6 @@ function PlatformSettingsSection(props: { issues: PostIssue[] }) {
   const current = () => (shown().includes(previewing()) ? previewing() : shown()[0]!);
   const blocked = (id: PlatformId) => props.issues.some((issue) => issue.platform === id && issue.level === "error");
   const [open, setOpen] = createSignal(false);
-  // YouTube's title, description and privacy status are shown as soon as YouTube is picked, as its rules ask.
-  createEffect(on(() => shown().includes("youtube"), (youtube) => youtube && setOpen(true)));
   return (
     <Show when={shown().length}>
       <section class="flex flex-col gap-3">
@@ -2759,6 +2836,7 @@ function PlatformSettingsSection(props: { issues: PostIssue[] }) {
           <Icon name="chevron-down" class={cx("size-5 shrink-0 text-muted-foreground transition-transform", !open() && "-rotate-90")} />
         </button>
         <Show when={open()}>
+        <div class="flex flex-col gap-4 rounded-xl border border-(--border-input) p-3">
         <Show when={shown().length > 1}>
           <div class={TAB_LIST} role="tablist" aria-label={t("Settings for")}>
             <For each={shown()}>
@@ -2795,6 +2873,7 @@ function PlatformSettingsSection(props: { issues: PostIssue[] }) {
               ),
           }}
         />
+        </div>
         </Show>
       </section>
     </Show>

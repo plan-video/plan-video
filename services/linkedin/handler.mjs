@@ -121,6 +121,8 @@ export function allowedUpload(value) {
   }
 }
 
+export const LIMITED = "LinkedIn is limiting posts from this account for today. Try again tomorrow.";
+
 export function explain(status, payload) {
   const code = typeof payload?.code === "string" ? payload.code : "";
   const error = typeof payload?.error === "string" ? payload.error : "";
@@ -132,7 +134,7 @@ export function explain(status, payload) {
   }
   if (error === "invalid_redirect_uri" || /redirect_uri/i.test(message)) return "Add this site's /linkedin/callback address on the LinkedIn app, then try again.";
   if (error === "invalid_request" && /authorization code/i.test(message)) return "LinkedIn's login code expired. Start again from Connections.";
-  if (status === 429) return "LinkedIn is limiting posts from this account for today. Try again tomorrow.";
+  if (status === 429) return LIMITED;
   if (status === 403) return "LinkedIn didn't let plan.video post for this account. Disconnect it in Connections and connect it again.";
   if (/duplicate/i.test(message)) return "LinkedIn already has this post.";
   if (message && message.length < 300 && !/secret|bearer|client_secret/i.test(message)) return message;
@@ -162,7 +164,9 @@ export async function tokenRequest(env, fields) {
     signal: AbortSignal.timeout(15_000),
   });
   const payload = await response.json().catch(() => null);
-  if (!response.ok || !payload?.access_token) return { error: explain(response.status === 401 ? 400 : response.status, payload) };
+  if (!response.ok || !payload?.access_token) {
+    return { error: explain(response.status === 401 ? 400 : response.status, payload), busy: response.status === 429 || response.status >= 500 || !(payload?.error || payload?.message) };
+  }
   return {
     accessToken: payload.access_token,
     expiresIn: payload.expires_in || 0,

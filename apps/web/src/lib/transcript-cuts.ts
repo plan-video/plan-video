@@ -26,21 +26,41 @@ export function isFiller(text: string): boolean {
 
 /**
  * A pause before the first word counts from `from`, where the audio starts; the quiet
- * after the last word is left, as that is usually an ending.
+ * after the last word is left, as that is usually an ending. With `sound`, where something
+ * can be heard, only the quiet in a gap is a pause: the transcript misses laughs, music,
+ * other voices and words it couldn't make out.
  */
-export function pauseRanges(transcript: Transcript, from = 0): TimeRange[] {
+export function pauseRanges(transcript: Transcript, from = 0, sound?: ReadonlyArray<TimeRange>): TimeRange[] {
   const words = listWords(transcript);
-  const ranges: TimeRange[] = [];
-
+  const gaps: TimeRange[] = [];
   const first = words[0];
-  if (first && first.start - from > MIN_PAUSE) ranges.push([from, first.start - BREATH]);
-
+  if (first && first.start > from) gaps.push([from, first.start]);
   for (let index = 1; index < words.length; index++) {
     const before = words[index - 1]!;
     const after = words[index]!;
-    if (after.start - before.end > MIN_PAUSE) ranges.push([before.end + BREATH, after.start - BREATH]);
+    if (after.start > before.end) gaps.push([before.end, after.start]);
+  }
+
+  const ranges: TimeRange[] = [];
+  for (const gap of gaps) {
+    for (const [start, end] of sound ? subtract(gap, sound) : [gap]) {
+      if (end - start > MIN_PAUSE) ranges.push([start === from ? start : start + BREATH, end - BREATH]);
+    }
   }
   return mergeRanges(ranges);
+}
+
+function subtract([from, to]: TimeRange, ranges: ReadonlyArray<TimeRange>): TimeRange[] {
+  const left: TimeRange[] = [];
+  let cursor = from;
+  for (const [start, end] of mergeRanges(ranges)) {
+    if (end <= cursor) continue;
+    if (start >= to) break;
+    if (start > cursor) left.push([cursor, start]);
+    cursor = Math.max(cursor, end);
+  }
+  if (to > cursor) left.push([cursor, to]);
+  return left;
 }
 
 export function fillerRanges(transcript: Transcript): TimeRange[] {

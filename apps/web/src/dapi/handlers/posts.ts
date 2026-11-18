@@ -15,7 +15,7 @@ import {
   type ToolArgs,
 } from "@plan.video/dapi";
 import { getAssetFile } from "@plan.video/runtime";
-import { allPosts, deleteEvent, hydrateCalendar, loadError, loadPostFiles, ownCaptions, postFileIds, postFiles, revisePost, setPostFiles } from "@/components/calendar/store";
+import { allPosts, deleteEvent, hydrateCalendar, isUploading, loadError, loadPostFiles, ownCaptions, postFileIds, postFiles, revisePost, setPostFiles } from "@/components/calendar/store";
 import { everyRecurrence, isDateKey, localDateKey, newId, parseRecurrence, resolveRepeatEnd } from "@/components/calendar/utils";
 import { atLocal, postTitle, savePosts, scheduleProblem, timeOf } from "@/components/publish/save";
 import { hasFailed, PUBLISHING_PLATFORMS, sendPost } from "@/components/publish/publisher";
@@ -133,6 +133,12 @@ function clock(value: string): string {
   const minutes = Number(match?.[2]);
   if (!match || hours > 23 || minutes > 59) throw new DapiError("invalid-input", "Time is HH:MM, 24-hour, such as 09:00.");
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+/** One already on a post can stay, as a person can take it off in their own time. */
+function refuseSoon(platforms: readonly PlatformId[], existing: readonly string[] = []) {
+  const soon = platforms.filter((id) => !PUBLISHES.has(id) && !existing.includes(id)).map((id) => socialPlatform(id).name);
+  if (soon.length) throw new DapiError("unsupported", `${soon.join(", ")} ${soon.length === 1 ? "is" : "are"} coming soon, so Plan Video can't post there yet. Leave ${soon.length === 1 ? "it" : "them"} off the post.`);
 }
 
 function accountsForPost(platforms: readonly PlatformId[], requested: readonly string[] | undefined): AccountChoices {
@@ -291,7 +297,7 @@ function channelsOf(platforms: readonly string[], choices: AccountChoices | unde
 // A no stops the call before anything changes.
 async function askPerson(ctx: ToolContext, request: ConfirmRequest & { scheduled?: boolean; at?: Date | null; tiktokYes?: boolean }) {
   const { scheduled, at, tiktokYes, ...shown } = request;
-  if (!ctx.confirm || !needsConfirm({ tool: request.tool, scheduled, at, tiktokYes, every: ctx.confirmEvery })) return;
+  if (!ctx.confirm || !needsConfirm({ tool: request.tool, scheduled, leavesSchedule: request.leavesSchedule, at, tiktokYes, every: ctx.confirmEvery })) return;
   if (!(await ctx.confirm(shown))) throw new DapiError("canceled", NOT_CONFIRMED);
 }
 
@@ -316,11 +322,14 @@ function detailsOf(post: {
     filesElsewhere: Math.max(0, post.elsewhere ?? 0),
     repeat: post.recurrence ? { recurrence: post.recurrence, end: post.end ?? null } : null,
     youtube: youtube ? { title: youtube.title, privacy: youtube.privacy, madeForKids: youtube.madeForKids, tags: [...youtube.tags] } : null,
-    tiktokPrivacy: tiktok && !tiktok.inbox ? tiktok.privacy : null,
+    tiktok: tiktok && !tiktok.inbox ? { privacy: tiktok.privacy, comments: tiktok.comments, duet: tiktok.duet, stitch: tiktok.stitch, yourBrand: tiktok.yourBrand, brandedContent: tiktok.brandedContent } : null,
     captions: Object.entries(post.captions ?? {}).flatMap(([platform, text]) => (post.platforms.includes(platform) && text?.trim() ? [{ platform, text }] : [])),
     thread: threadPlatforms(post.platforms as PlatformId[]).length ? (post.thread ?? []).map((reply) => ({ text: reply.text, delay: reply.delay, files: reply.files?.length ?? 0 })) : [],
   };
 }
+
+const whatGoesOut = (post: StoredEvent) =>
+  JSON.stringify([post.day, post.start, post.allDay, post.status, post.description, ownCaptions(post), post.platforms, post.accounts, post.link, post.files, post.ownFiles, post.youtube, post.tiktok, post.thread, post.recurrence, post.recurrenceEnd]);
 
 const keptFiles = (post: StoredEvent) => new Set([...(post.files ?? []), ...Object.values(post.ownFiles ?? {}).flatMap((ids) => ids ?? [])]).size;
 
@@ -518,13 +527,13 @@ function platformNotes(platform: SocialPlatform): string {
   const parts = [
     PUBLISHES.has(platform.id)
       ? platform.id === "youtube"
-        ? "Plan Video can upload a video here while the app is open."
+        ? "Plan Video can upload a video here."
         : platform.id === "tiktok"
-          ? `Plan Video can post here while the app is open: a video, or up to ${pictures} pictures as a photo post.`
+          ? `Plan Video can post here: a video, or up to ${pictures} pictures as a photo post.`
           : platform.id === "pinterest"
-            ? `Plan Video can post here while the app is open: a video, or up to ${pictures} pictures as one Pin, on the board named in pinterest.board.`
-            : `Plan Video can post here while the app is open: the words, with the post's video or up to ${pictures} of its pictures.`
-      : "Kept on the calendar. Plan Video does not send to this platform.",
+            ? `Plan Video can post here: a video, or up to ${pictures} pictures as one Pin, on the board named in pinterest.board.`
+            : `Plan Video can post here: the words, with the post's video or up to ${pictures} of its pictures.`
+      : "Kept on the calendar. Plan Video doesn't send to this platform yet.",
   ];
   if (platform.title?.required) parts.push("A title is required.");
   if (!platform.kinds.includes("text")) parts.push("Needs a picture or a video.");
@@ -607,6 +616,7 @@ async function savePost(
   tool: Extract<ConfirmTool, "schedule_post" | "copy_post"> = "schedule_post",
 ) {
   const platforms = sortPlatforms(args.platforms);
+  refuseSoon(platforms);
   const choices = accountsForPost(platforms, args.accounts);
   const day = args.day ?? localDateKey(new Date());
   if (!isDateKey(day)) throw new DapiError("invalid-input", "Day is YYYY-MM-DD.");
@@ -685,6 +695,7 @@ async function savePost(
     },
   }]);
   if (error) throw new DapiError("invalid-input", error);
+  if (scheduling && isUploading(id)) warnings.push("Its files are still uploading from this browser tab. Keep the tab open until they finish: the post can't go out without them.");
   return postView(readBack(id), warnings);
 }
 
@@ -776,6 +787,7 @@ export const updatePost: ToolHandler<"update_post"> = async (args, ctx) => {
 
   const platforms = args.platforms ? sortPlatforms(args.platforms) : sortPlatforms(existing.platforms.filter(isPlatform));
   if (platforms.length === 0) throw new DapiError("invalid-input", "Pick at least one platform.");
+  refuseSoon(platforms, existing.platforms);
   const choices = mergeAccounts(platforms, args.accounts, existing.accounts);
   const saved = args.media ? { shared: await loadMedia(ctx, args.media), own: {} } : await savedMedia(existing);
   const caption = args.caption ?? existing.description ?? "";
@@ -829,6 +841,7 @@ export const updatePost: ToolHandler<"update_post"> = async (args, ctx) => {
     time,
     channels: channelsOf(platforms, choices),
     soon: status === "scheduled" && isSoon(at),
+    leavesSchedule: existing.status === "scheduled" && status !== "scheduled",
     tiktok: tiktokYes && tiktok ? { branded: tiktok.brandedContent } : null,
     details: detailsOf({
       platforms,
@@ -876,7 +889,10 @@ export const updatePost: ToolHandler<"update_post"> = async (args, ctx) => {
 
   const error = revisePost(existing.id, patch);
   if (error) throw mapped(error);
-  if (args.media && saved.shared) await setPostFiles(existing.id, { shared: saved.shared.files });
+  if (args.media && saved.shared) {
+    const unsaved = await setPostFiles(existing.id, { shared: saved.shared.files });
+    if (unsaved) throw new DapiError("invalid-input", `The post's other changes were saved, but its files weren't replaced. ${unsaved}`);
+  }
   return postView(readBack(existing.id), warnings);
 };
 
@@ -964,6 +980,7 @@ export const publishPost: ToolHandler<"publish_post"> = async ({ id, agreed }, c
   }
   // It goes out now, so the person is asked before anything on it changes.
   const here = [...(await postFiles(post)), ...(await Promise.all(Object.keys(post.ownFiles ?? {}).map((platform) => postFiles(post, platform)))).flat()];
+  const approved = whatGoesOut(post);
   await askPerson(ctx, {
     tool: "publish_post",
     caption: post.description ?? "",
@@ -983,6 +1000,9 @@ export const publishPost: ToolHandler<"publish_post"> = async ({ id, agreed }, c
       thread: post.thread,
     }),
   });
+  // Another agent can edit it while the question waits: a yes is only for what the person saw.
+  const current = allPosts().find((item) => item.id === id);
+  if (!current || whatGoesOut(current) !== approved) throw new DapiError("canceled", "The post changed while waiting for the person's answer, so it wasn't sent. Publish it again so they can see the new version.");
   if (profile && warnings.length) {
     const changed = revisePost(id, { tiktok: profile });
     if (changed) throw mapped(changed);
@@ -1001,7 +1021,7 @@ export const publishPost: ToolHandler<"publish_post"> = async ({ id, agreed }, c
   const saved = readBack(id);
   if (result === "sent") return postView(saved, warnings);
   if (shift && saved.status !== "posted") {
-    revisePost(id, { day: post.day, start: post.start, allDay: post.allDay });
+    revisePost(id, { day: post.day, start: post.start, allDay: post.allDay, status: post.status });
   }
   if (result === "busy") throw new DapiError("busy", "This post is already being published.");
   if (result === "needs-media") throw new DapiError("invalid-input", "Attach a video, or pictures for TikTok, before publishing.");

@@ -27,6 +27,7 @@ import { deleteAccountEverywhere } from '@/lib/delete-account';
 import { checkAccess, INVITE_ONLY, isInvited } from '@/lib/waitlist';
 import { identify, resetIdentity, track } from '@/lib/analytics';
 import { t } from '@/lib/i18n';
+import { captchaToken } from '@/lib/turnstile';
 import { FREE_SCHEDULED_PER_ACCOUNT, accountLimit, setAccountsLimit, setScheduledLimit } from '@/lib/plans';
 import { assert } from '@/utils';
 
@@ -323,6 +324,14 @@ export function AuthProvider(props: { children: JSX.Element }) {
     }
   };
 
+  const humanCheck = async (): Promise<{ token?: string; error?: string }> => {
+    try {
+      return { token: await captchaToken() };
+    } catch {
+      return { error: t("Couldn't check you're a person. Refresh the page and try again.") };
+    }
+  };
+
   const signInWithOtp = async (email: string): Promise<{ error: string | null }> => {
     if (!supabase) return { error: 'Auth is not configured' };
 
@@ -332,9 +341,12 @@ export function AuthProvider(props: { children: JSX.Element }) {
 
     track('sign_in_attempt', { method: 'otp' });
 
+    const captcha = await humanCheck();
+    if (captcha.error) return { error: captcha.error };
+
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: window.location.origin },
+      options: { emailRedirectTo: window.location.origin, captchaToken: captcha.token },
     });
 
     if (error) {
@@ -367,7 +379,10 @@ export function AuthProvider(props: { children: JSX.Element }) {
 
     track('sign_in_attempt', { method: 'password' });
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const captcha = await humanCheck();
+    if (captcha.error) return { error: captcha.error };
+
+    const { error } = await supabase.auth.signInWithPassword({ email, password, options: { captchaToken: captcha.token } });
 
     if (error) return { error: error.message };
 

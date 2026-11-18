@@ -37,14 +37,21 @@ let loadedKey: string | undefined;
 
 export const captionBrandStyle = () => items().find((item) => item.id === BRAND_ID);
 
-function readStyle(value: unknown): CaptionBrandStyle | null {
+// A workspace's styles are written by whoever's in it, and an unknown tag would be built as HTML in everyone's editor.
+function isLayer(value: unknown): value is AuthoredTree {
+  if (!value || typeof value !== "object") return false;
+  const row = value as Partial<AuthoredTree>;
+  return typeof row.tag === "string" && /^[A-Za-z][A-Za-z0-9]*$/.test(row.tag) && !!row.props && typeof row.props === "object" && Array.isArray(row.children) && row.children.every(isLayer);
+}
+
+export function readStyle(value: unknown): CaptionBrandStyle | null {
   if (!value || typeof value !== "object") return null;
   const row = value as Partial<CaptionBrandStyle>;
   if (typeof row.id !== "string" || !row.props || typeof row.props !== "object") return null;
   return {
     id: row.id,
     props: row.props,
-    children: Array.isArray(row.children) ? row.children : [],
+    children: Array.isArray(row.children) ? row.children.filter(isLayer) : [],
     highlight: typeof row.highlight === "number" ? row.highlight : DEFAULT_HIGHLIGHT,
     updatedAt: typeof row.updatedAt === "string" ? row.updatedAt : new Date(0).toISOString(),
   };

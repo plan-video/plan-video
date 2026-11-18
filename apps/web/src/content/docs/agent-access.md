@@ -9,7 +9,7 @@ An agent you allow can:
 - schedule, change and delete posts
 - publish posts when you ask
 
-plan.video asks you in your open tab before an agent publishes, deletes, or saves a post that will go out by itself. Click **Allow** or **Don't allow**. No answer in time counts as no. Saving a draft doesn't ask.
+plan.video asks you in your open tab before an agent publishes, deletes, takes a post off the schedule, or saves a post that will go out by itself. Click **Allow** or **Don't allow**. No answer in time counts as no. Saving a draft doesn't ask.
 
 It can't see your network logins, change your plan, or delete your account.
 

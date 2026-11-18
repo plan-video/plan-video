@@ -25,14 +25,15 @@ if (import.meta.env.PROD && sentryDsn) {
   window.addEventListener('error', keep)
   window.addEventListener('unhandledrejection', keep)
   const start = () =>
-    void import('@sentry/solid').then(({ init, captureException }) => {
+    void Promise.all([import('@sentry/solid'), import('./lib/sentry-scrub')]).then(([{ init, captureException }, { scrubBreadcrumb, scrubEvent }]) => {
       init({
         dsn: sentryDsn,
         sendDefaultPii: false,
         release: APP_VERSION,
         environment: 'production',
         // A deploy replaced the files and the tab is reloading: old chunks failing on the way out aren't bugs.
-        beforeSend: (event) => (isReloadingAfterModuleError() ? null : event),
+        beforeSend: (event) => (isReloadingAfterModuleError() ? null : scrubEvent(event)),
+        beforeBreadcrumb: scrubBreadcrumb,
       })
       window.removeEventListener('error', keep)
       window.removeEventListener('unhandledrejection', keep)

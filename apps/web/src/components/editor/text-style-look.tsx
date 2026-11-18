@@ -6,14 +6,17 @@ import { createEffect, createSignal, onCleanup, onMount } from "solid-js";
 import { loadWebFont } from "@plan.video/runtime";
 import { useWorld } from "@plan.video/koota-solid";
 
-import { textStyleWords, type TextStyle } from "@/engine/text-presets";
+import { textStyleWords, type LookSample, type StyleMotion } from "@/engine/text-presets";
 import { t } from "@/lib/i18n";
 
 const ACROSS = 0.8;
 const DOWN = 0.36;
 
+import "./text-style-look.css";
+
 // Drawn in the renderer's order (runtime utils/text.ts) so the tile matches the scene: shadows, outlines widest first, fill.
-export function TextStyleLook(props: { style: TextStyle }) {
+// `motion` plays in CSS while the tile previews (preset-tile.css holds it still otherwise).
+export function TextStyleLook(props: { style: LookSample; motion?: StyleMotion }) {
   const world = useWorld();
   let canvas!: HTMLCanvasElement;
   const [size, setSize] = createSignal({ width: 0, height: 0 });
@@ -48,14 +51,22 @@ export function TextStyleLook(props: { style: TextStyle }) {
     if (ctx) draw(ctx, props.style, words, canvas.width, canvas.height);
   });
 
-  return <canvas ref={canvas} aria-hidden="true" class="absolute inset-0 size-full" />;
+  return (
+    <canvas
+      ref={canvas}
+      aria-hidden="true"
+      class="text-style-look absolute inset-0 size-full"
+      data-motion={props.motion?.type}
+      style={props.motion ? { "--motion-duration": `${props.motion.duration}s` } : undefined}
+    />
+  );
 }
 
-function fontOf(style: TextStyle, size: number): string {
+function fontOf(style: LookSample, size: number): string {
   return `${style.italic ? "italic " : ""}${style.weight} ${size}px "${style.font}"`;
 }
 
-function draw(ctx: CanvasRenderingContext2D, style: TextStyle, words: string, width: number, height: number) {
+function draw(ctx: CanvasRenderingContext2D, style: LookSample, words: string, width: number, height: number) {
   const strokes = style.strokes ?? [];
   const widest = strokes.reduce((most, stroke) => Math.max(most, stroke.width), 0);
 

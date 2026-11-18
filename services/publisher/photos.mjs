@@ -4,7 +4,7 @@
 // Links are signed with the server's key and run out, so nobody can make one for another file.
 
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { Readable } from "node:stream";
+import { Readable, pipeline } from "node:stream";
 
 export const PHOTO_PATH = "/api/publisher/photo/";
 export const VIDEO_PATH = "/api/publisher/video/";
@@ -89,8 +89,8 @@ export function createPhotos({ key, publicUrl, media, maker, now = () => Date.no
         return;
       }
       const body = Readable.fromWeb(await media.stream(file.key, partial ? [start, end] : undefined));
-      body.on("error", () => res.destroy());
-      body.pipe(res);
+      // Also ends the read if the download is cut off, which pipe wouldn't, and frees its place in the shared pool.
+      pipeline(body, res, () => {});
     },
 
     /** Anything not made by `link` or `feedLink`, or run out, isn't found. */

@@ -3,7 +3,7 @@ import { randomBytes } from "node:crypto";
 import test from "node:test";
 
 import { fakeDb } from "./fake-db.mjs";
-import { createHealth, deliveryProblems, keyOpensLogins } from "./health.mjs";
+import { STUCK_MS, createHealth, createPassWatch, deliveryProblems, keyOpensLogins } from "./health.mjs";
 import { blueskyBinding, sealer, tokenBinding } from "./vault.mjs";
 import { createWorker } from "./worker.mjs";
 
@@ -98,4 +98,20 @@ test("a pass whose planning failed doesn't count as finished, so health turns re
   assert.equal(await worker.tick(), false);
   const fine = createWorker({ db: fakeDb(), vault: {}, media: {}, networks: {}, sendFrom: 0, now: () => T0, log: { error() {} } });
   assert.equal(await fine.tick(), true);
+});
+
+test("a publisher just started has no last pass to show, and gets its time before it counts as stuck", () => {
+  let clock = T0;
+  const passes = createPassWatch(() => clock);
+  assert.equal(passes.last(), null);
+  assert.equal(passes.stuck(), false);
+  clock = T0 + STUCK_MS - 1;
+  assert.equal(passes.stuck(), false);
+  clock = T0 + STUCK_MS;
+  assert.equal(passes.stuck(), true, "one that never finishes a pass is stuck");
+  passes.passed();
+  assert.equal(passes.last(), iso(clock));
+  assert.equal(passes.stuck(), false);
+  clock += STUCK_MS;
+  assert.equal(passes.stuck(), true);
 });

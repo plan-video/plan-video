@@ -10,7 +10,7 @@ import { SidebarTabs } from "@/agent-chat";
 import { Button } from "@/components/ui/button";
 import { PresetGrid, PresetTile } from "@/components/ui/preset-tile";
 import { mountTextInput } from "@/engine";
-import { addTextBox, addTextStyle, TEXT_STYLES, type TextStyle } from "@/engine/text-presets";
+import { addTextBox, addTextStyle, MOVING_TEXT_STYLES, type MovingTextStyle } from "@/engine/text-presets";
 import { t } from "@/lib/i18n";
 
 import { TextStyleLook } from "@/components/editor/text-style-look";
@@ -18,7 +18,7 @@ import { TextStyleLook } from "@/components/editor/text-style-look";
 export function TextPanel() {
   const world = useWorld();
 
-  const add = async (style?: TextStyle) => {
+  const add = async (style?: MovingTextStyle) => {
     try {
       const added = await (style ? addTextStyle(world, style) : addTextBox(world));
       if (!added) toast(t("Nothing to insert into"), { description: t("Open a scene first.") });
@@ -36,15 +36,15 @@ export function TextPanel() {
         </div>
       </div>
       <div class="min-h-0 flex-1 overflow-y-auto">
-        <div class="flex flex-col gap-3 p-3">
+        <div class="flex flex-col gap-3 p-4">
           <Button variant="secondary" class="w-full" onClick={() => void add()}>
             {t("Add a text box")}
           </Button>
           <PresetGrid>
-            <For each={TEXT_STYLES}>
+            <For each={MOVING_TEXT_STYLES}>
               {(style) => {
                 // A still: made once, not again each time the tile is hovered.
-                const look = <TextStyleLook style={style} />;
+                const look = <TextStyleLook style={style} motion={style.loop ?? style.in} />;
                 return (
                   <PresetTile title={t(style.name)} aspect="16 / 10" onClick={() => void add(style)}>
                     {() => look}

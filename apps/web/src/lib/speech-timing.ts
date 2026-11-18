@@ -90,6 +90,29 @@ export function findSilences(envelope: SpeechEnvelope): Silence[] | null {
   return silences;
 }
 
+/** A track this quiet nearly all the time is heard as silence, not as speech under noise. */
+const SILENT_TRACK_DB = -60;
+
+/** Where something can be heard, in the envelope's seconds. Sound that never stops is all one stretch. */
+export function soundRanges(envelope: SpeechEnvelope): [from: number, to: number][] {
+  const { levels, step } = envelope;
+  const end = levels.length * step;
+  const silences = findSilences(envelope);
+  if (!silences) {
+    const loud = Float32Array.from(levels).sort()[Math.floor(levels.length * 0.95)] ?? FLOOR_DB;
+    return end > 0 && loud > SILENT_TRACK_DB ? [[0, end]] : [];
+  }
+
+  const ranges: [number, number][] = [];
+  let from = 0;
+  for (const silence of silences) {
+    if (silence.start > from) ranges.push([from, silence.start]);
+    from = silence.end;
+  }
+  if (end > from) ranges.push([from, end]);
+  return ranges;
+}
+
 /**
  * Recognizers place words on a coarse grid and close every gap, so a word shows before
  * it's said and stays after the voice stops. An edge only moves when a pause lies right

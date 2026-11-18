@@ -24,6 +24,7 @@ import {
 } from "@/engine";
 import { captionWordSelection } from "@/engine/timeline/caption-word-selection";
 import { t } from "@/lib/i18n";
+import { shortcutLabel } from "@/lib/keymap";
 
 export function EditMenu() {
   const world = useWorld();
@@ -88,7 +89,7 @@ export function EditMenu() {
           onSelect={() => toggleSelectionHidden(world)}
         >
           {t("Hide")}
-          <DropdownMenuShortcut>⇧⌘H</DropdownMenuShortcut>
+          <DropdownMenuShortcut>{shortcutLabel("hide")}</DropdownMenuShortcut>
         </DropdownMenuItem>
       </DropdownMenuGroup>
 

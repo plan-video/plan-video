@@ -4,9 +4,8 @@
 
 import { getAssetSpec, isAssetRef, isTransformSpec, isTransformType, parseSource } from "@plan.video/jsx";
 import {
-  Ai, AssetId, Audio, Computed, FrameRate, GenAi,   getAsset, getAssetFile, getEntityTree, getParentNode,
-  getSourceWindow, Hidden, isPaintEntity, Muted, Paint, PaintType, Project, readSpeedCurve, Source,
-  timelineOffsetAtSource,
+  Ai, AssetId, Audio, GenAi, getAssetFile, getEntityTree, getParentNode, Hidden, isPaintEntity, Muted, Paint,
+  PaintType, Project, Source,
 } from "@plan.video/runtime";
 import { createEncoder } from "@plan.video/encoder";
 import { createCapture } from "@/engine/capture";
@@ -21,7 +20,8 @@ import {
 } from "@/components/genai/config";
 import { assert, mimeTypeToExtension } from "@/utils";
 import { extractSpeechWav, type SpeechWav } from "@/lib/clip-audio";
-import { placeClipWords, segmentWords, transcribeAudio, TranscriptionRefused, type ClipTiming } from "@/lib/transcribe";
+import { placeClipWords, segmentWords, transcribeAudio, TranscriptionRefused } from "@/lib/transcribe";
+import { speechClips } from "@/lib/scene-audio";
 import { snapToSpeech } from "@/lib/speech-timing";
 import { uploadBlob } from "@/lib/uploads";
 import { removeImageBackground } from "@/lib/background-removal";
@@ -589,52 +589,8 @@ function transcriptKey(scene: Entity, seed: number): string {
   return `transcript:v1:${sceneId}:${seed}`;
 }
 
-interface SpeechClip extends ClipTiming {
-  file: File;
-}
-
 async function hearSpeech(speech: SpeechWav): Promise<Transcript> {
   return snapToSpeech(await transcribeAudio(speech.wav), speech.envelope);
-}
-
-/** The origin is the scene time of media time 0, where the picture seeks the same moment. */
-async function speechClips(world: World, scene: Entity): Promise<SpeechClip[]> {
-  const fps = world.get(FrameRate)?.value || 30;
-  const clips: SpeechClip[] = [];
-
-  const heard = new Set<Entity>();
-
-  for (const entity of getEntityTree(world, scene)) {
-    if (entity === scene || entity.has(Hidden) || entity.has(Muted) || !entity.has(AssetId)) continue;
-    const paint = entity.get(Paint)?.value;
-    if (!entity.has(Audio) && paint !== PaintType.VIDEO) continue;
-
-    const asset = getAsset(world, entity.get(AssetId)!.value);
-    if (!asset || (asset.type !== "AUDIO" && asset.type !== "VIDEO")) continue;
-
-    // A video paint is a child of the clip and keeps the 16s length a new entity starts with;
-    // the clip on the timeline is what playback hears. Muted or hidden clips aren't heard
-    // through their paint either, and each clip is heard once or every word comes back twice.
-    const clip = isPaintEntity(entity) ? getParentNode(entity) ?? entity : entity;
-    if (heard.has(clip) || clip.has(Muted) || clip.has(Hidden)) continue;
-    heard.add(clip);
-    const source = getSourceWindow(clip);
-    const computed = clip.get(Computed);
-    const curve = readSpeedCurve(clip);
-    const originFrames = computed?.origin ?? 0;
-    clips.push({
-      file: await getAssetFile(asset),
-      origin: originFrames / fps,
-      rate: computed?.playbackRate || 1,
-      trimStart: source.in / fps,
-      trimEnd: Math.max(source.in, source.out) / fps,
-      at: curve.keys.length > 0
-        ? (mediaSeconds: number) => (originFrames + timelineOffsetAtSource(curve, mediaSeconds * fps)) / fps
-        : undefined,
-    });
-  }
-
-  return clips;
 }
 
 function sceneHasAudio(world: World, scene: Entity): boolean {

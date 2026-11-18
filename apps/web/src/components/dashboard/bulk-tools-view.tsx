@@ -53,7 +53,7 @@ import {
 } from "@/components/publish/save";
 import { VaultPicker } from "@/components/publish/vault-picker";
 import { WhenOptions, untilLabel } from "@/components/publish/when-fields";
-import { hydrateCalendar, isOnCalendar, setPostThumbnail } from "@/components/calendar/store";
+import { hydrateCalendar, isOnCalendar, isUploading, setPostThumbnail } from "@/components/calendar/store";
 import { BULK_DATABASE, clearBatchFiles, dropBatchFiles, readBatchFiles, writeBatchFile, type BatchFile } from "@/lib/bulk-batch";
 import { thumbnailFromFile } from "@/lib/post-thumbnail";
 import { cadencePhrase, formatDay as formatCalendarDay, localDateKey, newId, resolveRepeatEnd, shiftDay } from "@/components/calendar/utils";
@@ -714,7 +714,12 @@ function BulkTools() {
           ? t("{count, plural, one {Saved # draft} other {Saved # drafts}}", { count })
           : t("{count, plural, one {Scheduled # post} other {Scheduled # posts}}", { count }),
         {
-          description: t("Starting {date}. They wait on your calendar until you post them.", { date: formatWhen(first) }),
+          description: [
+            status === "scheduled" && planned.some((post) => isUploading(post.id)) ? t("Uploading now. Keep this tab open until it's done.") : null,
+            t("Starting {date}. They wait on your calendar until you post them.", { date: formatWhen(first) }),
+          ]
+            .filter(Boolean)
+            .join(" "),
           action: { label: t("Open calendar"), onClick: () => setParams({ dashboard: "calendar", date: localDateKey(first), view: undefined }) },
         },
       );
@@ -1359,6 +1364,7 @@ async function importCsv() {
   }
   const byName = new Map(rows.map((row) => [fileMatchKey(row.file), row]));
   let matched = 0;
+  const soon = new Set<PlatformId>();
   setBulk(
     "posts",
     produce((list) => {
@@ -1374,7 +1380,8 @@ async function importCsv() {
         if (row.time) post.time = row.time;
         if (row.day || row.time) post.ownTime = true;
         if (row.platforms) {
-          post.platforms = row.platforms.filter((id) => takes(post, id));
+          for (const id of row.platforms) if (!PUBLISHING_PLATFORMS.includes(id)) soon.add(id);
+          post.platforms = row.platforms.filter((id) => PUBLISHING_PLATFORMS.includes(id) && takes(post, id));
           post.accounts = accountsForPlatforms(post.platforms, post.accounts);
         }
       }
@@ -1382,8 +1389,10 @@ async function importCsv() {
   );
   track("bulk_csv_imported", { rows: rows.length, matched });
   if (matched) {
+    const skipped = matched < rows.length ? t("Rows without a matching file were skipped.") : "";
+    const left = soon.size ? t("Left out {networks}, which can't post yet.", { networks: [...soon].map((id) => socialPlatform(id).name).join(", ") }) : "";
     toast.success(t("Matched {count} of {total} rows", { count: matched, total: rows.length }), {
-      description: matched < rows.length ? t("Rows without a matching file were skipped.") : undefined,
+      description: [skipped, left].filter(Boolean).join(" ") || undefined,
     });
   } else {
     toast.error(t("No rows matched a file"), {

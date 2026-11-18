@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { setFlagsFromString } from "node:v8";
+import { runInNewContext } from "node:vm";
 
 import { PublishError } from "./errors.mjs";
 import { fakeDb } from "./fake-db.mjs";
 import { OVER_SCHEDULED, createPlanLimits } from "./plans.mjs";
-import { GRACE_MS, LATE, createWorker } from "./worker.mjs";
+import { GRACE_MS, LATE, PAGE, createWorker } from "./worker.mjs";
 
 const T0 = Date.parse("2026-10-12T16:00:00Z");
 const HOUR = 60 * 60_000;
@@ -325,4 +327,54 @@ test("a waiting post moved later keeps its place for as long as it now waits", a
     await context.worker.tick();
   }
   assert.equal(context.db.tables.post_deliveries.find((row) => row.post_id === "eleventh").error, OVER_SCHEDULED);
+});
+
+test("the hourly look holds one page of posts at a time, and still counts and fixes them all", async () => {
+  setFlagsFromString("--expose-gc");
+  const collect = runInNewContext("gc");
+  const total = 3 * PAGE + 10;
+  const nextRun = (i) => new Date(T0 + (i + 1) * HOUR).toISOString();
+  const row = (i) => {
+    const at = nextRun(i);
+    return {
+      user_id: "00000000-0000-4000-8000-000000000001",
+      workspace_id: "w1",
+      time_zone: "UTC",
+      version: 1,
+      // Every tenth one's next look is wrong, so the sweep has something to fix.
+      next_run_at: i % 10 === 0 ? new Date(T0 + 10_000 * HOUR).toISOString() : at,
+      connections: [{ id: "x1", platform: "x" }],
+      post: { id: `post-${String(i).padStart(6, "0")}`, day: at.slice(0, 10), start: at.slice(11, 16), timeZone: "UTC", status: "scheduled", platforms: ["x"], title: "Hi" },
+    };
+  };
+  const handedOut = [];
+  let peak = 0;
+  const reviews = [];
+  const schedules = [];
+  const db = {
+    async rpc(name, args) {
+      if (name === "publisher_schedule") schedules.push(...args.items);
+      if (name !== "publisher_posts_after") return 0;
+      // A new turn first: what a WeakRef was last read for stays alive until the turn ends.
+      await new Promise((resolve) => setImmediate(resolve));
+      collect();
+      peak = Math.max(peak, handedOut.filter((ref) => ref.deref()).length);
+      const from = args.after_post ? Number(args.after_post.slice(5)) + 1 : 0;
+      const page = [];
+      for (let i = from; i < Math.min(total, from + args.size); i++) page.push(row(i));
+      handedOut.push(...page.map((item) => new WeakRef(item)));
+      return page;
+    },
+  };
+  const planLimits = { review: async (entries, options) => reviews.push({ entries, options }) };
+  const worker = createWorker({ db, vault: {}, media: {}, networks: { x: {} }, planLimits, now: () => T0, log: { error() {} } });
+
+  assert.equal(await worker.sweep(), Math.ceil(total / 10));
+  assert.ok(peak > 0 && peak <= PAGE, `held ${peak} rows at most, in pages of ${PAGE}`);
+  assert.equal(handedOut.length, total);
+  assert.equal(reviews.length, 1, "the recount sees every post at once");
+  assert.equal(reviews[0].entries.length, total);
+  assert.equal(reviews[0].entries[total - 1].post_id, row(total - 1).post.id);
+  assert.deepEqual(reviews[0].options, { readAt: T0 });
+  assert.equal(schedules.length, Math.ceil(total / 10));
 });

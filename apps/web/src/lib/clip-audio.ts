@@ -25,6 +25,27 @@ export interface SpeechWav {
  * seeks on. Null when the file has no audible audio track.
  */
 export async function extractSpeechWav(file: Blob, trimStart: number, trimEnd: number): Promise<SpeechWav | null> {
+  const audio = await readMono(file, trimStart, trimEnd);
+  if (!audio || peak(audio.samples) < 1e-4) return null;
+  const { samples, sampleRate, mediaStart } = audio;
+  return { wav: encodeWavMono(samples, sampleRate), mediaStart, sampleRate, envelope: speechEnvelope(samples, sampleRate) };
+}
+
+/** Like `extractSpeechWav`, without the WAV: a silent track still reads, as quiet. */
+export async function extractSpeechEnvelope(
+  file: Blob,
+  trimStart: number,
+  trimEnd: number,
+): Promise<{ envelope: SpeechEnvelope; mediaStart: number } | null> {
+  const audio = await readMono(file, trimStart, trimEnd);
+  return audio ? { envelope: speechEnvelope(audio.samples, audio.sampleRate), mediaStart: audio.mediaStart } : null;
+}
+
+async function readMono(
+  file: Blob,
+  trimStart: number,
+  trimEnd: number,
+): Promise<{ samples: Float32Array; sampleRate: number; mediaStart: number } | null> {
   const windowStart = Math.max(0, trimStart - PREROLL_SECONDS);
   const windowEnd = Math.max(windowStart + GAP_SECONDS, trimEnd);
   const input = new Input({ formats: ALL_FORMATS, source: new BlobSource(file) });
@@ -73,9 +94,7 @@ export async function extractSpeechWav(file: Blob, trimStart: number, trimEnd: n
       mixed.set(chunk, offset);
       offset += chunk.length;
     }
-    if (peak(mixed) < 1e-4) return null;
-
-    return { wav: encodeWavMono(mixed, sampleRate), mediaStart, sampleRate, envelope: speechEnvelope(mixed, sampleRate) };
+    return { samples: mixed, sampleRate, mediaStart };
   } finally {
     input.dispose();
   }

@@ -36,11 +36,7 @@ export const Keys = trait({
 	lifted: () => new Set<string>(),
 });
 
-/**
- * Modifiers qualify a shortcut but never trigger one. Only their key-ups can be trusted:
- * macOS does not deliver the key-up of a key released while ⌘ is held.
- */
-export const MODIFIER_KEYS: ReadonlySet<string> = new Set(['mod', 'meta', 'control', 'shift', 'alt']);
+export { MODIFIER_KEYS } from '@/lib/keymap';
 
 export type SnapLine = { from: Point; to: Point };
 

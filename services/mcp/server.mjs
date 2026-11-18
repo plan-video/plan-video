@@ -6,6 +6,7 @@
 // open plan.video tab over /api/mcp/tab. Stateless: each MCP request gets a fresh server and
 // transport, so the only state is the open tabs.
 
+import { isIP } from "node:net";
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
@@ -14,7 +15,7 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprot
 import { WebSocket, WebSocketServer } from "ws";
 
 import { bearer, createAuth } from "./auth.mjs";
-import { Relay, RelayError } from "./relay.mjs";
+import { Relay, RelayError, tooManyValues } from "./relay.mjs";
 
 const HOST = "127.0.0.1";
 const PORT = Number(process.env.MCP_PORT) || 8791;
@@ -29,11 +30,17 @@ const MiB = 1024 * KiB;
 const BODY_MAX = 512 * KiB;
 /** Six 720p frames, base64, with room to spare. */
 const TAB_MESSAGE_MAX = 24 * MiB;
-/** All a tab may send before its hello is accepted: the hello, a sign-in token in JSON. */
+/** All a tab may send before its hello is accepted (a sign-in token in JSON), or at a time when no call is waiting on it. */
 const HELLO_MAX = 16 * KiB;
+/** Of frames past HELLO_MAX on their way, across all tabs, so a few accounts can't fill the process. */
+const BIG_FRAMES_MAX = 128 * MiB;
+/** An empty pong from a browser: a two-byte header and a four-byte mask. */
+const PONG_FRAME = 6;
 const MAX_UNVERIFIED = 500;
 const MAX_UNVERIFIED_PER_IP = 20;
 const MAX_TABS = 5000;
+/** The longest setTimeout takes. */
+const MAX_TIMER_MS = 2 ** 31 - 1;
 const MAX_IMAGES = 6;
 const HELLO_MS = 10_000;
 const HEARTBEAT_MS = 30_000;
@@ -94,10 +101,17 @@ setInterval(() => {
   for (const [name, entry] of windows) if (entry.reset <= now) windows.delete(name);
 }, 60_000).unref();
 
-/** The last X-Forwarded-For hop, the one the reverse proxy appended. */
+/** The last X-Forwarded-For hop, the one the reverse proxy appended. IPv6 counts by its /64, which one person can fill. */
 function clientIp(req) {
   const forwarded = String(req.headers["x-forwarded-for"] ?? "").split(",").map((part) => part.trim()).filter(Boolean);
-  return forwarded.at(-1) ?? req.socket.remoteAddress ?? "unknown";
+  let ip = (forwarded.at(-1) ?? req.socket.remoteAddress ?? "").split("%")[0];
+  if (/^::ffff:\d+\.\d+\.\d+\.\d+$/i.test(ip)) ip = ip.slice(7);
+  if (isIP(ip) !== 6) return ip || "unknown";
+  const [head, tail = ""] = ip.toLowerCase().split("::");
+  const front = head ? head.split(":") : [];
+  const back = tail ? tail.split(":") : [];
+  const groups = [...front, ...Array(Math.max(0, 8 - front.length - back.length)).fill("0"), ...back];
+  return `${groups.slice(0, 4).map((group) => Number.parseInt(group, 16).toString(16)).join(":")}::/64`;
 }
 
 function json(res, status, body, headers = {}) {
@@ -196,10 +210,12 @@ async function handleMcp(req, res) {
   await transport.handleRequest(req, res, body);
 }
 
-const tabs = new WebSocketServer({ noServer: true, maxPayload: TAB_MESSAGE_MAX });
+// A socket asked to close frees its place in a second, not after ws's default of 30.
+const tabs = new WebSocketServer({ noServer: true, maxPayload: TAB_MESSAGE_MAX, closeTimeout: 1000 });
 
 const unverified = new Map();
 let unverifiedTotal = 0;
+let arriving = 0;
 
 // The first message must be `{ type: "hello", token }`; then `call` / `result` messages
 // by id, and `{ type: "active" }` when the user comes back to the tab.
@@ -208,41 +224,58 @@ function onTab(ws, socket, ip) {
   let greeting = false;
   let alive = true;
 
-  // Until its hello is accepted the socket could be anyone's: past a hello's worth of bytes it
-  // is cut off before ws buffers the rest, or big frames from unsigned sockets fill the process.
+  // Past a hello's worth of bytes a socket is cut off before ws buffers the rest, or big frames
+  // fill the process, unless it's signed in and answering a call. Added up ahead of ws's own
+  // listener and judged after it, so only a frame still unfinished counts: ended ones are forgotten.
   let waiting = true;
   let received = 0;
   const count = (chunk) => {
     received += chunk.length;
-    if (received > HELLO_MAX) ws.terminate();
+    arriving += chunk.length;
+  };
+  const judge = () => {
+    if (received > HELLO_MAX && (!tab || !relay.waitingOn(tab) || arriving > BIG_FRAMES_MAX)) ws.terminate();
+  };
+  const forget = (bytes) => {
+    received -= bytes;
+    arriving -= bytes;
   };
   const verified = () => {
     if (!waiting) return;
     waiting = false;
-    socket.off("data", count);
     unverifiedTotal -= 1;
     const left = unverified.get(ip) - 1;
     if (left > 0) unverified.set(ip, left);
     else unverified.delete(ip);
   };
-  socket.on("data", count);
+  socket.prependListener("data", count);
+  socket.on("data", judge);
   unverifiedTotal += 1;
   unverified.set(ip, (unverified.get(ip) ?? 0) + 1);
 
   const hello = setTimeout(() => ws.close(4401, "Sign in first."), HELLO_MS);
+  // A socket lasts as long as the sign-in it showed. The tab sends each new token before the last runs out.
+  let signedIn;
+  const signedInUntil = (expires) => {
+    clearTimeout(signedIn);
+    signedIn = setTimeout(() => ws.close(4401, "Sign in again."), Math.min(Math.max(0, expires - Date.now()), MAX_TIMER_MS));
+  };
   const heartbeat = setInterval(() => {
     if (!alive) return ws.terminate();
     alive = false;
     ws.ping();
   }, HEARTBEAT_MS);
-  ws.on("pong", () => {
+  // No message ends a pong. Forgiven by its own size only, or pongs could hide a big frame's pieces.
+  ws.on("pong", (data) => {
     alive = true;
+    forget(PONG_FRAME + data.length);
   });
 
   ws.on("message", async (data, isBinary) => {
+    if (tab) forget(received);
     let message;
     try {
-      if (isBinary) throw new Error();
+      if (isBinary || tooManyValues(data)) throw new Error();
       message = JSON.parse(data.toString("utf8"));
     } catch {
       ws.close(1003, "Expected JSON.");
@@ -263,8 +296,19 @@ function onTab(ws, socket, ip) {
         return;
       }
       verified();
+      forget(received);
+      signedInUntil(who.expires);
       tab = relay.attach(who.userId, { send: (text) => ws.send(text), close: (code, reason) => ws.close(code, reason) });
       ws.send(JSON.stringify({ type: "ready" }));
+      return;
+    }
+
+    if (message?.type === "token" && typeof message.token === "string") {
+      // Sign-in that can't be checked right now leaves things as they are, until this token runs out.
+      const who = await auth.editor(message.token).catch(() => undefined);
+      if (who === undefined || ws.readyState !== WebSocket.OPEN) return;
+      if (!who || who.userId !== tab.userId) ws.close(4401, "Sign in again.");
+      else signedInUntil(who.expires);
       return;
     }
 
@@ -273,8 +317,10 @@ function onTab(ws, socket, ip) {
   });
 
   ws.on("close", () => {
+    forget(received);
     verified();
     clearTimeout(hello);
+    clearTimeout(signedIn);
     clearInterval(heartbeat);
     if (tab) relay.detach(tab);
   });

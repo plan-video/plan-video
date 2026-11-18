@@ -10,7 +10,7 @@ Choose when each post goes out. plan.video's servers send it at that time, so yo
 | **Date and time** | The post is sent at the time you pick. |
 | **Repeat** | The post goes out again and again, as below. |
 
-To send a post straight away, click **Post now**.
+To send a post straight away, click **Post now**. On the Free plan, it can send up to 100 times a day across your accounts.
 
 ## Auto-schedule
 

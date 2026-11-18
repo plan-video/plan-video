@@ -47,6 +47,7 @@ function setup({ posts = [scheduled()], send, reply, logins = {}, outcome = () =
     media: { postFile: async () => ({ ...VIDEO, id: "p1" }) },
     networks: { linkedin },
     notices,
+    wait: async () => {},
     now: () => clock,
     log: { error() {} },
   });
@@ -153,6 +154,24 @@ test("everything of a person's that failed together goes in one email", async ()
   assert.equal(await notices.send(), 1);
   assert.equal(emails[0].subject, "2 posts didn't go out");
   assert.match(emails[0].text, /Launch day[\s\S]*Follow-up/);
+});
+
+test("a follow-up whose row could never be made is still emailed, though there's no row to find it failed on", async () => {
+  const { db, worker, notices, emails, advance } = setup({
+    posts: [scheduled({ thread: [{ text: "More" }] })],
+    reply: async () => ({ state: "sent", publishId: "c" }),
+  });
+  const insertNew = db.insertNew.bind(db);
+  db.insertNew = async (table, rows, conflict) => {
+    if (table === "post_replies") throw new PublishError("The database didn't answer.", { retry: true });
+    return insertNew(table, rows, conflict);
+  };
+  await worker.tick();
+  advance(HOLD_MS);
+  await notices.send();
+  assert.equal(emails.length, 1);
+  assert.match(emails[0].subject, /Part of the thread under “Launch day” didn't go out/);
+  assert.match(emails[0].text, /Follow-up 1 of the thread didn't go out on LinkedIn/);
 });
 
 test("a send cut off by a restart is emailed, since it may have gone out", async () => {

@@ -2,7 +2,9 @@ Add captions to your video in the editor, style them, and make them your own.
 
 ## Auto-captions
 
-Select a video clip or the scene, then click **Auto-Captions** on the toolbar above the canvas. plan.video writes captions from the speech, and only the audio is sent to be transcribed.
+Open **Captions** on the editor's rail, pick a style, and click **Generate captions**. You can also select a video clip or the scene and click **Auto-Captions** at the bottom of the canvas. plan.video writes captions from the speech, and only the audio is sent to be transcribed.
+
+Once a scene has captions, picking another style in the **Captions** tab changes them straight away. **Redo captions** writes them again from the speech, and **Remove captions** takes them out.
 
 | Plan | Auto-captions a month |
 | --- | --- |

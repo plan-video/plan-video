@@ -29,20 +29,24 @@ export const TRIM_HANDLE_WIDTH = 10;
 export const CLICK_DISTANCE_THRESHOLD = 5;
 export const DOUBLE_CLICK_THRESHOLD = 500;
 
-export const RULER_HEIGHT = 36;
+export const TIMELINE_BAR_HEIGHT = 36;
+/** Fits three icon buttons: a keyframe row's previous, add and next. */
+export const TIMELINE_GUTTER_WIDTH = 76;
+
+export const RULER_HEIGHT = 26;
 /** Kept clear for the scrollbar: rows are cut off above it, so the bar never covers a clip. */
 export const SCROLLBAR_LANE = 12;
-export const RULER_TICK_HEIGHT_MAJOR = 9;
-export const RULER_TICK_HEIGHT_MINOR = 3;
-export const RULER_LABEL_Y = 18;
+export const RULER_TICK_HEIGHT_MAJOR = 10;
+export const RULER_TICK_HEIGHT_MINOR = 4;
+export const RULER_LABEL_X = 6;
+export const RULER_LABEL_Y = 10;
 
-export const CLIP_CORNER_RADIUS = 5;
+/** Kept clear above and below a row's clips, so clips on neighbouring rows never touch. */
+export const CLIP_INSET = 2;
+/** How strongly a row's band is drawn. The layer column beside the canvas draws the same band (`Lane`), so they share these. */
+export const LANE_OPACITY = { rest: 0.45, nested: 0.6, hovered: 0.8, selected: 1 } as const;
+export const CLIP_CORNER_RADIUS = 6;
 export const CLIP_FONT = '500 11px Geist, Inter, sans-serif';
-export const CLIP_LABEL_X = 6;
-export const CLIP_LABEL_Y = 10;
-export const CLIP_LABEL_HEIGHT = 20;
-
-export const CLIP_BREAKPOINTS = {
-  xs: 32,
-  sm: 40,
-}
+/** Clear of the trim handle a selected clip draws at its edge. */
+export const CLIP_LABEL_X = 10;
+export const CLIP_LABEL_HEIGHT = 16;

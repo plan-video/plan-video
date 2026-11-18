@@ -72,7 +72,7 @@ async function sendVideo({ post, session, file, media, progress }) {
   }
   // Nothing goes out before every piece is up, so an init whose answer was lost is safe to repeat.
   if (started.unreachable) throw new PublishError("TikTok didn't answer. Trying again soon.", { retry: true });
-  if (started.error) throw new PublishError(started.error);
+  if (started.error) throw new PublishError(started.error, { retry: !!started.busy });
   const uploadUrl = started.data?.upload_url;
   const publishId = started.data?.publish_id;
   if (!uploadUrl || !publishId) throw new PublishError("TikTok didn't start the upload. Trying again soon.", { retry: true });

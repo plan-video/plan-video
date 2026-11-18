@@ -4,8 +4,10 @@
 
 import { toast } from "somoto";
 import { importFiles as importFilesInto, pickFiles, saveAssetAs as saveAs } from "@plan.video/assets";
+import { getActiveEntity } from "@plan.video/runtime";
 import { t } from "@/lib/i18n";
 import { insertAsset } from "./insert-asset";
+import { insertAssetsInNewScene } from "./new-scene";
 import { forgetAssetMedia } from "./timeline/media";
 import { forgetAssetPeaks } from "./timeline/peaks";
 
@@ -60,8 +62,10 @@ export async function replaceAssetSource(library: AssetLibrary, asset: Asset): P
   }
 }
 
+/** With no scene open there is no playhead to insert at: the asset opens a scene of its own, as dropping it on the canvas does. */
 export function insertAssetAtPlayhead(world: World, asset: Asset): void {
-  if (!insertAsset(world, asset)) {
+  const placed = getActiveEntity(world) ? insertAsset(world, asset) : insertAssetsInNewScene(world, [asset]);
+  if (!placed) {
     toast(t("Nothing to insert into"), { description: t("Open a project first.") });
   }
 }

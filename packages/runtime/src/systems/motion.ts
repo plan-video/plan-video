@@ -186,7 +186,81 @@ export function poseAnimation(pose: AnimationPose, type: AnimationType | undefin
 			pose.scaleY = scale;
 			break;
 		}
+		// The rest are made to loop: each is at rest at 0 and 1 and adds to the pose, so it rides on an in or out.
+		case AnimationType.FLOAT: {
+			pose.offsetY -= 14 * Math.sin(TAU * progress);
+			break;
+		}
+		case AnimationType.PULSE: {
+			const scale = 1 + 0.08 * wave(progress);
+			pose.scaleX *= scale;
+			pose.scaleY *= scale;
+			break;
+		}
+		case AnimationType.WIGGLE: {
+			pose.rotation += 5 * Math.sin(TAU * progress);
+			break;
+		}
+		case AnimationType.SHAKE: {
+			const step = Math.floor(clamp01(progress) * SHAKE_STEPS) % SHAKE_STEPS;
+			if (step === 0) break;
+			pose.offsetX += 6 * jitter(step, 1);
+			pose.offsetY += 6 * jitter(step, 2);
+			pose.rotation += 1.5 * jitter(step, 3);
+			break;
+		}
+		case AnimationType.FLICKER: {
+			const dip = FLICKER_DIPS.find(([from, to]) => progress >= from && progress < to);
+			if (dip) pose.opacity *= dip[2];
+			break;
+		}
+		case AnimationType.BREATHE: {
+			pose.opacity *= 1 - 0.45 * wave(progress);
+			break;
+		}
 	}
+}
+
+const TAU = Math.PI * 2;
+
+/** 0 at both ends of a cycle, 1 halfway. */
+function wave(progress: number): number {
+	return (1 - Math.cos(TAU * progress)) / 2;
+}
+
+const SHAKE_STEPS = 12;
+
+/** The same -1..1 for a step every time, so scrubbing lands on the frame an export draws. */
+function jitter(step: number, salt: number): number {
+	const x = Math.sin(step * 12.9898 + salt * 78.233) * 43758.5453;
+	return (x - Math.floor(x)) * 2 - 1;
+}
+
+/** [from, to, opacity]: a tube catching, twice, then a long steady stretch. */
+const FLICKER_DIPS: readonly [number, number, number][] = [
+	[0.1, 0.14, 0.25],
+	[0.17, 0.2, 0.6],
+	[0.54, 0.57, 0.35],
+];
+
+/** 0..1 through the animation at `frame`, or null outside it. A loop runs from its delay to the tail, starting over every `duration`. */
+export function animationProgress(
+	phase: AnimationPhase | undefined,
+	duration: number,
+	delay: number,
+	source: { in: number; out: number },
+	frame: number,
+): number | null {
+	if (duration <= 0) return null;
+	if (phase === AnimationPhase.LOOP) {
+		const start = source.in + delay;
+		if (frame < start || frame >= source.out) return null;
+		return ((frame - start) % duration) / duration;
+	}
+	const isOut = phase === AnimationPhase.OUT;
+	const windowStart = isOut ? source.out - duration - delay : source.in + delay;
+	if (isOut ? frame < windowStart : frame >= windowStart + duration) return null;
+	return clamp01((frame - windowStart) / Math.max(1, duration - 1));
 }
 
 /** Grow past 1 by `overshoot` and settle back, as TikTok captions do; out shrinks to nothing. */
@@ -256,6 +330,11 @@ function playWordAnimation(
 	const duration = Math.min(durationFrames / fps, end - start);
 	if (duration <= 0) return;
 	const delay = delayFrames / fps;
+	if (phase === AnimationPhase.LOOP) {
+		const from = start + delay;
+		if (time >= from && time < end) poseAnimation(pose, type, phase, ((time - from) % duration) / duration, '');
+		return;
+	}
 	const isOut = phase === AnimationPhase.OUT;
 	const windowStart = isOut ? end - duration - delay : start + delay;
 	if (holdBefore && !isOut && time < windowStart) return;
@@ -377,19 +456,14 @@ export function motionSystem(world: World): void {
 			const aid = anim.id();
 			// Pop / bounce on a caption play per word (see animateCaptionWords).
 			if (entity.has(Caption) && isWordPop(animation.type[aid])) continue;
-			const duration = animation.duration[aid] ?? 0;
-			if (duration <= 0) continue;
-
-			const delay = animation.delay[aid] ?? 0;
-			const isOut = animation.phase[aid] === AnimationPhase.OUT;
-			const windowStart = isOut
-				? source.out - duration - delay
-				: source.in + delay;
-			const windowEnd = windowStart + duration;
-			if (isOut ? localFrame < windowStart : localFrame >= windowEnd) continue;
-
-			const progress = clamp01((localFrame - windowStart) / Math.max(1, duration - 1));
-			applyAnimation(world, entity, anim, progress);
+			const progress = animationProgress(
+				animation.phase[aid],
+				animation.duration[aid] ?? 0,
+				animation.delay[aid] ?? 0,
+				source,
+				localFrame,
+			);
+			if (progress !== null) applyAnimation(world, entity, anim, progress);
 		}
 
 		let uniformScale = entity.has(UniformScale);

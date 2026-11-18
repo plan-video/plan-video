@@ -137,6 +137,7 @@ export function TransformSettings(props: TransformSettingsProps) {
   return (
     <PanelSection
       title={t("Transform")}
+      keywords={[t("Rotate"), t("Constraints"), t("Anchor"), t("Offset"), t("Scale"), t("Skew")].join(" ")}
       actions={
         <Show when={!showAddon('rotate') || !showAddon('anchor') || !showAddon('offset') || !showAddon('scale') || !showAddon('skew') || !showAddon('constraints')}>
           <DropdownMenu placement="bottom-end">

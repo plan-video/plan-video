@@ -15,6 +15,7 @@ import { pdsFetch } from "./pds-fetch.mjs";
 import { boardsOf as pinterestBoards, profileFor as pinterestProfileFor } from "./pinterest.mjs";
 import { clientIp } from "./support.mjs";
 import { xBasic } from "./vault.mjs";
+import { createWindows } from "./windows.mjs";
 import { clearYouTubeConnection } from "./youtube-check.mjs";
 
 const JSON_MAX = 64 * 1024;
@@ -122,18 +123,10 @@ export async function revoke(platform, session, env, bluesky) {
 }
 
 export function createApi({ env, vault, worker, users, kick, bluesky, limits, db, mailer, deletion, youtube, x, tiktok, linkedin, meta, pinterest, links, now = () => Date.now() }) {
-  const windows = new Map();
+  const windows = createWindows();
 
   function limit(name, max, seconds) {
-    const now = Date.now();
-    const entry = windows.get(name);
-    if (!entry || entry.reset <= now) {
-      if (windows.size > 20_000) windows.clear();
-      windows.set(name, { count: 1, reset: now + seconds * 1000 });
-      return;
-    }
-    entry.count += 1;
-    if (entry.count > max) throw new Refused(429, "Too many requests. Wait a few minutes and try again.");
+    if (!windows.allowed(name, max, seconds * 1000)) throw new Refused(429, "Too many requests. Wait a few minutes and try again.");
   }
 
   async function sameBlueskyAccount(userId, did) {
@@ -154,7 +147,8 @@ export function createApi({ env, vault, worker, users, kick, bluesky, limits, db
   /** `workspace` is set only for someone acting for another owner. */
   async function scopeOf(req, user, body) {
     if (body.team === undefined || body.team === null) return { actor: user.id, role: "owner" };
-    const owner = typeof body.team.owner === "string" ? body.team.owner : "";
+    // Lowercase as the database stores it: a uuid matches in either case there, but a login is sealed to this exact text.
+    const owner = typeof body.team.owner === "string" ? body.team.owner.toLowerCase() : "";
     const workspace = typeof body.team.workspace === "string" ? body.team.workspace : "";
     if (!UUID.test(owner) || !ID.test(workspace)) throw new Refused(400, "That isn't a workspace.");
     const access = await users.access(req, owner, workspace);
@@ -245,7 +239,7 @@ export function createApi({ env, vault, worker, users, kick, bluesky, limits, db
       limit(`link-ip:${clientIp(req)}`, action === "open" ? 120 : 40, 600);
       const body = await readBody(req);
       const link = typeof body.link === "string" ? body.link : "";
-      limit(`link:${link.slice(0, 16)}`, action === "open" ? 300 : 100, 3600);
+      if (links.known(link)) limit(`link:${link.slice(0, 16)}`, action === "open" ? 300 : 100, 3600);
       json(res, 200, action === "open" ? await links.open(link) : action === "authorize" ? await links.authorize(link, body) : await links.exchange(link, body));
       return;
     }
@@ -318,7 +312,7 @@ export function createApi({ env, vault, worker, users, kick, bluesky, limits, db
       // A new account counts against the plan's social accounts; a login for one already connected doesn't.
       const save = () =>
         connectWithin({ vault, limits, userId: scope.actor, connectionId }, () =>
-          vault.put(scope.actor, connectionId, platform, session, { replace: body.replace !== false, allowOAuth: true }),
+          vault.put(scope.actor, connectionId, platform, session, { replace: body.replace !== false, allowOAuth: true, workspace: scope.workspace }),
         );
       const most = await (ticket ? spend(ticket, connectionId, save) : save());
       if (most !== null) throw new Refused(403, `Your plan connects ${most} social accounts, and they're all in use. Upgrade, or add accounts in Billing, to connect another.`);
@@ -342,6 +336,9 @@ export function createApi({ env, vault, worker, users, kick, bluesky, limits, db
         json(res, 200, { link: null });
         return;
       }
+      // A link shows a stranger a name its maker typed, so a throwaway Free account can't make one. A shared workspace is on its owner's plan.
+      const plan = await db.selectOne("user_data", { id: scope.actor }, "access_level");
+      if (!(typeof plan?.access_level === "number" && plan.access_level > 1)) throw new Refused(403, "Client links come with a paid plan.");
       json(res, 200, { link: await links.create({ owner: scope.actor, workspace, person: user.id, workspaceName: body.workspaceName, fromName: body.fromName }) });
       return;
     }
@@ -361,7 +358,11 @@ export function createApi({ env, vault, worker, users, kick, bluesky, limits, db
       const connectionId = connectionOf(body);
       mustManage(scope);
       await mustNotBeElsewhere(scope, connectionId);
-      const found = await vault.read(scope.actor, connectionId).catch(() => null);
+      let unreadable = false;
+      const found = await vault.read(scope.actor, connectionId).catch(() => {
+        unreadable = true;
+        return null;
+      });
       await vault.remove(scope.actor, connectionId);
       // What plan.video kept of a YouTube channel's videos goes with its login. If that fails, the daily check clears it (youtube-check.mjs).
       if (!found || found.platform === "youtube") {
@@ -369,7 +370,7 @@ export function createApi({ env, vault, worker, users, kick, bluesky, limits, db
       }
       // One Bluesky sign-in can be connected in several workspaces; it ends with the last of them.
       const shared = found?.session?.oauth && (await sameBlueskyAccount(scope.actor, found.session.did));
-      const revoked = !found || shared ? true : await revoke(found.platform, found.session, env, bluesky);
+      const revoked = !unreadable && (!found || shared ? true : await revoke(found.platform, found.session, env, bluesky));
       json(res, 200, { revoked });
       return;
     }
@@ -513,7 +514,7 @@ export function createApi({ env, vault, worker, users, kick, bluesky, limits, db
       limit(`bluesky:${user.id}`, 20, 600);
       mustManage(scope);
       const handle = typeof body.handle === "string" ? body.handle.trim().replace(/^@+/, "").slice(0, 300) : "";
-      json(res, 200, { url: await bluesky.authorize(scope.actor, handle) });
+      json(res, 200, { url: await bluesky.authorize(scope.actor, handle, typeof body.browser === "string" ? body.browser : "") });
       return;
     }
 
@@ -521,7 +522,7 @@ export function createApi({ env, vault, worker, users, kick, bluesky, limits, db
       if (!bluesky) throw new Refused(503, "Sign in with Bluesky isn't available right now. Use an app password.");
       mustManage(scope);
       const query = typeof body.query === "string" ? body.query.slice(0, 4000) : "";
-      json(res, 200, await bluesky.callback(holderOf(user, scope), query));
+      json(res, 200, await bluesky.callback(holderOf(user, scope), query, typeof body.browser === "string" ? body.browser : ""));
       return;
     }
 

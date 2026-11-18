@@ -2,8 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { For, Show } from "solid-js";
+import { For, Show, createSignal } from "solid-js";
 import { Icon } from "@/components/ui/icon";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,10 +31,71 @@ import {
   zoomToFit,
 } from "@/engine";
 
-export function InspectorHeader(props: { title: string }) {
+// `onQuery` is left out where the panel has no sections to search.
+export function InspectorHeader(props: { title: string; query: string; onQuery?: (value: string) => void }) {
+  const [focused, setFocused] = createSignal(false);
+  const searching = () => props.onQuery != null && (focused() || props.query !== "");
+  const close = () => {
+    props.onQuery?.("");
+    setFocused(false);
+  };
+
   return (
-    <div class="h-11 shrink-0 flex items-center gap-2 pl-4 pr-2 border-b border-border">
-      <span class="min-w-0 flex-1 text-[13px] leading-5 font-medium text-foreground truncate">{props.title}</span>
+    <div class="flex h-11 shrink-0 items-center gap-1.5 border-b border-border px-4">
+      <Show
+        when={searching()}
+        fallback={
+          <>
+            <h2 class="mr-auto min-w-0 truncate text-[13px] font-medium text-foreground">{props.title}</h2>
+            <Show when={props.onQuery}>
+              <Tooltip>
+                <TooltipTrigger
+                  as={Button}
+                  size="icon"
+                  variant="ghost"
+                  class="text-muted-foreground"
+                  aria-label={t("Search")}
+                  onClick={() => setFocused(true)}
+                >
+                  <Icon name="search" />
+                </TooltipTrigger>
+                <TooltipContent>{t("Search")}</TooltipContent>
+              </Tooltip>
+            </Show>
+          </>
+        }
+      >
+        <div class="relative min-w-0 flex-1">
+          <Icon name="search" class="pointer-events-none absolute left-0 top-0.5 text-muted-foreground" />
+          <input
+            ref={(el) => queueMicrotask(() => el.focus())}
+            type="text"
+            value={props.query}
+            placeholder={t("Search")}
+            aria-label={t("Search")}
+            autocomplete="off"
+            spellcheck={false}
+            class="h-7 w-full min-w-0 rounded-md bg-input px-6 text-xs text-foreground outline-none placeholder:text-muted-foreground selection:bg-selection selection:text-selection-foreground focus-ring"
+            onInput={(event) => props.onQuery?.(event.currentTarget.value)}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+            onKeyDown={(event) => {
+              if (event.key !== "Escape") return;
+              event.preventDefault();
+              close();
+            }}
+          />
+          <Button
+            size="icon"
+            variant="ghost"
+            class="absolute right-0 top-0 text-muted-foreground"
+            aria-label={t("Close search")}
+            onClick={close}
+          >
+            <Icon name="close-remove-small" />
+          </Button>
+        </div>
+      </Show>
       <ExportButton />
       <SchedulePostButton />
     </div>

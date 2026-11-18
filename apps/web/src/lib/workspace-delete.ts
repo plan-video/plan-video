@@ -30,7 +30,9 @@ export async function deleteWorkspaceEverywhere(userId: string, id: string): Pro
     console.error("[workspaces] Could not read the workspaces, so the deleted one's logins and files stay", error);
   }
   const failure = await deleteWorkspace(id);
-  if (failure || !parts) return failure;
+  if (failure) return failure;
+  await forgetOnServer(id);
+  if (!parts) return;
 
   const { logins, postFiles, libraryFiles } = leftoversOf(parts.gone, parts.kept, everyFileOf);
   for (const connectionId of logins) {
@@ -41,15 +43,17 @@ export async function deleteWorkspaceEverywhere(userId: string, id: string): Pro
     const files = libraryFiles.flatMap((file) => [file, posterId(file)]);
     queueCloud(`media-delete:${libraryFiles.join(",")}`, () => deleteFromCloud("media", files, null));
   }
-  // forget_workspace_team does the same on the server.
-  void supabase
-    ?.from("post_previews")
-    .delete()
-    .eq("owner_id", userId)
-    .eq("snapshot->>workspaceId", id)
-    .then(({ error }) => {
-      if (error) console.error("[workspaces] Could not stop sharing the deleted workspace's posts", error);
-    });
+}
+
+// After the account has saved: the server keeps a workspace's posts while the account still lists it.
+async function forgetOnServer(id: string) {
+  for (let tries = 0; tries < 3; tries++) {
+    if (!(await flushAccountSync())) continue;
+    const result = await supabase?.rpc("forget_workspace_team", { workspace: id });
+    if (!result?.error) return;
+    console.error("[workspaces] Could not clear the deleted workspace from the server", result.error);
+  }
+  console.error("[workspaces] Gave up clearing the deleted workspace from the server", id);
 }
 
 async function partsOf(userId: string, id: string): Promise<WorkspaceParts> {

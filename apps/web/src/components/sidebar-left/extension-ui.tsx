@@ -7,6 +7,7 @@ import ChevronDownIcon from "lucide-solid/icons/chevron-down";
 
 import { Icon } from "@/components/ui/icon";
 import { Popover, PopoverContent, PopoverPortal, PopoverTrigger } from "@/components/ui/popover";
+import { cx } from "@/lib/cva";
 import { t } from "@/lib/i18n";
 
 export function Section(props: { label: string; action?: JSX.Element; children: JSX.Element }) {
@@ -99,9 +100,9 @@ export function MoreOptions(props: { children: JSX.Element }) {
   );
 }
 
-export function AddButton(props: { label?: string; busy?: boolean; disabled?: boolean; onClick: () => void }) {
+export function AddButton(props: { label?: string; busy?: boolean; disabled?: boolean; class?: string; onClick: () => void }) {
   return (
-    <div class="shrink-0 border-t border-border p-3">
+    <div class={cx("shrink-0 border-t border-border p-3", props.class)}>
       <button
         type="button"
         class="flex h-8 w-full min-w-0 items-center justify-center gap-1 rounded-md bg-primary px-2 text-xs font-450 text-primary-foreground transition-colors hover:bg-primary-hover focus-ring disabled:opacity-60"

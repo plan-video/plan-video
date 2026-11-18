@@ -9,7 +9,12 @@ import { framesToPixels, getCurrentFrame, getFrameRate, getResolution, getScroll
 import type { Entity, World } from 'koota';
 import type { TimelineSurfaceState } from '../surface';
 
-const PILL_TOP = 8;
+/** `KNOB_PATH`'s own box. */
+const KNOB_WIDTH = 10;
+const KNOB_HEIGHT = 13;
+const KNOB_TOP = 2;
+
+const PILL_TOP = 3;
 const PILL_HEIGHT = 19;
 const PILL_PADDING_X = 4;
 const PILL_RADIUS = 9;
@@ -45,30 +50,29 @@ export function renderPlayhead(world: World, scene: Entity, surface: TimelineSur
 	}
 
 	ctx.save();
-	ctx.translate(-5, 2);
-	ctx.fillStyle = surface.colors.border.ring;
-	ctx.strokeStyle = surface.colors.border.darker;
-	ctx.lineWidth = 2;
-	ctx.stroke(KNOB_PATH);
-	ctx.fill(KNOB_PATH);
+	ctx.translate(0, RULER_HEIGHT);
+	renderMotionTrail(world, surface, frame);
 	ctx.restore();
 
-	ctx.translate(0, RULER_HEIGHT);
-
-	renderMotionTrail(world, surface, frame);
-
+	// From inside the knob, so head and line read as one piece.
 	ctx.beginPath();
-	ctx.moveTo(0, 0);
-	ctx.lineTo(0, canvas.height);
-	ctx.closePath();
+	ctx.moveTo(0.5, KNOB_TOP + KNOB_HEIGHT - 2);
+	ctx.lineTo(0.5, canvas.height);
 
 	ctx.strokeStyle = surface.colors.border.darker;
 	ctx.lineWidth = 3;
 	ctx.stroke();
 
-	ctx.strokeStyle = surface.colors.border.ring;
+	ctx.strokeStyle = surface.colors.border.playhead;
 	ctx.lineWidth = 1;
 	ctx.stroke();
+
+	ctx.translate(-KNOB_WIDTH / 2 + 0.5, KNOB_TOP);
+	ctx.fillStyle = surface.colors.border.playhead;
+	ctx.strokeStyle = surface.colors.border.darker;
+	ctx.lineWidth = 2;
+	ctx.stroke(KNOB_PATH);
+	ctx.fill(KNOB_PATH);
 
 	ctx.restore();
 }
@@ -104,8 +108,8 @@ function renderMotionTrail(world: World, surface: TimelineSurfaceState, frame: n
 
 	const reverse = gradientWidth < 0;
 	const gradient = ctx.createLinearGradient(reverse ? width : -width, 0, 0, 0);
-	gradient.addColorStop(0, surface.colors.border.ring + '00');
-	gradient.addColorStop(1, surface.colors.border.ring);
+	gradient.addColorStop(0, surface.colors.border.playhead + '00');
+	gradient.addColorStop(1, surface.colors.border.playhead);
 
 	ctx.fillStyle = gradient;
 	ctx.globalAlpha = 0.16;
@@ -130,14 +134,14 @@ function renderCollapsedPlayhead(surface: TimelineSurfaceState, frame: number): 
 	ctx.lineWidth = 4;
 	ctx.stroke();
 
-	ctx.strokeStyle = surface.colors.border.ring;
+	ctx.strokeStyle = surface.colors.border.playhead;
 	ctx.lineWidth = 2;
 	ctx.stroke();
 
 	ctx.beginPath();
 	ctx.roundRect(-width / 2, PILL_TOP, width, PILL_HEIGHT, PILL_RADIUS);
 
-	ctx.fillStyle = surface.colors.border.ring;
+	ctx.fillStyle = surface.colors.border.playhead;
 	ctx.strokeStyle = surface.colors.border.darker;
 	ctx.lineWidth = 1;
 	ctx.fill();

@@ -9,6 +9,11 @@ import { cleanSession } from "./vault.mjs";
 const ID = /^[A-Za-z0-9_-]{1,100}$/;
 const PLATFORMS = new Set(["tiktok", "youtube", "linkedin", "bluesky", "x"]);
 
+/** A browser could leave any number of these in account_state; real accounts have a handful. */
+const MOST_OLD_LOGINS = 300;
+const REVOKES_AT_ONCE = 16;
+const PHOTO_PAGE = 1000;
+
 export function createAccountDeletion({ db, vault, media, bluesky, revoke, env, supabaseUrl, serviceKey, billingUrl, fetch: send = fetch }) {
   const running = new Set();
 
@@ -36,13 +41,19 @@ export function createAccountDeletion({ db, vault, media, bluesky, revoke, env, 
   }
 
   async function removePhotos(userId) {
-    const listed = await admin("/storage/v1/object/list/avatars", { method: "POST", body: JSON.stringify({ prefix: userId, limit: 1000, offset: 0 }) });
-    const files = listed?.ok ? await listed.json().catch(() => null) : null;
-    if (!Array.isArray(files)) throw new Refused(503, "Your profile photo couldn't be removed, so the account wasn't deleted. Try again in a moment.");
-    const prefixes = files.filter((file) => typeof file?.name === "string").map((file) => `${userId}/${file.name}`);
-    if (!prefixes.length) return;
-    const removed = await admin("/storage/v1/object/avatars", { method: "DELETE", body: JSON.stringify({ prefixes }) });
-    if (!removed?.ok) throw new Refused(503, "Your profile photo couldn't be removed, so the account wasn't deleted. Try again in a moment.");
+    const failed = "Your profile photo couldn't be removed, so the account wasn't deleted. Try again in a moment.";
+    for (let pages = 0; pages < 100; pages++) {
+      const listed = await admin("/storage/v1/object/list/avatars", { method: "POST", body: JSON.stringify({ prefix: userId, limit: PHOTO_PAGE, offset: 0 }) });
+      const files = listed?.ok ? await listed.json().catch(() => null) : null;
+      if (!Array.isArray(files)) throw new Refused(503, failed);
+      const prefixes = files.filter((file) => typeof file?.name === "string").map((file) => `${userId}/${file.name}`);
+      if (prefixes.length) {
+        const removed = await admin("/storage/v1/object/avatars", { method: "DELETE", body: JSON.stringify({ prefixes }) });
+        if (!removed?.ok) throw new Refused(503, failed);
+      }
+      if (files.length < PHOTO_PAGE) return;
+    }
+    throw new Refused(503, failed);
   }
 
   async function eraseFiles(userId) {
@@ -58,12 +69,15 @@ export function createAccountDeletion({ db, vault, media, bluesky, revoke, env, 
   async function olderLogins(userId, kept) {
     const row = await db.selectOne("account_state", { user_id: userId }, "payload");
     const found = [];
+    const seen = new Set();
     for (const slice of Object.values(row?.payload?.slices ?? {})) {
       for (const connection of Array.isArray(slice?.connections) ? slice.connections : []) {
         const platform = connection?.platform;
         if (!PLATFORMS.has(platform) || !ID.test(connection.id ?? "") || kept.has(connection.id)) continue;
         const session = cleanSession(platform, connection[platform]);
-        if (session) found.push({ platform, session });
+        const same = `${platform}|${JSON.stringify(session)}`;
+        if (session && !seen.has(same) && found.length < MOST_OLD_LOGINS) found.push({ platform, session });
+        seen.add(same);
       }
     }
     return found;
@@ -80,10 +94,13 @@ export function createAccountDeletion({ db, vault, media, bluesky, revoke, env, 
     sessions.push(...(await olderLogins(userId, new Set(kept.map((login) => login.connectionId)))));
     const signIns = bluesky ? await db.select("bluesky_sessions", { user_id: userId }, "did") : [];
 
-    await Promise.allSettled([
-      ...sessions.map((found) => revoke(found.platform, found.session, env, bluesky)),
-      ...signIns.map((row) => bluesky.revoke(userId, row.did)),
-    ]);
+    const waiting = [
+      ...sessions.map((found) => () => revoke(found.platform, found.session, env, bluesky)),
+      ...signIns.map((row) => () => bluesky.revoke(userId, row.did)),
+    ];
+    await Promise.all(Array.from({ length: Math.min(REVOKES_AT_ONCE, waiting.length) }, async () => {
+      while (waiting.length) await waiting.shift()().catch(() => undefined);
+    }));
     await db.delete("social_tokens", { user_id: userId });
   }
 

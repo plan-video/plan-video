@@ -124,7 +124,7 @@ export async function finishLinkSignIn(link: string, network: string, search: st
   const started = readStarted(takeFromLogin(SIGN_IN_KEY));
   if (!started || started.link !== link || started.network !== network) throw new ConnectLinkError(400, t("That sign-in didn't start here. Try again."));
   const params = new URLSearchParams(search);
-  if (network === "bluesky") return call("connect-link/exchange", { link, network, query: search.replace(/^\?/, "") }, false);
+  if (network === "bluesky") return call("connect-link/exchange", { link, network, query: search.replace(/^\?/, ""), state: started.state }, false);
   const code = params.get("code");
   if (!code || params.get("state") !== started.state) throw new ConnectLinkError(400, t("The network sent the sign-in back without a matching code. Try again."));
   return call("connect-link/exchange", { link, network, code, redirectUri: `${window.location.origin}/${network}/callback`, codeVerifier: started.verifier }, false);

@@ -4,10 +4,10 @@
 
 import type { Component } from "solid-js";
 import {
+  RailCaptionsIcon,
   RailEffectsIcon,
   RailExtensionsIcon,
   RailFolderIcon,
-  RailWorkflowsIcon,
   RailTemplatesIcon,
   RailTextIcon,
   RailTransitionsIcon,
@@ -20,11 +20,11 @@ import { sidebarTab, type SidebarTab } from "./store";
 export const SIDEBAR_TABS: { id: SidebarTab; label: string; icon: Component<RailIconProps> }[] = [
   { id: "assets", label: msg("Assets"), icon: RailFolderIcon },
   { id: "text", label: msg("Text"), icon: RailTextIcon },
+  { id: "captions", label: msg("Captions"), icon: RailCaptionsIcon },
   { id: "transitions", label: msg("Transitions"), icon: RailTransitionsIcon },
   { id: "effects", label: msg("Effects"), icon: RailEffectsIcon },
   { id: "templates", label: msg("Layout"), icon: RailTemplatesIcon },
   { id: "extensions", label: msg("Extensions"), icon: RailExtensionsIcon },
-  { id: "workflows", label: msg("Workflows"), icon: RailWorkflowsIcon },
 ];
 
 export function SidebarTabs() {
