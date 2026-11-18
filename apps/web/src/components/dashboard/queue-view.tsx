@@ -295,9 +295,9 @@ export function DashboardQueueView() {
       </Show>
 
       <Show
-        when={listed()}
+        when={listed() || !queueSlots().length}
         fallback={
-          <section class="relative min-h-0 flex-1 overflow-auto overscroll-contain">
+          <section class="min-h-0 flex-1 overflow-auto overscroll-contain">
             <div class="grid min-h-full min-w-[46rem] select-none [grid-template-rows:auto_1fr]">
               <div class="sticky top-0 z-20 grid grid-cols-7 border-b border-(--plane-border-subtle) bg-(--plane-layer-1)">
                 <For each={QUEUE_WEEKDAYS}>
@@ -320,12 +320,6 @@ export function DashboardQueueView() {
                 </For>
               </div>
             </div>
-            <Show when={!queueSlots().length}>
-              <div class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 pt-10 text-center text-(--plane-text-tertiary)">
-                <SquirrelAsleep width={92} class="opacity-70" />
-                <span class="max-w-md rounded-md bg-(--plane-surface-1) px-2 py-1 text-sm">{hint()}</span>
-              </div>
-            </Show>
           </section>
         }
       >
