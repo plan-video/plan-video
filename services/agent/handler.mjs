@@ -17,6 +17,8 @@ const MAX_TOKENS = 16000;
 /** Keeps a chat under the 100k tokens past which Haiku 5.5 costs five times as much. */
 const MAX_BODY_BYTES = 300 * 1024;
 const MAX_MESSAGES = 400;
+/** Fewer than a token usually holds, so a guess errs high. */
+const CHARS_PER_TOKEN = 3;
 
 const TOOLS = JSON.parse(readFileSync(new URL("./tools.json", import.meta.url), "utf8"));
 const TOOL_NAMES = new Set(TOOLS.map((tool) => tool.name));
@@ -450,8 +452,13 @@ export async function handleAgent(req, res, env) {
   let streamed = false;
   /** Taken from the stream, so a step stopped halfway still counts. */
   let usage = {};
+  /** Output is only counted at the end, so a step stopped before then is charged for what it streamed. */
+  let counted = false;
+  let streamedChars = 0;
   const step = async (history) => {
     usage = {};
+    counted = false;
+    streamedChars = 0;
     const stream = clientFor(env.anthropicKey).messages.stream(
       {
         model: MODEL,
@@ -468,7 +475,10 @@ export async function handleAgent(req, res, env) {
 
     for await (const event of stream) {
       if (event.type === "message_start") usage = { ...event.message.usage };
-      else if (event.type === "message_delta" && event.usage) usage = { ...usage, ...Object.fromEntries(Object.entries(event.usage).filter(([, value]) => value != null)) };
+      else if (event.type === "message_delta" && event.usage) {
+        usage = { ...usage, ...Object.fromEntries(Object.entries(event.usage).filter(([, value]) => value != null)) };
+        counted = true;
+      } else if (event.type === "content_block_delta") streamedChars += (event.delta.text ?? event.delta.thinking ?? event.delta.partial_json ?? "").length;
       if (event.type === "content_block_start" && event.content_block.type === "tool_use") {
         streamed = true;
         send({ type: "tool", name: event.content_block.name });
@@ -479,6 +489,7 @@ export async function handleAgent(req, res, env) {
     }
     const message = await stream.finalMessage();
     usage = message.usage;
+    counted = true;
     send({ type: "done", content: message.content, stop_reason: message.stop_reason, sig: signStep(env, user.id, message.content) });
   };
 
@@ -494,7 +505,7 @@ export async function handleAgent(req, res, env) {
     if (controller.signal.aborted) return;
     send({ type: "error", error: errorText(error) });
   } finally {
-    settleBudgets(held, cost(usage));
+    settleBudgets(held, cost(counted ? usage : { ...usage, output_tokens: Math.max(usage.output_tokens ?? 0, Math.ceil(streamedChars / CHARS_PER_TOKEN)) }));
     if (!res.writableEnded) res.end();
   }
 }
