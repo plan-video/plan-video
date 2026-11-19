@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { authorizationIdFrom } from '@/lib/oauth-consent-id';
+import { authorizationIdFrom, onThisComputer } from '@/lib/oauth-consent-id';
 import { useNavigate } from '@solidjs/router';
 import { createEffect, createResource, createSignal, Show } from 'solid-js';
 
@@ -48,12 +48,6 @@ const KNOWN_APPS: Record<string, string> = {
   'chatgpt.com': 'ChatGPT',
   'vscode.dev': 'VS Code',
 };
-
-/** Only an app on this computer can receive an answer sent here. */
-function onThisComputer(url: URL): boolean {
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') return true;
-  return url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
-}
 
 /** `unknown` when the name is only the address, as the app's own name can't be trusted. */
 type Details = { id: string; name: string; returnsTo: string; unknown: string | null };
