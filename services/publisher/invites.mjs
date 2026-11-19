@@ -1,6 +1,9 @@
 // Supabase sends the invite with the "Invite user" template (supabase/templates/invite.html), only to an
 // address with no account yet; someone with an account finds the invite waiting in plan.video.
 
+// Both are whatever their writers typed, and the subject line carries the workspace's.
+const oneLine = (value) => (typeof value === "string" ? [...value.replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, " ").trim()].slice(0, 80).join("") : "");
+
 export function createInviteMailer({ supabaseUrl, serviceKey, publicUrl, db, fetch: send = fetch }) {
   const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json" };
 
@@ -21,8 +24,8 @@ export function createInviteMailer({ supabaseUrl, serviceKey, publicUrl, db, fet
             email,
             // What the template says (supabase/templates/invite.html), and the invite its link opens.
             data: {
-              invited_by_name: typeof name === "string" ? name.slice(0, 80) : "",
-              invited_workspace: typeof look?.name === "string" ? look.name.slice(0, 80) : "",
+              invited_by_name: oneLine(name),
+              invited_workspace: oneLine(look?.name),
               invite_id: id,
             },
           }),

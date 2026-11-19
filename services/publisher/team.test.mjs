@@ -284,6 +284,11 @@ test("the mailer asks Supabase to invite a new address, and stays quiet for an e
   assert.equal(calls[0].auth, "Bearer service");
   answer.status = 422;
   assert.equal(await mailer.invite(invite), false);
+
+  db.rpc = async (name) => (name === "person_name" ? "Ada\r\nBcc: someone@else.test" : { name: "Brand\n Subject: x" });
+  answer.status = 200;
+  assert.equal(await mailer.invite(invite), true);
+  assert.deepEqual(calls.at(-1).body.data, { invited_by_name: "Ada Bcc: someone@else.test", invited_workspace: "Brand Subject: x", invite_id: INVITE });
 });
 
 test("access asks Supabase with the person's own token and keeps the answer briefly", async () => {
