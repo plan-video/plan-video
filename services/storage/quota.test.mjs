@@ -16,7 +16,7 @@ writeFileSync(
 );
 process.env.STORAGE_ENV = join(dir, "r2.env");
 
-const { ROUTES, Refused, s3, server } = await import("./server.mjs");
+const { ROUTES, Refused, clientIp, s3, server } = await import("./server.mjs");
 const upload = ROUTES["POST /api/storage/upload-url"];
 const settle = ROUTES["POST /api/storage/settle"];
 const remove = ROUTES["POST /api/storage/delete"];
@@ -424,4 +424,12 @@ test("someone in a shared workspace uploads, and settles, on its owner's plan", 
   assert.equal(settled.status, 200);
   assert.deepEqual(settled.sent, [{ id: "teampost_def456", key: `sent/${OWNER}/teampost_def456` }]);
   assert.deepEqual(settled.unsent, ["teamdraft"]);
+});
+
+test("the per-address limit counts the hop the proxy appended, and IPv6 by its /64", () => {
+  const req = (forwarded, remote = "127.0.0.1") => ({ headers: forwarded === undefined ? {} : { "x-forwarded-for": forwarded }, socket: { remoteAddress: remote } });
+  assert.equal(clientIp(req("9.9.9.9, 1.2.3.4")), "1.2.3.4");
+  assert.equal(clientIp(req(undefined, "::ffff:5.6.7.8")), "5.6.7.8");
+  assert.equal(clientIp(req("2001:db8:aa:bb:1:2:3:4")), "2001:db8:aa:bb::/64");
+  assert.equal(clientIp(req("2001:db8:aa:bb::ffff")), "2001:db8:aa:bb::/64");
 });

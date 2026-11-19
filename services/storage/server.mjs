@@ -9,6 +9,7 @@
 
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
+import { isIP } from "node:net";
 import { pathToFileURL } from "node:url";
 
 import {
@@ -118,6 +119,20 @@ setInterval(() => {
   for (const [token, entry] of sessions) if (entry.until <= now) sessions.delete(token);
   for (const userId of [...holds.keys()]) holdsOf(userId);
 }, 60_000).unref();
+
+// The last X-Forwarded-For hop is the one the reverse proxy appended; anything before it is client-sent.
+// IPv6 counts by its /64, which one connection usually has to itself.
+function clientIp(req) {
+  const forwarded = String(req.headers["x-forwarded-for"] ?? "").split(",").map((part) => part.trim()).filter(Boolean);
+  let ip = (forwarded.at(-1) ?? req.socket?.remoteAddress ?? "").split("%")[0];
+  if (/^::ffff:\d+\.\d+\.\d+\.\d+$/i.test(ip)) ip = ip.slice(7);
+  if (isIP(ip) !== 6) return ip || "unknown";
+  const [head, tail = ""] = ip.toLowerCase().split("::");
+  const front = head ? head.split(":") : [];
+  const back = tail ? tail.split(":") : [];
+  const groups = [...front, ...Array(Math.max(0, 8 - front.length - back.length)).fill("0"), ...back];
+  return `${groups.slice(0, 4).map((group) => Number.parseInt(group, 16).toString(16)).join(":")}::/64`;
+}
 
 // Supabase's answer for a token is cached a minute.
 
@@ -667,8 +682,7 @@ const server = createServer(async (req, res) => {
     const open = PUBLIC_ROUTES[`${req.method} ${path}`];
     if (!route && !open) throw new Refused(404, "Not found.");
 
-    const ip = String(req.headers["x-forwarded-for"] ?? req.socket.remoteAddress ?? "").split(",")[0].trim();
-    limit(`ip:${ip}`, 1200, 600);
+    limit(`ip:${clientIp(req)}`, 1200, 600);
 
     const user = open ? null : await userFor(req);
     let body = {};
@@ -699,7 +713,7 @@ const server = createServer(async (req, res) => {
 server.requestTimeout = 30_000;
 server.headersTimeout = 15_000;
 
-export { PUBLIC_ROUTES, ROUTES, Refused, deleteKeys, listKeys, s3, server, teamActor };
+export { PUBLIC_ROUTES, ROUTES, Refused, clientIp, deleteKeys, listKeys, s3, server, teamActor };
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
   server.listen(PORT, HOST, () => console.log(`storage signer listening on ${HOST}:${PORT}`));
