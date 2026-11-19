@@ -33,7 +33,7 @@ function stepStream() {
 }
 
 /** `levels` is each person's plan, `teams` the owners whose teams they joined (`invites`: not yet). */
-function fakes({ levels = {}, teams = {}, invites = {} } = {}) {
+function fakes({ levels = {}, teams = {}, invites = {}, stream = stepStream } = {}) {
   const state = { calls: 0, outside: [] };
   const real = globalThis.fetch;
   globalThis.fetch = async (input, init = {}) => {
@@ -55,7 +55,7 @@ function fakes({ levels = {}, teams = {}, invites = {} } = {}) {
     }
     if (url.startsWith("https://api.anthropic.com/v1/messages")) {
       state.calls += 1;
-      if (JSON.parse(init.body).stream) return stepStream();
+      if (JSON.parse(init.body).stream) return stream(init.signal);
       return Response.json({
         id: `msg_${state.calls}`,
         type: "message",
@@ -230,6 +230,48 @@ test("many Free accounts from one network share one day between them, the agent 
   // Another network, or a paid account on this one, goes on.
   assert.equal((await send(base, "agent", "f", "203.0.113.51")).ok, true);
   assert.equal((await send(base, "agent", "paid", ip)).ok, true);
+});
+
+test("a step stopped before its usage arrives is charged for the words it streamed", async (t) => {
+  let stopped;
+  const upstreamStopped = new Promise((resolve) => (stopped = resolve));
+  let streams = 0;
+  // The first starts answering, then waits: the person stops it before the end, where the output count would come.
+  const stream = (signal) => {
+    if (streams++) return stepStream();
+    const events = [
+      ["message_start", { type: "message_start", message: { id: "msg_1", type: "message", role: "assistant", model: "claude-haiku-5-5", content: [], stop_reason: null, stop_sequence: null, usage: { input_tokens: 0, output_tokens: 1 } } }],
+      ["content_block_start", { type: "content_block_start", index: 0, content_block: { type: "text", text: "" } }],
+      ...Array.from({ length: 3 }, () => ["content_block_delta", { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: "x".repeat(10_000) } }]),
+    ];
+    const body = new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode(events.map(([name, data]) => `event: ${name}\ndata: ${JSON.stringify(data)}\n\n`).join("")));
+        // As fetch does when its request is aborted.
+        signal.addEventListener("abort", () => {
+          controller.error(signal.reason);
+          stopped();
+        });
+      },
+    });
+    return new Response(body, { headers: { "Content-Type": "text/event-stream" } });
+  };
+  // 30,000 characters are at least 10,000 output tokens, weighted 5x: the whole of this day.
+  const { base } = await setup(t, { personBudget: 50_000 }, { levels: { person: 2 }, stream });
+
+  await new Promise((resolve, reject) => {
+    const req = request(`${base}/api/agent`, { method: "POST", agent: false, headers: { Authorization: `Bearer ${tokenFor("person")}`, "Content-Type": "application/json", "X-Forwarded-For": "192.0.2.80" } });
+    req.on("response", (res) => res.once("data", () => {
+      req.destroy();
+      resolve();
+    }));
+    req.on("error", reject);
+    req.end(JSON.stringify({ messages: [{ role: "user", content: [{ type: "text", text: "Write a long post." }] }] }));
+  });
+  await upstreamStopped;
+
+  const next = await send(base, "agent", "person", "192.0.2.80");
+  assert.equal(next.status, 429);
 });
 
 test("the counts survive a restart, without keeping anyone's address", async () => {

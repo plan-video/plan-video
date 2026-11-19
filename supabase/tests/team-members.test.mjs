@@ -4,6 +4,8 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { before, describe, test } from "node:test";
 
+import { sql } from "./helpers.mjs";
+
 const URL = process.env.SUPABASE_URL || "http://127.0.0.1:54321";
 const ANON =
   process.env.SUPABASE_ANON_KEY ||
@@ -257,6 +259,8 @@ describe("working in a shared workspace", () => {
     assert.deepEqual(payload.slices[W2].library.map((item) => item.id), ["lib-secret"]);
     assert.equal(payload.timeZone, "Europe/Amsterdam");
     assert.equal(payload.workspaces.list.length, 2);
+    // The safety net's copy goes with the owner's account, not the member's.
+    assert.equal(sql(`select count(*) from audit.kept_rows where table_name = 'account_state' and user_id = '${member.id}' and row_data ->> 'user_id' = '${owner.id}'`), "0");
   });
 
   test("nobody's copy can take another workspace's library items, or carry posts", async () => {

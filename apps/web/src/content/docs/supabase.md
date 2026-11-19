@@ -34,6 +34,9 @@ Browsers read and write only their own rows, under row-level security. Logins an
   <Step title="Set the URLs">
     Under **Authentication** → **URL Configuration**, set **Site URL** to your site's address, and add `https://your-domain.com/**` to the redirect URLs. Sign-in emails link to the Site URL.
   </Step>
+  <Step title="Check the sign-in settings">
+    Under **Authentication** → **Sign In / Providers**, keep **Confirm email** and **Secure email change** on, and **Allow manual linking** off. Invites and the invite-only list trust an email address only once its owner has confirmed it, and a link between sign-in methods could otherwise be finished in someone else's browser.
+  </Step>
   <Step title="Add the emails">
     Under **Authentication** → **Emails**, paste each template from `supabase/templates` into its email: `magic-link.html` for the magic link, `confirm-signup.html` for confirming a sign-up, and `invite.html` for invites. Their links and logo come from your Site URL, so there's nothing to change.
   </Step>

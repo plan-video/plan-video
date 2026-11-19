@@ -391,13 +391,16 @@ export function chatItems(): ChatItem[] {
   return items;
 }
 
+// Account and file names come from networks and uploads, and whoever connected through a client link chose theirs: kept as one quoted value.
+const quoted = (text: string) => JSON.stringify(text).replace(/</g, "\\u003c");
+
 function channelLine(): string {
   const chosen = pickedChannels()
     .map((id) => socialConnections().find((account) => account.id === id))
     .flatMap((account) => {
       if (!account) return [];
       const platform = (PLATFORM_IDS as readonly string[]).includes(account.platform) ? socialPlatform(account.platform as PlatformId).name : account.platform;
-      return [`${platform} @${account.handle} (account id ${account.id})`];
+      return [`${platform} ${quoted(account.handle)} (account id ${account.id})`];
     });
   return `Picked channels: ${chosen.length ? chosen.join("; ") : "none"}`;
 }
@@ -418,7 +421,7 @@ function contextBlock(media: readonly MediaItem[]): string {
   if (openPage) lines.push(`Open page: ${openPage} (they wrote from the Assistant panel over it)`);
   for (const item of media) {
     const length = item.kind === "video" ? `, ${formatDuration(item.duration)}` : "";
-    lines.push(`${mediaReference(item.id)} ${item.kind}${length}, ${item.width}x${item.height}, "${item.name}"`);
+    lines.push(`${mediaReference(item.id)} ${item.kind}${length}, ${item.width}x${item.height}, ${quoted(item.name)}`);
   }
   return `${CONTEXT_OPEN}\n${lines.join("\n")}\n</context>`;
 }

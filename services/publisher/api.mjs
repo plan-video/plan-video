@@ -119,6 +119,13 @@ export async function revoke(platform, session, env, bluesky) {
   return false;
 }
 
+const ACCOUNT_FIELD = { tiktok: "openId", youtube: "channelId", linkedin: "personId", x: "xUserId" };
+
+function accountOf(platform, session) {
+  const id = platform === "bluesky" ? (session?.oauth ? session.did : "") : session?.[ACCOUNT_FIELD[platform]];
+  return typeof id === "string" && id ? id : null;
+}
+
 export function createApi({ env, vault, worker, users, kick, bluesky, limits, db, mailer, deletion, youtube, x, tiktok, linkedin, meta, links, now = () => Date.now() }) {
   const windows = createWindows();
 
@@ -126,11 +133,16 @@ export function createApi({ env, vault, worker, users, kick, bluesky, limits, db
     if (!windows.allowed(name, max, seconds * 1000)) throw new Refused(429, "Too many requests. Wait a few minutes and try again.");
   }
 
-  async function sameBlueskyAccount(userId, did) {
+  // One network account can be connected in several workspaces, each with its own login, and a network can end them all on one revoke.
+  async function stillConnected(userId, platform, session) {
+    const account = accountOf(platform, session);
     for (const login of await vault.list(userId)) {
-      if (login.platform !== "bluesky") continue;
+      if (login.platform !== platform) continue;
       const other = await vault.read(userId, login.connectionId).catch(() => null);
-      if (other?.session?.oauth && other.session.did === did) return true;
+      if (!other) continue;
+      if (account && accountOf(platform, other.session) === account) return true;
+      if (session.refreshToken && other.session.refreshToken === session.refreshToken) return true;
+      if (session.accessToken && other.session.accessToken === session.accessToken) return true;
     }
     return false;
   }
@@ -360,8 +372,8 @@ export function createApi({ env, vault, worker, users, kick, bluesky, limits, db
       if (!found || found.platform === "youtube") {
         await clearYouTubeConnection(db, scope.actor, connectionId).catch((error) => console.error("[publisher] clearing a channel's videos failed", error instanceof Error ? error.message : error));
       }
-      // One Bluesky sign-in can be connected in several workspaces; it ends with the last of them.
-      const shared = found?.session?.oauth && (await sameBlueskyAccount(scope.actor, found.session.did));
+      // A login connected in several workspaces ends with the last of them.
+      const shared = !!found && !isMetaNetwork(found.platform) && (await stillConnected(scope.actor, found.platform, found.session));
       const revoked = !unreadable && (!found || shared ? true : await revoke(found.platform, found.session, env, bluesky));
       json(res, 200, { revoked });
       return;

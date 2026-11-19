@@ -22,6 +22,8 @@ const LINK = /^[A-Za-z0-9_-]{38}$/;
 const STATE = /^[\w-]{8,200}$/;
 const CHALLENGE = /^[\w-]{43,128}$/;
 const NAME_MAX = 80;
+/** Room for any network's account name. */
+const HANDLE_MAX = 100;
 
 /** Networks a client can connect through a link, in the order the page shows them. Pinterest has no sign-in yet. */
 export const LINK_NETWORKS = ["x", "instagram", "tiktok", "youtube", "linkedin", "facebook", "threads", "bluesky"];
@@ -33,10 +35,11 @@ const IDENTITY = { tiktok: "openId", youtube: "channelId", linkedin: "personId",
 
 const GONE = "This link has run out or was turned off. Ask the person who sent it for a new one.";
 
-const shortName = (value) =>
-  typeof value === "string" ? [...value.replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, " ").trim()].slice(0, NAME_MAX).join("") : "";
+const shortName = (value, max = NAME_MAX) =>
+  typeof value === "string" ? [...value.replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, " ").trim()].slice(0, max).join("") : "";
 
-const cleanHandle = (value) => (typeof value === "string" ? value.trim().replace(/^@+/, "") : "");
+// Whoever connects through a link picks it, and the owner's Assistant reads it.
+const cleanHandle = (value) => shortName(typeof value === "string" ? value.trim().replace(/^@+/, "") : "", HANDLE_MAX);
 
 /** The DID when the handle can't be read. */
 async function blueskyProfile(did) {

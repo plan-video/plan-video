@@ -121,14 +121,23 @@ test("only the owner and admins connect and remove accounts, and only in their w
   db.tables.social_tokens.push({ user_id: OWNER, connection_id: "c-broken", platform: "tiktok", sealed: "can't be opened" });
   assert.deepEqual(await ask(ADMIN, "login/forget", { team: team(), connectionId: "c-broken" }), { status: 200, revoked: false });
 
+  assert.equal((await ask(ADMIN, "login/save", { team: team(), connectionId: "c-other", platform: "tiktok", session: { ...session, openId: "other", accessToken: "a2", refreshToken: "r2" } })).status, 200);
   const original = globalThis.fetch;
-  globalThis.fetch = async () => new Response("{}", { status: 200 });
+  const revokes = [];
+  globalThis.fetch = async (url) => {
+    revokes.push(String(url));
+    return new Response("{}", { status: 200 });
+  };
   try {
+    // The same TikTok account is still connected in another workspace, and revoking would end its login there too.
     assert.deepEqual(await ask(ADMIN, "login/forget", { team: team(), connectionId: "c-new" }), { status: 200, revoked: true });
+    assert.deepEqual(revokes, []);
+    assert.deepEqual(await ask(ADMIN, "login/forget", { team: team(), connectionId: "c-other" }), { status: 200, revoked: true });
+    assert.deepEqual(revokes, ["https://open.tiktokapis.com/v2/oauth/revoke/"]);
   } finally {
     globalThis.fetch = original;
   }
-  assert.ok(!db.tables.social_tokens.some((row) => row.connection_id === "c-new"));
+  assert.ok(!db.tables.social_tokens.some((row) => row.connection_id === "c-new" || row.connection_id === "c-other"));
 });
 
 test("no browser gets a TikTok or LinkedIn token, and no admin or member gets any", async () => {
@@ -275,6 +284,11 @@ test("the mailer asks Supabase to invite a new address, and stays quiet for an e
   assert.equal(calls[0].auth, "Bearer service");
   answer.status = 422;
   assert.equal(await mailer.invite(invite), false);
+
+  db.rpc = async (name) => (name === "person_name" ? "Ada\r\nBcc: someone@else.test" : { name: "Brand\n Subject: x" });
+  answer.status = 200;
+  assert.equal(await mailer.invite(invite), true);
+  assert.deepEqual(calls.at(-1).body.data, { invited_by_name: "Ada Bcc: someone@else.test", invited_workspace: "Brand Subject: x", invite_id: INVITE });
 });
 
 test("access asks Supabase with the person's own token and keeps the answer briefly", async () => {
