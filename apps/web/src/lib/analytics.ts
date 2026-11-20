@@ -8,6 +8,7 @@
  */
 
 import { scrubAddressFields } from "@/lib/sentry-scrub";
+import { analyticsConsent } from "@/lib/google-analytics";
 import { capturePostHog, identifyPostHog, resetPostHog } from "@/lib/posthog";
 
 type UmamiEventData = Record<string, string | number | boolean | undefined>;
@@ -73,7 +74,8 @@ export function track(event: string, data?: UmamiEventData): void {
 
 export function identify(userId: string, traits?: UmamiEventData): void {
   const payload = clean(traits);
-  window.umami?.identify({ id: userId, ...(payload ?? {}) });
+  // Umami runs for everyone without cookies; the account id joins it only with consent.
+  if (analyticsConsent() === "granted") window.umami?.identify({ id: userId, ...(payload ?? {}) });
   identifyPostHog(userId, payload);
 }
 
