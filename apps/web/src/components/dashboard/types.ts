@@ -35,7 +35,8 @@ export type DashboardView =
   | "vault"
   | "plugs"
   | "media"
-  | "agent";
+  | "agent"
+  | "admin";
 export type AnalyticsSection = "overview" | "posts" | "platforms" | "times";
 
 export type PostsTab = PostStatusFilter | "failed";

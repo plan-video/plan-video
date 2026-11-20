@@ -74,6 +74,17 @@ update public.user_data set access_level = 4
 where id = (select id from auth.users where email = 'you@example.com');
 ```
 
+## The admin page
+
+Settings → Admin shows how close each network's API is to its limits, posts sent and failed, the people closest to their X caps, caption hours, the Assistant's spending, and an estimate of the month's costs. It shows only for people in `public.admins`. Add yourself in the SQL editor:
+
+```sql
+insert into public.admins (user_id)
+select id from auth.users where email = 'you@example.com';
+```
+
+The publisher counts every call it makes to a network from the moment it runs this version, and keeps 90 days of them. Costs are worked out from what plan.video counted at each provider's list price; add your fixed costs, such as the server, with `ADMIN_MONTHLY_COSTS` in [publisher.env](/docs/configuration#publisherenv).
+
 ## Open sign-up
 
 Out of the box, only emails you let in can use your copy: the database saves nothing for anyone else, the services turn them down and, with the sign-up hook on, no account is made for them. There's no waitlist page, because that belongs to plan.video's own website. To let anyone sign up, set `REQUIRE_INVITE=false` in `r2.env`, and run `update public.invite_gate set invite_only = false;` in the SQL editor (with the sign-up hook off, if you turned it on). To let one person in, see [Letting people in](/docs/supabase#letting-people-in).

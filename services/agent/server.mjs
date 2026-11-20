@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { handleCaptions } from "./captions.mjs";
-import { handleAgent, json, loadLimits, Refused } from "./handler.mjs";
+import { handleAgent, handleUsage, json, loadLimits, Refused } from "./handler.mjs";
 
 const HOST = "127.0.0.1";
 const PORT = 8796;
@@ -56,7 +56,7 @@ if (!env.anthropicKey) console.warn("agent: ANTHROPIC_API_KEY is missing from /e
 
 const server = createServer((req, res) => {
   const path = (req.url || "").split("?")[0];
-  const handle = path === "/api/agent" ? handleAgent : path === "/api/agent/captions" ? handleCaptions : null;
+  const handle = path === "/api/agent" ? handleAgent : path === "/api/agent/captions" ? handleCaptions : path === "/api/agent/usage" ? handleUsage : null;
   if (!handle) {
     json(res, 404, { error: "Unknown agent route." });
     return;
