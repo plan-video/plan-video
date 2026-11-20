@@ -13,6 +13,8 @@ import { isIP } from "node:net";
 import Anthropic from "@anthropic-ai/sdk";
 
 const MODEL = "claude-haiku-5-5";
+/** Haiku 5.5's price per million input tokens, up to 100k a prompt; spend is counted in input-token equivalents. */
+const USD_PER_MILLION = 0.1;
 const MAX_TOKENS = 16000;
 /** Keeps a chat under the 100k tokens past which Haiku 5.5 costs five times as much. */
 const MAX_BODY_BYTES = 300 * 1024;
@@ -325,6 +327,28 @@ async function teamOwnerOf(env, userId, token) {
     (workspace) => workspace?.state === "active" && typeof workspace.owner === "string" && workspace.owner !== userId,
   );
   return joined?.owner ?? null;
+}
+
+/** Today's spend against the site's daily cap, the agent and caption tools together, for the admin page. */
+export async function handleUsage(req, res, env) {
+  if (req.method !== "GET") throw new Refused(405, "Use GET.");
+  await userFor(req, env);
+  const token = (req.headers.authorization ?? "").slice(7).trim();
+  const admin = await supabaseCall(env, "/rest/v1/rpc/is_admin", token, { method: "POST", body: "{}" }).catch(() => null);
+  if (!admin?.ok || (await admin.json().catch(() => false)) !== true) throw new Refused(404, "Unknown agent route.");
+  const site = Number(env.siteBudget) || DEFAULT_SITE_BUDGET;
+  const today = (name) => {
+    const entry = windows.get(name);
+    return entry && entry.reset > Date.now() ? entry : null;
+  };
+  json(res, 200, {
+    model: MODEL,
+    usdPerMillion: USD_PER_MILLION,
+    spent: today("agent-spend")?.count ?? 0,
+    budget: site,
+    freeSpent: today("agent-spend-free")?.count ?? 0,
+    resetsAt: today("agent-spend") ? new Date(today("agent-spend").reset).toISOString() : null,
+  });
 }
 
 const unreadable = () => new Refused(400, "That conversation can't be read. Start a new chat.");

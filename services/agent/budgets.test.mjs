@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { handleCaptions } from "./captions.mjs";
-import { budgetsByLevel, clientIp, handleAgent, json, Refused } from "./handler.mjs";
+import { budgetsByLevel, clientIp, handleAgent, handleUsage, json, Refused } from "./handler.mjs";
 
 const SUPABASE = "https://db.test";
 const DAY = 86_400_000;
@@ -33,7 +33,7 @@ function stepStream() {
 }
 
 /** `levels` is each person's plan, `teams` the owners whose teams they joined (`invites`: not yet). */
-function fakes({ levels = {}, teams = {}, invites = {}, stream = stepStream } = {}) {
+function fakes({ levels = {}, teams = {}, invites = {}, admins = [], stream = stepStream } = {}) {
   const state = { calls: 0, outside: [] };
   const real = globalThis.fetch;
   globalThis.fetch = async (input, init = {}) => {
@@ -46,6 +46,7 @@ function fakes({ levels = {}, teams = {}, invites = {}, stream = stepStream } = 
       assert.ok(url.endsWith(`id=eq.${id}`), url);
       return Response.json(levels[id] ? [{ access_level: levels[id] }] : []);
     }
+    if (url === `${SUPABASE}/rest/v1/rpc/is_admin`) return Response.json(admins.includes(idOf(token)));
     if (url === `${SUPABASE}/rest/v1/rpc/my_team`) {
       const id = idOf(token);
       return Response.json({
@@ -84,7 +85,7 @@ async function setup(t, env = {}, world = {}) {
   // A key of its own: the client made for a key keeps the fetch it was made with.
   const fullEnv = { anthropicKey: `test-key-${keys}`, supabaseUrl: SUPABASE, supabaseAnonKey: "anon", requireInvite: false, ...env };
   const server = createServer((req, res) => {
-    const handle = req.url === "/api/agent" ? handleAgent : handleCaptions;
+    const handle = req.url === "/api/agent" ? handleAgent : req.url === "/api/agent/usage" ? handleUsage : handleCaptions;
     handle(req, res, fullEnv).catch((error) => {
       if (error instanceof Refused) json(res, error.status, { error: error.message });
       else json(res, 500, { error: String(error?.message ?? error) });
@@ -296,4 +297,16 @@ test("the counts survive a restart, without keeping anyone's address", async () 
   // The site's day is two steps, so Free accounts' half of it is spent.
   assert.throws(() => after.checkBudgets(after.budgetsFor(tool, { id: "three", level: 1, team: null }, from("198.18.0.2"), env)), /^Error: free$/);
   after.checkBudgets(after.budgetsFor(tool, { id: "four", level: 2, team: null }, from("198.18.0.2"), env));
+});
+
+test("admins see the site's spend for today; to anyone else the route doesn't exist", async (t) => {
+  const { base } = await setup(t, {}, { levels: { boss: 2, someone: 2 }, admins: ["boss"] });
+  assert.equal((await send(base, "agent", "someone")).ok, true);
+  const usage = (id) => fetch(`${base}/api/agent/usage`, { headers: { Authorization: `Bearer ${tokenFor(id)}` } });
+
+  assert.equal((await usage("someone")).status, 404);
+  const seen = await (await usage("boss")).json();
+  assert.ok(seen.spent >= STEP && seen.spent < 2 * STEP, `spent ${seen.spent}`);
+  assert.equal(seen.budget, 200_000_000);
+  assert.equal(seen.model, "claude-haiku-5-5");
 });

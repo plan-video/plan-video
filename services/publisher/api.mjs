@@ -126,7 +126,7 @@ function accountOf(platform, session) {
   return typeof id === "string" && id ? id : null;
 }
 
-export function createApi({ env, vault, worker, users, kick, bluesky, limits, db, mailer, deletion, youtube, x, tiktok, linkedin, meta, links, now = () => Date.now() }) {
+export function createApi({ env, vault, worker, users, kick, bluesky, limits, db, mailer, deletion, youtube, x, tiktok, linkedin, meta, links, admin, now = () => Date.now() }) {
   const windows = createWindows();
 
   function limit(name, max, seconds) {
@@ -267,6 +267,14 @@ export function createApi({ env, vault, worker, users, kick, bluesky, limits, db
       if (access?.role !== "owner" && access?.role !== "admin") throw new Refused(403, "Only the workspace's owner and admins can invite people.");
       limit(`invite-to:${invite.email}`, 3, 3600);
       json(res, 200, { emailed: await mailer.invite(invite) });
+      return;
+    }
+
+    // Anyone who isn't an admin is told what an unknown route gets.
+    if (path === "/api/publisher/admin/report") {
+      if (!admin || !(await admin.allowed(user.id))) throw new Refused(404, "Unknown publisher route.");
+      limit(`admin:${user.id}`, 60, 600);
+      json(res, 200, await admin.report());
       return;
     }
 

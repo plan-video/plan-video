@@ -4,7 +4,7 @@
 
 import { useNavigate, useSearchParams } from "@solidjs/router";
 import Menu from "lucide-solid/icons/menu";
-import { For, Match, Show, Suspense, Switch, createEffect, createRenderEffect, createSignal, lazy, on, onCleanup, onMount } from "solid-js";
+import { For, Match, Show, Suspense, Switch, createEffect, createRenderEffect, createResource, createSignal, lazy, on, onCleanup, onMount } from "solid-js";
 import { toast } from "somoto";
 import { DashboardSectionView } from "@/components/dashboard/section-view";
 
@@ -30,6 +30,7 @@ const DashboardMcpView = lazy(() => import("@/components/dashboard/mcp-view").th
 const DashboardProjectsView = lazy(() => import("@/components/dashboard/projects-view").then((module) => ({ default: module.DashboardProjectsView })));
 const DashboardTrashView = lazy(() => import("@/components/dashboard/trash-view").then((module) => ({ default: module.DashboardTrashView })));
 const DashboardSettingsView = lazy(() => import("@/components/dashboard/settings-view").then((module) => ({ default: module.DashboardSettingsView })));
+const DashboardAdminView = lazy(() => import("@/components/dashboard/admin-view").then((module) => ({ default: module.DashboardAdminView })));
 const DashboardStorageView = lazy(() => import("@/components/dashboard/storage-view").then((module) => ({ default: module.DashboardStorageView })));
 const DashboardWorkspaceView = lazy(() => import("@/components/dashboard/workspace-view").then((module) => ({ default: module.DashboardWorkspaceView })));
 const DashboardNotificationsView = lazy(() => import("@/components/dashboard/notifications-view").then((module) => ({ default: module.DashboardNotificationsView })));
@@ -82,6 +83,7 @@ import { PlaneButton } from "@/components/dashboard/plane-button";
 import { PlaneIcon, type PlaneIconName } from "@/components/dashboard/plane-icons";
 import { listProjects, projectKey, projectsRevision, type ProjectInfo } from "@/projects";
 import { cx } from "@/lib/cva";
+import { isAdmin } from "@/lib/admin";
 import { intlLocale, msg, t } from "@/lib/i18n";
 import { isPhone } from "@/lib/phone";
 import { planOfLevel } from "@/lib/plans";
@@ -120,6 +122,7 @@ const DASHBOARD_VIEWS: readonly DashboardView[] = [
   "plugs",
   "media",
   "agent",
+  "admin",
 ];
 
 const SECTION_PAGES: Partial<Record<DashboardView, { description: string }>> = {
@@ -153,6 +156,7 @@ const SETTINGS_VIEWS: readonly DashboardView[] = [
   "mcp",
   "billing",
   "help",
+  "admin",
 ];
 
 function parseView(value: string | string[] | undefined): DashboardView {
@@ -211,6 +215,7 @@ const PAGES: Partial<Record<DashboardView, { label: string; icon: PlaneIconName 
   mcp: { label: "MCP & CLI", icon: "ai" },
   billing: { label: msg("Billing"), icon: "credit-card" },
   help: { label: msg("Help"), icon: "info" },
+  admin: { label: msg("Admin"), icon: "analytics" },
   search: { label: msg("Search"), icon: "search" },
 };
 
@@ -338,6 +343,7 @@ export function DashboardPage() {
   });
 
   const openProfile = () => setView("account");
+  const [admin] = createResource(() => (!auth.isGuest() && auth.user()?.id) || undefined, () => isAdmin());
 
   /** Read now: the invite effect takes it off the address. Someone joining a team has that team's accounts already. */
   const cameByInvite = !!params.invite;
@@ -361,7 +367,7 @@ export function DashboardPage() {
   onMount(() => void hydrateCalendar());
 
   createEffect(() => {
-    if (auth.isGuest() && (view() === "account" || view() === "billing")) setView("settings", { replace: true });
+    if (auth.isGuest() && (view() === "account" || view() === "billing" || view() === "admin")) setView("settings", { replace: true });
   });
 
   useDeliveries(() => auth.user()?.id);
@@ -737,6 +743,9 @@ export function DashboardPage() {
                   </DashboardSidebarSection>
                   <DashboardSidebarSection>
                     <PageLink view="help" />
+                    <Show when={admin()}>
+                      <PageLink view="admin" />
+                    </Show>
                   </DashboardSidebarSection>
                 </Show>
               </DashboardSidebarNav>
@@ -822,6 +831,9 @@ export function DashboardPage() {
                       </Match>
                       <Match when={view() === "settings"}>
                         <DashboardSettingsView />
+                      </Match>
+                      <Match when={view() === "admin"}>
+                        <DashboardAdminView />
                       </Match>
                       <Match when={view() === "storage"}>
                         <DashboardStorageView />

@@ -6,8 +6,10 @@ import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
 
 import { createAccountDeletion } from "./account-deletion.mjs";
+import { createAdmin, monthlyCosts } from "./admin.mjs";
 import { createApi, createUsers, json, readBody, revoke } from "./api.mjs";
 import { createAccountLimits } from "./accounts.mjs";
+import { createApiUsage } from "./api-usage.mjs";
 import { createConnectLinks } from "./connect-links.mjs";
 import { SENDER_PORT, onlyFromGateway } from "./gateway-link.mjs";
 import { createDb } from "./db.mjs";
@@ -108,17 +110,18 @@ const senderSecret = own.SENDER_SECRET || "";
 if (!senderSecret) console.error("[publisher] SENDER_SECRET isn't set, so the gateway can't reach it. services/deploy.sh makes one");
 
 const db = createDb({ url: supabaseUrl, serviceKey });
+// Every network call from here on is counted for the admin page (api-usage.mjs).
+const usage = createApiUsage({ db });
+globalThis.fetch = usage.wrap(globalThis.fetch);
 const vault = createVault({ db, key: own.TOKEN_KEY, env: networkEnv });
 const media = createMedia(shared);
 // TikTok pulls a photo post's pictures from here. Its app has to have this domain verified.
 const maker = createPhotoMaker({ url: (own.PHOTOS_URL || "http://127.0.0.1:8793").replace(/\/$/, "") });
 const photos = createPhotos({ key: own.TOKEN_KEY, publicUrl, media, maker });
 const accountLimits = createAccountLimits(db);
-const planLimits = createPlanLimits({
-  db,
-  youtube: uploadsPerDay(own.YOUTUBE_UPLOADS_PER_DAY),
-  x: { posts: byLevel(own.X_POSTS_PER_MONTH, X_POSTS_BY_LEVEL), links: byLevel(own.X_LINK_POSTS_PER_MONTH, X_LINK_POSTS_BY_LEVEL) },
-});
+const youtubeShares = uploadsPerDay(own.YOUTUBE_UPLOADS_PER_DAY);
+const xCaps = { posts: byLevel(own.X_POSTS_PER_MONTH, X_POSTS_BY_LEVEL), links: byLevel(own.X_LINK_POSTS_PER_MONTH, X_LINK_POSTS_BY_LEVEL) };
+const planLimits = createPlanLimits({ db, youtube: youtubeShares, x: xCaps });
 // Meta's networks join once their apps are set up in meta.env.
 const metaNetworks = { instagram: createInstagram({ photos }), facebook: createFacebook({ photos }), threads: createThreads({ photos }) };
 const networks = {
@@ -189,6 +192,8 @@ const api = createApi({
   limits: accountLimits,
   db,
   ...logins,
+  // YOUTUBE_DAILY_UNITS: the project's quota if Google raised it. ADMIN_MONTHLY_COSTS: fixed costs for the page.
+  admin: createAdmin({ db, usage, networks, health, passes, youtubeShares, xCaps, youtubeDailyUnits: Number(own.YOUTUBE_DAILY_UNITS) || 0, costs: monthlyCosts(own.ADMIN_MONTHLY_COSTS) }),
   links: createConnectLinks({ db, key: own.TOKEN_KEY, vault, limits: accountLimits, env: networkEnv, bluesky: blueskyOAuth, ...logins }),
   mailer: createInviteMailer({ supabaseUrl, serviceKey, publicUrl, db }),
   users: createUsers({ supabaseUrl, anonKey: shared.SUPABASE_ANON_KEY || own.SUPABASE_ANON_KEY, requireInvite: (own.REQUIRE_INVITE || shared.REQUIRE_INVITE) !== "false" }),
@@ -285,8 +290,9 @@ server.listen(SENDER_PORT, HOST, () => {
       if (stopping) return;
       stopping = true;
       console.log(`[publisher] ${signal}: finishing the sends going`);
-      void (loops ? loops.stop(DRAIN_MS) : Promise.resolve(true)).then((finished) => {
+      void (loops ? loops.stop(DRAIN_MS) : Promise.resolve(true)).then(async (finished) => {
         if (!finished) console.error("[publisher] stopped with sends still going");
+        await usage.flush();
         process.exit(0);
       });
     });
@@ -297,6 +303,7 @@ server.listen(SENDER_PORT, HOST, () => {
   setInterval(sweep, 60 * 60_000);
   setInterval(checkHealth, 60_000);
   setInterval(adopt, 60 * 60_000);
+  usage.start();
   setInterval(() => planLimits.prune().catch((error) => console.error("[publisher] pruning uploads failed", error)), 6 * 60 * 60_000);
   const youtubeCheck = createYouTubeCheck({ db, vault, env: networkEnv.youtube });
   const checkYouTube = () => youtubeCheck.run().catch((error) => console.error("[publisher] checking YouTube failed", error instanceof Error ? error.message : error));
