@@ -31,6 +31,7 @@ const DashboardProjectsView = lazy(() => import("@/components/dashboard/projects
 const DashboardTrashView = lazy(() => import("@/components/dashboard/trash-view").then((module) => ({ default: module.DashboardTrashView })));
 const DashboardSettingsView = lazy(() => import("@/components/dashboard/settings-view").then((module) => ({ default: module.DashboardSettingsView })));
 const DashboardAdminView = lazy(() => import("@/components/dashboard/admin-view").then((module) => ({ default: module.DashboardAdminView })));
+const DashboardUsageView = lazy(() => import("@/components/dashboard/usage-view").then((module) => ({ default: module.DashboardUsageView })));
 const DashboardStorageView = lazy(() => import("@/components/dashboard/storage-view").then((module) => ({ default: module.DashboardStorageView })));
 const DashboardWorkspaceView = lazy(() => import("@/components/dashboard/workspace-view").then((module) => ({ default: module.DashboardWorkspaceView })));
 const DashboardNotificationsView = lazy(() => import("@/components/dashboard/notifications-view").then((module) => ({ default: module.DashboardNotificationsView })));
@@ -98,6 +99,7 @@ const DASHBOARD_VIEWS: readonly DashboardView[] = [
   "account",
   "settings",
   "storage",
+  "usage",
   "mcp",
   "preferences",
   "help",
@@ -153,6 +155,7 @@ const SETTINGS_VIEWS: readonly DashboardView[] = [
   "connections",
   "settings",
   "storage",
+  "usage",
   "mcp",
   "billing",
   "help",
@@ -212,6 +215,7 @@ const PAGES: Partial<Record<DashboardView, { label: string; icon: PlaneIconName 
   connections: { label: msg("Connections"), icon: "link" },
   workspace: { label: msg("General"), icon: "workspace" },
   storage: { label: msg("Storage"), icon: "archive" },
+  usage: { label: msg("Usage"), icon: "gauge" },
   mcp: { label: "MCP & CLI", icon: "ai" },
   billing: { label: msg("Billing"), icon: "credit-card" },
   help: { label: msg("Help"), icon: "info" },
@@ -367,7 +371,7 @@ export function DashboardPage() {
   onMount(() => void hydrateCalendar());
 
   createEffect(() => {
-    if (auth.isGuest() && (view() === "account" || view() === "billing" || view() === "admin")) setView("settings", { replace: true });
+    if (auth.isGuest() && (view() === "account" || view() === "billing" || view() === "usage" || view() === "admin")) setView("settings", { replace: true });
   });
 
   useDeliveries(() => auth.user()?.id);
@@ -738,6 +742,7 @@ export function DashboardPage() {
                     <PageLink view="workspace" />
                     <PageLink view="storage" />
                     <Show when={!auth.isGuest()}>
+                      <PageLink view="usage" />
                       <PageLink view="billing" />
                     </Show>
                   </DashboardSidebarSection>
@@ -837,6 +842,9 @@ export function DashboardPage() {
                       </Match>
                       <Match when={view() === "storage"}>
                         <DashboardStorageView />
+                      </Match>
+                      <Match when={view() === "usage"}>
+                        <DashboardUsageView />
                       </Match>
                       <Match when={view() === "mcp"}>
                         <DashboardMcpView />

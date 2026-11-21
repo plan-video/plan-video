@@ -2,7 +2,7 @@ These are the tools plan.video gives your agent. You don't need to call them you
 
 | Tool | What it does |
 | --- | --- |
-| `social_accounts` | Lists your connected accounts and your time zone. |
+| `social_accounts` | Lists your connected accounts, how many more scheduled posts each can take, and your time zone. |
 | `social_schema` | Each network's rules: caption limit, what it accepts and whether plan.video can post to it. |
 | `tiktok_creator` | What a TikTok account can post right now: who can watch, whether comments, Duet and Stitch can be on, and the longest video. |
 | `analytics` | Views, likes and comments from TikTok, YouTube, Instagram, Facebook Pages, Threads and LinkedIn Pages, how posts did by day and hour, and your top posts. |

@@ -43,6 +43,13 @@ async function call<T>(route: string, body: unknown, fallback = t("Publishing is
   return payload;
 }
 
+type Counted = { used: number; most: number; freesAt: string | null };
+
+/** The signed-in person's own plan, as services/publisher/plans.mjs counts it. A `most` of 0 means the plan doesn't allow it. */
+export type PublisherUsage = { level: number; x: { posts: Counted; links: Counted; today: Counted }; youtube: Counted };
+
+export const publisherUsage = () => call<PublisherUsage>("usage", {}, t("Usage isn't available right now."));
+
 /** They stay on the server. */
 const SECRET_FIELDS = ["accessToken", "refreshToken", "accessJwt", "refreshJwt", "ticket"] as const;
 

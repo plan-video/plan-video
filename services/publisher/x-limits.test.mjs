@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { Readable } from "node:stream";
 
+import { createApi } from "./api.mjs";
 import { PublishError } from "./errors.mjs";
 import { fakeDb } from "./fake-db.mjs";
 import { createX, hasLink } from "./networks/x.mjs";
@@ -267,4 +269,49 @@ test("a community X wouldn't recognise fails the post instead of sending it to t
     await assert.rejects(x.send({ post: { description: "Hi", x: { replies: "everyone", community } }, session: { accessToken: "a" }, files: [], delivery }), /community/, community);
   }
   assert.equal(asked.mock.callCount(), 0);
+});
+
+test("usage counts what xAllowed counts, and says when the oldest frees up", async () => {
+  const { db, limits, made } = setup(2);
+  made(3, 29 * DAY, true);
+  made(2, 2 * HOUR);
+  made(1, 31 * DAY);
+  db.tables.publisher_uploads.push({ user_id: "u1", platform: "youtube", at: new Date(T0 - HOUR).toISOString() }, { user_id: "u1", platform: "youtube", at: new Date(T0 - 25 * HOUR).toISOString() });
+
+  const usage = await limits.usage("u1");
+  assert.equal(usage.level, 2);
+  assert.deepEqual(usage.x.posts, { used: 5, most: X_POSTS_BY_LEVEL[2], freesAt: new Date(T0 + DAY).toISOString() });
+  assert.deepEqual(usage.x.links, { used: 3, most: X_LINK_POSTS_BY_LEVEL[2], freesAt: new Date(T0 + DAY).toISOString() });
+  assert.deepEqual(usage.x.today, { used: 2, most: 50, freesAt: new Date(T0 + 22 * HOUR).toISOString() });
+  assert.deepEqual(usage.youtube, { used: 1, most: 50, freesAt: new Date(T0 + 23 * HOUR).toISOString() });
+});
+
+test("usage on Free has no X to count, and the day's YouTube share", async () => {
+  const { limits, users } = setup(1);
+  users.length = 0;
+  const usage = await limits.usage("u1");
+  assert.equal(usage.level, 1);
+  assert.deepEqual(usage.x.posts, { used: 0, most: 0, freesAt: null });
+  assert.deepEqual(usage.x.today, { used: 0, most: 0, freesAt: null });
+  assert.deepEqual(usage.youtube, { used: 0, most: 3, freesAt: null });
+});
+
+test("the usage route answers only about the person signed in, whoever the body names", async () => {
+  const { db, limits, made, users } = setup(2);
+  users.push({ id: "u2", access_level: 4 });
+  made(4, HOUR);
+  const api = createApi({ env: {}, vault: {}, worker: {}, kick: () => undefined, users: { from: async (req) => ({ id: req.headers.authorization.slice(7) }) }, limits: {}, planLimits: limits, db });
+  const ask = async (person, body) => {
+    const req = Object.assign(new Readable({ read() {} }), { method: "POST", headers: { authorization: `Bearer ${person}` } });
+    req.push(JSON.stringify(body));
+    req.push(null);
+    let text = "";
+    await api(req, { writeHead() {}, end: (out) => (text = out) }, "/api/publisher/usage");
+    return JSON.parse(text);
+  };
+  const own = await ask("u1", {});
+  assert.equal(own.x.posts.used, 4);
+  const other = await ask("u2", { userId: "u1", team: { owner: "u1", workspace: "default" } });
+  assert.equal(other.level, 4);
+  assert.equal(other.x.posts.used, 0);
 });

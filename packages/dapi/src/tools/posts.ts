@@ -125,6 +125,7 @@ export const socialAccounts = defineTool({
       handle: z.string(),
       publishes: z.boolean().describe("True when Plan Video can send to this platform."),
       ready: z.boolean().describe("A login is stored for a platform Plan Video sends to, so posts to it can go out. False for a name saved without that login, and for a platform Plan Video doesn't send to yet."),
+      scheduledRoom: z.number().int().nullable().describe("How many more scheduled posts this account can have waiting, on the Free plan's limit. Null when the plan has no limit."),
     })),
   }),
 });

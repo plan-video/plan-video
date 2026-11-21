@@ -829,10 +829,19 @@ function waitingFrom(post: StoredEvent): string[] {
   return [...new Set(post.platforms.flatMap((platform) => accountsFor(platform, post.accounts).map((account) => account.id)))];
 }
 
+/** Undefined when nothing limits it here. A shared workspace is on its owner's plan, and a team comes with plans that schedule without a limit. */
+export const scheduledLimitHere = () => (activeScope() ? undefined : scheduledLimit());
+
+/** Scheduled posts waiting on each account of this workspace, as the Free plan's limit counts them. */
+export function waitingByAccount(): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const post of storedEvents()) for (const id of waitingFrom(post)) counts.set(id, (counts.get(id) ?? 0) + 1);
+  return counts;
+}
+
 /** Only accounts it newly waits on count, so a post already waiting can still be changed. */
 function overScheduledLimit(next: StoredEvent, before?: StoredEvent, events: readonly StoredEvent[] = storedEvents()): string | undefined {
-  // A shared workspace is on its owner's plan, and a team comes with plans that schedule without a limit.
-  const limit = activeScope() ? undefined : scheduledLimit();
+  const limit = scheduledLimitHere();
   if (limit === undefined) return;
   const had = before ? waitingFrom(before) : [];
   const added = waitingFrom(next).filter((id) => !had.includes(id));

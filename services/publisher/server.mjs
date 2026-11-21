@@ -191,6 +191,7 @@ const api = createApi({
   worker,
   kick,
   limits: accountLimits,
+  planLimits,
   db,
   ...logins,
   // YOUTUBE_DAILY_UNITS and YOUTUBE_DAILY_UPLOADS: the project's quotas if Google raised them. ADMIN_MONTHLY_COSTS: fixed costs for the page.

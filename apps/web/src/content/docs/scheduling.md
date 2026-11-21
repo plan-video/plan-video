@@ -35,5 +35,5 @@ A post that has gone out shows **Post again**. It makes a copy with everything y
 Times use your time zone, which starts as your device's. Change it under **Preferences** → **Time zone**. The calendar, scheduling and analytics all follow it.
 
 <Note>
-On the Free plan you can have 10 scheduled posts waiting per account. A repeating post counts once.
+On the Free plan you can have 10 scheduled posts waiting per account. A repeating post counts once. **Settings** → **Usage** shows how many each account has.
 </Note>

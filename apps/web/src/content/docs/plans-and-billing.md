@@ -31,6 +31,10 @@ In a workspace someone shared with you, these follow the owner's plan.
 
 Every plan has the [Assistant](/docs/assistant), with a daily limit that grows with your plan and is lowest on Free.
 
+## See what's left
+
+Open **Settings** → **Usage** to see how much of your plan you've used: the scheduled posts waiting on each account, your YouTube uploads and posts to X, your social accounts, storage and this month's auto-captions.
+
 ## Upgrade
 
 Open **Settings** → **Billing**, pick a plan, and pay through Stripe. Your new plan starts straight away.

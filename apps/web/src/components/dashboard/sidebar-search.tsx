@@ -58,6 +58,7 @@ const PAGES: SearchPage[] = [
   { view: "connections", name: msg("Connections"), section: msg("Settings"), icon: "link" },
   { view: "settings", name: msg("General"), section: msg("Settings"), icon: "settings" },
   { view: "storage", name: msg("Storage"), section: msg("Settings"), icon: "cloud" },
+  { view: "usage", name: msg("Usage"), section: msg("Settings"), icon: "analytics", also: msg("Limits") },
   { view: "billing", name: msg("Billing"), section: msg("Settings"), icon: "billing" },
   { view: "help", name: msg("Help"), section: msg("Settings"), icon: "help" },
 ];

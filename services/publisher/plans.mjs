@@ -286,11 +286,33 @@ export function createPlanLimits({ db, now = () => Date.now(), log = console, yo
     await db.insert("publisher_uploads", [{ user_id: userId, platform: "x", at }, ...(link ? [{ user_id: userId, platform: "xlink", at }] : [])]);
   }
 
+  /** What the owner has used of their plan's X and YouTube limits, counted as xAllowed and uploadWait count. `freesAt` is when the oldest counted one stops counting. */
+  async function usage(userId) {
+    const level = (await levels([userId])).get(userId);
+    const at = now();
+    const counted = async (platform, span, most) => {
+      const rows = most ? await db.uploadsSince(userId, platform, new Date(at - span).toISOString(), most) : [];
+      return { used: rows.length, most, freesAt: rows.length ? new Date(Date.parse(rows[0].at) + span).toISOString() : null, rows };
+    };
+    const [month, links, uploads] = await Promise.all([counted("x", MONTH_MS, x.posts[level] ?? 0), counted("xlink", MONTH_MS, x.links[level] ?? 0), counted("youtube", DAY_MS, youtube[level] ?? 0)]);
+    const today = level > 1 && month.most ? month.rows.filter((row) => Date.parse(row.at) >= at - DAY_MS) : [];
+    const plain = ({ rows: _rows, ...rest }) => rest;
+    return {
+      level,
+      x: {
+        posts: plain(month),
+        links: plain(links),
+        today: { used: today.length, most: level > 1 && month.most ? X_POSTS_PER_DAY : 0, freesAt: today.length ? new Date(Date.parse(today[0].at) + DAY_MS).toISOString() : null },
+      },
+      youtube: plain(uploads),
+    };
+  }
+
   /** YouTube's uploads stop counting after two days, X's after 31. */
   async function prune() {
     await db.pruneUploads(new Date(now() - 2 * DAY_MS).toISOString(), ["youtube"]);
     await db.pruneUploads(new Date(now() - MONTH_MS - DAY_MS).toISOString(), ["x", "xlink"]);
   }
 
-  return { review, upgraded, over, uploadWait, countUpload, xAllowed, countX, postNowAllowed, prune };
+  return { review, upgraded, over, uploadWait, countUpload, xAllowed, countX, postNowAllowed, prune, usage };
 }

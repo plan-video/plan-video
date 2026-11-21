@@ -15,7 +15,7 @@ const SLOWEST_BYTES_PER_SECOND = 8 * 1024;
 const PAUSE_SECONDS = 0.45;
 
 const HOUR = 3600;
-/** Hours of audio a month, by user_data.access_level. A clip longer than what's left is refused, so no plan runs over. */
+/** Hours of audio a month, by user_data.access_level; captionHours in apps/web/src/lib/plans.ts must match. A clip longer than what's left is refused. */
 const MONTHLY_HOURS = { 1: 0.25, 2: 10, 3: 20, 4: 40 };
 const allowanceFor = (level) => (MONTHLY_HOURS[level] ?? MONTHLY_HOURS[level > 4 ? 4 : 1]) * HOUR;
 
