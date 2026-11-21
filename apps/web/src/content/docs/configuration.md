@@ -63,7 +63,8 @@ Read by every service except `mcp`, `monitor` and `photos`.
 | `YOUTUBE_UPLOADS_PER_DAY` | | YouTube uploads a day per owner, Free to Agency. Default `3,50,100,200`. |
 | `X_POSTS_PER_MONTH` | | Posts to X in any 30 days per owner, Free to Agency. Default `0,150,400,800`. |
 | `X_LINK_POSTS_PER_MONTH` | | How many of those can have a link. Default `0,10,25,40`. |
-| `YOUTUBE_DAILY_UNITS` | | Your Google project's daily YouTube quota, if Google raised it, for the [admin page](/docs/self-hosting#the-admin-page). Default `10000`. |
+| `YOUTUBE_DAILY_UNITS` | | Your Google project's daily YouTube quota units, if Google raised them, for the [admin page](/docs/self-hosting#the-admin-page). Default `10000`. |
+| `YOUTUBE_DAILY_UPLOADS` | | Uploads a day your Google project may start, for all owners together (a separate bucket from the units), if Google raised it. For the admin page. Default `100`. |
 | `ADMIN_MONTHLY_COSTS` | | Fixed monthly costs in US dollars for the admin page, as `name=amount` pairs: `Server=8,Database=25`. |
 
 ## gateway.env

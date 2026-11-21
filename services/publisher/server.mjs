@@ -7,6 +7,7 @@ import { readFileSync } from "node:fs";
 
 import { createAccountDeletion } from "./account-deletion.mjs";
 import { createAdmin, monthlyCosts } from "./admin.mjs";
+import { createPublishingLimits } from "./publishing-limits.mjs";
 import { createApi, createUsers, json, readBody, revoke } from "./api.mjs";
 import { createAccountLimits } from "./accounts.mjs";
 import { createApiUsage } from "./api-usage.mjs";
@@ -192,8 +193,8 @@ const api = createApi({
   limits: accountLimits,
   db,
   ...logins,
-  // YOUTUBE_DAILY_UNITS: the project's quota if Google raised it. ADMIN_MONTHLY_COSTS: fixed costs for the page.
-  admin: createAdmin({ db, usage, networks, health, passes, youtubeShares, xCaps, youtubeDailyUnits: Number(own.YOUTUBE_DAILY_UNITS) || 0, costs: monthlyCosts(own.ADMIN_MONTHLY_COSTS) }),
+  // YOUTUBE_DAILY_UNITS and YOUTUBE_DAILY_UPLOADS: the project's quotas if Google raised them. ADMIN_MONTHLY_COSTS: fixed costs for the page.
+  admin: createAdmin({ db, usage, networks, health, passes, publishing: createPublishingLimits({ db, vault }), youtubeShares, xCaps, youtubeDailyUnits: Number(own.YOUTUBE_DAILY_UNITS) || 0, youtubeDailyUploads: Number(own.YOUTUBE_DAILY_UPLOADS) || 0, costs: monthlyCosts(own.ADMIN_MONTHLY_COSTS) }),
   links: createConnectLinks({ db, key: own.TOKEN_KEY, vault, limits: accountLimits, env: networkEnv, bluesky: blueskyOAuth, ...logins }),
   mailer: createInviteMailer({ supabaseUrl, serviceKey, publicUrl, db }),
   users: createUsers({ supabaseUrl, anonKey: shared.SUPABASE_ANON_KEY || own.SUPABASE_ANON_KEY, requireInvite: (own.REQUIRE_INVITE || shared.REQUIRE_INVITE) !== "false" }),

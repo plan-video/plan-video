@@ -31,10 +31,14 @@ export type AdminReport = {
   limits: SeenLimit[];
   networks: string[];
   health: { problems: string[]; lastPass: string | null };
-  caps: { youtubeDailyUnits: number; xPostsByLevel: Record<string, number>; xLinksByLevel: Record<string, number>; xPostsPerDay: number };
+  caps: { youtubeDailyUnits: number; youtubeDailyUploads?: number; xPostsByLevel: Record<string, number>; xLinksByLevel: Record<string, number>; xPostsPerDay: number };
   prices: { xPost: number; xLinkPost: number; captionHour: number };
   costs: { name: string; usd: number }[];
+  /** Instagram's and Threads' own count, for the fullest account asked about; null when Meta wasn't asked or didn't answer. */
+  publishing?: Record<string, { checked: number; failed: number; posts: Quota | null; replies?: Quota | null }> | null;
 };
+
+type Quota = { used: number; total: number };
 
 export type AgentUsage = { model: string; usdPerMillion: number; spent: number; budget: number; freeSpent: number; resetsAt: string | null };
 
@@ -58,7 +62,7 @@ export type NetworkSummary = {
   meters: Meter[];
 };
 
-/** Posts one account can publish through the API in 24 hours, where the network documents one. Instagram's docs say 50 in some places and 100 in others: the lower. */
+/** Used when Meta's own count isn't there. Instagram's docs say 50 in some places and 100 in others: the lower. */
 const ACCOUNT_POSTS_PER_DAY: Record<string, number> = { instagram: 50, threads: 250 };
 
 /** At or past this share of a limit, the page says so at the top. */
@@ -84,8 +88,9 @@ export function dayOf(network: string, at: string | number): string {
 function today(report: AdminReport, network: string) {
   const day = dayOf(network, report.at);
   const rows = report.api_usage.filter((row) => row.network === network && row.day === day);
+  const uploads = rows.filter((row) => row.kind === "insert").reduce((total, row) => total + Number(row.calls ?? 0), 0);
   const sum = (name: "calls" | "failed" | "limited" | "units") => rows.reduce((total, row) => total + Number(row[name] ?? 0), 0);
-  return { calls: sum("calls"), failed: sum("failed"), limited: sum("limited"), units: sum("units") };
+  return { calls: sum("calls"), failed: sum("failed"), limited: sum("limited"), units: sum("units"), uploads };
 }
 
 export function networkSummaries(report: AdminReport): NetworkSummary[] {
@@ -93,13 +98,20 @@ export function networkSummaries(report: AdminReport): NetworkSummary[] {
     const counted = today(report, id);
     const delivered = report.deliveries.find((row) => row.platform === id);
     const meters: Meter[] = [];
-    if (id === "youtube") meters.push({ label: msg("Quota today"), used: counted.units, limit: report.caps.youtubeDailyUnits, unit: "count" });
+    if (id === "youtube") {
+      meters.push({ label: msg("Quota today"), used: counted.units, limit: report.caps.youtubeDailyUnits, unit: "count" });
+      // Starting an upload draws on a bucket of its own, for the whole app.
+      meters.push({ label: msg("Uploads today, whole app"), used: counted.uploads, limit: report.caps.youtubeDailyUploads ?? 100, unit: "count" });
+    }
     for (const seen of report.limits.filter((limit) => limit.network === id)) {
       meters.push({ label: LIMIT_LABELS[seen.label] ?? seen.label, used: seen.used, limit: seen.limit, unit: seen.limit === 100 && seen.scope !== "account" ? "percent" : "count", resetAt: seen.resetAt });
     }
-    const perAccount = ACCOUNT_POSTS_PER_DAY[id];
-    if (perAccount) {
-      meters.push({ label: msg("Busiest account, 24 hours"), used: report.busiest.find((row) => row.platform === id)?.posts ?? 0, limit: perAccount, unit: "count" });
+    const live = report.publishing?.[id];
+    if (live?.posts) {
+      meters.push({ label: msg("Fullest account's posts, 24 hours"), used: live.posts.used, limit: live.posts.total, unit: "count" });
+      if (live.replies) meters.push({ label: msg("Fullest account's replies, 24 hours"), used: live.replies.used, limit: live.replies.total, unit: "count" });
+    } else if (ACCOUNT_POSTS_PER_DAY[id]) {
+      meters.push({ label: msg("Busiest account, 24 hours (estimate)"), used: report.busiest.find((row) => row.platform === id)?.posts ?? 0, limit: ACCOUNT_POSTS_PER_DAY[id], unit: "count" });
     }
     return {
       id,

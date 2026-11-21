@@ -3713,7 +3713,6 @@
   "Last account's posts, 24 hours": "直近のアカウントの投稿（24時間）",
   "Last account's rate limit": "直近のアカウントのレート制限",
   "Quota today": "今日のクォータ",
-  "Busiest account, 24 hours": "最も多いアカウント（24時間）",
   "Publisher: {problem}": "パブリッシャー：{problem}",
   "{network}: {count, plural, one {# post is} other {# posts are}} over 15 minutes late": "{network}：{count, plural, other {#件の投稿}}が15分以上遅れています",
   "{network}: {label} at {percent}": "{network}：{label}が{percent}に到達",
@@ -3734,5 +3733,9 @@
   "Credits reset": "クレジットのリセット",
   "Auto-captions this month": "今月の自動字幕",
   "all accounts, as plan.video counted": "全アカウント、plan.video の集計",
-  "ElevenLabs: {percent} of this period's credits used": "ElevenLabs：今期のクレジットを {percent} 使用"
+  "ElevenLabs: {percent} of this period's credits used": "ElevenLabs：今期のクレジットを {percent} 使用",
+  "Uploads today, whole app": "今日のアップロード（アプリ全体）",
+  "Fullest account's posts, 24 hours": "最も多いアカウントの投稿（24時間）",
+  "Fullest account's replies, 24 hours": "最も多いアカウントの返信（24時間）",
+  "Busiest account, 24 hours (estimate)": "最も活発なアカウント（24時間・推定）"
 }
