@@ -3723,5 +3723,16 @@
   "Assistant: {percent} of today's spending cap used": "助手：已用掉今日花费上限的 {percent}",
   "Sign in to see this page.": "请登录后查看此页面。",
   "Only admins can see this page. If you're one, the publisher may need updating.": "只有管理员可以查看此页面。如果你是管理员，可能需要更新发布服务。",
-  "The publisher didn't answer ({status}).": "发布服务没有响应（{status}）。"
+  "The publisher didn't answer ({status}).": "发布服务没有响应（{status}）。",
+  "ELEVENLABS_API_KEY isn't set in transcribe.env, so Auto-captions is off.": "transcribe.env 中没有设置 ELEVENLABS_API_KEY，因此自动字幕已关闭。",
+  "ElevenLabs didn't answer. Try Refresh in a moment.": "ElevenLabs 没有响应。请稍后点刷新。",
+  "The ElevenLabs key can't read its plan. In ElevenLabs → API keys, edit the key and give it User: Read (user_read).": "ElevenLabs 密钥无法读取其套餐。请在 ElevenLabs → API keys 中编辑该密钥，并授予 User: Read (user_read) 权限。",
+  "ElevenLabs didn't give its plan right now. Try Refresh in a moment.": "ElevenLabs 暂时没有返回套餐信息。请稍后点刷新。",
+  "The plan behind Auto-captions, as ElevenLabs reports it. Credits are spent as audio is transcribed.": "自动字幕所用的 ElevenLabs 套餐，以 ElevenLabs 报告为准。转写音频时会消耗额度。",
+  "The captions service didn't answer.": "字幕服务没有响应。",
+  "Credits this period": "本期额度",
+  "Credits reset": "额度重置",
+  "Auto-captions this month": "本月自动字幕",
+  "all accounts, as plan.video counted": "所有账号，按 plan.video 统计",
+  "ElevenLabs: {percent} of this period's credits used": "ElevenLabs：本期额度已用 {percent}"
 }

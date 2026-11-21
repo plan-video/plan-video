@@ -42,7 +42,7 @@ your-domain.com {
 	handle /api/x/* {
 		reverse_proxy 127.0.0.1:8797
 	}
-	handle /api/transcribe {
+	handle /api/transcribe* {
 		reverse_proxy 127.0.0.1:8792
 	}
 	handle /api/billing/* {

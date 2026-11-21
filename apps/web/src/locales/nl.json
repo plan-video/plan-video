@@ -3723,5 +3723,16 @@
   "Assistant: {percent} of today's spending cap used": "Assistent: {percent} van het uitgavenlimiet van vandaag gebruikt",
   "Sign in to see this page.": "Log in om deze pagina te zien.",
   "Only admins can see this page. If you're one, the publisher may need updating.": "Alleen beheerders kunnen deze pagina zien. Ben je er een, dan moet de publisher misschien worden bijgewerkt.",
-  "The publisher didn't answer ({status}).": "De publisher gaf geen antwoord ({status})."
+  "The publisher didn't answer ({status}).": "De publisher gaf geen antwoord ({status}).",
+  "ELEVENLABS_API_KEY isn't set in transcribe.env, so Auto-captions is off.": "ELEVENLABS_API_KEY staat niet in transcribe.env, dus automatisch ondertitelen staat uit.",
+  "ElevenLabs didn't answer. Try Refresh in a moment.": "ElevenLabs gaf geen antwoord. Probeer zo Vernieuwen.",
+  "The ElevenLabs key can't read its plan. In ElevenLabs → API keys, edit the key and give it User: Read (user_read).": "De ElevenLabs-sleutel kan zijn abonnement niet lezen. Bewerk in ElevenLabs → API keys de sleutel en geef hem User: Read (user_read).",
+  "ElevenLabs didn't give its plan right now. Try Refresh in a moment.": "ElevenLabs gaf zijn abonnement nu niet door. Probeer zo Vernieuwen.",
+  "The plan behind Auto-captions, as ElevenLabs reports it. Credits are spent as audio is transcribed.": "Het abonnement achter automatisch ondertitelen, zoals ElevenLabs het meldt. Credits gaan op terwijl audio wordt uitgeschreven.",
+  "The captions service didn't answer.": "De ondertitelingsdienst gaf geen antwoord.",
+  "Credits this period": "Credits deze periode",
+  "Credits reset": "Credits worden gereset",
+  "Auto-captions this month": "Automatisch ondertitelen deze maand",
+  "all accounts, as plan.video counted": "alle accounts, zoals plan.video telde",
+  "ElevenLabs: {percent} of this period's credits used": "ElevenLabs: {percent} van de credits van deze periode gebruikt"
 }

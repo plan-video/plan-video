@@ -1,7 +1,7 @@
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
 
-import { handleTranscribe, json, Refused } from "./handler.mjs";
+import { handleTranscribe, handleUsage, json, Refused } from "./handler.mjs";
 
 const HOST = "127.0.0.1";
 const PORT = 8792;
@@ -41,11 +41,12 @@ if (!env.elevenLabsKey) console.warn("transcribe: ELEVENLABS_API_KEY is missing 
 
 const server = createServer((req, res) => {
   const path = (req.url || "").split("?")[0];
-  if (path !== "/api/transcribe") {
+  const handle = path === "/api/transcribe" ? handleTranscribe : path === "/api/transcribe/usage" ? handleUsage : null;
+  if (!handle) {
     json(res, 404, { error: "Unknown transcription route." });
     return;
   }
-  handleTranscribe(req, res, env).catch((error) => {
+  handle(req, res, env).catch((error) => {
     if (error instanceof Refused) json(res, error.status, { error: error.message });
     else {
       console.error("transcribe:", error);

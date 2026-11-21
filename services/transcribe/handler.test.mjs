@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { once } from "node:events";
 import { PassThrough } from "node:stream";
 
-import { handleTranscribe, json, queued, Refused, saveBody, wavSeconds } from "./handler.mjs";
+import { handleTranscribe, handleUsage, json, queued, Refused, saveBody, wavSeconds } from "./handler.mjs";
 
 const SUPABASE = "https://db.test";
 const RATE = 16000;
@@ -37,7 +37,7 @@ const idOf = (token) => JSON.parse(Buffer.from(token.split(".")[1], "base64url")
 
 // The usage count adds and answers in one step, as add_caption_seconds does. ElevenLabs reads
 // the whole upload as a stream, waits for `state.hold` when a test sets one, and answers `status`.
-function fakes({ level = 1, status = () => 200 } = {}) {
+function fakes({ level = 1, status = () => 200, admins = [], subscription = () => Response.json({}) } = {}) {
   const usage = new Map();
   const state = { usage, heard: 0, running: 0, mostRunning: 0, uploaded: [], hold: null };
   const real = globalThis.fetch;
@@ -47,6 +47,8 @@ function fakes({ level = 1, status = () => 200 } = {}) {
     const token = (init.headers?.Authorization ?? "").replace("Bearer ", "");
     if (url === `${SUPABASE}/auth/v1/user`) return Response.json({ id: idOf(token) });
     if (url.startsWith(`${SUPABASE}/rest/v1/user_data`)) return Response.json([{ access_level: level }]);
+    if (url === `${SUPABASE}/rest/v1/rpc/is_admin`) return Response.json(admins.includes(idOf(token)));
+    if (url === "https://api.elevenlabs.io/v1/user/subscription") return subscription(init.headers["xi-api-key"]);
     if (url.startsWith(`${SUPABASE}/rest/v1/caption_usage`)) {
       const seconds = usage.get(idOf(token));
       return Response.json(seconds === undefined ? [] : [{ seconds }]);
@@ -379,5 +381,29 @@ test("audio past 100 MB is refused, counted for nothing and not left on disk", a
     assert.deepEqual(await readdir(run.tmpDir), []);
   } finally {
     await run.close();
+  }
+});
+
+test("admins see the ElevenLabs plan's credits; to anyone else the route doesn't exist", async () => {
+  const plans = [
+    Response.json({ tier: "creator", status: "active", character_count: 61_000, character_limit: 100_000, next_character_count_reset_unix: 1_766_000_000 }),
+    Response.json({ detail: { status: "missing_permissions" } }, { status: 401 }),
+  ];
+  const fake = fakes({ admins: ["boss"], subscription: (key) => (assert.equal(key, "el-key"), plans.shift()) });
+  const env = { elevenLabsKey: "el-key", supabaseUrl: SUPABASE, supabaseAnonKey: "anon", requireInvite: false };
+  const server = createServer((req, res) =>
+    handleUsage(req, res, env).catch((error) => json(res, error.status ?? 500, { error: error.message })),
+  );
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const ask = (id) =>
+    fetch(`http://127.0.0.1:${server.address().port}/api/transcribe/usage`, { headers: { Authorization: `Bearer ${tokenFor(id)}` } }).then(async (res) => ({ status: res.status, body: await res.json() }));
+  try {
+    assert.equal((await ask("someone")).status, 404);
+    assert.deepEqual((await ask("boss")).body, { tier: "creator", status: "active", used: 61_000, limit: 100_000, resetsAt: new Date(1_766_000_000_000).toISOString() });
+    assert.deepEqual((await ask("boss")).body, { problem: "no-permission" });
+  } finally {
+    server.closeAllConnections();
+    await new Promise((resolve) => server.close(resolve));
+    fake.restore();
   }
 });

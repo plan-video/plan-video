@@ -13,16 +13,18 @@ import {
   attention,
   captionSpend,
   loadAgentUsage,
+  loadElevenLabs,
   loadReport,
   monthlyRevenue,
   networkSummaries,
   xSpend,
   type AdminReport,
   type AgentUsage,
+  type ElevenLabsPlan,
   type Meter,
   type NetworkSummary,
 } from "@/lib/admin";
-import { intlLocale, t } from "@/lib/i18n";
+import { intlLocale, msg, t } from "@/lib/i18n";
 import { planOfLevel } from "@/lib/plans";
 import { formatBytes } from "@/lib/social-media";
 import type { PlatformId } from "@/lib/social";
@@ -133,6 +135,45 @@ function CostsSection(props: { report: AdminReport; agent: AgentUsage | null }) 
   );
 }
 
+const date = (iso: string) => new Intl.DateTimeFormat(intlLocale(), { day: "numeric", month: "short" }).format(new Date(iso));
+
+const ELEVENLABS_PROBLEMS = {
+  "no-key": msg("ELEVENLABS_API_KEY isn't set in transcribe.env, so Auto-captions is off."),
+  "no-answer": msg("ElevenLabs didn't answer. Try Refresh in a moment."),
+  "no-permission": msg("The ElevenLabs key can't read its plan. In ElevenLabs → API keys, edit the key and give it User: Read (user_read)."),
+  refused: msg("ElevenLabs didn't give its plan right now. Try Refresh in a moment."),
+} as const;
+
+function ElevenLabsSection(props: { report: AdminReport; plan: ElevenLabsPlan | null }) {
+  const hours = () => (Number(props.report.caption_seconds_month) / 3600).toFixed(1);
+  return (
+    <DashboardSurfaceSection title="ElevenLabs" description={t("The plan behind Auto-captions, as ElevenLabs reports it. Credits are spent as audio is transcribed.")}>
+      <Switch>
+        <Match when={!props.plan}>
+          <p class="text-xs text-muted-foreground">{t("The captions service didn't answer.")}</p>
+        </Match>
+        <Match when={props.plan?.problem}>{(problem) => <p class="text-xs text-muted-foreground">{t(ELEVENLABS_PROBLEMS[problem()])}</p>}</Match>
+        <Match when={props.plan && !props.plan.problem ? props.plan : null}>
+          {(plan) => (
+            <>
+              <Show when={plan().used !== null && plan().limit !== null}>
+                <MeterRow meter={{ label: t("Credits this period"), used: plan().used ?? 0, limit: plan().limit ?? 0, unit: "count" }} />
+              </Show>
+              <div class="flex flex-col gap-1">
+                <Show when={plan().tier}>{(tier) => <Row label={t("Plan")} value={plan().status ? `${tier()} · ${plan().status}` : tier()} />}</Show>
+                <Show when={plan().resetsAt}>{(at) => <Row label={t("Credits reset")} value={date(at())} />}</Show>
+              </div>
+            </>
+          )}
+        </Match>
+      </Switch>
+      <div class="flex flex-col gap-1 border-t border-border-strong pt-3">
+        <Row label={t("Auto-captions this month")} hint={t("all accounts, as plan.video counted")} value={t("{hours} hours", { hours: hours() })} />
+      </div>
+    </DashboardSurfaceSection>
+  );
+}
+
 function CapsSection(props: { report: AdminReport }) {
   const cap = (table: Record<string, number>, level: number) => table[String(level)] ?? 0;
   return (
@@ -179,9 +220,9 @@ function PeopleSection(props: { report: AdminReport }) {
   );
 }
 
-function Report(props: { report: AdminReport; agent: AgentUsage | null; refresh: JSX.Element }) {
+function Report(props: { report: AdminReport; agent: AgentUsage | null; elevenLabs: ElevenLabsPlan | null; refresh: JSX.Element }) {
   const networks = () => networkSummaries(props.report);
-  const warnings = () => attention(props.report, networks(), props.agent);
+  const warnings = () => attention(props.report, networks(), props.agent, props.elevenLabs);
   return (
     <>
       <DashboardTitledSection title={t("Needs attention")} description={t("Updated {time}.", { time: time(props.report.at) })} action={props.refresh}>
@@ -200,6 +241,7 @@ function Report(props: { report: AdminReport; agent: AgentUsage | null; refresh:
         </div>
       </DashboardTitledSection>
       <CostsSection report={props.report} agent={props.agent} />
+      <ElevenLabsSection report={props.report} plan={props.elevenLabs} />
       <CapsSection report={props.report} />
       <PeopleSection report={props.report} />
     </>
@@ -208,8 +250,8 @@ function Report(props: { report: AdminReport; agent: AgentUsage | null; refresh:
 
 export function DashboardAdminView() {
   const [data, { refetch }] = createResource(async () => {
-    const [report, agent] = await Promise.all([loadReport(), loadAgentUsage()]);
-    return { report, agent };
+    const [report, agent, elevenLabs] = await Promise.all([loadReport(), loadAgentUsage(), loadElevenLabs()]);
+    return { report, agent, elevenLabs };
   });
   const refresh = (
     <Button variant="secondary" disabled={data.loading} onClick={() => void refetch()}>
@@ -226,7 +268,7 @@ export function DashboardAdminView() {
             {refresh}
           </DashboardSurfaceCard>
         </Match>
-        <Match when={data.latest}>{(current) => <Report report={current().report} agent={current().agent} refresh={refresh} />}</Match>
+        <Match when={data.latest}>{(current) => <Report report={current().report} agent={current().agent} elevenLabs={current().elevenLabs} refresh={refresh} />}</Match>
         <Match when={data.loading}>
           <div class="flex flex-col gap-3">
             <span class="h-6 w-40 animate-pulse rounded-md bg-accent" />

@@ -152,6 +152,39 @@ async function userFor(req, env) {
   return known;
 }
 
+/** For the admin page: the ElevenLabs plan behind Auto-captions. Anyone not in public.admins is told the route doesn't exist. */
+export async function handleUsage(req, res, env) {
+  if (req.method !== "GET") throw new Refused(405, "Use GET.");
+  const user = await userFor(req, env);
+  const admin = await supabaseCall(env, "/rest/v1/rpc/is_admin", user.token, { method: "POST", body: "{}" }).catch(() => null);
+  if (!admin?.ok || (await admin.json().catch(() => false)) !== true) throw new Refused(404, "Unknown transcription route.");
+  json(res, 200, await elevenLabsPlan(env));
+}
+
+const count = (value) => (Number.isFinite(Number(value)) && value !== null ? Number(value) : null);
+
+/** Credits used and allowed this billing period, or `problem`: no-key, no-answer, no-permission or refused. */
+export async function elevenLabsPlan(env) {
+  if (!env.elevenLabsKey) return { problem: "no-key" };
+  const res = await fetch("https://api.elevenlabs.io/v1/user/subscription", {
+    headers: { "xi-api-key": env.elevenLabsKey },
+    signal: AbortSignal.timeout(10_000),
+  }).catch(() => null);
+  if (!res) return { problem: "no-answer" };
+  // A key limited to speech to text can't read its own subscription.
+  if (res.status === 401 || res.status === 403) return { problem: "no-permission" };
+  const plan = res.ok ? await res.json().catch(() => null) : null;
+  if (!plan) return { problem: "refused", status: res.status };
+  const reset = count(plan.next_character_count_reset_unix);
+  return {
+    tier: typeof plan.tier === "string" ? plan.tier.slice(0, 60) : null,
+    status: typeof plan.status === "string" ? plan.status.slice(0, 60) : null,
+    used: count(plan.character_count),
+    limit: count(plan.character_limit),
+    resetsAt: reset ? new Date(reset * 1000).toISOString() : null,
+  };
+}
+
 /** An unreadable row counts as Free, so an outage never grants hours. */
 async function levelOf(env, userId, token) {
   const res = await supabaseCall(env, `/rest/v1/user_data?select=access_level&id=eq.${userId}`, token).catch(() => null);

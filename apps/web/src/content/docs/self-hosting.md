@@ -85,6 +85,8 @@ select id from auth.users where email = 'you@example.com';
 
 The publisher counts every call it makes to a network from the moment it runs this version, and keeps 90 days of them. Costs are worked out from what plan.video counted at each provider's list price; add your fixed costs, such as the server, with `ADMIN_MONTHLY_COSTS` in [publisher.env](/docs/configuration#publisherenv).
 
+The ElevenLabs section reads your plan's credits with the key in `transcribe.env`. If that key's permissions are restricted, give it User: Read (`user_read`) in ElevenLabs.
+
 ## Open sign-up
 
 Out of the box, only emails you let in can use your copy: the database saves nothing for anyone else, the services turn them down and, with the sign-up hook on, no account is made for them. There's no waitlist page, because that belongs to plan.video's own website. To let anyone sign up, set `REQUIRE_INVITE=false` in `r2.env`, and run `update public.invite_gate set invite_only = false;` in the SQL editor (with the sign-up hook off, if you turned it on). To let one person in, see [Letting people in](/docs/supabase#letting-people-in).
