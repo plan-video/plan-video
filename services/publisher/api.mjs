@@ -126,7 +126,7 @@ function accountOf(platform, session) {
   return typeof id === "string" && id ? id : null;
 }
 
-export function createApi({ env, vault, worker, users, kick, bluesky, limits, db, mailer, deletion, youtube, x, tiktok, linkedin, meta, links, admin, now = () => Date.now() }) {
+export function createApi({ env, vault, worker, users, kick, bluesky, limits, planLimits, db, mailer, deletion, youtube, x, tiktok, linkedin, meta, links, admin, now = () => Date.now() }) {
   const windows = createWindows();
 
   function limit(name, max, seconds) {
@@ -275,6 +275,14 @@ export function createApi({ env, vault, worker, users, kick, bluesky, limits, db
       if (!admin || !(await admin.allowed(user.id))) throw new Refused(404, "Unknown publisher route.");
       limit(`admin:${user.id}`, 60, 600);
       json(res, 200, await admin.report());
+      return;
+    }
+
+    // The person's own plan, whichever workspace they're in.
+    if (path === "/api/publisher/usage") {
+      if (!planLimits) throw new Refused(503, "Usage isn't available right now.");
+      limit(`usage:${user.id}`, 60, 600);
+      json(res, 200, await planLimits.usage(user.id));
       return;
     }
 

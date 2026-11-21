@@ -15,7 +15,7 @@ import {
   type ToolArgs,
 } from "@plan.video/dapi";
 import { getAssetFile } from "@plan.video/runtime";
-import { allPosts, deleteEvent, hydrateCalendar, isUploading, loadError, loadPostFiles, ownCaptions, postFileIds, postFiles, revisePost, setPostFiles } from "@/components/calendar/store";
+import { allPosts, deleteEvent, hydrateCalendar, isUploading, loadError, loadPostFiles, ownCaptions, postFileIds, postFiles, revisePost, scheduledLimitHere, setPostFiles, waitingByAccount } from "@/components/calendar/store";
 import { everyRecurrence, isDateKey, localDateKey, newId, parseRecurrence, resolveRepeatEnd } from "@/components/calendar/utils";
 import { atLocal, postTitle, savePosts, scheduleProblem, timeOf } from "@/components/publish/save";
 import { hasFailed, PUBLISHING_PLATFORMS, sendPost } from "@/components/publish/publisher";
@@ -544,13 +544,17 @@ function readBack(id: string): StoredEvent {
 export const socialAccounts: ToolHandler<"social_accounts"> = async (_args, ctx) => {
   const user = userOf(ctx);
   loadSocialConnections(user.id);
+  await hydrateCalendar();
+  const limit = scheduledLimitHere();
+  const waiting = waitingByAccount();
   return {
     timeZone: timeZone(),
     accounts: socialConnections().flatMap((account) => {
       if (!isPlatform(account.platform)) return [];
       const publishes = PUBLISHES.has(account.platform);
       const ready = publishes && hasLogin(account);
-      return [{ id: account.id, platform: account.platform, handle: account.handle, publishes, ready }];
+      const scheduledRoom = limit === undefined ? null : Math.max(0, limit - (waiting.get(account.id) ?? 0));
+      return [{ id: account.id, platform: account.platform, handle: account.handle, publishes, ready, scheduledRoom }];
     }),
   };
 };

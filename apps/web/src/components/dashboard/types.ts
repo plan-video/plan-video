@@ -9,6 +9,7 @@ export type DashboardView =
   | "trash"
   | "templates"
   | "billing"
+  | "usage"
   | "account"
   | "settings"
   | "storage"

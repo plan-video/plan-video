@@ -26,6 +26,7 @@ import SettingsLucide from "lucide-solid/icons/settings";
 import SunLucide from "lucide-solid/icons/sun";
 import FolderLucide from "lucide-solid/icons/folder";
 import EllipsisLucide from "lucide-solid/icons/ellipsis";
+import GaugeLucide from "lucide-solid/icons/gauge";
 
 import { cx } from "@/lib/cva";
 
@@ -67,6 +68,7 @@ const LUCIDE_ICONS = {
   project: ClapperboardLucide,
   library: LibraryLucide,
   analytics: ChartLineLucide,
+  gauge: GaugeLucide,
   settings: SettingsLucide,
   "credit-card": CreditCardLucide,
   clock: ClockLucide,

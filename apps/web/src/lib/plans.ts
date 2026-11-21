@@ -23,6 +23,8 @@ export type Plan = {
   popular?: boolean;
   /** Across all workspaces. services/publisher/accounts.mjs must match. */
   accounts: number;
+  /** Auto-captions a month. MONTHLY_HOURS in services/transcribe/handler.mjs must match. */
+  captionHours: number;
   extraAccounts?: { included: number; price: number };
 };
 
@@ -52,6 +54,7 @@ export const PLANS: Plan[] = [
     text: msg("For trying it out."),
     price: { monthly: 0, yearly: 0 },
     accounts: 3,
+    captionHours: 0.25,
     features: [
       msg("3 social accounts"),
       msg("5 GB storage"),
@@ -68,6 +71,7 @@ export const PLANS: Plan[] = [
     text: msg("For creators who post every day."),
     price: { monthly: 19, yearly: 15 },
     accounts: 15,
+    captionHours: 10,
     builds: msg("Free"),
     features: [
       msg("15 social accounts"),
@@ -87,6 +91,7 @@ export const PLANS: Plan[] = [
     text: msg("For running several brands."),
     price: { monthly: 39, yearly: 31 },
     accounts: 40,
+    captionHours: 20,
     builds: msg("Creator"),
     features: [msg("40 social accounts"), msg("150 GB storage"), msg("Unlimited posts per month"), msg("Unlimited team members")],
     popular: true,
@@ -97,6 +102,7 @@ export const PLANS: Plan[] = [
     text: msg("For agencies and clients."),
     price: { monthly: 79, yearly: 63 },
     accounts: 100,
+    captionHours: 40,
     builds: msg("Pro"),
     features: [msg("100 social accounts, then $1 each"), msg("250 GB storage"), msg("Unlimited posts per month"), msg("Unlimited team members")],
     extraAccounts: { included: 100, price: 1 },
