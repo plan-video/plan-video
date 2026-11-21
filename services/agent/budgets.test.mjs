@@ -309,4 +309,8 @@ test("admins see the site's spend for today; to anyone else the route doesn't ex
   assert.ok(seen.spent >= STEP && seen.spent < 2 * STEP, `spent ${seen.spent}`);
   assert.equal(seen.budget, 200_000_000);
   assert.equal(seen.model, "claude-haiku-5-5");
+
+  // 30 in 10 minutes for each person, counted before the admin check.
+  for (let done = 0; done < 29; done++) assert.equal((await usage("someone")).status, 404);
+  assert.equal((await usage("someone")).status, 429);
 });

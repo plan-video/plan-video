@@ -156,6 +156,8 @@ async function userFor(req, env) {
 export async function handleUsage(req, res, env) {
   if (req.method !== "GET") throw new Refused(405, "Use GET.");
   const user = await userFor(req, env);
+  // Before the admin check, so nobody can use the route to hammer the database or ElevenLabs.
+  limit(`usage:${user.id}`, 30, 600);
   const admin = await supabaseCall(env, "/rest/v1/rpc/is_admin", user.token, { method: "POST", body: "{}" }).catch(() => null);
   if (!admin?.ok || (await admin.json().catch(() => false)) !== true) throw new Refused(404, "Unknown transcription route.");
   json(res, 200, await elevenLabsPlan(env));

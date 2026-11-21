@@ -401,6 +401,9 @@ test("admins see the ElevenLabs plan's credits; to anyone else the route doesn't
     assert.equal((await ask("someone")).status, 404);
     assert.deepEqual((await ask("boss")).body, { tier: "creator", status: "active", used: 61_000, limit: 100_000, resetsAt: new Date(1_766_000_000_000).toISOString() });
     assert.deepEqual((await ask("boss")).body, { problem: "no-permission" });
+    // 30 in 10 minutes for each person, counted before the admin check.
+    for (let done = 0; done < 30; done++) assert.equal((await ask("other")).status, 404);
+    assert.equal((await ask("other")).status, 429);
   } finally {
     server.closeAllConnections();
     await new Promise((resolve) => server.close(resolve));

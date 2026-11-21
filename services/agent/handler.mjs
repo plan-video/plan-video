@@ -332,7 +332,9 @@ async function teamOwnerOf(env, userId, token) {
 /** Today's spend against the site's daily cap, the agent and caption tools together, for the admin page. */
 export async function handleUsage(req, res, env) {
   if (req.method !== "GET") throw new Refused(405, "Use GET.");
-  await userFor(req, env);
+  const user = await userFor(req, env);
+  // Before the admin check, so nobody can use the route to hammer the database.
+  limit(`usage:${user.id}`, 30, 600, "Too many requests. Wait a few minutes and try again.");
   const token = (req.headers.authorization ?? "").slice(7).trim();
   const admin = await supabaseCall(env, "/rest/v1/rpc/is_admin", token, { method: "POST", body: "{}" }).catch(() => null);
   if (!admin?.ok || (await admin.json().catch(() => false)) !== true) throw new Refused(404, "Unknown agent route.");
