@@ -3713,7 +3713,6 @@
   "Last account's posts, 24 hours": "最近账号的帖子（24 小时）",
   "Last account's rate limit": "最近账号的速率限制",
   "Quota today": "今日配额",
-  "Busiest account, 24 hours": "最活跃的账号（24 小时）",
   "Publisher: {problem}": "发布服务：{problem}",
   "{network}: {count, plural, one {# post is} other {# posts are}} over 15 minutes late": "{network}：{count, plural, other {# 条帖子}}已延迟超过 15 分钟",
   "{network}: {label} at {percent}": "{network}：{label}已达 {percent}",
@@ -3734,5 +3733,9 @@
   "Credits reset": "额度重置",
   "Auto-captions this month": "本月自动字幕",
   "all accounts, as plan.video counted": "所有账号，按 plan.video 统计",
-  "ElevenLabs: {percent} of this period's credits used": "ElevenLabs：本期额度已用 {percent}"
+  "ElevenLabs: {percent} of this period's credits used": "ElevenLabs：本期额度已用 {percent}",
+  "Uploads today, whole app": "今日上传（整个应用）",
+  "Fullest account's posts, 24 hours": "用量最多账号的帖子（24 小时）",
+  "Fullest account's replies, 24 hours": "用量最多账号的回复（24 小时）",
+  "Busiest account, 24 hours (estimate)": "最活跃账号（24 小时，估算）"
 }

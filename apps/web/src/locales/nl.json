@@ -3713,7 +3713,6 @@
   "Last account's posts, 24 hours": "Posts van het laatste account, 24 uur",
   "Last account's rate limit": "Rate limit van het laatste account",
   "Quota today": "Quotum vandaag",
-  "Busiest account, 24 hours": "Drukste account, 24 uur",
   "Publisher: {problem}": "Publisher: {problem}",
   "{network}: {count, plural, one {# post is} other {# posts are}} over 15 minutes late": "{network}: {count, plural, one {# post is} other {# posts zijn}} meer dan 15 minuten te laat",
   "{network}: {label} at {percent}": "{network}: {label} op {percent}",
@@ -3734,5 +3733,9 @@
   "Credits reset": "Credits worden gereset",
   "Auto-captions this month": "Automatisch ondertitelen deze maand",
   "all accounts, as plan.video counted": "alle accounts, zoals plan.video telde",
-  "ElevenLabs: {percent} of this period's credits used": "ElevenLabs: {percent} van de credits van deze periode gebruikt"
+  "ElevenLabs: {percent} of this period's credits used": "ElevenLabs: {percent} van de credits van deze periode gebruikt",
+  "Uploads today, whole app": "Uploads vandaag, hele app",
+  "Fullest account's posts, 24 hours": "Posts van het volste account, 24 uur",
+  "Fullest account's replies, 24 hours": "Antwoorden van het volste account, 24 uur",
+  "Busiest account, 24 hours (estimate)": "Drukste account, 24 uur (schatting)"
 }

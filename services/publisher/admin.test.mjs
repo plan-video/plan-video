@@ -4,8 +4,9 @@ import { Readable } from "node:stream";
 
 import { createAdmin } from "./admin.mjs";
 import { createApi } from "./api.mjs";
-import { YOUTUBE_UPLOAD_UNITS, createApiUsage, dayOf } from "./api-usage.mjs";
+import { createApiUsage, dayOf } from "./api-usage.mjs";
 import { fakeDb } from "./fake-db.mjs";
+import { createPublishingLimits } from "./publishing-limits.mjs";
 
 const ADMIN = "0f0f0f0f-0000-4000-8000-000000000001";
 const PERSON = "0f0f0f0f-0000-4000-8000-000000000002";
@@ -37,12 +38,14 @@ test("counts network calls by kind, prices YouTube's quota, and leaves other hos
 
   const rows = usage.pending();
   const youtube = rows.filter((row) => row.network === "youtube");
+  // Starting an upload counts against its own bucket of 100 a day, not the units; its chunks count for nothing.
   assert.deepEqual(youtube.map(({ kind, calls, units }) => ({ kind, calls, units })), [
-    { kind: "upload", calls: 2, units: YOUTUBE_UPLOAD_UNITS },
+    { kind: "insert", calls: 1, units: 0 },
+    { kind: "upload", calls: 1, units: 0 },
     { kind: "read", calls: 1, units: 1 },
   ]);
   assert.deepEqual(rows.find((row) => row.network === "bluesky"), { day: "2026-11-21", network: "bluesky", kind: "post", calls: 1, failed: 0, limited: 0, units: 0 });
-  assert.equal(rows.length, 3, "the database call isn't a network's");
+  assert.equal(rows.length, 4, "the database call isn't a network's");
   assert.equal(youtube[0].day, "2026-11-21");
   assert.equal(dayOf("youtube", Date.parse("2026-11-21T07:59:00Z")), "2026-11-20", "YouTube's day starts at midnight Pacific");
   assert.equal(dayOf("x", Date.parse("2026-11-21T07:59:00Z")), "2026-11-21");
@@ -150,4 +153,48 @@ test("only admins get the report, which adds the calls not yet written", async (
   assert.equal(report.people, 3);
   assert.deepEqual(report.networks, ["x", "youtube"]);
   assert.equal(report.api_usage.find((row) => row.network === "x").calls, 6);
+});
+
+test("reads Instagram's and Threads' own publishing limits for the busiest accounts, and keeps them a few minutes", async () => {
+  let at = NOW;
+  const sent = [
+    ...Array(3).fill({ user_id: "u1", connection_id: "ig-busy", platform: "instagram" }),
+    { user_id: "u2", connection_id: "ig-quiet", platform: "instagram" },
+    { user_id: "u3", connection_id: "ig-expired", platform: "instagram" },
+  ];
+  const db = {
+    call: async () => sent,
+    select: async (table, filter) => (filter.platform === "threads" ? [{ user_id: "u4", connection_id: "th-idle" }] : []),
+  };
+  const sessions = {
+    "ig-busy": { platform: "instagram", session: { accountId: "171", accessToken: "a" } },
+    "ig-quiet": { platform: "instagram", session: { accountId: "172", accessToken: "b" } },
+    "ig-expired": { platform: "instagram", session: { accountId: "173", accessToken: "c", expiresAt: NOW - 1 } },
+    "th-idle": { platform: "threads", session: { accountId: "9", accessToken: "d" } },
+  };
+  const asked = [];
+  const answers = {
+    171: { data: [{ quota_usage: 40, config: { quota_total: 50, quota_duration: 86400 } }] },
+    172: null,
+    9: { data: [{ quota_usage: 0, config: { quota_total: 250 }, reply_quota_usage: 3, reply_config: { quota_total: 1000 } }] },
+  };
+  const fetchQuota = async (url, { token }) => {
+    const id = url.match(/\/(\d+)\/(content|threads)_publishing_limit/)[1];
+    asked.push([id, token]);
+    return answers[id] ? { ok: true, data: answers[id] } : { ok: false, data: null };
+  };
+  const limits = createPublishingLimits({ db, vault: { read: async (user, connection) => sessions[connection] }, now: () => at, fetchQuota });
+
+  assert.deepEqual(await limits.read(), {
+    instagram: { checked: 1, failed: 1, posts: { used: 40, total: 50 } },
+    threads: { checked: 1, failed: 0, posts: { used: 0, total: 250 }, replies: { used: 3, total: 1000 } },
+  });
+  assert.deepEqual(asked, [["171", "a"], ["172", "b"], ["9", "d"]], "busiest first, the expired login never used");
+
+  at += 60_000;
+  await limits.read();
+  assert.equal(asked.length, 3, "asked again only after five minutes");
+  at += 5 * 60_000;
+  await limits.read();
+  assert.equal(asked.length, 6);
 });

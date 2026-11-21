@@ -2,8 +2,6 @@
 // for a rate limit or quota, by day, kept in api_usage. The limits networks report in their answers'
 // headers are kept in memory, latest first. Counting never fails or delays a call.
 
-/** YouTube's price for starting an upload, as Google's quota calculator lists it. */
-export const YOUTUBE_UPLOAD_UNITS = 1600;
 const FLUSH_MS = 60_000;
 const PACIFIC = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Los_Angeles", year: "numeric", month: "2-digit", day: "2-digit" });
 /** The day a call counts on: YouTube's quota day starts at midnight Pacific time, everything else's at midnight UTC. */
@@ -33,15 +31,20 @@ export function kindOf(network, url, method) {
   const path = url.pathname;
   if (/oauth|\/token\b|access_token|refreshSession|createSession/.test(path)) return "login";
   if (network === "youtube" && url.hostname === "youtubeanalytics.googleapis.com") return "analytics";
+  // Starting an upload and searching each have their own daily bucket of calls, apart from the units.
+  if (network === "youtube" && isUploadStart(url, method)) return "insert";
+  if (network === "youtube" && url.pathname.startsWith("/youtube/v3/search")) return "search";
   if (/upload/.test(url.hostname) || /upload/i.test(path) || url.hostname === "graph-video.facebook.com") return "upload";
   return method === "GET" || method === "HEAD" ? "read" : "post";
 }
 
-/** What a call costs from YouTube's daily quota. Upload chunks and the Analytics API cost nothing from it. */
+const isUploadStart = (url, method) => method === "POST" && url.hostname === "www.googleapis.com" && url.pathname.startsWith("/upload/youtube/v3/videos") && !url.searchParams.has("upload_id");
+
+/** What a call costs from YouTube's 10,000 daily units, as its quota table prices it. Uploads and searches have buckets of their own; the Analytics API's quota is apart. */
 export function youtubeUnits(url, method) {
   if (url.hostname !== "www.googleapis.com") return 0;
   const path = url.pathname;
-  if (path.startsWith("/upload/youtube/v3/videos")) return url.searchParams.has("upload_id") ? 0 : YOUTUBE_UPLOAD_UNITS;
+  if (path.startsWith("/upload/youtube/v3/videos") || path.startsWith("/youtube/v3/search")) return 0;
   if (path.startsWith("/upload/youtube/v3/thumbnails")) return 50;
   if (!path.startsWith("/youtube/v3/")) return 0;
   if (method !== "GET") return 50;

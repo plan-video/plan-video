@@ -3713,7 +3713,6 @@
   "Last account's posts, 24 hours": "최근 계정의 게시물, 24시간",
   "Last account's rate limit": "최근 계정의 요청 한도",
   "Quota today": "오늘 할당량",
-  "Busiest account, 24 hours": "가장 활발한 계정, 24시간",
   "Publisher: {problem}": "퍼블리셔: {problem}",
   "{network}: {count, plural, one {# post is} other {# posts are}} over 15 minutes late": "{network}: {count, plural, other {게시물 #개}}가 15분 넘게 늦어지고 있어요",
   "{network}: {label} at {percent}": "{network}: {label} {percent} 도달",
@@ -3734,5 +3733,9 @@
   "Credits reset": "크레딧 초기화",
   "Auto-captions this month": "이번 달 자동 자막",
   "all accounts, as plan.video counted": "모든 계정, plan.video 집계 기준",
-  "ElevenLabs: {percent} of this period's credits used": "ElevenLabs: 이번 기간 크레딧 {percent} 사용"
+  "ElevenLabs: {percent} of this period's credits used": "ElevenLabs: 이번 기간 크레딧 {percent} 사용",
+  "Uploads today, whole app": "오늘 업로드, 앱 전체",
+  "Fullest account's posts, 24 hours": "가장 많이 쓴 계정의 게시물, 24시간",
+  "Fullest account's replies, 24 hours": "가장 많이 쓴 계정의 답글, 24시간",
+  "Busiest account, 24 hours (estimate)": "가장 활발한 계정, 24시간 (추정)"
 }

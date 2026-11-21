@@ -3713,7 +3713,6 @@
   "Last account's posts, 24 hours": "Posts da última conta, 24 horas",
   "Last account's rate limit": "Limite de taxa da última conta",
   "Quota today": "Cota de hoje",
-  "Busiest account, 24 hours": "Conta mais ativa, 24 horas",
   "Publisher: {problem}": "Publisher: {problem}",
   "{network}: {count, plural, one {# post is} other {# posts are}} over 15 minutes late": "{network}: {count, plural, one {# post está} many {# posts estão} other {# posts estão}} com mais de 15 minutos de atraso",
   "{network}: {label} at {percent}": "{network}: {label} em {percent}",
@@ -3734,5 +3733,9 @@
   "Credits reset": "Os créditos renovam",
   "Auto-captions this month": "Legendas automáticas este mês",
   "all accounts, as plan.video counted": "todas as contas, pela contagem do plan.video",
-  "ElevenLabs: {percent} of this period's credits used": "ElevenLabs: {percent} dos créditos deste período usados"
+  "ElevenLabs: {percent} of this period's credits used": "ElevenLabs: {percent} dos créditos deste período usados",
+  "Uploads today, whole app": "Envios hoje, app inteiro",
+  "Fullest account's posts, 24 hours": "Posts da conta mais cheia, 24 horas",
+  "Fullest account's replies, 24 hours": "Respostas da conta mais cheia, 24 horas",
+  "Busiest account, 24 hours (estimate)": "Conta mais ativa, 24 horas (estimativa)"
 }

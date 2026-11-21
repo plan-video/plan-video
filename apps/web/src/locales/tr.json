@@ -3713,7 +3713,6 @@
   "Last account's posts, 24 hours": "Son hesabın gönderileri, 24 saat",
   "Last account's rate limit": "Son hesabın hız sınırı",
   "Quota today": "Bugünkü kota",
-  "Busiest account, 24 hours": "En yoğun hesap, 24 saat",
   "Publisher: {problem}": "Publisher: {problem}",
   "{network}: {count, plural, one {# post is} other {# posts are}} over 15 minutes late": "{network}: {count, plural, one {# gönderi} other {# gönderi}} 15 dakikadan fazla gecikti",
   "{network}: {label} at {percent}": "{network}: {label} {percent} seviyesinde",
@@ -3734,5 +3733,9 @@
   "Credits reset": "Kredilerin yenilenmesi",
   "Auto-captions this month": "Bu ay otomatik altyazı",
   "all accounts, as plan.video counted": "tüm hesaplar, plan.video'nun saydığı",
-  "ElevenLabs: {percent} of this period's credits used": "ElevenLabs: bu dönemin kredilerinin {percent} kadarı kullanıldı"
+  "ElevenLabs: {percent} of this period's credits used": "ElevenLabs: bu dönemin kredilerinin {percent} kadarı kullanıldı",
+  "Uploads today, whole app": "Bugünkü yüklemeler, tüm uygulama",
+  "Fullest account's posts, 24 hours": "En dolu hesabın gönderileri, 24 saat",
+  "Fullest account's replies, 24 hours": "En dolu hesabın yanıtları, 24 saat",
+  "Busiest account, 24 hours (estimate)": "En yoğun hesap, 24 saat (tahmini)"
 }

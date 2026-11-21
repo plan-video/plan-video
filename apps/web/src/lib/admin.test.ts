@@ -27,7 +27,7 @@ function report(over: Partial<AdminReport> = {}): AdminReport {
     limits: [],
     networks: ["youtube", "x", "instagram"],
     health: { problems: [], lastPass: null },
-    caps: { youtubeDailyUnits: 10_000, xPostsByLevel: { 1: 0, 2: 150, 3: 400, 4: 800 }, xLinksByLevel: { 1: 0, 2: 10, 3: 25, 4: 40 }, xPostsPerDay: 50 },
+    caps: { youtubeDailyUnits: 10_000, youtubeDailyUploads: 100, xPostsByLevel: { 1: 0, 2: 150, 3: 400, 4: 800 }, xLinksByLevel: { 1: 0, 2: 10, 3: 25, 4: 40 }, xPostsPerDay: 50 },
     prices: { xPost: 0.015, xLinkPost: 0.2, captionHour: 0.22 },
     costs: [],
     ...over,
@@ -47,6 +47,10 @@ describe("admin numbers", () => {
     );
     const youtube = networks.find((network) => network.id === "youtube")!;
     expect(youtube.meters[0]).toMatchObject({ used: 1600, limit: 10_000 });
+    expect(youtube.meters[1]).toMatchObject({ label: "Uploads today, whole app", used: 0, limit: 100 });
+    const uploading = networkSummaries(report({ api_usage: [{ day: "2026-11-20", network: "youtube", kind: "insert", calls: 85, failed: 0, limited: 0, units: 0 }] }));
+    expect(uploading.find((network) => network.id === "youtube")!.meters[1]).toMatchObject({ used: 85, limit: 100 });
+    expect(attention(report({ api_usage: [{ day: "2026-11-20", network: "youtube", kind: "insert", calls: 85, failed: 0, limited: 0, units: 0 }] }), uploading, null)).toContain("YouTube: Uploads today, whole app at 85%");
     expect(networks.find((network) => network.id === "x")!.calls).toBe(1);
     expect(networks.find((network) => network.id === "tiktok")!.configured).toBe(false);
   });
@@ -69,6 +73,19 @@ describe("admin numbers", () => {
     const credits = { tier: "creator", status: "active", used: 95, limit: 100, resetsAt: null };
     expect(attention(busy, networkSummaries(busy), null, credits)).toContain("ElevenLabs: 95% of this period's credits used");
     expect(attention(busy, networkSummaries(busy), null, { ...credits, used: 10 }).some((warning) => warning.startsWith("ElevenLabs"))).toBe(false);
+  });
+
+  it("uses Instagram's and Threads' own limits when Meta gave them, and the documented ones otherwise", () => {
+    const live = report({
+      busiest: [{ platform: "instagram", posts: 10 }, { platform: "threads", posts: 2 }],
+      publishing: {
+        instagram: { checked: 2, failed: 0, posts: { used: 48, total: 100 } },
+        threads: { checked: 0, failed: 1, posts: null, replies: null },
+      },
+    });
+    const networks = networkSummaries(live);
+    expect(networks.find((network) => network.id === "instagram")!.meters).toEqual([{ label: "Fullest account's posts, 24 hours", used: 48, limit: 100, unit: "count" }]);
+    expect(networks.find((network) => network.id === "threads")!.meters).toEqual([{ label: "Busiest account, 24 hours (estimate)", used: 2, limit: 250, unit: "count" }]);
   });
 
   it("counts what paid plans bring in a month", () => {

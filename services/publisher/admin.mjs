@@ -9,8 +9,9 @@ export const X_POST_USD = 0.015;
 export const X_LINK_POST_USD = 0.2;
 /** ElevenLabs Scribe, per hour of audio Auto-Captions sends. */
 export const CAPTION_HOUR_USD = 0.22;
-/** Google's default daily quota for a project's YouTube Data API. */
+/** Google's default daily quota for a project's YouTube Data API: units for most calls, and a bucket of its own for starting uploads. */
 export const YOUTUBE_DAILY_UNITS = 10_000;
+export const YOUTUBE_DAILY_UPLOADS = 100;
 
 /** "Hetzner=7.5,Supabase=25" from ADMIN_MONTHLY_COSTS: fixed monthly costs in US dollars, for the page's cost table. */
 export function monthlyCosts(text) {
@@ -33,20 +34,23 @@ export function withPending(rows, pending) {
   return [...merged.values()].sort((a, b) => String(a.day).localeCompare(String(b.day)));
 }
 
-export function createAdmin({ db, usage, networks, health, passes, youtubeDailyUnits, xCaps, youtubeShares, costs = [], now = () => Date.now() }) {
+export function createAdmin({ db, usage, networks, health, passes, publishing, youtubeDailyUnits, youtubeDailyUploads, xCaps, youtubeShares, costs = [], now = () => Date.now() }) {
   const allowed = async (userId) => !!(await db.selectOne("admins", { user_id: userId }, "user_id").catch(() => null));
 
   async function report() {
-    const counted = (await db.rpc("admin_usage_report")) ?? {};
+    // Meta's own count can be slow or refused; the page goes on without it.
+    const [counted, live] = await Promise.all([db.rpc("admin_usage_report"), publishing ? publishing.read().catch(() => null) : null]);
     return {
-      ...counted,
+      ...(counted ?? {}),
+      publishing: live,
       at: new Date(now()).toISOString(),
-      api_usage: withPending(counted.api_usage ?? [], usage.pending()),
+      api_usage: withPending(counted?.api_usage ?? [], usage.pending()),
       limits: usage.limits().map((limit) => ({ ...limit, seenAt: new Date(limit.seenAt).toISOString(), resetAt: limit.resetAt ? new Date(limit.resetAt).toISOString() : null })),
       networks: Object.keys(networks).sort(),
       health: { problems: health.report(), lastPass: passes.last() },
       caps: {
         youtubeDailyUnits: youtubeDailyUnits || YOUTUBE_DAILY_UNITS,
+        youtubeDailyUploads: youtubeDailyUploads || YOUTUBE_DAILY_UPLOADS,
         youtubeUploadsByLevel: youtubeShares ?? YOUTUBE_UPLOADS_BY_LEVEL,
         xPostsByLevel: xCaps?.posts ?? X_POSTS_BY_LEVEL,
         xLinksByLevel: xCaps?.links ?? X_LINK_POSTS_BY_LEVEL,
