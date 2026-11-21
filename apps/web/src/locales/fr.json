@@ -3723,5 +3723,16 @@
   "Assistant: {percent} of today's spending cap used": "Assistant : {percent} du plafond de dépenses du jour utilisé",
   "Sign in to see this page.": "Connectez-vous pour voir cette page.",
   "Only admins can see this page. If you're one, the publisher may need updating.": "Seuls les administrateurs peuvent voir cette page. Si vous en êtes un, le publisher a peut-être besoin d’une mise à jour.",
-  "The publisher didn't answer ({status}).": "Le publisher n’a pas répondu ({status})."
+  "The publisher didn't answer ({status}).": "Le publisher n’a pas répondu ({status}).",
+  "ELEVENLABS_API_KEY isn't set in transcribe.env, so Auto-captions is off.": "ELEVENLABS_API_KEY n’est pas définie dans transcribe.env, les sous-titres auto sont donc désactivés.",
+  "ElevenLabs didn't answer. Try Refresh in a moment.": "ElevenLabs n’a pas répondu. Réessayez Actualiser dans un instant.",
+  "The ElevenLabs key can't read its plan. In ElevenLabs → API keys, edit the key and give it User: Read (user_read).": "La clé ElevenLabs ne peut pas lire sa formule. Dans ElevenLabs → API keys, modifiez la clé et donnez-lui User: Read (user_read).",
+  "ElevenLabs didn't give its plan right now. Try Refresh in a moment.": "ElevenLabs n’a pas donné sa formule pour l’instant. Réessayez Actualiser dans un instant.",
+  "The plan behind Auto-captions, as ElevenLabs reports it. Credits are spent as audio is transcribed.": "La formule derrière les sous-titres auto, telle qu’ElevenLabs l’indique. Les crédits sont dépensés à mesure que l’audio est transcrit.",
+  "The captions service didn't answer.": "Le service de sous-titres n’a pas répondu.",
+  "Credits this period": "Crédits de cette période",
+  "Credits reset": "Renouvellement des crédits",
+  "Auto-captions this month": "Sous-titres auto ce mois-ci",
+  "all accounts, as plan.video counted": "tous les comptes, selon le décompte de plan.video",
+  "ElevenLabs: {percent} of this period's credits used": "ElevenLabs : {percent} des crédits de cette période utilisés"
 }

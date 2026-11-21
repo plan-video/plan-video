@@ -3723,5 +3723,16 @@
   "Assistant: {percent} of today's spending cap used": "Asistan: bugünkü harcama sınırının {percent} kadarı kullanıldı",
   "Sign in to see this page.": "Bu sayfayı görmek için giriş yap.",
   "Only admins can see this page. If you're one, the publisher may need updating.": "Bu sayfayı yalnızca yöneticiler görebilir. Yöneticiysen publisher'ın güncellenmesi gerekebilir.",
-  "The publisher didn't answer ({status}).": "Publisher yanıt vermedi ({status})."
+  "The publisher didn't answer ({status}).": "Publisher yanıt vermedi ({status}).",
+  "ELEVENLABS_API_KEY isn't set in transcribe.env, so Auto-captions is off.": "transcribe.env içinde ELEVENLABS_API_KEY ayarlı değil, bu yüzden otomatik altyazı kapalı.",
+  "ElevenLabs didn't answer. Try Refresh in a moment.": "ElevenLabs yanıt vermedi. Birazdan Yenile'yi dene.",
+  "The ElevenLabs key can't read its plan. In ElevenLabs → API keys, edit the key and give it User: Read (user_read).": "ElevenLabs anahtarı planını okuyamıyor. ElevenLabs → API keys bölümünde anahtarı düzenle ve ona User: Read (user_read) izni ver.",
+  "ElevenLabs didn't give its plan right now. Try Refresh in a moment.": "ElevenLabs şu an planını vermedi. Birazdan Yenile'yi dene.",
+  "The plan behind Auto-captions, as ElevenLabs reports it. Credits are spent as audio is transcribed.": "Otomatik altyazının arkasındaki plan, ElevenLabs'in bildirdiği şekliyle. Krediler ses yazıya döküldükçe harcanır.",
+  "The captions service didn't answer.": "Altyazı hizmeti yanıt vermedi.",
+  "Credits this period": "Bu dönemin kredileri",
+  "Credits reset": "Kredilerin yenilenmesi",
+  "Auto-captions this month": "Bu ay otomatik altyazı",
+  "all accounts, as plan.video counted": "tüm hesaplar, plan.video'nun saydığı",
+  "ElevenLabs: {percent} of this period's credits used": "ElevenLabs: bu dönemin kredilerinin {percent} kadarı kullanıldı"
 }

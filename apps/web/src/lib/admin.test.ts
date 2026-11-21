@@ -65,6 +65,10 @@ describe("admin numbers", () => {
     expect(warnings).toContain("X refused 3 calls for a limit today");
     expect(warnings).toContain("Assistant: 90% of today's spending cap used");
     expect(warnings.some((warning) => warning.startsWith("Instagram"))).toBe(false);
+
+    const credits = { tier: "creator", status: "active", used: 95, limit: 100, resetsAt: null };
+    expect(attention(busy, networkSummaries(busy), null, credits)).toContain("ElevenLabs: 95% of this period's credits used");
+    expect(attention(busy, networkSummaries(busy), null, { ...credits, used: 10 }).some((warning) => warning.startsWith("ElevenLabs"))).toBe(false);
   });
 
   it("counts what paid plans bring in a month", () => {

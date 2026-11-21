@@ -3723,5 +3723,16 @@
   "Assistant: {percent} of today's spending cap used": "アシスタント：今日の利用上限の{percent}を使用",
   "Sign in to see this page.": "このページを見るにはログインしてください。",
   "Only admins can see this page. If you're one, the publisher may need updating.": "このページを見られるのは管理者だけです。管理者の場合は、パブリッシャーの更新が必要かもしれません。",
-  "The publisher didn't answer ({status}).": "パブリッシャーが応答しませんでした（{status}）。"
+  "The publisher didn't answer ({status}).": "パブリッシャーが応答しませんでした（{status}）。",
+  "ELEVENLABS_API_KEY isn't set in transcribe.env, so Auto-captions is off.": "transcribe.env に ELEVENLABS_API_KEY が設定されていないため、自動字幕はオフです。",
+  "ElevenLabs didn't answer. Try Refresh in a moment.": "ElevenLabs から応答がありません。少し待ってから更新してください。",
+  "The ElevenLabs key can't read its plan. In ElevenLabs → API keys, edit the key and give it User: Read (user_read).": "ElevenLabs のキーがプランを読み取れません。ElevenLabs → API keys でキーを編集し、User: Read (user_read) を付与してください。",
+  "ElevenLabs didn't give its plan right now. Try Refresh in a moment.": "ElevenLabs が今はプランを返しませんでした。少し待ってから更新してください。",
+  "The plan behind Auto-captions, as ElevenLabs reports it. Credits are spent as audio is transcribed.": "自動字幕を支える ElevenLabs のプラン（ElevenLabs の報告どおり）。クレジットは音声を文字起こしするたびに消費されます。",
+  "The captions service didn't answer.": "字幕サービスから応答がありません。",
+  "Credits this period": "今期のクレジット",
+  "Credits reset": "クレジットのリセット",
+  "Auto-captions this month": "今月の自動字幕",
+  "all accounts, as plan.video counted": "全アカウント、plan.video の集計",
+  "ElevenLabs: {percent} of this period's credits used": "ElevenLabs：今期のクレジットを {percent} 使用"
 }

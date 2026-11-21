@@ -38,6 +38,11 @@ export type AdminReport = {
 
 export type AgentUsage = { model: string; usdPerMillion: number; spent: number; budget: number; freeSpent: number; resetsAt: string | null };
 
+/** The ElevenLabs plan behind Auto-captions (services/transcribe, /api/transcribe/usage). Credits are what ElevenLabs calls characters. */
+export type ElevenLabsPlan =
+  | { problem?: undefined; tier: string | null; status: string | null; used: number | null; limit: number | null; resetsAt: string | null }
+  | { problem: "no-key" | "no-answer" | "no-permission" | "refused"; status?: number };
+
 export type Meter = { label: string; used: number; limit: number; unit: "count" | "percent"; resetAt?: string | null };
 
 export type NetworkSummary = {
@@ -129,7 +134,7 @@ export function monthlyRevenue(plans: Record<string, number>): number {
 const share = (meter: Pick<Meter, "used" | "limit">) => (meter.limit > 0 ? meter.used / meter.limit : 0);
 
 /** Anything at or near a limit, failing or late, most pressing first. */
-export function attention(report: AdminReport, networks: NetworkSummary[], agent: AgentUsage | null): string[] {
+export function attention(report: AdminReport, networks: NetworkSummary[], agent: AgentUsage | null, elevenLabs: ElevenLabsPlan | null = null): string[] {
   const found: { weight: number; text: string }[] = [];
   const name = (id: string) => NETWORK_NAMES[id] ?? id;
   for (const problem of report.health.problems) found.push({ weight: 3, text: t("Publisher: {problem}", { problem }) });
@@ -146,6 +151,9 @@ export function attention(report: AdminReport, networks: NetworkSummary[], agent
   for (const owner of report.x_owners) {
     const cap = report.caps.xPostsByLevel[String(owner.level)] ?? 0;
     if (cap && owner.posts / cap >= NEAR) found.push({ weight: 1, text: t("X: one owner has used {posts} of their {cap} posts this month", { posts: owner.posts, cap }) });
+  }
+  if (elevenLabs && !elevenLabs.problem && elevenLabs.used !== null && elevenLabs.limit && elevenLabs.used / elevenLabs.limit >= NEAR) {
+    found.push({ weight: 2 + elevenLabs.used / elevenLabs.limit, text: t("ElevenLabs: {percent} of this period's credits used", { percent: percent(elevenLabs.used / elevenLabs.limit) }) });
   }
   if (agent && agent.budget && agent.spent / agent.budget >= NEAR) found.push({ weight: 2, text: t("Assistant: {percent} of today's spending cap used", { percent: percent(agent.spent / agent.budget) }) });
   return found.sort((a, b) => b.weight - a.weight).map((item) => item.text);
@@ -189,4 +197,11 @@ export async function loadAgentUsage(): Promise<AgentUsage | null> {
   const response = await fetch("/api/agent/usage", { headers: { Authorization: await bearer() } }).catch(() => null);
   if (!response?.ok) return null;
   return (await response.json().catch(() => null)) as AgentUsage | null;
+}
+
+/** Null when the captions service doesn't answer: the rest of the page doesn't wait on it. */
+export async function loadElevenLabs(): Promise<ElevenLabsPlan | null> {
+  const response = await fetch("/api/transcribe/usage", { headers: { Authorization: await bearer() } }).catch(() => null);
+  if (!response?.ok) return null;
+  return (await response.json().catch(() => null)) as ElevenLabsPlan | null;
 }

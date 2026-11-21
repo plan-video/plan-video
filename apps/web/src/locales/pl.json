@@ -3723,5 +3723,16 @@
   "Assistant: {percent} of today's spending cap used": "Asystent: wykorzystano {percent} dzisiejszego limitu wydatków",
   "Sign in to see this page.": "Zaloguj się, aby zobaczyć tę stronę.",
   "Only admins can see this page. If you're one, the publisher may need updating.": "Tylko administratorzy mogą zobaczyć tę stronę. Jeśli nim jesteś, publisher może wymagać aktualizacji.",
-  "The publisher didn't answer ({status}).": "Publisher nie odpowiedział ({status})."
+  "The publisher didn't answer ({status}).": "Publisher nie odpowiedział ({status}).",
+  "ELEVENLABS_API_KEY isn't set in transcribe.env, so Auto-captions is off.": "ELEVENLABS_API_KEY nie jest ustawiony w transcribe.env, więc automatyczne napisy są wyłączone.",
+  "ElevenLabs didn't answer. Try Refresh in a moment.": "ElevenLabs nie odpowiedział. Za chwilę spróbuj Odśwież.",
+  "The ElevenLabs key can't read its plan. In ElevenLabs → API keys, edit the key and give it User: Read (user_read).": "Klucz ElevenLabs nie może odczytać swojego planu. W ElevenLabs → API keys edytuj klucz i nadaj mu User: Read (user_read).",
+  "ElevenLabs didn't give its plan right now. Try Refresh in a moment.": "ElevenLabs nie podał teraz swojego planu. Za chwilę spróbuj Odśwież.",
+  "The plan behind Auto-captions, as ElevenLabs reports it. Credits are spent as audio is transcribed.": "Plan stojący za automatycznymi napisami, tak jak podaje go ElevenLabs. Kredyty zużywają się podczas transkrypcji dźwięku.",
+  "The captions service didn't answer.": "Usługa napisów nie odpowiedziała.",
+  "Credits this period": "Kredyty w tym okresie",
+  "Credits reset": "Odnowienie kredytów",
+  "Auto-captions this month": "Automatyczne napisy w tym miesiącu",
+  "all accounts, as plan.video counted": "wszystkie konta, według liczenia plan.video",
+  "ElevenLabs: {percent} of this period's credits used": "ElevenLabs: zużyto {percent} kredytów z tego okresu"
 }

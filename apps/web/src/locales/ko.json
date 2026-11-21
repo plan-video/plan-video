@@ -3723,5 +3723,16 @@
   "Assistant: {percent} of today's spending cap used": "어시스턴트: 오늘 지출 한도의 {percent} 사용",
   "Sign in to see this page.": "이 페이지를 보려면 로그인하세요.",
   "Only admins can see this page. If you're one, the publisher may need updating.": "관리자만 이 페이지를 볼 수 있어요. 관리자라면 퍼블리셔를 업데이트해야 할 수도 있어요.",
-  "The publisher didn't answer ({status}).": "퍼블리셔가 응답하지 않았어요({status})."
+  "The publisher didn't answer ({status}).": "퍼블리셔가 응답하지 않았어요({status}).",
+  "ELEVENLABS_API_KEY isn't set in transcribe.env, so Auto-captions is off.": "transcribe.env에 ELEVENLABS_API_KEY가 설정되지 않아 자동 자막이 꺼져 있어요.",
+  "ElevenLabs didn't answer. Try Refresh in a moment.": "ElevenLabs가 응답하지 않았어요. 잠시 후 새로고침해 보세요.",
+  "The ElevenLabs key can't read its plan. In ElevenLabs → API keys, edit the key and give it User: Read (user_read).": "ElevenLabs 키가 요금제를 읽을 수 없어요. ElevenLabs → API keys에서 키를 편집해 User: Read (user_read) 권한을 주세요.",
+  "ElevenLabs didn't give its plan right now. Try Refresh in a moment.": "ElevenLabs가 지금은 요금제를 알려주지 않았어요. 잠시 후 새로고침해 보세요.",
+  "The plan behind Auto-captions, as ElevenLabs reports it. Credits are spent as audio is transcribed.": "자동 자막에 쓰이는 ElevenLabs 요금제예요(ElevenLabs가 알려준 그대로). 크레딧은 오디오를 받아쓸 때 쓰여요.",
+  "The captions service didn't answer.": "자막 서비스가 응답하지 않았어요.",
+  "Credits this period": "이번 기간 크레딧",
+  "Credits reset": "크레딧 초기화",
+  "Auto-captions this month": "이번 달 자동 자막",
+  "all accounts, as plan.video counted": "모든 계정, plan.video 집계 기준",
+  "ElevenLabs: {percent} of this period's credits used": "ElevenLabs: 이번 기간 크레딧 {percent} 사용"
 }
