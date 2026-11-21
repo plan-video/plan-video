@@ -176,9 +176,11 @@ test("reads Instagram's and Threads' own publishing limits for the busiest accou
   const answers = {
     171: { data: [{ quota_usage: 40, config: { quota_total: 50, quota_duration: 86400 } }] },
     172: null,
-    9: { data: [{ quota_usage: 0, config: { quota_total: 250 }, reply_quota_usage: 3, reply_config: { quota_total: 1000 } }] },
+    9: { data: [{ quota_usage: 0, config: { quota_total: 250 } }] },
   };
   const fetchQuota = async (url, { token }) => {
+    // Threads refuses the whole request when it names the reply quota, which needs a permission plan.video lacks.
+    if (url.includes("reply")) return { ok: false, data: null };
     const id = url.match(/\/(\d+)\/(content|threads)_publishing_limit/)[1];
     asked.push([id, token]);
     return answers[id] ? { ok: true, data: answers[id] } : { ok: false, data: null };
@@ -187,7 +189,7 @@ test("reads Instagram's and Threads' own publishing limits for the busiest accou
 
   assert.deepEqual(await limits.read(), {
     instagram: { checked: 1, failed: 1, posts: { used: 40, total: 50 } },
-    threads: { checked: 1, failed: 0, posts: { used: 0, total: 250 }, replies: { used: 3, total: 1000 } },
+    threads: { checked: 1, failed: 0, posts: { used: 0, total: 250 } },
   });
   assert.deepEqual(asked, [["171", "a"], ["172", "b"], ["9", "d"]], "busiest first, the expired login never used");
 

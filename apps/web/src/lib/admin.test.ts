@@ -80,7 +80,7 @@ describe("admin numbers", () => {
       busiest: [{ platform: "instagram", posts: 10 }, { platform: "threads", posts: 2 }],
       publishing: {
         instagram: { checked: 2, failed: 0, posts: { used: 48, total: 100 } },
-        threads: { checked: 0, failed: 1, posts: null, replies: null },
+        threads: { checked: 0, failed: 1, posts: null },
       },
     });
     const networks = networkSummaries(live);

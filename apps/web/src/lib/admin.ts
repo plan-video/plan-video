@@ -35,7 +35,7 @@ export type AdminReport = {
   prices: { xPost: number; xLinkPost: number; captionHour: number };
   costs: { name: string; usd: number }[];
   /** Instagram's and Threads' own count, for the fullest account asked about; null when Meta wasn't asked or didn't answer. */
-  publishing?: Record<string, { checked: number; failed: number; posts: Quota | null; replies?: Quota | null }> | null;
+  publishing?: Record<string, { checked: number; failed: number; posts: Quota | null }> | null;
 };
 
 type Quota = { used: number; total: number };
@@ -109,7 +109,6 @@ export function networkSummaries(report: AdminReport): NetworkSummary[] {
     const live = report.publishing?.[id];
     if (live?.posts) {
       meters.push({ label: msg("Fullest account's posts, 24 hours"), used: live.posts.used, limit: live.posts.total, unit: "count" });
-      if (live.replies) meters.push({ label: msg("Fullest account's replies, 24 hours"), used: live.replies.used, limit: live.replies.total, unit: "count" });
     } else if (ACCOUNT_POSTS_PER_DAY[id]) {
       meters.push({ label: msg("Busiest account, 24 hours (estimate)"), used: report.busiest.find((row) => row.platform === id)?.posts ?? 0, limit: ACCOUNT_POSTS_PER_DAY[id], unit: "count" });
     }
