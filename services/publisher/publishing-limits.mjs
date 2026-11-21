@@ -12,7 +12,8 @@ const MOST = 25;
 
 const ASK = {
   instagram: (id) => `${API.instagram}/${encodeURIComponent(id)}/content_publishing_limit?fields=quota_usage,config`,
-  threads: (id) => `${API.threads}/${encodeURIComponent(id)}/threads_publishing_limit?fields=quota_usage,config,reply_quota_usage,reply_config`,
+  // Not the reply quota: asking for it needs a permission plan.video's app doesn't have, and Meta then refuses the lot.
+  threads: (id) => `${API.threads}/${encodeURIComponent(id)}/threads_publishing_limit?fields=quota_usage,config`,
 };
 
 const quota = (used, config) => {
@@ -23,13 +24,12 @@ const quota = (used, config) => {
 /** The fuller of two quotas, by share used. */
 const fuller = (a, b) => (!a ? b : !b ? a : b.used / b.total > a.used / a.total ? b : a);
 
-/** What one account has used: `posts`, and for Threads `replies` too. Null when Meta didn't say. */
-export function readQuota(network, data) {
+/** What one account has posted against its limit. Null when Meta didn't say. */
+export function readQuota(data) {
   const entry = Array.isArray(data?.data) ? data.data[0] : null;
   if (!entry) return null;
   const posts = quota(entry.quota_usage, entry.config);
-  if (!posts) return null;
-  return network === "threads" ? { posts, replies: quota(entry.reply_quota_usage, entry.reply_config) } : { posts };
+  return posts ? { posts } : null;
 }
 
 export function createPublishingLimits({ db, vault, now = () => Date.now(), fetchQuota = metaFetch }) {
@@ -55,13 +55,13 @@ export function createPublishingLimits({ db, vault, now = () => Date.now(), fetc
   }
 
   async function ask() {
-    const found = { instagram: { checked: 0, failed: 0, posts: null }, threads: { checked: 0, failed: 0, posts: null, replies: null } };
+    const found = { instagram: { checked: 0, failed: 0, posts: null }, threads: { checked: 0, failed: 0, posts: null } };
     for (const { network, userId, connectionId } of await accounts()) {
       const login = await vault.read(userId, connectionId).catch(() => null);
       const session = login?.platform === network ? login.session : null;
       if (!session?.accountId || !session?.accessToken || (session.expiresAt && session.expiresAt <= now())) continue;
       const answer = await fetchQuota(ASK[network](session.accountId), { token: session.accessToken, timeout: 10_000 });
-      const used = answer.ok ? readQuota(network, answer.data) : null;
+      const used = answer.ok ? readQuota(answer.data) : null;
       const result = found[network];
       if (!used) {
         result.failed += 1;
@@ -69,13 +69,12 @@ export function createPublishingLimits({ db, vault, now = () => Date.now(), fetc
       }
       result.checked += 1;
       result.posts = fuller(result.posts, used.posts);
-      if (network === "threads") result.replies = fuller(result.replies, used.replies);
     }
     return found;
   }
 
   return {
-    /** Per network, the fullest account's posts (and Threads' replies) against the limit Meta reports. */
+    /** Per network, the fullest account's posts against the limit Meta reports. */
     async read() {
       if (kept && now() - kept.at < KEEP_MS) return kept.value;
       asking ??= ask()
