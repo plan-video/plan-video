@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { Readable } from "node:stream";
 
+import { createApi } from "./api.mjs";
 import { PublishError } from "./errors.mjs";
 import { fakeDb } from "./fake-db.mjs";
 import { createX, hasLink } from "./networks/x.mjs";
@@ -292,4 +294,24 @@ test("usage on Free has no X to count, and the day's YouTube share", async () =>
   assert.deepEqual(usage.x.posts, { used: 0, most: 0, freesAt: null });
   assert.deepEqual(usage.x.today, { used: 0, most: 0, freesAt: null });
   assert.deepEqual(usage.youtube, { used: 0, most: 3, freesAt: null });
+});
+
+test("the usage route answers only about the person signed in, whoever the body names", async () => {
+  const { db, limits, made, users } = setup(2);
+  users.push({ id: "u2", access_level: 4 });
+  made(4, HOUR);
+  const api = createApi({ env: {}, vault: {}, worker: {}, kick: () => undefined, users: { from: async (req) => ({ id: req.headers.authorization.slice(7) }) }, limits: {}, planLimits: limits, db });
+  const ask = async (person, body) => {
+    const req = Object.assign(new Readable({ read() {} }), { method: "POST", headers: { authorization: `Bearer ${person}` } });
+    req.push(JSON.stringify(body));
+    req.push(null);
+    let text = "";
+    await api(req, { writeHead() {}, end: (out) => (text = out) }, "/api/publisher/usage");
+    return JSON.parse(text);
+  };
+  const own = await ask("u1", {});
+  assert.equal(own.x.posts.used, 4);
+  const other = await ask("u2", { userId: "u1", team: { owner: "u1", workspace: "default" } });
+  assert.equal(other.level, 4);
+  assert.equal(other.x.posts.used, 0);
 });
