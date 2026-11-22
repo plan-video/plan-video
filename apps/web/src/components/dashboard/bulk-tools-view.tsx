@@ -55,7 +55,7 @@ import { VaultPicker } from "@/components/publish/vault-picker";
 import { WhenOptions, untilLabel } from "@/components/publish/when-fields";
 import { hydrateCalendar, isOnCalendar, isUploading, setPostThumbnail } from "@/components/calendar/store";
 import { BULK_DATABASE, clearBatchFiles, dropBatchFiles, readBatchFiles, writeBatchFile, type BatchFile } from "@/lib/bulk-batch";
-import { thumbnailFromFile } from "@/lib/post-thumbnail";
+import { shrinkToThumbnail, thumbnailFromFile } from "@/lib/post-thumbnail";
 import { cadencePhrase, formatDay as formatCalendarDay, localDateKey, newId, resolveRepeatEnd, shiftDay } from "@/components/calendar/utils";
 import { useAuth } from "@/context/auth";
 import { askForAccount } from "@/lib/guest";
@@ -602,14 +602,14 @@ function BulkTools() {
   const pick = async () => void addFiles(await pickFiles({ accept: POSTABLE_FILES, multiple: true }));
   const handlers = createDropHandlers((files) => void addFiles(files), setDragging, droppedFiles);
 
-  const remove = (ids: readonly string[]) => {
+  const remove = (ids: readonly string[], options: { replan?: boolean } = {}) => {
     const gone = new Set(ids);
     for (const post of bulk.posts) if (gone.has(post.id)) releaseMedia(post.media);
     batch(() => {
       setBulk("posts", (posts) => posts.filter((post) => !gone.has(post.id)));
       setBulk("selected", (selected) => selected.filter((id) => !gone.has(id)));
       if (gone.has(editing() ?? "")) setEditing(null);
-      replan();
+      if (options.replan !== false) replan();
     });
     // The fields go first, so a refresh right now can't find a post whose file has just left.
     if (!bulk.posts.length) {
@@ -673,19 +673,33 @@ function BulkTools() {
           : status,
       };
     });
-    const error = await savePosts(planned);
-    if (error) {
-      toast.error(t("Could not save the posts"), { description: t(error) });
-      return null;
-    }
+    const savedIds = new Set<string>();
+    const error = await savePosts(planned, (id) => savedIds.add(id));
+    const saved = planned.filter((item) => savedIds.has(item.id));
     void (async () => {
-      for (const item of planned) {
-        const made = await thumbnailFromFile(item.post.media.file);
+      for (const item of saved) {
+        // A video's poster is the same still a thumbnail would read the whole file again for.
+        const media = item.post.media;
+        const made = media.kind === "video" ? await shrinkToThumbnail(media.poster) : await thumbnailFromFile(media.file);
         if (made) setPostThumbnail(item.id, made);
       }
     })();
-    if (planned.some((item) => !item.post.story && item.platforms.includes("pinterest"))) rememberPinterestBoard(settings.pinterest.board);
-    return planned;
+    if (saved.some((item) => !item.post.story && item.platforms.includes("pinterest"))) rememberPinterestBoard(settings.pinterest.board);
+    return { planned, saved, error };
+  };
+
+  /** Some posts may be on the calendar already. Each keeps its id, so trying again saves the rest without copies. */
+  const sayNotSaved = (result: { planned: unknown[]; saved: unknown[]; error?: string }, retry: () => void) => {
+    const description = t(result.error ?? "");
+    toast.error(
+      result.saved.length
+        ? t("{count, plural, one {# of {total} posts is on your calendar. The rest weren't saved.} other {# of {total} posts are on your calendar. The rest weren't saved.}}", {
+            count: result.saved.length,
+            total: result.planned.length,
+          })
+        : t("Could not save the posts"),
+      { description, action: { label: t("Try again"), onClick: retry } },
+    );
   };
 
   const shuffleAll = () =>
@@ -704,8 +718,9 @@ function BulkTools() {
     }
     setSaving(status);
     try {
-      const planned = await saveAll(status);
-      if (!planned) return;
+      const result = await saveAll(status);
+      if (result.error) return sayNotSaved(result, () => void save(status, guestReason));
+      const planned = result.planned;
       const first = planned.map((post) => post.when).sort((a, b) => a.getTime() - b.getTime())[0]!;
       const count = planned.length;
       track(status === "draft" ? "bulk_drafts_saved" : "bulk_scheduled", { posts: count });
@@ -771,14 +786,20 @@ function BulkTools() {
     }
     setSaving("now");
     try {
-      const planned = await saveAll("draft", new Date());
-      if (!planned) return;
+      const result = await saveAll("draft", new Date());
+      if (result.error && !result.saved.length) return sayNotSaved(result, () => void postNow());
+      // What was saved is set to go now, so it goes, and leaves the batch; the rest stay to try again.
+      if (result.error) {
+        sayNotSaved(result, () => void postNow());
+        remove(result.saved.map((item) => item.id), { replan: false });
+      }
+      const planned = result.saved;
       const sends = planned.filter((item) => sendable(item.post)).map((item) => ({ id: item.id, caption: finalCaption(item.post, "tiktok") }));
       const live = livePlatforms(sending);
       const staying = sortPlatforms(new Set(planned.flatMap((item) => item.platforms.filter((id) => !isLive(id)))));
       const tiktokVideos = sending.some((post) => post.media.kind === "video" && post.platforms.includes("tiktok"));
       track("bulk_posted_now", { posts: planned.length, tiktok: sends.length });
-      clearAll();
+      if (!result.error) clearAll();
       toast(t("Publishing to {platforms}", { platforms: listNames(live) }), {
         description: [
           staying.length ? t("{count, plural, one {{names} stays a draft.} other {{names} stay a draft.}}", { count: staying.length, names: listNames(staying) }) : null,

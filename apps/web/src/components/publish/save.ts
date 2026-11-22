@@ -106,8 +106,9 @@ function draftOf(post: PlannedPost, calendarId: string): EventDraft {
 /**
  * Every post is checked before any is written, so a batch that can't be saved whole saves nothing. A post
  * given an `id` saves over that one, so retrying a batch after a partial failure doesn't make copies.
+ * `onSaved` hears of each post once it's on the calendar, so a batch that stops partway can say which are.
  */
-export async function savePosts(posts: readonly PlannedPost[]): Promise<string | undefined> {
+export async function savePosts(posts: readonly PlannedPost[], onSaved?: (id: string) => void): Promise<string | undefined> {
   await hydrateCalendar();
   const calendarId = calendars()[0]?.id;
   if (!calendarId) return msg("The posts calendar could not be opened.");
@@ -130,6 +131,7 @@ export async function savePosts(posts: readonly PlannedPost[]): Promise<string |
     if (uncaptioned) return uncaptioned;
     const unkept = post.id && plan ? await keepPostFiles(post.id, plan, { stored: true }) : undefined;
     if (unkept) return unkept;
+    if (post.id) onSaved?.(post.id);
   }
 }
 

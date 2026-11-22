@@ -88,4 +88,13 @@ describe("a post this browser couldn't save", () => {
     expect(shared.uploads).toContain(`posts:${file}`);
     expect(allPosts().filter((item) => item.id === "second-try")).toHaveLength(1);
   });
+
+  test("a batch that stops partway says which posts are already on the calendar", async () => {
+    shared.idb.failWrite = (store, value) => (store === "events" && (value as { id?: string }).id === "part-b" ? FULL() : undefined);
+    const saved: string[] = [];
+    await expect(savePosts([planned("part-a"), planned("part-b"), planned("part-c")], (id) => saved.push(id))).resolves.toMatch(/couldn't save/);
+    await settled();
+    expect(saved).toEqual(["part-a"]);
+    expect(allPosts().filter((post) => post.id.startsWith("part-")).map((post) => post.id)).toEqual(["part-a"]);
+  });
 });
