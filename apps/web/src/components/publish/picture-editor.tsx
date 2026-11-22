@@ -42,7 +42,7 @@ import {
 import { MEDIA_LIMITS } from "@/lib/social-media";
 
 /** Room around the picture, so a handle on its edge can still be grabbed. */
-const GUTTER = 44;
+export const GUTTER = 44;
 /** On screen: smaller and the handles cover the crop. */
 const MIN_CROP_PX = 48;
 
@@ -61,7 +61,7 @@ const CURSORS: Record<Handle, string> = {
 const toolButton =
   "grid size-10 place-items-center rounded-xl text-white/70 press transition-colors hover:bg-white/6 hover:text-white focus-ring";
 
-const tile = (on: boolean) =>
+export const tile = (on: boolean) =>
   cx(
     "flex h-12 min-w-14 shrink-0 flex-col items-center justify-center gap-1 rounded-xl px-1.5 text-xxs press transition-colors focus-ring",
     on ? "bg-white/16 text-white" : "text-white/60 hover:bg-white/6 hover:text-white",
@@ -102,7 +102,6 @@ export function PictureEditor(props: {
     return size ? (chosen() ?? props.edit ?? startEdit(size, props.suggest)) : null;
   });
   const [stage, setStage] = createSignal({ width: 0, height: 0 });
-  const [dragging, setDragging] = createSignal<Handle | null>(null);
   const [saving, setSaving] = createSignal(false);
   const [cut, setCut] = createSignal<{ file: File; url: string; image: HTMLImageElement } | null>(null);
   const [removed, setRemoved] = createSignal(!!props.cutout);
@@ -110,7 +109,6 @@ export function PictureEditor(props: {
   let cutUrl: string | undefined;
   let job: AbortController | undefined;
   let stageEl: HTMLDivElement | undefined;
-  let frameEl: HTMLDivElement | undefined;
   let content: HTMLDivElement | undefined;
 
   const loadCut = async (file: File) => {
@@ -193,44 +191,6 @@ export function PictureEditor(props: {
     const current = edit();
     const base = natural();
     if (current && base) setEdit(next(current, base));
-  };
-
-  let drag: { id: number; handle: Handle; x: number; y: number; start: Rect } | null = null;
-
-  const begin = (event: PointerEvent) => {
-    const current = edit();
-    if (event.button !== 0 || !current) return;
-    const target = (event.target as HTMLElement).closest<HTMLElement>("[data-handle]");
-    const handle = (target?.dataset.handle as Handle | undefined) ?? "move";
-    event.preventDefault();
-    frameEl?.setPointerCapture(event.pointerId);
-    frameEl?.focus({ preventScroll: true });
-    drag = { id: event.pointerId, handle, x: event.clientX, y: event.clientY, start: current.crop };
-    setDragging(handle);
-  };
-
-  const follow = (event: PointerEvent) => {
-    const box = size();
-    if (!drag || event.pointerId !== drag.id || !box) return;
-    const by = scale();
-    const min = Math.min(MIN_CROP_PX / by, box.width, box.height);
-    const { handle, start, x, y } = drag;
-    update((current) => ({ ...current, crop: dragCrop(start, handle, (event.clientX - x) / by, (event.clientY - y) / by, box, ratio(), min) }));
-  };
-
-  const end = (event: PointerEvent) => {
-    if (drag?.id !== event.pointerId) return;
-    drag = null;
-    setDragging(null);
-  };
-
-  const nudge = (event: KeyboardEvent) => {
-    const step = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[event.key];
-    const box = size();
-    if (!step || !box) return;
-    event.preventDefault();
-    const by = (event.shiftKey ? 10 : 1) / scale();
-    update((current) => ({ ...current, crop: dragCrop(current.crop, "move", step[0]! * by, step[1]! * by, box, null, 0) }));
   };
 
   const shown = () => (removed() ? cut()?.image : picture());
@@ -351,27 +311,13 @@ export function PictureEditor(props: {
                     <div class="pointer-events-none absolute shadow-[0_0_0_100vmax_rgb(0_0_0/0.6)]" style={boxStyle(edit()!.crop)} />
                   </div>
 
-                  <div
-                    ref={frameEl}
-                    role="group"
-                    tabIndex={0}
-                    aria-label={t("Crop area")}
-                    class="absolute outline-none ring-1 ring-white/85 focus-visible:ring-2 focus-visible:ring-primary"
-                    style={{ ...boxStyle(edit()!.crop), cursor: CURSORS[dragging() ?? "move"] }}
-                    onPointerDown={begin}
-                    onPointerMove={follow}
-                    onPointerUp={end}
-                    onPointerCancel={end}
-                    onKeyDown={nudge}
-                  >
-                    <div class="pointer-events-none absolute inset-0 transition-opacity duration-150" classList={{ "opacity-0": !dragging() }}>
-                      <span class="absolute inset-y-0 left-1/3 w-px bg-white/40" />
-                      <span class="absolute inset-y-0 left-2/3 w-px bg-white/40" />
-                      <span class="absolute inset-x-0 top-1/3 h-px bg-white/40" />
-                      <span class="absolute inset-x-0 top-2/3 h-px bg-white/40" />
-                    </div>
-                    <CropHandles cursor={!dragging()} />
-                  </div>
+                  <CropFrame
+                    crop={edit()!.crop}
+                    size={box()}
+                    scale={scale()}
+                    ratio={ratio()}
+                    onCrop={(crop) => update((current) => ({ ...current, crop }))}
+                  />
                 </div>
               )}
             </Show>
@@ -449,6 +395,75 @@ export function PictureEditor(props: {
   );
 }
 
+type Size = { width: number; height: number };
+
+/** The crop's outline, in the picture's pixels scaled by `scale`: drags, handles and arrow-key nudges. */
+export function CropFrame(props: { crop: Rect; size: Size; scale: number; ratio: number | null; onCrop(crop: Rect): void }) {
+  const [dragging, setDragging] = createSignal<Handle | null>(null);
+  let frameEl: HTMLDivElement | undefined;
+  let drag: { id: number; handle: Handle; x: number; y: number; start: Rect } | null = null;
+
+  const begin = (event: PointerEvent) => {
+    if (event.button !== 0) return;
+    const target = (event.target as HTMLElement).closest<HTMLElement>("[data-handle]");
+    const handle = (target?.dataset.handle as Handle | undefined) ?? "move";
+    event.preventDefault();
+    frameEl?.setPointerCapture(event.pointerId);
+    frameEl?.focus({ preventScroll: true });
+    drag = { id: event.pointerId, handle, x: event.clientX, y: event.clientY, start: props.crop };
+    setDragging(handle);
+  };
+
+  const follow = (event: PointerEvent) => {
+    if (!drag || event.pointerId !== drag.id) return;
+    const box = props.size;
+    const by = props.scale;
+    const min = Math.min(MIN_CROP_PX / by, box.width, box.height);
+    const { handle, start, x, y } = drag;
+    props.onCrop(dragCrop(start, handle, (event.clientX - x) / by, (event.clientY - y) / by, box, props.ratio, min));
+  };
+
+  const end = (event: PointerEvent) => {
+    if (drag?.id !== event.pointerId) return;
+    drag = null;
+    setDragging(null);
+  };
+
+  const nudge = (event: KeyboardEvent) => {
+    const step = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[event.key];
+    if (!step) return;
+    event.preventDefault();
+    const by = (event.shiftKey ? 10 : 1) / props.scale;
+    props.onCrop(dragCrop(props.crop, "move", step[0]! * by, step[1]! * by, props.size, null, 0));
+  };
+
+  const px = (value: number) => `${value * props.scale}px`;
+
+  return (
+    <div
+      ref={frameEl}
+      role="group"
+      tabIndex={0}
+      aria-label={t("Crop area")}
+      class="absolute outline-none ring-1 ring-white/85 focus-visible:ring-2 focus-visible:ring-primary"
+      style={{ left: px(props.crop.x), top: px(props.crop.y), width: px(props.crop.width), height: px(props.crop.height), cursor: CURSORS[dragging() ?? "move"] }}
+      onPointerDown={begin}
+      onPointerMove={follow}
+      onPointerUp={end}
+      onPointerCancel={end}
+      onKeyDown={nudge}
+    >
+      <div class="pointer-events-none absolute inset-0 transition-opacity duration-150" classList={{ "opacity-0": !dragging() }}>
+        <span class="absolute inset-y-0 left-1/3 w-px bg-white/40" />
+        <span class="absolute inset-y-0 left-2/3 w-px bg-white/40" />
+        <span class="absolute inset-x-0 top-1/3 h-px bg-white/40" />
+        <span class="absolute inset-x-0 top-2/3 h-px bg-white/40" />
+      </div>
+      <CropHandles cursor={!dragging()} />
+    </div>
+  );
+}
+
 function ToolButton(props: { label: string; icon: string; onClick(): void }) {
   return (
     <Tooltip>
@@ -460,7 +475,7 @@ function ToolButton(props: { label: string; icon: string; onClick(): void }) {
   );
 }
 
-function ShapeGlyph(props: { id: ShapeId; ratio?: number }) {
+export function ShapeGlyph(props: { id: ShapeId; ratio?: number }) {
   return (
     <span class="grid size-[18px] place-items-center">
       <Show when={props.ratio} fallback={<Icon name={props.id === "free" ? "crop" : "image"} class="size-[22px]" />}>
