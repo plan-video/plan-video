@@ -19,26 +19,36 @@ export interface SpeechClip extends ClipTiming {
 }
 
 /** The origin is the scene time of media time 0, where the picture seeks the same moment. */
-export async function speechClips(world: World, scene: Entity): Promise<SpeechClip[]> {
+export function speechClips(world: World, scene: Entity): Promise<SpeechClip[]> {
+  return sceneClips(world, scene, "heard");
+}
+
+/** The video clips that show, muted or not. */
+export function pictureClips(world: World, scene: Entity): Promise<SpeechClip[]> {
+  return sceneClips(world, scene, "seen");
+}
+
+async function sceneClips(world: World, scene: Entity, want: "heard" | "seen"): Promise<SpeechClip[]> {
   const fps = world.get(FrameRate)?.value || 30;
   const clips: SpeechClip[] = [];
+  const heard = want === "heard";
 
-  const heard = new Set<Entity>();
+  const found = new Set<Entity>();
 
   for (const entity of getEntityTree(world, scene)) {
-    if (entity === scene || entity.has(Hidden) || entity.has(Muted) || !entity.has(AssetId)) continue;
+    if (entity === scene || entity.has(Hidden) || (heard && entity.has(Muted)) || !entity.has(AssetId)) continue;
     const paint = entity.get(Paint)?.value;
-    if (!entity.has(Audio) && paint !== PaintType.VIDEO) continue;
+    if (heard ? !entity.has(Audio) && paint !== PaintType.VIDEO : paint !== PaintType.VIDEO) continue;
 
     const asset = getAsset(world, entity.get(AssetId)!.value);
-    if (!asset || (asset.type !== "AUDIO" && asset.type !== "VIDEO")) continue;
+    if (!asset || (heard ? asset.type !== "AUDIO" && asset.type !== "VIDEO" : asset.type !== "VIDEO")) continue;
 
     // A video paint is a child of the clip and keeps the 16s length a new entity starts with;
     // the clip on the timeline is what playback hears. Muted or hidden clips aren't heard
     // through their paint either, and each clip is heard once or every word comes back twice.
     const clip = isPaintEntity(entity) ? getParentNode(entity) ?? entity : entity;
-    if (heard.has(clip) || clip.has(Muted) || clip.has(Hidden)) continue;
-    heard.add(clip);
+    if (found.has(clip) || (heard && clip.has(Muted)) || clip.has(Hidden)) continue;
+    found.add(clip);
     const source = getSourceWindow(clip);
     const computed = clip.get(Computed);
     const curve = readSpeedCurve(clip);

@@ -23,6 +23,10 @@ export type Feed<T> = {
   add: (next?: (copy: T) => void) => void;
   /** Then edits the one above it. */
   remove: () => void;
+  /** Starts over with these, editing the first. */
+  replace: (entries: T[]) => void;
+  /** Changes every entry by `change`. */
+  updateAll: (change: (entry: T) => void) => void;
 };
 
 export function createFeed<T extends object>(first: T): Feed<T> {
@@ -51,6 +55,12 @@ export function createFeed<T extends object>(first: T): Feed<T> {
       // The pick moves first, so nothing reads the entry while it is gone.
       setSelected(Math.max(0, at - 1));
       setFeed("entries", (entries) => entries.filter((_, index) => index !== at));
+    },
+    updateAll: (change) => setFeed(produce((state) => state.entries.forEach(change))),
+    replace: (entries) => {
+      if (!entries.length) return;
+      setSelected(0);
+      setFeed("entries", entries.slice(0, MAX_FEED_ENTRIES));
     },
   };
 }

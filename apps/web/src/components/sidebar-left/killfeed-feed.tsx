@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { For, Show, createEffect, createSignal, onCleanup, onMount } from "solid-js";
+import { For, Show, createEffect, createSignal, onCleanup, onMount, type JSX } from "solid-js";
 
 import { Icon } from "@/components/ui/icon";
 import { createFeed, drawEvenFeed, MAX_FEED_ENTRIES, plain, type Feed } from "@/lib/killfeed-feed";
@@ -114,6 +114,125 @@ export function FeedStage<T>(props: {
           {t("Drag onto the video")}
         </span>
       </div>
+    </div>
+  );
+}
+
+/** How tall a kill is drawn in the list. */
+const ROW_PICTURE = 18;
+
+/** `m:ss`, the way the timeline reads. */
+const clock = (seconds: number) => {
+  const whole = Math.round(seconds);
+  return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
+};
+
+/** One entry as it will look on the video, `ROW_PICTURE` tall; a long one shrinks to fit the row. */
+function EntryPicture<T>(props: { entry: T; draw: (entry: T, scale: number) => Promise<HTMLCanvasElement>; scale: number }) {
+  let box!: HTMLSpanElement;
+  let version = 0;
+  createEffect(() => {
+    const entry = plain(props.entry);
+    const pixels = Math.min(window.devicePixelRatio || 1, 3);
+    const mine = ++version;
+    props
+      .draw(entry, props.scale * ROW_PICTURE * pixels)
+      .then((canvas) => {
+        if (mine !== version) return;
+        canvas.style.width = `${(canvas.width / canvas.height) * ROW_PICTURE}px`;
+        canvas.className = "block h-auto max-w-full";
+        box.replaceChildren(canvas);
+      })
+      .catch(() => {});
+  });
+  return <span ref={box} class="flex min-w-0 items-center" style={{ "min-height": `${ROW_PICTURE}px` }} />;
+}
+
+/**
+ * The feed as a list, each kill drawn as it will look; the picked one opens to show `children`, its settings.
+ * Dragging a kill drags the whole feed onto the video.
+ */
+export function KillList<T>(props: {
+  feed: KillfeedFeed<T>;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  draw: (entry: T, scale: number) => Promise<HTMLCanvasElement>;
+  /** The draw scale for an entry 1px tall. */
+  scale: number;
+  at?: (entry: T) => number | undefined;
+  next?: (copy: T) => void;
+  onDragStart: (event: DragEvent) => void;
+  children: JSX.Element;
+}) {
+  const count = () => props.feed.entries().length;
+  const timed = () => !!props.at && props.feed.entries().some((entry) => props.at!(entry) !== undefined);
+
+  const pick = (index: number) => {
+    if (index === props.feed.selected()) return props.onOpenChange(!props.open);
+    props.feed.select(index);
+    props.onOpenChange(true);
+  };
+
+  const add = () => {
+    props.feed.add(props.next);
+    props.onOpenChange(true);
+  };
+
+  return (
+    <div class="flex flex-col gap-1" role="list" aria-label={t("Killfeed")}>
+      <For each={props.feed.entries()}>
+        {(entry, index) => {
+          const expanded = () => index() === props.feed.selected() && props.open;
+          return (
+            <div role="listitem" class="flex flex-col rounded-md transition-colors" classList={{ "bg-accent": expanded(), "bg-accent/50": !expanded() }}>
+              <button
+                type="button"
+                draggable={true}
+                onDragStart={(event) => props.onDragStart(event)}
+                aria-expanded={expanded()}
+                aria-label={t("Kill {n}", { n: index() + 1 })}
+                title={t("Drag onto the video")}
+                class="flex h-9 min-w-0 items-center gap-2.5 rounded-md px-2 transition-colors hover:bg-accent focus-ring"
+                onClick={() => pick(index())}
+              >
+                <Show when={timed()}>
+                  <span class="w-7 shrink-0 text-left text-xxs tabular-nums text-muted-foreground">
+                    {props.at!(entry) === undefined ? "" : clock(props.at!(entry)!)}
+                  </span>
+                </Show>
+                <span class="flex min-w-0 flex-1 overflow-hidden" classList={{ "justify-end": timed(), "justify-center": !timed() }}>
+                  <EntryPicture entry={entry} draw={props.draw} scale={props.scale} />
+                </span>
+              </button>
+              <Show when={expanded()}>
+                <div class="flex flex-col gap-4 px-2 pb-3 pt-2">
+                  {props.children}
+                  <Show when={count() > 1}>
+                    <button
+                      type="button"
+                      class="flex h-6 items-center gap-0.5 self-start rounded-sm pr-1 text-xs text-muted-foreground transition-colors hover:text-foreground focus-ring"
+                      onClick={() => props.feed.remove()}
+                    >
+                      <Icon name="close-remove-small" class="size-4" />
+                      {t("Remove kill {n}", { n: index() + 1 })}
+                    </button>
+                  </Show>
+                </div>
+              </Show>
+            </div>
+          );
+        }}
+      </For>
+      <Show when={count() < MAX_FEED_ENTRIES}>
+        <button
+          type="button"
+          class="flex h-8 items-center gap-1.5 rounded-md px-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-ring"
+          onClick={add}
+        >
+          <Icon name="plus-add" class="size-4" />
+          {t("Add a kill")}
+        </button>
+      </Show>
     </div>
   );
 }

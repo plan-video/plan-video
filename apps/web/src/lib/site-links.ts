@@ -16,6 +16,8 @@ export const CHARACTER_LIMITS_URL = "/character-limits";
 
 export const TOOLS_URL = "/tools";
 
+export const VALORANT_URL = "/valorant";
+
 export const AGENTS_URL = "/agents";
 
 export const ROADMAP_URL = "/roadmap";

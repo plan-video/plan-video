@@ -20,6 +20,8 @@ The tabs on the editor's rail hold what you can add:
 | **Layout** | Scene sizes like **Short-form 9:16** and **Square video 1:1** |
 | **Extensions** | Add-ons like **Progress bar** and **Killfeed** |
 
+In the **Valorant** killfeed, **Find kills in the video** reads the killfeed in the top right of your clip and lists your kills and deaths, with the player names, agents, weapon and headshots it shows. Click a kill to change it; rename yourself once and every kill follows. **Add kills where they happen** then puts each one on the frame it came in on. It works on clips where Valorant's own killfeed is visible, such as full-screen recordings.
+
 ## Change what's selected
 
 Select something, and the inspector shows what it can do:

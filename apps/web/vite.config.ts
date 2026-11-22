@@ -12,6 +12,7 @@ import { tiktokDevPlugin } from './tiktok-server'
 import { youtubeDevPlugin } from './youtube-server'
 import { transcribeDevPlugin } from './transcribe-server'
 import { contentSecurityPolicyPlugin } from './content-security-policy'
+import { ocrModelPlugin } from './ocr-model'
 import { serverSecretsPlugin } from './server-env'
 import solid from 'vite-plugin-solid'
 import solidSvg from 'vite-plugin-solid-svg'
@@ -167,6 +168,7 @@ export default defineConfig(async ({ mode, command }): Promise<UserConfig> => {
       linkedinDevPlugin(__dirname, mode),
       xDevPlugin(__dirname, mode),
       billingDevPlugin(__dirname, mode),
+      ocrModelPlugin(),
       // Invite-only unless VITE_INVITE_ONLY=false, as in lib/waitlist.ts.
       ...(site ? site.sitePlugins({ root: __dirname, dev, mode, inviteOnly: env.VITE_INVITE_ONLY !== 'false' }) : []),
       // Not in dev, whose client injects scripts of its own.

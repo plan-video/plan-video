@@ -72,6 +72,10 @@ export interface InsertKillfeedOptions {
 	bottom?: number;
 	stackName?: string;
 	spacing?: number;
+	/** Scene seconds each entry comes in at; one without its own follows the playhead and `spacing`. */
+	starts?: (number | undefined)[];
+	/** Stack down the middle of the scene instead of at its right edge. */
+	centered?: boolean;
 }
 
 export type Cs2KillfeedDrag = KillfeedDrag<Cs2KillfeedSpec>;
@@ -181,7 +185,7 @@ async function commitKillfeeds(world: World, pictures: { drawn: HTMLCanvasElemen
 		const width = Math.round((drawn.width * height) / drawn.height);
 		const slotWidth = width;
 
-		const start = first + index * spacing;
+		const start = options.starts?.[index] ?? first + index * spacing;
 		const end = start + KILLFEED_SECONDS;
 
 		// Entries put in just now aren't on the scene's clock yet, so the ones still up join the column by hand.
@@ -205,6 +209,9 @@ async function commitKillfeeds(world: World, pictures: { drawn: HTMLCanvasElemen
 			x = stack ? stack.left : MARGIN * unit;
 			const floor = sceneHeight - bottom - height;
 			y = stack ? Math.max(MARGIN * unit, stack.top - height - STACK_GAP * unit) : floor;
+		} else if (options.centered) {
+			x = Math.max(MARGIN * unit, (sceneWidth - width) / 2);
+			y = Math.max(top, (stack?.bottom ?? 0) + STACK_GAP * unit);
 		} else if (placement.layout === "valorant") {
 			const right = stack ? stack.right : sceneWidth - MARGIN * unit;
 			x = Math.max(MARGIN * unit, right - width);
