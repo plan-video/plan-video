@@ -8,14 +8,14 @@ import {
 	HitRegions, Hovering, IsMask, Name, Playback, RenderSurface, Root, Selected,
 	Sequential, ChildOf,
 	entityQuad, entityWorldMat, getMaskSelection, getSelectionMask, getSourceFailure, selectionSubject,
-	invert2D, isAudio, isGenerating, isScene,
+	invert2D, isAudio, isGenerating, isScene, pointInQuad,
 	multiply2D, rectToQuad, rotate2D, scale2D, sortByItemIndex, store, transformPoint,
 	translate2D,
 } from '@plan.video/runtime';
 
 import { t } from '@/lib/i18n';
 
-import { EditorTheme, Hud, Keys, SnapLines } from '../traits';
+import { EditorTheme, Hud, Keys, Pointer, SceneNames, SnapLines } from '../traits';
 import {
 	handleLabelInteraction, handleMaskInteraction, handlePlayInteraction,
 	handleResizeInteraction, handleRotateInteraction,
@@ -154,6 +154,7 @@ function drawHeader(world: World, ctx: Ctx2D, entity: Entity, resolution: number
 
 	// Only nodes over the bar clip it: one clip per later node would be scenes × scenes per frame.
 	const bar = rectToQuad(header.mat, header.width, HEADER_HEIGHT);
+	if (!failure && !isGenerating(entity) && !headerShown(world, entity, bar)) return;
 	above = above.filter((quad) => quadsOverlap(quad, bar));
 
 	const playback = entity.get(Playback);
@@ -425,6 +426,14 @@ function drawDimensions(world: World, ctx: Ctx2D, mask: { width: number; height:
 	ctx.fillStyle = '#FFFFFF';
 	ctx.fillText(text, 0, 0);
 	ctx.restore();
+}
+
+function headerShown(world: World, entity: Entity, bar: Quad): boolean {
+	if (world.get(SceneNames)?.always || getMountedNameInput()?.entity === entity) return true;
+	const pointer = world.get(Pointer);
+	if (!pointer?.over) return false;
+	return pointInQuad(pointer.clientX, pointer.clientY, bar)
+		|| pointInQuad(pointer.clientX, pointer.clientY, entityQuad(world, entity));
 }
 
 function hasHeader(world: World, entity: Entity): boolean {

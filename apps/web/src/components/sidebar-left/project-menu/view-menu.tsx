@@ -19,7 +19,9 @@ import { useWorld } from "@plan.video/koota-solid";
 import { useLayout } from "@/context/layout";
 import {
   PREVIEW_QUALITIES,
+  setAlwaysShowNames,
   setPreviewQuality,
+  useAlwaysShowNames,
   usePreviewQuality,
   useSelection,
   zoomBy,
@@ -40,6 +42,7 @@ export function ViewMenu() {
   const layout = useLayout();
   const { nodes } = useSelection();
   const quality = usePreviewQuality();
+  const alwaysShowNames = useAlwaysShowNames();
 
   const hasSelection = () => nodes().length > 0;
 
@@ -94,6 +97,17 @@ export function ViewMenu() {
             </DropdownMenuSubContent>
           </DropdownMenuPortal>
         </DropdownMenuSub>
+        <DropdownMenuItem
+          role="menuitemcheckbox"
+          aria-checked={alwaysShowNames()}
+          closeOnSelect={false}
+          onSelect={() => setAlwaysShowNames(world, !alwaysShowNames())}
+        >
+          {t("Always show scene names")}
+          <Show when={alwaysShowNames()}>
+            <Icon name="confirm-check" class="ml-auto -mr-1 text-foreground" />
+          </Show>
+        </DropdownMenuItem>
       </DropdownMenuGroup>
 
       <DropdownMenuSeparator />

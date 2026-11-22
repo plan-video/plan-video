@@ -5,11 +5,12 @@
 import { assetSystem, renderSystem, transformSystem, playbackSystem, motionSystem, AudioEngine, createRuntimeWorld, focusRect, Geometry, getCameraMatrix, Mode, PreviewQuality, RenderSurface, setCameraMatrix, Time, ChildOf, syncInteractiveState, DefaultBackground, Generating, GeneratingPulse, onVideoFrame, panCamera, Playback } from '@plan.video/runtime';
 import { hudSystem } from './hud';
 import { createSignal, type Accessor, type Setter } from 'solid-js';
-import { AssetSelection, EditorTheme, Hud, Keys, MODIFIER_KEYS, Pointer, PointerEvents, ProjectConfig, SnapLines } from './traits';
+import { AssetSelection, EditorTheme, Hud, Keys, MODIFIER_KEYS, Pointer, PointerEvents, ProjectConfig, SceneNames, SnapLines } from './traits';
 import { inputSystem } from './input/input-system';
 import { clearClipFrames, clearClipPeaks, clearMedia, clearPeaks, timelineSystem, TimelineSurface } from './timeline';
 import { shortcutSystem } from './input/shortcuts';
 import { getSavedPreviewQuality } from './preview-quality';
+import { getSavedAlwaysShowNames } from './scene-names';
 
 import type { Rect, RuntimeWorld } from '@plan.video/runtime';
 import type { CanvasPointerEvent, PointerEventType } from '@plan.video/runtime';
@@ -59,7 +60,7 @@ class Engine {
 
 	public constructor(projectId: string, options: EngineOptions = {}) {
 		this.world = createRuntimeWorld(projectId);
-		this.world.add(Pointer, Keys, SnapLines, Hud, EditorTheme, DefaultBackground, GeneratingPulse, PointerEvents, AssetSelection, ProjectConfig, TimelineSurface, PreviewQuality({ value: getSavedPreviewQuality() }));
+		this.world.add(Pointer, Keys, SnapLines, Hud, EditorTheme, DefaultBackground, GeneratingPulse, PointerEvents, AssetSelection, ProjectConfig, TimelineSurface, PreviewQuality({ value: getSavedPreviewQuality() }), SceneNames({ always: getSavedAlwaysShowNames() }));
 
 		this.unsubscribe.push(
 			this.world.onAdd(ChildOf('*'), () => (this.interactiveDirty = true)),

@@ -24,4 +24,5 @@ export * from './asset-actions';
 export * from './keyframes';
 export * from './align';
 export * from './preview-quality';
+export * from './scene-names';
 export * from './theme';

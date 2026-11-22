@@ -7,6 +7,7 @@ import { focusRect, getCameraMatrix, getNextName, Root, Source } from '@plan.vid
 
 import { t } from '@/lib/i18n';
 
+import { fitPadding } from './camera';
 import { getDocumentEditor } from './editor';
 import { AUDIO_SIZE, insertAsset } from './insert-asset';
 
@@ -47,7 +48,7 @@ export function createScene(world: World, format: Size, options: NewSceneOptions
 	const name = options.name ?? getNextName(world, t('Scene'));
 
 	// The camera moves first, so the scene is in view the moment it exists.
-	(options.focus ?? ((target: Rect) => focusRect(world, target)))(rect);
+	(options.focus ?? ((target: Rect) => focusRect(world, target, fitPadding(world))))(rect);
 	editor.reportEdit(root, 'camera', getCameraMatrix(world));
 
 	const [scene] = editor.insertElement(root, () => (

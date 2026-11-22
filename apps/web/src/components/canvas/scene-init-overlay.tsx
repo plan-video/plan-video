@@ -22,7 +22,7 @@ import {
 import {
   PRESET_CATEGORIES,
 } from "@/lib/layout-presets";
-import { setEmptyFrame, useCamera, useEditor } from "@/engine";
+import { fitPadding, setEmptyFrame, useCamera, useEditor } from "@/engine";
 import { droppedFiles, importFiles, pickAndImport } from "@/engine/asset-actions";
 import { createScene, insertAssetsInNewScene, sceneFrame } from "@/engine/new-scene";
 import { ASSET_DRAG_TYPE } from "@/components/sidebar-left/folder-item";
@@ -35,13 +35,11 @@ import type { LayoutPreset } from "@/lib/layout-presets";
 const DEFAULT_NAME: string = msg("New Scene");
 const DEFAULT_PRESET: LayoutPreset = { label: msg("Long-form 16:9"), width: 1920, height: 1080 };
 
-/** Matches the padding `focusRect` leaves around a framed rect. */
-const FRAME_PADDING = 80;
-
 // Not via `focusRect`: the canvas reports no viewport until the engine has mounted, and the placeholder shows before that.
 function frameInView(world: ReturnType<typeof useWorld>, rect: Rect, view: { width: number; height: number }): boolean {
-  const width = view.width - FRAME_PADDING * 2;
-  const height = view.height - FRAME_PADDING * 2;
+  const padding = fitPadding(world);
+  const width = view.width - padding * 2;
+  const height = view.height - padding * 2;
   if (width <= 0 || height <= 0 || rect.width <= 0 || rect.height <= 0) return false;
 
   const scale = Math.min(1, Math.max(MIN_CAMERA_ZOOM, Math.min(width / rect.width, height / rect.height)));

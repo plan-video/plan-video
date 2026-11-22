@@ -22,6 +22,7 @@ import {
 } from '@plan.video/runtime';
 
 import { getDocumentEditor } from './editor';
+import { SceneNames } from './traits';
 
 import type { Rect } from '@plan.video/runtime';
 import type { Entity, World } from 'koota';
@@ -48,23 +49,33 @@ export function zoomTo(world: World, scale: number): void {
 	reportCamera(world);
 }
 
+/** Room left around a fitted scene, in CSS pixels. 56 still clears the action bar under it. */
+export function fitPadding(world: World): number {
+	return world.get(SceneNames)?.always ? 80 : 56;
+}
+
 export function zoomToFit(world: World): void {
-	if (emptyFrame) focusRect(world, emptyFrame);
-	else focusContent(world);
+	const padding = fitPadding(world);
+	if (emptyFrame) focusRect(world, emptyFrame, padding);
+	else focusContent(world, padding);
 	reportCamera(world);
 }
 
 const SETTLED_FRAMES = 6;
 const SETTLE_TIMEOUT_MS = 1000;
+/** Content bounds are drawn on-screen boxes, so a resize reaches them a frame or two later. */
+const BOUNDS_LAG_FRAMES = 3;
 
 /** Refits until the canvas holds still: a panel opening next to it animates its width. */
 export function zoomToFitWhenSettled(world: World): void {
 	zoomToFit(world);
 	let last = getViewport(world);
 	let still = 0;
+	let ticks = 0;
 	const started = performance.now();
 	const tick = () => {
 		const viewport = getViewport(world);
+		if (++ticks === BOUNDS_LAG_FRAMES) zoomToFit(world);
 		if (viewport && (viewport.width !== last?.width || viewport.height !== last?.height)) {
 			last = viewport;
 			still = 0;
@@ -166,7 +177,7 @@ export function settleOpeningView(world: World, alive: () => boolean = () => tru
 			return;
 		}
 
-		focusRect(world, rect);
+		focusRect(world, rect, fitPadding(world));
 		if (!last || viewport.width !== last.width || viewport.height !== last.height) {
 			last = viewport;
 			still = 0;

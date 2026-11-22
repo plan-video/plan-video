@@ -52,6 +52,9 @@ export type EditorThemeMode = 'dark' | 'light';
 
 export const EditorTheme = trait({ mode: 'dark' as EditorThemeMode });
 
+/** Off: a name over the canvas shows only while the pointer is on its node or the name itself. */
+export const SceneNames = trait({ always: false });
+
 export const PointerEvents = trait({ queue: () => [] as CanvasPointerEvent[] });
 
 /** By id. Editor state, not a document property; a click on empty canvas clears it. */
