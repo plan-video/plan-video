@@ -30,6 +30,7 @@ import { FAILED_COLOR, getGeneratingColor, getSourceFailure, isGenerating } from
 import { applyStrokeStyle } from '../utils/stroke';
 import { renderText } from '../utils/text';
 import { getEdgeTransition, getTransitionPartner, getTransitionWindow } from '../utils/transition';
+import { drawTransitionCut, drawTransitionEdge, posedDraw, transitionLook, type TransitionBox, type TransitionLook } from '../utils/transition-draw';
 import { buildEffects } from '../utils/effects';
 import { gradeFilter } from '../utils/grade';
 import { getIntrinsicPaint } from '../utils/time';
@@ -585,7 +586,6 @@ function renderCaptionNode(world: World, entity: Entity): void {
 }
 
 function renderTransition(world: World, scene: Entity, left: Entity): void {
-	const ctx = getCtx(world);
 	const computed = store(world, Computed);
 
 	const currentTime = computed.localTime[scene.id()]!;
@@ -597,66 +597,15 @@ function renderTransition(world: World, scene: Entity, left: Entity): void {
 
 	if (currentTime < win.start || currentTime >= win.end) return;
 
-	const duration = win.end - win.start;
-	const completion = (currentTime - win.start) / duration;
-
-	const settings = transitionSettings(world, Transition, left);
-	const { type } = settings;
-
 	const parent = getParentNode(left);
 	if (parent === null) return;
-	const width = computed.width[parent.id()]!;
-	const height = computed.height[parent.id()]!;
 
-	switch (type) {
-		case TransitionType.SLIDE_FROM_RIGHT:
-		case TransitionType.SLIDE_FROM_LEFT: {
-			const p = settings.ease(completion, (t) => 1 - (1 - t) ** 2);
-			const [ux, uy] = transitionDirection(settings.direction, type === TransitionType.SLIDE_FROM_RIGHT ? 'left' : 'right');
-			renderNode(world, left);
-			ctx.save();
-			ctx.translate((-ux * (1 - p) * width) | 0, (-uy * (1 - p) * height) | 0);
-			renderNode(world, right);
-			ctx.restore();
-			break;
-		}
-		case TransitionType.FADE_TO_BLACK:
-		case TransitionType.FADE_TO_WHITE: {
-			const p = settings.ease(completion, linear);
-			renderNode(world, p < 0.5 ? left : right);
-			ctx.save();
-			ctx.beginPath();
-			ctx.rect(0, 0, width, height);
-			ctx.closePath();
-			ctx.fillStyle = settings.color(type === TransitionType.FADE_TO_BLACK ? '#000000' : '#FFFFFF');
-			ctx.globalAlpha = p < 0.5 ? 2 * p : 2 * (1 - p);
-			ctx.fill();
-			ctx.restore();
-			break;
-		}
-		case TransitionType.PUSH_LEFT:
-		case TransitionType.PUSH_UP:
-		case TransitionType.ZOOM_IN:
-		case TransitionType.ZOOM_OUT:
-		case TransitionType.CROSS_ZOOM:
-		case TransitionType.SPIN:
-		case TransitionType.WHIP:
-		case TransitionType.FLASH:
-		case TransitionType.BLUR:
-		case TransitionType.WIPE:
-		case TransitionType.IRIS: {
-			renderMotionTransition(world, settings, left, right, completion);
-			break;
-		}
-		default: {
-			renderNode(world, left);
-			ctx.save();
-			ctx.globalAlpha = settings.ease(completion, linear);
-			renderNode(world, right);
-			ctx.restore();
-			break;
-		}
-	}
+	const ctx = getCtx(world);
+	const box = transitionBox(world, left, right);
+	const frame = { x: 0, y: 0, width: computed.width[parent.id()]!, height: computed.height[parent.id()]! };
+	const draw = posedDraw(ctx, box, (side) => renderNode(world, side === 0 ? left : right));
+	const completion = (currentTime - win.start) / (win.end - win.start);
+	drawTransitionCut({ ctx, box, frame, draw }, transitionSettings(world, Transition, left), completion);
 
 	// Mark both partners as already drawn this frame so the parent's
 	// children loop skips its plain renderNode pass for them.
@@ -664,10 +613,8 @@ function renderTransition(world: World, scene: Entity, left: Entity): void {
 	computed.visibility[right.id()] = 0;
 }
 
-type Box = { x: number; y: number; width: number; height: number };
-
 /** The union of both boxes through each local transform, so a clip away from the parent's origin still turns about its own middle. */
-function transitionBox(world: World, ...clips: Entity[]): Box {
+function transitionBox(world: World, ...clips: Entity[]): TransitionBox {
 	const computed = store(world, Computed);
 	const local = store(world, LocalTransform);
 	let minX = Infinity;
@@ -693,194 +640,17 @@ function transitionBox(world: World, ...clips: Entity[]): Box {
 	return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }
 
-const clamp01 = (value: number) => (value < 0 ? 0 : value > 1 ? 1 : value);
-const easeInOutCubic = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
-const easeInOutQuint = (t: number) => (t < 0.5 ? 16 * t ** 5 : 1 - (-2 * t + 2) ** 5 / 2);
-const easeInCubic = (t: number) => t * t * t;
-const easeOutCubic = (t: number) => 1 - (1 - t) ** 3;
-const smoothstep = (t: number) => t * t * (3 - 2 * t);
-const linear = (t: number) => t;
-
-const EASINGS: Record<TransitionEasing, ((t: number) => number) | null> = {
-	[TransitionEasing.AUTO]: null,
-	[TransitionEasing.LINEAR]: linear,
-	[TransitionEasing.EASE_IN]: easeInCubic,
-	[TransitionEasing.EASE_OUT]: easeOutCubic,
-	[TransitionEasing.EASE_IN_OUT]: easeInOutCubic,
-};
-
-type Way = 'left' | 'right' | 'up' | 'down';
-
-const WAYS: Record<Way, [number, number]> = { left: [-1, 0], right: [1, 0], up: [0, -1], down: [0, 1] };
-
-const DIRECTIONS: Record<TransitionDirection, Way | null> = {
-	[TransitionDirection.AUTO]: null,
-	[TransitionDirection.LEFT]: 'left',
-	[TransitionDirection.RIGHT]: 'right',
-	[TransitionDirection.UP]: 'up',
-	[TransitionDirection.DOWN]: 'down',
-};
-
-function transitionDirection(direction: TransitionDirection, own: Way): [number, number] {
-	return WAYS[DIRECTIONS[direction] ?? own];
-}
-
-type TransitionSettings = {
-	type: TransitionType;
-	direction: TransitionDirection;
-	/** With an easing set, `t` goes through that instead of the style's own curve, so Linear really is linear. */
-	ease: (t: number, own: (t: number) => number) => number;
-	color: (own: string) => string;
-};
-
-function transitionSettings(world: World, trait: typeof Transition | typeof TransitionIn, clip: Entity): TransitionSettings {
+function transitionSettings(world: World, trait: typeof Transition | typeof TransitionIn, clip: Entity): TransitionLook {
 	const traits = store(world, trait);
 	const id = clip.id();
-	const set = EASINGS[(traits.easing[id] ?? TransitionEasing.AUTO) as TransitionEasing] ?? null;
-	const color = traits.color[id] ?? -1;
-	return {
-		type: traits.type[id] ?? TransitionType.DISSOLVE,
-		direction: traits.direction[id] ?? TransitionDirection.AUTO,
-		ease: (t, own) => (set ?? own)(clamp01(t)),
-		color: (own) => (color >= 0 ? colorToHex(color) : own),
-	};
+	return transitionLook(
+		traits.type[id] ?? TransitionType.DISSOLVE,
+		traits.direction[id] ?? TransitionDirection.AUTO,
+		(traits.easing[id] ?? TransitionEasing.AUTO) as TransitionEasing,
+		traits.color[id] ?? -1,
+	);
 }
 
-function wipeRect(ctx: Ctx2D, box: Box, [ux, uy]: [number, number], fraction: number, leading: boolean): void {
-	const w = ux ? box.width * fraction : box.width;
-	const h = uy ? box.height * fraction : box.height;
-	const far = (u: number) => (u > 0) === leading;
-	const x = ux && far(ux) ? box.x + box.width - w : box.x;
-	const y = uy && far(uy) ? box.y + box.height - h : box.y;
-	ctx.rect(x, y, w, h);
-}
-
-/**
- * Adds a blur of `pixels` (in the parent's units) to whatever filter the
- * context already has. A canvas filter's lengths ignore the transform, so
- * the radius is scaled by it to look the same in a small preview as in an
- * export.
- */
-function addBlur(ctx: Ctx2D, pixels: number): void {
-	if (pixels < 0.25) return;
-	const m = ctx.getTransform();
-	const radius = pixels * Math.hypot(m.a, m.b);
-	const current = ctx.filter;
-	ctx.filter = current && current !== 'none' ? `${current} blur(${radius.toFixed(2)}px)` : `blur(${radius.toFixed(2)}px)`;
-}
-
-function drawPosed(
-	world: World,
-	clip: Entity,
-	pose: { cx: number; cy: number; scale?: number; rotate?: number; dx?: number; dy?: number; alpha?: number; blur?: number },
-): void {
-	const ctx = getCtx(world);
-	const alpha = pose.alpha ?? 1;
-	if (alpha <= 0) return;
-	ctx.save();
-	ctx.translate(pose.cx + (pose.dx ?? 0), pose.cy + (pose.dy ?? 0));
-	if (pose.rotate) ctx.rotate(pose.rotate);
-	if (pose.scale !== undefined && pose.scale !== 1) ctx.scale(pose.scale, pose.scale);
-	ctx.translate(-pose.cx, -pose.cy);
-	ctx.globalAlpha *= alpha;
-	if (pose.blur) addBlur(ctx, pose.blur);
-	renderNode(world, clip);
-	ctx.restore();
-}
-
-function renderMotionTransition(world: World, settings: TransitionSettings, left: Entity, right: Entity, completion: number): void {
-	const ctx = getCtx(world);
-	const { type } = settings;
-	const box = transitionBox(world, left, right);
-	const cx = box.x + box.width / 2;
-	const cy = box.y + box.height / 2;
-	const p = settings.ease(completion, linear);
-	const e = settings.ease(completion, easeInOutCubic);
-	// How far the blurs reach: a share of the frame, so they read the same at any size.
-	const blurReach = Math.max(box.width, box.height) * 0.02;
-
-	switch (type) {
-		case TransitionType.PUSH_LEFT:
-		case TransitionType.PUSH_UP:
-		case TransitionType.WHIP: {
-			const whip = type === TransitionType.WHIP;
-			const q = whip ? settings.ease(completion, easeInOutQuint) : e;
-			const [ux, uy] = transitionDirection(settings.direction, type === TransitionType.PUSH_UP ? 'up' : 'left');
-			const distance = ux ? box.width : box.height;
-			const shift = Math.round(q * distance);
-			const blur = whip ? Math.sin(Math.PI * p) * blurReach * 1.5 : 0;
-			drawPosed(world, left, { cx, cy, dx: ux * shift, dy: uy * shift, blur });
-			drawPosed(world, right, { cx, cy, dx: ux * (shift - distance), dy: uy * (shift - distance), blur });
-			break;
-		}
-		case TransitionType.ZOOM_IN: {
-			// The next clip settles from a little larger, so no edge shows round it.
-			drawPosed(world, right, { cx, cy, scale: 1.15 - 0.15 * e, alpha: smoothstep(clamp01((p - 0.15) / 0.6)) });
-			drawPosed(world, left, { cx, cy, scale: 1 + 0.6 * e, alpha: 1 - smoothstep(clamp01(p / 0.75)) });
-			break;
-		}
-		case TransitionType.ZOOM_OUT: {
-			drawPosed(world, left, { cx, cy, scale: 1 - 0.25 * e, alpha: 1 - smoothstep(clamp01((p - 0.1) / 0.65)) });
-			drawPosed(world, right, { cx, cy, scale: 1.45 - 0.45 * e, alpha: smoothstep(clamp01(p / 0.7)) });
-			break;
-		}
-		case TransitionType.CROSS_ZOOM: {
-			if (p < 0.5) {
-				const q = easeInCubic(p * 2);
-				drawPosed(world, left, { cx, cy, scale: 1 + 1.2 * q, blur: q * blurReach * 2 });
-				// A brief overlap either side of the cut, so it does not pop.
-				if (p > 0.42) drawPosed(world, right, { cx, cy, scale: 2.2, blur: blurReach * 2, alpha: (p - 0.42) / 0.16 });
-			} else {
-				const q = easeOutCubic((p - 0.5) * 2);
-				if (p < 0.58) drawPosed(world, left, { cx, cy, scale: 2.2, blur: blurReach * 2 });
-				drawPosed(world, right, { cx, cy, scale: 2.2 - 1.2 * q, blur: (1 - q) * blurReach * 2, alpha: p < 0.58 ? 0.5 + (p - 0.5) / 0.16 : 1 });
-			}
-			break;
-		}
-		case TransitionType.SPIN: {
-			drawPosed(world, left, { cx, cy, scale: 1 + 0.15 * e, alpha: 1 - smoothstep(clamp01((p - 0.35) / 0.5)) });
-			drawPosed(world, right, { cx, cy, scale: e, rotate: (1 - e) * -Math.PI, alpha: smoothstep(clamp01(p / 0.3)) });
-			break;
-		}
-		case TransitionType.FLASH: {
-			renderNode(world, p < 0.5 ? left : right);
-			const alpha = p < 0.5 ? smoothstep(clamp01(p / 0.5)) : 1 - smoothstep(clamp01((p - 0.5) / 0.5));
-			ctx.save();
-			ctx.globalAlpha *= alpha;
-			ctx.fillStyle = settings.color('#FFFFFF');
-			ctx.fillRect(box.x, box.y, box.width, box.height);
-			ctx.restore();
-			break;
-		}
-		case TransitionType.BLUR: {
-			drawPosed(world, left, { cx, cy, blur: e * blurReach * 2 });
-			drawPosed(world, right, { cx, cy, alpha: e, blur: (1 - e) * blurReach * 2 });
-			break;
-		}
-		case TransitionType.WIPE: {
-			renderNode(world, left);
-			ctx.save();
-			ctx.beginPath();
-			wipeRect(ctx, box, transitionDirection(settings.direction, 'right'), e, false);
-			ctx.clip();
-			renderNode(world, right);
-			ctx.restore();
-			break;
-		}
-		case TransitionType.IRIS: {
-			renderNode(world, left);
-			ctx.save();
-			ctx.beginPath();
-			ctx.arc(cx, cy, (e * Math.hypot(box.width, box.height)) / 2, 0, Math.PI * 2);
-			ctx.clip();
-			renderNode(world, right);
-			ctx.restore();
-			break;
-		}
-	}
-}
-
-/** Each style plays as its half of a cut would with nothing on the other side. */
 function renderEdgeTransition(world: World, parent: Entity, clip: Entity): void {
 	const computed = store(world, Computed);
 	if (computed.visibility[clip.id()] === 0 || clip.has(Culled) || clip.has(Hidden) || clip.has(IsMask)) return;
@@ -889,109 +659,10 @@ function renderEdgeTransition(world: World, parent: Entity, clip: Entity): void 
 	if (!playing) return;
 
 	const ctx = getCtx(world);
-	const settings = transitionSettings(world, playing.edge === 'in' ? TransitionIn : Transition, clip);
-	const { type } = settings;
 	const box = transitionBox(world, clip);
-	const cx = box.x + box.width / 2;
-	const cy = box.y + box.height / 2;
-	const s = settings.ease(playing.shown, linear);
-	const e = settings.ease(playing.shown, easeInOutCubic);
-	const side = playing.edge === 'in' ? 1 : -1;
-	const blurReach = Math.max(box.width, box.height) * 0.02;
-
-	const offset = (own: Way, away: number) => {
-		const [ux, uy] = transitionDirection(settings.direction, own);
-		const sign = playing.edge === 'in' ? -1 : 1;
-		return { dx: Math.round(sign * ux * away * box.width), dy: Math.round(sign * uy * away * box.height) };
-	};
-
-	const fadeThrough = (color: string) => {
-		ctx.save();
-		ctx.globalAlpha *= clamp01(s / 0.4);
-		renderNode(world, clip);
-		ctx.globalAlpha *= smoothstep(clamp01((1 - s) / 0.6));
-		ctx.fillStyle = color;
-		ctx.fillRect(box.x, box.y, box.width, box.height);
-		ctx.restore();
-	};
-
-	switch (type) {
-		case TransitionType.SLIDE_FROM_RIGHT:
-		case TransitionType.SLIDE_FROM_LEFT: {
-			const q = settings.ease(playing.shown, (t) => 1 - (1 - t) ** 2);
-			drawPosed(world, clip, { cx, cy, ...offset(type === TransitionType.SLIDE_FROM_RIGHT ? 'left' : 'right', 1 - q) });
-			break;
-		}
-		case TransitionType.PUSH_LEFT:
-			drawPosed(world, clip, { cx, cy, ...offset('left', 1 - e) });
-			break;
-		case TransitionType.PUSH_UP:
-			drawPosed(world, clip, { cx, cy, ...offset('up', 1 - e) });
-			break;
-		case TransitionType.WHIP: {
-			const q = settings.ease(playing.shown, easeInOutQuint);
-			drawPosed(world, clip, { cx, cy, ...offset('left', 1 - q), blur: Math.sin((Math.PI * (1 - s)) / 2) * blurReach * 1.5 });
-			break;
-		}
-		case TransitionType.FADE_TO_BLACK:
-			fadeThrough(settings.color('#000000'));
-			break;
-		case TransitionType.FADE_TO_WHITE:
-			fadeThrough(settings.color('#FFFFFF'));
-			break;
-		case TransitionType.ZOOM_IN:
-			drawPosed(world, clip, {
-				cx,
-				cy,
-				scale: playing.edge === 'in' ? 1.15 - 0.15 * e : 1 + 0.6 * (1 - e),
-				alpha: smoothstep(clamp01(s / 0.6)),
-			});
-			break;
-		case TransitionType.ZOOM_OUT:
-			drawPosed(world, clip, { cx, cy, scale: 0.75 + 0.25 * e, alpha: smoothstep(clamp01(s / 0.6)) });
-			break;
-		case TransitionType.CROSS_ZOOM: {
-			const q = playing.edge === 'in' ? 1 - easeOutCubic(s) : easeInCubic(1 - s);
-			drawPosed(world, clip, { cx, cy, scale: 1 + 1.2 * q, blur: q * blurReach * 2, alpha: clamp01(s / 0.3) });
-			break;
-		}
-		case TransitionType.SPIN:
-			drawPosed(world, clip, { cx, cy, scale: e, rotate: (1 - e) * -side * Math.PI, alpha: smoothstep(clamp01(s / 0.3)) });
-			break;
-		case TransitionType.FLASH: {
-			if (s >= 0.5) renderNode(world, clip);
-			ctx.save();
-			ctx.globalAlpha *= s >= 0.5 ? smoothstep(clamp01((1 - s) / 0.5)) : smoothstep(clamp01(s / 0.5));
-			ctx.fillStyle = settings.color('#FFFFFF');
-			ctx.fillRect(box.x, box.y, box.width, box.height);
-			ctx.restore();
-			break;
-		}
-		case TransitionType.BLUR:
-			drawPosed(world, clip, { cx, cy, alpha: e, blur: (1 - e) * blurReach * 2 });
-			break;
-		case TransitionType.WIPE: {
-			ctx.save();
-			ctx.beginPath();
-			wipeRect(ctx, box, transitionDirection(settings.direction, 'right'), e, playing.edge === 'out');
-			ctx.clip();
-			renderNode(world, clip);
-			ctx.restore();
-			break;
-		}
-		case TransitionType.IRIS: {
-			ctx.save();
-			ctx.beginPath();
-			ctx.arc(cx, cy, (e * Math.hypot(box.width, box.height)) / 2, 0, Math.PI * 2);
-			ctx.clip();
-			renderNode(world, clip);
-			ctx.restore();
-			break;
-		}
-		default:
-			drawPosed(world, clip, { cx, cy, alpha: s });
-			break;
-	}
+	const draw = posedDraw(ctx, box, () => renderNode(world, clip));
+	const look = transitionSettings(world, playing.edge === 'in' ? TransitionIn : Transition, clip);
+	drawTransitionEdge({ ctx, box, frame: box, draw }, look, playing.edge, playing.shown);
 
 	computed.visibility[clip.id()] = 0;
 }

@@ -11,3 +11,4 @@ export * from './text-motion';
 export * from './speed';
 export * from './time';
 export * from './transition';
+export * from './transition-draw';

@@ -116,7 +116,14 @@ export type TransitionType =
   | "flash"
   | "blur"
   | "wipe"
-  | "iris";
+  | "iris"
+  | "lightLeak"
+  | "bloom"
+  | "split"
+  | "stripes"
+  | "clock"
+  | "glitch"
+  | "impact";
 
 export type TransitionSpec = {
   /** Transition style. Default "dissolve". */
@@ -127,13 +134,14 @@ export type TransitionSpec = {
    */
   duration?: Time;
   /**
-   * Which way a transition that moves goes: slides, pushes, the whip and the
-   * wipe. Default: the style's own (a push goes left, pushUp up).
+   * Which way a transition that moves goes: slides, pushes, the whip, the
+   * wipes and stripes, and split (left or right opens sideways, up or down
+   * top and bottom). Default: the style's own (a push goes left, pushUp up).
    */
   direction?: "left" | "right" | "up" | "down";
   /** The curve it plays along. Default: the style's own. */
   easing?: "linear" | "easeIn" | "easeOut" | "easeInOut";
-  /** The colour a fade or flash goes through. Default: the style's own (black, or white). */
+  /** The colour a fade or flash goes through, or a light leak glows. Default: the style's own (black, white, or warm orange). */
   color?: string;
 };
 

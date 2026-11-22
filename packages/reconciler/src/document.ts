@@ -111,6 +111,13 @@ export const TRANSITION_TYPES: Record<string, TransitionType> = {
 	blur: TransitionType.BLUR,
 	wipe: TransitionType.WIPE,
 	iris: TransitionType.IRIS,
+	lightLeak: TransitionType.LIGHT_LEAK,
+	bloom: TransitionType.BLOOM,
+	split: TransitionType.SPLIT,
+	stripes: TransitionType.STRIPES,
+	clock: TransitionType.CLOCK,
+	glitch: TransitionType.GLITCH,
+	impact: TransitionType.IMPACT,
 };
 
 export const TRANSITION_DIRECTIONS: Record<string, TransitionDirection> = {

@@ -172,6 +172,13 @@ export enum TransitionType {
   BLUR,
   WIPE,
   IRIS,
+  LIGHT_LEAK,
+  BLOOM,
+  SPLIT,
+  STRIPES,
+  CLOCK,
+  GLITCH,
+  IMPACT,
 }
 
 /** Which way a transition that moves goes: AUTO is the style's own way. */
