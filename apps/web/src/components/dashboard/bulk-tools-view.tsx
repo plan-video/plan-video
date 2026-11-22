@@ -865,7 +865,8 @@ function BulkTools() {
   });
 
   return (
-    <div class="flex min-h-0 flex-1 overflow-hidden">
+    // Read-only while saving: what's saved is what was on screen at the click, and the batch is cleared after.
+    <div class="flex min-h-0 flex-1 overflow-hidden" inert={saving() ? true : undefined}>
       <main class={cx("relative flex min-w-0 flex-1 flex-col", (editingIndex() >= 0 || batchOpen()) && "max-md:hidden")} {...handlers}>
         <DashboardPageHeader noPhoneCrumbs={bulk.posts.length > 0}>
           <Show when={reading()}>
