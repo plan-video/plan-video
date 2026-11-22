@@ -35,7 +35,8 @@ export function Layers() {
       <div
         class="grid grid-cols-1 h-full absolute inset-0 overflow-x-visible overflow-y-clip"
         on:wheel={timeline.scroll}
-        style={{ 'grid-template-rows': `${RULER_HEIGHT}px 1fr` }}
+        // minmax(0, …): a bare 1fr row grows to fit every layer, so the rows would never overflow and scroll.
+        style={{ 'grid-template-rows': `${RULER_HEIGHT}px minmax(0, 1fr)` }}
         data-timeline-layers-container
       >
         <div />
