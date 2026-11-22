@@ -10,7 +10,8 @@
     "./types": "./src/types.ts"
   },
   "scripts": {
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "test": "vitest run"
   },
   "keywords": [
     "assets",

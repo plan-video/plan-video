@@ -162,10 +162,10 @@ export function isSequenceListing(names: string[]): boolean {
 	return true;
 }
 
-/** The frames of a sequence in play order: natural sort, so 2 comes before 10. */
+/** The frames of a sequence in play order: natural sort, so 2 comes before 10. Hidden files (.DS_Store) are not frames, as in `isSequenceListing`. */
 export function sortFrames<T extends { name: string }>(frames: T[]): T[] {
 	const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
-	return [...frames].sort((a, b) => collator.compare(a.name, b.name));
+	return frames.filter((frame) => !frame.name.startsWith('.')).sort((a, b) => collator.compare(a.name, b.name));
 }
 
 async function getRasterDimensions(file: Blob): Promise<{ width: number; height: number }> {

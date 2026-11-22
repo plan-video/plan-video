@@ -316,7 +316,11 @@ export function createBrowserProjectFS(dir: string): ProjectFS {
       if (!(await existsPath(path))) return [];
       return listDirectory(path);
     },
-    stat: (source) => statPath(absolute(source)),
+    // A folder answers too: a frames folder is imported as one sequence, and the library checks it is there first.
+    stat: async (source) => {
+      const path = absolute(source);
+      return (await statPath(path)) ?? ((await existsPath(path)) ? { size: 0, mtime: 0 } : null);
+    },
     file: async (source) => {
       const path = absolute(source);
       const data = await readBytes(path);
