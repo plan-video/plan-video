@@ -42,6 +42,7 @@ import { Separator } from '@/components/ui/separator';
 import { SliderRow } from '@/components/ui/slider-row';
 import { CanvasTools, HistoryButtons } from '@/components/canvas/toolbar';
 import { ZoomMenu } from '@/components/sidebar-right/inspector/inspector-header';
+import { NetworkPreviewMenu } from '@/components/canvas/network-preview';
 import { Tooltip, TooltipContent, TooltipPortal, TooltipTrigger } from '@/components/ui/tooltip';
 import { DEFAULT_CLIP_HEIGHT, setSimpleClips, simpleClips, TIMELINE_BAR_HEIGHT } from '@/engine/timeline';
 import { useDerived, useEditor, useTimelineIndex } from '@/engine/hooks';
@@ -274,6 +275,7 @@ export function TimelineBar(props: { toolsShift: number }) {
               </DropdownMenuContent>
             </DropdownMenuPortal>
           </DropdownMenu>
+          <NetworkPreviewMenu placement="top-end" />
           <ZoomMenu placement="top-end" />
           <Separator orientation="vertical" class="min-h-4 mx-2" />
           <HistoryButtons />

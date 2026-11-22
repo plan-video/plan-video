@@ -33,6 +33,12 @@ Looking for one setting? Click the search icon at the top of the inspector and t
 
 A bar at the bottom of the canvas changes with your selection too: **Auto-Captions**, **Remove background** and **Fit scene to video**. Undo and redo sit in the timeline's bar, next to the tools.
 
+## See it on each network
+
+The phone button next to the zoom shows your scene the way a network shows it. **Full screen** has **TikTok**, **Instagram Reels**, **Instagram Stories**, **YouTube Shorts** and **Facebook Reels**. **In the feed** has a YouTube player and a post on Facebook, X, Threads, LinkedIn, Bluesky or Pinterest. The app's buttons, name and caption sit over your video, and a dashed line marks the safe zone: keep text and faces inside it so nothing covers them. A video that's the wrong shape for the app shows with the black bars it would get.
+
+You can keep editing while it's on. Choose **Turn off preview** to hide it. Nothing is added to your video.
+
 ## Post or save it
 
 - **Schedule post** opens [New post](/docs/create-a-post) with the project attached. The video is made as a Full HD MP4 while you write the post.

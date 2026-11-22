@@ -18,6 +18,7 @@ import { usePromptInput } from "@/context/prompt-input";
 import { TOOLBAR_SLOTS, useLayout } from "@/context/layout";
 import { TOOLBAR_SLOT_ANCHOR, TOOLBAR_SLOT_CLASS, isTopSlot, useToolbarFloating } from "./toolbar-slot";
 import { ZoomMenu } from "@/components/sidebar-right/inspector/inspector-header";
+import { NetworkPreviewMenu } from "./network-preview";
 import { t } from "@/lib/i18n";
 import { shortcutLabel } from "@/lib/keymap";
 import {
@@ -182,6 +183,7 @@ export function Toolbar() {
         >
           <CanvasTools />
           <Separator orientation="vertical" class="min-h-4 mx-2" />
+          <NetworkPreviewMenu placement={top() ? "bottom-end" : "top-end"} />
           <ZoomMenu placement={top() ? "bottom-end" : "top-end"} />
           <Separator orientation="vertical" class="min-h-4 mx-2" />
           <HistoryButtons />

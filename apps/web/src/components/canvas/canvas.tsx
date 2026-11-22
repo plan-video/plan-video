@@ -15,6 +15,7 @@ import { toast } from "somoto"
 import { SceneInitOverlay } from "./scene-init-overlay";
 import { LayoutCropOverlay } from "./layout-crop-overlay";
 import { SceneDropOverlay } from "./scene-drop-overlay";
+import { NetworkPreviewOverlay } from "./network-preview";
 import { ASSET_DRAG_TYPE } from "@/components/sidebar-left/folder-item";
 import { BAR_KILLFEED_DRAG_TYPE } from "@/components/sidebar-left/bar-killfeed-panel";
 import { CS2_KILLFEED_DRAG_TYPE } from "@/components/sidebar-left/cs2-killfeed-panel";
@@ -141,6 +142,7 @@ export function Canvas() {
         <CanvasSelectionMenu>
           <EngineCanvas />
         </CanvasSelectionMenu>
+        <NetworkPreviewOverlay />
         <SceneDropOverlay />
         <CameraController />
         <LayoutCropOverlay />
