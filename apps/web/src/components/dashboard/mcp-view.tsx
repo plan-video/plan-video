@@ -69,7 +69,7 @@ function DashboardClaudeSection() {
             leadingSize="sm"
             title={t("Plan Video connector")}
             leading={<Icon name="claude" class="text-foreground" />}
-            description={t("In Claude, open Settings, then Connectors, add a custom connector and paste this URL.")}
+            description={t("In Claude, open Customize, then Connectors, add a custom connector and paste this URL.")}
             action={
               <div class="flex shrink-0 items-center gap-2">
                 <div class="flex h-7 w-41 items-center rounded-md bg-input px-2">

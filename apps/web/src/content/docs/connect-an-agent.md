@@ -10,29 +10,29 @@ The first time your agent connects, a plan.video page opens where you sign in an
 
 <Steps>
   <Step title="Open Connectors">
-    In Claude, open **Settings**, then **Connectors**.
+    In Claude, open **Customize**, then **Connectors**.
   </Step>
   <Step title="Add a custom connector">
-    Click **Add custom connector**, name it *plan.video*, and paste `https://plan.video/mcp`.
+    Click **Add**, then **Add custom connector**. Name it *plan.video*, paste `https://plan.video/mcp`, and click **Add**.
   </Step>
   <Step title="Sign in">
     Click **Connect**, sign in with your plan.video account, and click **Allow**.
   </Step>
 </Steps>
 
-This works in Claude on the web, the desktop app and the mobile apps.
+Add it once on the web or in the desktop app, and it's there in Claude's mobile apps too. On a Team or Enterprise plan, an owner adds it under **Organization settings**, and each member clicks **Connect**.
 
 ## Coding agents
 
 <CodeGroup>
 
 ```bash Claude Code
-claude mcp add --transport http planvideo https://plan.video/mcp
+claude mcp add --transport http --scope user planvideo https://plan.video/mcp
 # Then run /mcp in Claude Code and pick planvideo to sign in.
 ```
 
 ```toml Codex
-# ~/.codex/config.toml
+# ~/.codex/config.toml, shared by the ChatGPT desktop app, the Codex CLI and the IDE extension
 [mcp_servers.planvideo]
 url = "https://plan.video/mcp"
 
@@ -48,18 +48,20 @@ url = "https://plan.video/mcp"
     }
   }
 }
+// Then open Customize, find planvideo under MCP and click Connect.
 ```
 
 ```json VS Code
-// .vscode/mcp.json
+// ~/.copilot/mcp-config.json
 {
-  "servers": {
+  "mcpServers": {
     "planvideo": {
       "type": "http",
       "url": "https://plan.video/mcp"
     }
   }
 }
+// Then run MCP: List Servers, start planvideo and click Authenticate.
 ```
 
 ```json Gemini CLI
@@ -72,6 +74,7 @@ url = "https://plan.video/mcp"
   }
 }
 // Then sign in from Gemini CLI: /mcp auth planvideo
+// Moved to Antigravity CLI? Use the Antigravity config instead.
 ```
 
 ```json Antigravity
@@ -90,23 +93,17 @@ url = "https://plan.video/mcp"
 {
   "mcpServers": {
     "planvideo": {
-      "serverUrl": "https://plan.video/mcp"
+      "url": "https://plan.video/mcp",
+      "transport": "http"
     }
   }
 }
+// Then open Customize → MCPs and click Authenticate next to planvideo.
 ```
 
-```json OpenCode
-// opencode.json
-{
-  "mcp": {
-    "planvideo": {
-      "type": "remote",
-      "url": "https://plan.video/mcp"
-    }
-  }
-}
-// Then sign in from your terminal: opencode mcp auth planvideo
+```bash OpenCode
+opencode mcp add planvideo --url https://plan.video/mcp
+# Then sign in: opencode mcp auth planvideo
 ```
 
 </CodeGroup>
