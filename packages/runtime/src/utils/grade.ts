@@ -7,6 +7,7 @@
 
 import { store } from '../world/store';
 import { Cache, Grade, Hidden } from '../traits';
+import { svgFilterUrl } from './svg-filter';
 
 import type { Entity, World } from 'koota';
 
@@ -236,15 +237,6 @@ export function gradePrimitives(values: GradeValues): GradePrimitives | null {
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
 /**
- * Filters the canvas has been handed, by what they draw, least recently used
- * first. A grade being dragged makes one a step, so the old ones go.
- */
-const filters = new Map<string, SVGFilterElement>();
-const MAX_FILTERS = 64;
-let holder: SVGSVGElement | null = null;
-let nextId = 0;
-
-/**
  * Builds `<filter>` content for `primitives` into `filter`: the matrix, then
  * the tables. sRGB throughout, as the tables are written in it.
  */
@@ -274,38 +266,9 @@ export function fillGradeFilter(filter: SVGFilterElement, primitives: GradePrimi
  */
 export function gradeFilterUrl(values: GradeValues): string | null {
 	const primitives = gradePrimitives(values);
-	if (primitives === null || typeof document === 'undefined' || !document.body) return null;
+	if (primitives === null) return null;
 
-	const key = `${primitives.matrix}|${primitives.red}|${primitives.green}|${primitives.blue}`;
-	let filter = filters.get(key);
-
-	if (filter?.isConnected) {
-		filters.delete(key);
-	} else {
-		if (!holder?.isConnected) {
-			holder = document.createElementNS(SVG_NS, 'svg');
-			holder.setAttribute('aria-hidden', 'true');
-			holder.setAttribute('width', '0');
-			holder.setAttribute('height', '0');
-			// Not display:none, which some browsers take as no filter at all.
-			holder.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden;pointer-events:none';
-			document.body.append(holder);
-			filters.clear();
-		}
-		filter = document.createElementNS(SVG_NS, 'filter');
-		filter.id = `pv-grade-${nextId++}`;
-		fillGradeFilter(filter, primitives);
-		holder.append(filter);
-	}
-
-	filters.set(key, filter);
-	for (const [stale, element] of filters) {
-		if (filters.size <= MAX_FILTERS) break;
-		element.remove();
-		filters.delete(stale);
-	}
-
-	return `url(#${filter.id})`;
+	return svgFilterUrl(`grade:${primitives.matrix}|${primitives.red}|${primitives.green}|${primitives.blue}`, (filter) => fillGradeFilter(filter, primitives));
 }
 
 export function gradeFilter(world: World, entity: Entity): string | null {
