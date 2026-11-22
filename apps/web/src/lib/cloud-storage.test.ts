@@ -54,3 +54,18 @@ describe("uploads a closing tab would stop", () => {
     expect(cloudUploads().has("posts:offline")).toBe(true);
   });
 });
+
+describe("the order uploads run in", () => {
+  test("a post's file goes before library copies queued ahead of it, and each kind keeps its own order", async () => {
+    const ran: string[] = [];
+    let finish = () => {};
+    queueCloud("posts:busy", () => new Promise<void>((resolve) => (finish = resolve)));
+    for (const name of ["media:a", "posts:1", "media-delete:a", "media:b", "posts-delete:2", "posts:3"]) {
+      queueCloud(name, async () => void ran.push(name));
+    }
+    await turn();
+    finish();
+    for (let step = 0; step < 8; step++) await turn();
+    expect(ran).toEqual(["posts:1", "posts-delete:2", "posts:3", "media:a", "media-delete:a", "media:b"]);
+  });
+});

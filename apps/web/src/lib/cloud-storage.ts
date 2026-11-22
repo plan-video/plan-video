@@ -251,12 +251,18 @@ function resume() {
   void drain();
 }
 
+/** Library copies are only backups, so a post's file, which has a time to go out by, goes first. Each kind keeps its own order. */
+function nextJob(): [string, Job] {
+  for (const entry of pending) if (!entry[0].startsWith("media")) return entry;
+  return pending.entries().next().value!;
+}
+
 async function drain() {
   if (running || pause) return;
   running = true;
   try {
     while (pending.size && !pause) {
-      const [name, job] = pending.entries().next().value!;
+      const [name, job] = nextJob();
       pending.delete(name);
       current = name;
       try {
