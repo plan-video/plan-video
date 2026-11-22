@@ -18,6 +18,7 @@ import {
 } from '../config';
 import { applyClipDrag, applyTrim, beginClipDrag, beginTrim } from '../drag';
 import { getRowBody } from '../layout';
+import { simpleClips } from '../simple-clips';
 import { getClipAsset, getClipFallbackName, getClipStyle } from '../style';
 import { truncateText } from '../text';
 import { framesToPixels, getResolution, getViewport } from '../view';
@@ -314,6 +315,8 @@ function renderContent(
 		renderGroup(world, scene, surface, entity, body);
 		return 'top';
 	}
+
+	if (simpleClips()) return 'middle';
 
 	switch (asset?.type) {
 		case 'IMAGE':

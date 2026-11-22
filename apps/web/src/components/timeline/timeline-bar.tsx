@@ -37,12 +37,13 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Icon } from '@/components/ui/icon';
 import { Separator } from '@/components/ui/separator';
 import { SliderRow } from '@/components/ui/slider-row';
 import { CanvasTools, HistoryButtons } from '@/components/canvas/toolbar';
 import { ZoomMenu } from '@/components/sidebar-right/inspector/inspector-header';
 import { Tooltip, TooltipContent, TooltipPortal, TooltipTrigger } from '@/components/ui/tooltip';
-import { DEFAULT_CLIP_HEIGHT, TIMELINE_BAR_HEIGHT } from '@/engine/timeline';
+import { DEFAULT_CLIP_HEIGHT, setSimpleClips, simpleClips, TIMELINE_BAR_HEIGHT } from '@/engine/timeline';
 import { useDerived, useEditor, useTimelineIndex } from '@/engine/hooks';
 import { useTimeline } from '@/context/timeline';
 import { useLayout } from '@/context/layout';
@@ -252,6 +253,17 @@ export function TimelineBar(props: { toolsShift: number }) {
                     </DropdownMenuSubContent>
                   </DropdownMenuPortal>
                 </DropdownMenuSub>
+                <DropdownMenuItem
+                  role="menuitemcheckbox"
+                  aria-checked={simpleClips()}
+                  closeOnSelect={false}
+                  onSelect={() => setSimpleClips(!simpleClips())}
+                >
+                  {t("Simple clips")}
+                  <Show when={simpleClips()}>
+                    <Icon name="confirm-check" class="ml-auto -mr-1 text-foreground" />
+                  </Show>
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={() => (mixerHidden() ? showSection('mixer') : hideSection('mixer'))}>
                   {t(mixerHidden() ? 'Show {section}' : 'Hide {section}', { section: t('Audio') })}

@@ -14,3 +14,4 @@ export * from './style';
 export * from './surface';
 export * from './timeline';
 export * from './view';
+export * from './simple-clips';
