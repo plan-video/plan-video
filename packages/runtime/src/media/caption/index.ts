@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { CaptionType } from '../../constants';
+import { CaptionType, FontStyle, TextAlign, TextBaseline, TextCase } from '../../constants';
 import { AssetId, Caption, ChildOf, Paint, Shadow, Source, TextRange, TextStyle, CaptionDecoderHandle } from '../../traits';
 import { getAsset } from '../../actions/assets';
 import { deleteEntity } from '../../actions/entities';
@@ -20,6 +20,8 @@ import { DeepCaptionDecoder, DEEP_TEXT_STYLE } from './deep';
 import { RiseCaptionDecoder, RISE_TEXT_STYLE } from './rise';
 import { FocusCaptionDecoder, FOCUS_TEXT_STYLE } from './focus';
 import { captionPlacementKey } from './position';
+import { SubtleCaptionDecoder } from './subtle/decoder';
+import { SUBTLE_STYLES, SUBTLE_STYLE_NAMES } from './subtle/styles';
 import { wearCaptionLook } from './look';
 import { store } from '../../world/store';
 
@@ -27,6 +29,7 @@ import type { Entity, World } from 'koota';
 import type { Asset } from '@plan.video/assets';
 import type { CaptionDecoder, CaptionPresetStyle } from './types';
 import type { CaptionPacing } from './utils';
+import type { SubtleStyleName } from './subtle/styles';
 
 export type { CaptionDecoder, CaptionPresetStyle } from './types';
 export { ClassicCaptionDecoder, CLASSIC_PRESET_WIDTH, CLASSIC_PRESET_HEIGHT } from './classic';
@@ -46,6 +49,39 @@ export * from './position';
 export * from './subtitles';
 export * from './utils';
 export { wearCaptionLook } from './look';
+export { SUBTLE_STYLES, SUBTLE_STYLE_NAMES, type SubtleStyleName } from './subtle/styles';
+export { paintSubtlePage, loadStyleFonts, type SubtleStyle } from './subtle/style';
+export { subtlePages } from './subtle/style';
+export { pageAt as subtlePageAt } from './subtle/pages';
+export type { Frame as SubtleFrame, SPage as SubtlePage } from './subtle/engine';
+export type { TimedWord as SubtleWord } from './subtle/pages';
+
+/** Each Subtle style's caption type. */
+export const SUBTLE_CAPTION_TYPES = Object.fromEntries(
+	SUBTLE_STYLE_NAMES.map((name) => [name, CaptionType[name.toUpperCase() as keyof typeof CaptionType]]),
+) as Record<SubtleStyleName, CaptionType>;
+
+const SUBTLE_BY_TYPE = new Map<CaptionType, SubtleStyleName>(
+	SUBTLE_STYLE_NAMES.map((name) => [SUBTLE_CAPTION_TYPES[name], name]),
+);
+
+/** The Subtle style a caption type draws, or null for one of the text presets. */
+export function subtleStyleOf(type: CaptionType | undefined): SubtleStyleName | null {
+	return type === undefined ? null : SUBTLE_BY_TYPE.get(type) ?? null;
+}
+
+/** Subtle styles draw themselves; this only sets what the inspector shows and the size it scales from. */
+const SUBTLE_TEXT_STYLE = {
+	fontFamily: 'Inter',
+	fontWeight: '600',
+	fontSize: 64,
+	fontStyle: FontStyle.NORMAL,
+	textAlign: TextAlign.CENTER,
+	textBaseline: TextBaseline.MIDDLE,
+	textCase: TextCase.ORIGINAL,
+	leading: 1.15,
+	letterSpacing: undefined,
+} as const satisfies CaptionPresetStyle;
 
 /** Written onto a `<captions>` entity when the preset is (re)applied, then the authored style props are re-run over them. */
 export const CAPTION_PRESET_STYLES: Record<CaptionType, CaptionPresetStyle> = {
@@ -62,7 +98,8 @@ export const CAPTION_PRESET_STYLES: Record<CaptionType, CaptionPresetStyle> = {
 	[CaptionType.DEEP]: DEEP_TEXT_STYLE,
 	[CaptionType.RISE]: RISE_TEXT_STYLE,
 	[CaptionType.FOCUS]: FOCUS_TEXT_STYLE,
-};
+	...Object.fromEntries(Object.values(SUBTLE_CAPTION_TYPES).map((type) => [type, SUBTLE_TEXT_STYLE])),
+} as Record<CaptionType, CaptionPresetStyle>;
 
 /** Seeded under the paint children; the authored `fill` overwrites it, so a recolor survives a reload. Stark has none: its DIFFERENCE-blend fill child can't be an intrinsic solid. */
 export const CAPTION_PRESET_FILLS: Record<CaptionType, number | undefined> = {
@@ -79,7 +116,8 @@ export const CAPTION_PRESET_FILLS: Record<CaptionType, number | undefined> = {
 	[CaptionType.DEEP]: 0xFFFFFF,
 	[CaptionType.RISE]: 0xFFFFFF,
 	[CaptionType.FOCUS]: 0xFFFFFF,
-};
+	...Object.fromEntries(Object.values(SUBTLE_CAPTION_TYPES).map((type) => [type, undefined])),
+} as Record<CaptionType, number | undefined>;
 
 function pacingOf(entity: Entity): CaptionPacing {
 	const caption = entity.get(Caption);
@@ -94,6 +132,8 @@ const samePacing = (a: CaptionPacing, b: CaptionPacing): boolean =>
 	a.words === b.words && a.chars === b.chars && a.linger === b.linger;
 
 function createCaptionDecoder(type: CaptionType, asset: Asset, pacing: CaptionPacing): CaptionDecoder {
+	const subtle = subtleStyleOf(type);
+	if (subtle) return new SubtleCaptionDecoder(type, SUBTLE_STYLES[subtle], SUBTLE_TEXT_STYLE.fontSize, asset, pacing);
 	switch (type) {
 		case CaptionType.CLASSIC:
 			return new ClassicCaptionDecoder(asset, pacing);

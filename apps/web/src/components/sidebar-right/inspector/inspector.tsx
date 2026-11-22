@@ -6,6 +6,7 @@ import { ControlScrollArea } from "@/components/ui/control-scrollarea";
 import { PanelSearchContext, foldSearch } from "@/components/ui/panel-section";
 import { Show, createEffect, createMemo, createSignal, on } from "solid-js";
 import {
+  Caption,
   isAdjustmentLayer,
   isAudio,
   isCaption,
@@ -15,8 +16,9 @@ import {
   isSequence,
   isShape,
   isText,
+  subtleStyleOf,
 } from "@plan.video/runtime";
-import { useAssetSelection, useSelection } from "@/engine/hooks";
+import { useAssetSelection, useDerived, useSelection } from "@/engine/hooks";
 import { captionWordSelection } from "@/engine/timeline/caption-word-selection";
 import { InspectorHeader } from "./inspector-header";
 import { BackgroundSettings } from "./background";
@@ -117,6 +119,12 @@ export function Inspector() {
     return "stage";
   });
 
+  // A Subtle caption style brings its own face, colours and outline.
+  const drawsOwnText = useDerived(() => {
+    const entity = primary();
+    return selectionTarget() === "caption" && !!entity && subtleStyleOf(entity.get(Caption)?.type) !== null;
+  });
+
   const selectionHash = createMemo(() => {
     return [...selection(), ...keyframes(), asset()?.id ?? partial()?.id ?? ""].join(",") + selectionTarget();
   });
@@ -213,7 +221,7 @@ export function Inspector() {
               <CaptionWords selection={selection()} />
             </Show>
 
-            <Show when={includesTarget("text", "caption")}>
+            <Show when={includesTarget("text", "caption") && !drawsOwnText()}>
               <TextPanel selection={selection()} />
             </Show>
 
@@ -225,7 +233,7 @@ export function Inspector() {
               <SourceSettings selection={selection()} />
             </Show>
 
-            <Show when={includesTarget("shape", "text", "scene", "caption")}>
+            <Show when={includesTarget("shape", "text", "scene", "caption") && !drawsOwnText()}>
               <StrokesSettings selection={selection()} />
             </Show>
 

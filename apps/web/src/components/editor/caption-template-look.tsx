@@ -2,21 +2,23 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { createEffect, createSignal, onCleanup, onMount } from "solid-js";
-import { getTextLook, loadWebFont, type TextLook } from "@plan.video/runtime";
+import { createEffect, createSignal, onCleanup, onMount, Show } from "solid-js";
+import { getTextLook, loadWebFont, SUBTLE_STYLES, type SubtleStyleName, type TextLook } from "@plan.video/runtime";
 import { useWorld } from "@plan.video/koota-solid";
+
+import { SubtleTemplateLook } from "./subtle-template-look";
 
 import type { CaptionPreset } from "@plan.video/jsx";
 import type { CaptionTemplate } from "@/lib/caption-templates";
 
-const WORD_SECONDS = 0.42;
+export const CAPTION_WORD_SECONDS = 0.42;
 const HOLD_SECONDS = 1.1;
 const ACROSS = 0.74;
 const DOWN = 0.3;
 
-export const captionLoopSeconds = (words: number) => words * WORD_SECONDS + HOLD_SECONDS;
+export const captionLoopSeconds = (words: number) => words * CAPTION_WORD_SECONDS + HOLD_SECONDS;
 /** Every word up and the last one spoken: the frame shown when motion is reduced. */
-export const captionStillSeconds = (words: number) => words * WORD_SECONDS + 0.3;
+export const captionStillSeconds = (words: number) => words * CAPTION_WORD_SECONDS + 0.3;
 
 // The runtime decoders' slot colours (media/caption/*.ts), for a template that doesn't give one.
 const DEFAULT_SLOT: Partial<Record<CaptionPreset, string>> = {
@@ -47,12 +49,12 @@ function popScale(seconds: number): number {
 
 /** Each motion as its decoder poses it, with the words said one after another. */
 function frameAt(preset: CaptionPreset, slot: string, count: number, time: number): Frame {
-  const spoken = Math.min(count - 1, Math.floor(time / WORD_SECONDS));
-  const age = time - spoken * WORD_SECONDS;
+  const spoken = Math.min(count - 1, Math.floor(time / CAPTION_WORD_SECONDS));
+  const age = time - spoken * CAPTION_WORD_SECONDS;
   const poses: WordPose[] = [];
 
   for (let i = 0; i < count; i++) {
-    const own = time - i * WORD_SECONDS;
+    const own = time - i * CAPTION_WORD_SECONDS;
     const pose: WordPose = { shown: true, alpha: 1, scale: 1, lift: 0, blur: 0, fill: null };
     if (ONE_WORD.has(preset)) {
       pose.shown = i === spoken;
@@ -224,8 +226,19 @@ function draw(
   });
 }
 
+const subtleName = (template: CaptionTemplate): SubtleStyleName | null =>
+  template.preset in SUBTLE_STYLES ? (template.preset as SubtleStyleName) : null;
+
 /** Plays `template` on `words` at `time()`; draws only when the pose changes and while on screen. */
 export function CaptionTemplateLook(props: { template: CaptionTemplate; words: string[]; time: () => number }) {
+  return (
+    <Show when={subtleName(props.template)} fallback={<LookMotionLook {...props} />}>
+      {(name) => <SubtleTemplateLook name={name()} words={props.words} wordSeconds={CAPTION_WORD_SECONDS} time={props.time} />}
+    </Show>
+  );
+}
+
+function LookMotionLook(props: { template: CaptionTemplate; words: string[]; time: () => number }) {
   const world = useWorld();
   let canvas!: HTMLCanvasElement;
   const [size, setSize] = createSignal({ width: 0, height: 0 });

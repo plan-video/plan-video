@@ -41,7 +41,7 @@ function useLoopClock(loop: () => number, still: () => number) {
 }
 
 function templateName(template: CaptionTemplate): string {
-  const look = TEXT_STYLES.find((style) => style.id === template.look);
+  const look = template.look ? TEXT_STYLES.find((style) => style.id === template.look) : undefined;
   const motion = CAPTION_PRESET_OPTIONS.find((option) => option.name === template.preset);
   return [look?.name, motion?.label].filter((name) => name !== undefined).map((name) => t(name)).join(" · ");
 }
@@ -86,7 +86,7 @@ export function CaptionsPanel() {
     const entity = caption();
     if (!entity) return;
     // One task, so one undo step.
-    editor.editProperty(entity, "look", template.look);
+    editor.editProperty(entity, "look", template.look ?? false);
     editor.editProperty(entity, "preset", template.preset === "classic" ? false : template.preset);
     editor.editProperty(entity, "colors", template.colors ?? false);
   };

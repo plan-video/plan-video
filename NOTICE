@@ -35,6 +35,39 @@ copyright stays with Diffusion Studio Inc. They were not copied.
 The Diffusion Studio name and logos are not licensed as this product's
 brand. This project is plan.video.
 
+Subtle
+------
+
+The caption styles in packages/runtime/src/media/caption/subtle are ported
+from Subtle's caption styles and rules:
+
+  Upstream: https://github.com/0xpratzyy/subtle
+  Commit:   7fe4a347ea4cfdc25eba0683754214d0487db72c
+  License:  MIT
+
+  Copyright (c) 2026 Refs (refs.video)
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+
+Its fonts are not copied; the editor loads the same families from Google
+Fonts, under the SIL Open Font License.
+
 Trademarks
 ----------
 

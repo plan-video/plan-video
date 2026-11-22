@@ -195,7 +195,36 @@ export type CaptionPreset =
   | "marker"
   | "deep"
   | "rise"
-  | "focus";
+  | "focus"
+  // Subtle's styles: each draws itself, so `look` and the text props don't apply; font size scales it.
+  | "accent"
+  | "block"
+  | "bottom"
+  | "cards"
+  | "chip"
+  | "cinema"
+  | "duo"
+  | "editorial"
+  | "flip"
+  | "glass"
+  | "glide"
+  | "haiku"
+  | "hop"
+  | "hype"
+  | "impact"
+  | "karaoke"
+  | "magazine"
+  | "newsroom"
+  | "punch"
+  | "quiet"
+  | "serif"
+  | "shine"
+  | "stack"
+  | "sticker"
+  | "terminal"
+  | "ticket"
+  | "title"
+  | "wipe";
 
 // Any prop can be animated by a `<keyframeTrack>` child naming it (see `AnimatableProperty`); none
 // takes keyframes inline.

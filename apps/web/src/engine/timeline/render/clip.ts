@@ -2,9 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { Caption, CaptionType, Chars, ClipDragOrigin, Computed, Hidden, Name, Selected, TrimDragOrigin, fitsChildren, getGeneratingColor, getSourceFailure, isCaption, isGenerating, isGroup, isText, store } from '@plan.video/runtime';
+import { Caption, Chars, ClipDragOrigin, Computed, Hidden, Name, Selected, TrimDragOrigin, fitsChildren, getGeneratingColor, getSourceFailure, isCaption, isGenerating, isGroup, isText, store } from '@plan.video/runtime';
 
-import { msg, t } from '@/lib/i18n';
+import { captionPresetOption } from '@/components/sidebar-right/inspector/caption-types';
+import { t } from '@/lib/i18n';
 
 import { getDocumentEditor } from '../../editor';
 import {
@@ -100,7 +101,7 @@ export function renderClip(
 	{
 		let label = entity.get(Name)?.value ?? '';
 
-		if (isCaption(entity)) label = label || t('{preset} Captions', { preset: t(CAPTION_PRESETS[entity.get(Caption)?.type ?? CaptionType.CLASSIC]) });
+		if (isCaption(entity)) label = label || t('{preset} Captions', { preset: t(captionPresetOption(entity.get(Caption)?.type).label) });
 		else if (isText(entity)) label = entity.get(Chars)?.value ?? label ?? '';
 		if (!label) label = getClipFallbackName(world, entity);
 		if (generating) label = t('Generating...');
@@ -395,21 +396,6 @@ function handleBody(
 }
 
 
-const CAPTION_PRESETS: Record<CaptionType, string> = {
-	[CaptionType.CLASSIC]: msg('Classic'),
-	[CaptionType.CASCADE]: msg('Cascade'),
-	[CaptionType.SPOTLIGHT]: msg('Spotlight'),
-	[CaptionType.WHISPER]: msg('Whisper'),
-	[CaptionType.PAPER]: msg('Paper'),
-	[CaptionType.GUINEA]: msg('Guinea'),
-	[CaptionType.STARK]: msg('Stark'),
-	[CaptionType.POP]: msg('Pop'),
-	[CaptionType.BOX]: msg('Box'),
-	[CaptionType.MARKER]: msg('Highlighter'),
-	[CaptionType.DEEP]: msg('Deep'),
-	[CaptionType.RISE]: msg('Rise'),
-	[CaptionType.FOCUS]: msg('Focus'),
-};
 
 
 export function getClipAlpha(entity: Entity): number {

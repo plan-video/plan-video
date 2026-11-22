@@ -6,8 +6,10 @@ import { createMemo, createSignal, For, Show } from "solid-js";
 import { ControlRow } from "@/components/ui/control-group";
 import { Icon } from "@/components/ui/icon";
 import { PanelSection } from "@/components/ui/panel-section";
-import { PresetGrid, PresetTile } from "@/components/ui/preset-tile";
+import { PresetGrid, PresetTile, usePreviewClock } from "@/components/ui/preset-tile";
 import { TextStyleLook } from "@/components/editor/text-style-look";
+import { CAPTION_WORD_SECONDS, captionLoopSeconds, captionStillSeconds } from "@/components/editor/caption-template-look";
+import { SubtleTemplateLook } from "@/components/editor/subtle-template-look";
 import {
   FloatingInspector,
   FloatingInspectorContent,
@@ -19,13 +21,14 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { ColorOpacityRow } from "@/components/ui/color-opacity-row";
 import { ColorOpacityPicker } from "@/components/ui/color-opacity-picker";
 import { useTrait } from "@plan.video/koota-solid";
-import { Caption, colorToHex } from "@plan.video/runtime";
+import { Caption, colorToHex, SUBTLE_STYLE_NAMES, subtleStyleOf, type SubtleStyleName } from "@plan.video/runtime";
 import { useEditor } from "@/engine/hooks";
 import { TEXT_STYLES, type TextStyle } from "@/engine/text-presets";
 import { cx } from "@/lib/cva";
 import { msg, t } from "@/lib/i18n";
 import {
   CAPTION_MOTIONS,
+  CAPTION_PRESET_OPTIONS,
   DEFAULT_CAPTION_PRESET,
   captionPresetOption,
 } from "./caption-types";
@@ -37,7 +40,25 @@ type CaptionSettingsProps = {
   selection: Entity[];
 };
 
-const FIRST_LOOKS = 6;
+const FIRST_TILES = 6;
+
+/** One grid: the looks, worn over a motion, then Subtle's styles, which bring their own. */
+type CaptionTile = { kind: "look"; look: TextStyle } | { kind: "style"; name: SubtleStyleName };
+
+const TILES: CaptionTile[] = [
+  ...TEXT_STYLES.map((look): CaptionTile => ({ kind: "look", look })),
+  ...SUBTLE_STYLE_NAMES.map((name): CaptionTile => ({ kind: "style", name })),
+];
+
+/** A still of the style that plays while hovered, like the look tiles. */
+function StyleTile(props: { name: SubtleStyleName; playing: boolean }) {
+  const words = t("Pick a style").split(/\s+/).filter(Boolean);
+  const time = usePreviewClock(() => props.playing, {
+    loop: captionLoopSeconds(words.length),
+    still: captionStillSeconds(words.length),
+  });
+  return <SubtleTemplateLook name={props.name} words={words} wordSeconds={CAPTION_WORD_SECONDS} time={time} />;
+}
 
 // Everything but look, preset and colors is the preset's base coat, not in the file unless edited,
 // which is why this panel is as short as it is.
@@ -56,12 +77,16 @@ export function CaptionSettings(props: CaptionSettingsProps) {
 
   const [openSlot, setOpenSlot] = createSignal<number | null>(null);
   const [showAll, setShowAll] = createSignal(false);
+  const style = () => subtleStyleOf(caption()?.type);
 
-  // A look further down takes the last place, so the one the caption has is never hidden.
-  const shownLooks = () => {
-    if (showAll()) return TEXT_STYLES;
-    const first = TEXT_STYLES.slice(0, FIRST_LOOKS);
-    const worn = TEXT_STYLES.find((style) => style.id === look());
+  const isWorn = (tile: CaptionTile) =>
+    tile.kind === "style" ? style() === tile.name : !style() && look() === tile.look.id;
+
+  // A tile further down takes the last place, so the one the caption has is never hidden.
+  const shownTiles = () => {
+    if (showAll()) return TILES;
+    const first = TILES.slice(0, FIRST_TILES);
+    const worn = TILES.find(isWorn);
     return worn && !first.includes(worn) ? [...first.slice(0, -1), worn] : first;
   };
 
@@ -87,6 +112,15 @@ export function CaptionSettings(props: CaptionSettingsProps) {
     if (!wearing && !CAPTION_MOTIONS.includes(preset())) setMotion(DEFAULT_CAPTION_PRESET);
   };
 
+  const handleStyleChange = (name: SubtleStyleName) => {
+    if (name === style()) return;
+    const option = CAPTION_PRESET_OPTIONS.find((candidate) => candidate.name === name);
+    if (!option) return;
+    // A style brings its own face and colours, so a look worn before goes.
+    editor.editProperty(entity(), "look", false);
+    setMotion(option);
+  };
+
   const slotColor = (index: number) => colors()[index] ?? slots()[index]?.defaultColor ?? 0;
 
   // `colors` is positional, so setting one slot spells every slot: a sparse write would read back as the ones before it.
@@ -98,16 +132,28 @@ export function CaptionSettings(props: CaptionSettingsProps) {
   return (
     <PanelSection title={t({ message: "Caption", context: "video subtitles" })} ref={anchorRef}>
       <PresetGrid>
-        <For each={shownLooks()}>
-          {(style) => {
+        <For each={shownTiles()}>
+          {(tile) => {
+            if (tile.kind === "style") {
+              return (
+                <PresetTile
+                  title={t(CAPTION_PRESET_OPTIONS.find((option) => option.name === tile.name)?.label ?? tile.name)}
+                  aspect="16 / 10"
+                  selected={isWorn(tile)}
+                  onClick={() => handleStyleChange(tile.name)}
+                >
+                  {(playing) => <StyleTile name={tile.name} playing={playing} />}
+                </PresetTile>
+              );
+            }
             // A still: made once, not again each time the tile is hovered.
-            const preview = <TextStyleLook style={style} />;
+            const preview = <TextStyleLook style={tile.look} />;
             return (
               <PresetTile
-                title={t(style.name)}
+                title={t(tile.look.name)}
                 aspect="16 / 10"
-                selected={look() === style.id}
-                onClick={() => handleLookChange(style)}
+                selected={isWorn(tile)}
+                onClick={() => handleLookChange(tile.look)}
               >
                 {() => preview}
               </PresetTile>
@@ -122,46 +168,49 @@ export function CaptionSettings(props: CaptionSettingsProps) {
         class="flex h-7 w-full items-center justify-between rounded-md bg-accent px-2 text-xs text-foreground transition-colors hover:bg-secondary-hover focus-ring"
         onClick={() => setShowAll(!showAll())}
       >
-        {showAll() ? t("Fewer looks") : t("All looks")}
+        {showAll() ? t("Fewer styles") : t("All styles")}
         <Icon
           name="chevron-down"
           class={showAll() ? "size-4 rotate-180 text-muted-foreground transition-transform" : "size-4 text-muted-foreground transition-transform"}
         />
       </button>
 
-      <h3 class="pt-1 text-xs text-muted-foreground">{t("Motion")}</h3>
-      <div class="grid grid-cols-2 gap-1.5" role="radiogroup" aria-label={t("Motion")}>
-        <For each={CAPTION_MOTIONS}>
-          {(option) => (
-            <button
-              type="button"
-              role="radio"
-              aria-checked={option === preset()}
-              class={cx(
-                "h-8 truncate rounded-md px-2 text-xs transition-colors focus-ring",
-                option === preset()
-                  ? "bg-foreground/16 text-foreground"
-                  : "bg-accent text-muted-foreground hover:bg-secondary-hover hover:text-foreground",
-              )}
-              onClick={() => handleMotionChange(option)}
-            >
-              {t(option.label)}
-            </button>
+      {/* A Subtle style brings its own motion and colours. */}
+      <Show when={!style()}>
+        <h3 class="pt-1 text-xs text-muted-foreground">{t("Motion")}</h3>
+        <div class="grid grid-cols-2 gap-1.5" role="radiogroup" aria-label={t("Motion")}>
+          <For each={CAPTION_MOTIONS}>
+            {(option) => (
+              <button
+                type="button"
+                role="radio"
+                aria-checked={option === preset()}
+                class={cx(
+                  "h-8 truncate rounded-md px-2 text-xs transition-colors focus-ring",
+                  option === preset()
+                    ? "bg-foreground/16 text-foreground"
+                    : "bg-accent text-muted-foreground hover:bg-secondary-hover hover:text-foreground",
+                )}
+                onClick={() => handleMotionChange(option)}
+              >
+                {t(option.label)}
+              </button>
+            )}
+          </For>
+        </div>
+
+        <For each={slots()}>
+          {(slot, index) => (
+            <ControlRow label={t(slot.label)}>
+              <ColorOpacityRow
+                color={slotColor(index())}
+                onChangeColor={(next) => setSlotColor(index(), next)}
+                onClick={() => setOpenSlot(openSlot() === index() ? null : index())}
+              />
+            </ControlRow>
           )}
         </For>
-      </div>
-
-      <For each={slots()}>
-        {(slot, index) => (
-          <ControlRow label={t(slot.label)}>
-            <ColorOpacityRow
-              color={slotColor(index())}
-              onChangeColor={(next) => setSlotColor(index(), next)}
-              onClick={() => setOpenSlot(openSlot() === index() ? null : index())}
-            />
-          </ControlRow>
-        )}
-      </For>
+      </Show>
 
       <Show when={openSlot() !== null}>
         <FloatingInspector open anchorRef={anchorRef}>

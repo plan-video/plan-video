@@ -2,11 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import { SUBTLE_STYLE_NAMES } from "@plan.video/runtime";
+
 import type { CaptionPreset, TextLookName } from "@plan.video/jsx";
 
-/** A look worn over a motion, as `<Captions look preset colors>`; `colors` fills the motion's slots. */
+/** A look worn over a motion, as `<Captions look preset colors>`; `colors` fills the motion's slots. A Subtle style has no look: it is its own. */
 export type CaptionTemplate = {
-  look: TextLookName;
+  look?: TextLookName;
   preset: CaptionPreset;
   colors?: string[];
 };
@@ -29,6 +31,7 @@ export const CAPTION_TEMPLATES: CaptionTemplate[] = [
   { look: "gold", preset: "deep" },
   { look: "handwritten", preset: "focus" },
   { look: "bubblegum", preset: "rise" },
+  ...SUBTLE_STYLE_NAMES.map((preset): CaptionTemplate => ({ preset })),
 ];
 
 export function captionTemplateOf(look: string | undefined, preset: string): CaptionTemplate | null {

@@ -17,7 +17,9 @@ Your time resets on the 1st. A clip longer than what you have left is turned dow
 
 ## Styles
 
-Select the captions, pick a look under **Caption** in the inspector (**All looks** shows every one), then change the font, colours and position to fit your video.
+Select the captions and pick a style under **Caption** in the inspector (**All styles** shows every one). The first styles are looks: pick how the words move under **Motion**, then change the font, colours and position to fit your video.
+
+The styles from **Accent** to **Wipe** come with their own font, colours and motion, and pick out the words that matter, like numbers and names, on their own. Keyword colours from **Highlight** become their highlighted words. To change the font or colours yourself, pick one of the looks instead.
 
 ### Brand style
 

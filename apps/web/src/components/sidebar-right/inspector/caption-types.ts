@@ -52,9 +52,38 @@ export const CAPTION_PRESET_OPTIONS: CaptionPresetOption[] = [
     ],
   },
   { name: "stark", label: msg("Stark"), slots: [] },
+  // Subtle's styles: each brings its own face, colours and motion.
+  { name: "accent", label: msg({ message: "Accent", context: "caption style" }), slots: [] },
+  { name: "block", label: msg({ message: "Block", context: "caption style" }), slots: [] },
+  { name: "bottom", label: msg({ message: "Big caps", context: "caption style" }), slots: [] },
+  { name: "cards", label: msg({ message: "Cards", context: "caption style" }), slots: [] },
+  { name: "chip", label: msg({ message: "Chip", context: "caption style" }), slots: [] },
+  { name: "cinema", label: msg({ message: "Arthouse", context: "caption style" }), slots: [] },
+  { name: "duo", label: msg({ message: "Duo", context: "caption style" }), slots: [] },
+  { name: "editorial", label: msg({ message: "Editorial", context: "caption style" }), slots: [] },
+  { name: "flip", label: msg({ message: "Flap", context: "caption style" }), slots: [] },
+  { name: "glass", label: msg({ message: "Glass", context: "caption style" }), slots: [] },
+  { name: "glide", label: msg({ message: "Glide", context: "caption style" }), slots: [] },
+  { name: "haiku", label: msg({ message: "Haiku", context: "caption style" }), slots: [] },
+  { name: "hop", label: msg({ message: "Hop", context: "caption style" }), slots: [] },
+  { name: "hype", label: msg({ message: "Hype", context: "caption style" }), slots: [] },
+  { name: "impact", label: msg({ message: "Impact", context: "caption style" }), slots: [] },
+  { name: "karaoke", label: msg({ message: "Karaoke", context: "caption style" }), slots: [] },
+  { name: "magazine", label: msg({ message: "Magazine", context: "caption style" }), slots: [] },
+  { name: "newsroom", label: msg({ message: "Newsroom", context: "caption style" }), slots: [] },
+  { name: "punch", label: msg({ message: "Swell", context: "caption style" }), slots: [] },
+  { name: "quiet", label: msg({ message: "Quiet", context: "caption style" }), slots: [] },
+  { name: "serif", label: msg({ message: "Serif", context: "caption style" }), slots: [] },
+  { name: "shine", label: msg({ message: "Gleam", context: "caption style" }), slots: [] },
+  { name: "stack", label: msg({ message: "Stack", context: "caption style" }), slots: [] },
+  { name: "sticker", label: msg({ message: "Bubbles", context: "caption style" }), slots: [] },
+  { name: "terminal", label: msg({ message: "Terminal", context: "caption style" }), slots: [] },
+  { name: "ticket", label: msg({ message: "Ticket", context: "caption style" }), slots: [] },
+  { name: "title", label: msg({ message: "Title", context: "caption style" }), slots: [] },
+  { name: "wipe", label: msg({ message: "Wipe", context: "caption style" }), slots: [] },
 ];
 
-// The rest are older self-styled presets, still drawn for the captions that have them.
+// The rest are older self-styled presets, still drawn for the captions that have them, and Subtle's styles.
 export const CAPTION_MOTIONS: CaptionPresetOption[] = CAPTION_PRESET_OPTIONS.slice(0, 8);
 
 export const DEFAULT_CAPTION_PRESET: CaptionPresetOption = CAPTION_PRESET_OPTIONS[0]!;

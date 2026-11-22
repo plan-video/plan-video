@@ -31,7 +31,7 @@ function authoredNumber(value: unknown): number | undefined {
  * they mirror their parent's frame, and only once the transform system has
  * run — a fresh one still reads 0.
  */
-function captionFrame(entity: Entity): Entity | null {
+export function captionFrame(entity: Entity): Entity | null {
 	let parent = getParentNode(entity);
 	while (parent !== null && parent.has(Sequential)) {
 		parent = getParentNode(parent);
@@ -52,7 +52,7 @@ export function captionPlacementKey(world: World, entity: Entity): string | null
 export function placeCaption(
 	world: World,
 	entity: Entity,
-	preset: { width: number; height: number; x?: number; defaultAlign: CaptionAlign },
+	preset: { width: number; height: number; x?: number; y?: number; defaultAlign: CaptionAlign },
 ): boolean {
 	const parent = captionFrame(entity);
 	if (parent === null) return false;
@@ -66,12 +66,14 @@ export function placeCaption(
 	const authoredX = authoredNumber(props?.x);
 	const authoredY = authoredNumber(props?.y);
 
-	const align = entity.get(Caption)?.verticalAlign ?? preset.defaultAlign;
-	const y = align === CaptionAlign.TOP
+	const authoredAlign = entity.get(Caption)?.verticalAlign;
+	const align = authoredAlign ?? preset.defaultAlign;
+	const aligned = align === CaptionAlign.TOP
 		? CAPTION_MARGIN
 		: align === CaptionAlign.BOTTOM
 			? parentHeight - preset.height - CAPTION_MARGIN
 			: (parentHeight - preset.height) / 2;
+	const y = authoredAlign === undefined && preset.y !== undefined ? preset.y : aligned;
 
 	entity.add(Position);
 	entity.set(Position, {
