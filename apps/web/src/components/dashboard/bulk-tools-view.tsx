@@ -1362,7 +1362,7 @@ function RowPlatforms(props: {
         class={cx(ROW_CELL, "flex min-w-0 items-center press data-[expanded]:bg-accent focus-ring max-md:order-2 max-md:col-span-2")}
       >
         <Show when={props.value.length} fallback={<span class="text-left text-xs leading-4 text-muted-foreground">{t("Choose")}</span>}>
-          <PlatformLogos ids={props.value} max={3} compact logoClass="size-5" />
+          <PlatformLogos ids={props.value} max={3} bare class="gap-1" logoClass="size-5" />
         </Show>
       </PopoverTrigger>
       <PopoverPortal>

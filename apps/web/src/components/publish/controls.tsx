@@ -53,17 +53,17 @@ export function PlatformLogo(props: { id: PlatformId; class?: string; compact?: 
   );
 }
 
-export function PlatformLogos(props: { ids: readonly PlatformId[]; max?: number; class?: string; logoClass?: string; compact?: boolean }) {
+export function PlatformLogos(props: { ids: readonly PlatformId[]; max?: number; class?: string; logoClass?: string; compact?: boolean; bare?: boolean }) {
   const shown = () => props.ids.slice(0, props.max ?? props.ids.length);
   const extra = () => props.ids.length - shown().length;
   return (
     <span class={cx("flex items-center gap-0.5", props.class)}>
       <For each={shown()}>
         {(id) =>
-          props.compact && id === "youtube" ? (
+          props.compact && !props.bare && id === "youtube" ? (
             <YouTubeWhiteTile fill class={cx("rounded-md", props.logoClass ?? "size-4")} />
           ) : (
-            <PlatformLogo id={id} class={props.logoClass ?? "size-4"} />
+            <PlatformLogo id={id} bare={props.bare} class={props.logoClass ?? "size-4"} />
           )
         }
       </For>
@@ -426,7 +426,7 @@ export function PlatformPicker(props: {
                   classList={{ "border-primary/70 bg-primary/10": on(), "border-transparent hover:bg-accent": !on() }}
                   onClick={() => toggle(platform.id)}
                 >
-                  <PlatformLogo id={platform.id} compact class="size-6" />
+                  <PlatformLogo id={platform.id} bare class="size-6" />
                 </button>
               );
             }}
@@ -448,7 +448,7 @@ export function PlatformPicker(props: {
         <For each={choosing()}>
           {(platform) => (
             <div class="flex items-center gap-2 px-1.5 py-0.5">
-              <PlatformLogo id={platform.id} compact class="size-4" />
+              <PlatformLogo id={platform.id} bare class="size-4" />
               <AccountSelect
                 platform={platform.id}
                 value={props.accounts?.[platform.id]}
