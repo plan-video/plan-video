@@ -120,6 +120,7 @@ const MAX_POSTS = 50;
 const DEFAULT_PLATFORMS: PlatformId[] = ["tiktok", "instagram", "youtube"];
 const STORY_PLATFORMS = platformsFor("story");
 const READ_AT_ONCE = 4;
+const SEND_AT_ONCE = 3;
 
 type ScheduleMode = "spread" | "queue" | "best";
 
@@ -842,9 +843,8 @@ function BulkTools() {
           .join(" "),
         action: { label: t("Open Posts"), onClick: () => setParams({ dashboard: "posts" }) },
       });
-      void (async () => {
-        for (const send of sends) await sendPost(send.id, userId, send.caption);
-      })();
+      // Each send waits for its networks to answer, so one at a time keeps the last post waiting on all the others.
+      void readInOrder(sends, (send) => sendPost(send.id, userId, send.caption), () => {}, () => {}, SEND_AT_ONCE);
     } finally {
       setSaving(null);
     }
