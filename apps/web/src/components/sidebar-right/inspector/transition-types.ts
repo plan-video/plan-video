@@ -15,27 +15,59 @@ export type TransitionOption = {
   label: string;
 };
 
-export const TRANSITION_OPTIONS: TransitionOption[] = [
-  { name: "dissolve", label: msg("Dissolve") },
-  { name: "fadeToBlack", label: msg("Fade to black") },
-  { name: "blur", label: msg("Blur") },
-  { name: "slideFromRight", label: msg("Slide from right") },
-  { name: "zoomIn", label: msg("Zoom in") },
-  { name: "whip", label: msg("Whip") },
+export type TransitionGroup = { label: string; options: TransitionOption[] };
+
+/** Each group fills whole rows of the two-column panel. */
+export const TRANSITION_GROUPS: TransitionGroup[] = [
+  {
+    label: msg("Basic"),
+    options: [
+      { name: "dissolve", label: msg("Dissolve") },
+      { name: "fadeToBlack", label: msg("Fade to black") },
+      { name: "fadeToWhite", label: msg("Fade to white") },
+      { name: "blur", label: msg("Blur") },
+    ],
+  },
+  {
+    label: msg("Movement"),
+    options: [
+      { name: "slideFromRight", label: msg("Slide from right") },
+      { name: "pushLeft", label: msg("Push") },
+      { name: "whip", label: msg("Whip") },
+      { name: "split", label: msg("Split open") },
+    ],
+  },
+  {
+    label: msg("Zoom"),
+    options: [
+      { name: "zoomIn", label: msg("Zoom in") },
+      { name: "zoomOut", label: msg("Zoom out") },
+      { name: "crossZoom", label: msg("Cross zoom") },
+      { name: "impact", label: msg("Impact") },
+    ],
+  },
+  {
+    label: msg("Stylized"),
+    options: [
+      { name: "flash", label: msg("Flash") },
+      { name: "lightLeak", label: msg("Light leak") },
+      { name: "bloom", label: msg("Exposure") },
+      { name: "glitch", label: msg("Glitch") },
+    ],
+  },
 ];
+
+export const TRANSITION_OPTIONS: TransitionOption[] = TRANSITION_GROUPS.flatMap((group) => group.options);
 
 // Still played by the runtime but no longer offered, so a clip that has one keeps its name in the inspector.
 const RETIRED_OPTIONS: TransitionOption[] = [
-  { name: "fadeToWhite", label: msg("Fade to white") },
   { name: "slideFromLeft", label: msg("Slide from left") },
-  { name: "pushLeft", label: msg("Push left") },
   { name: "pushUp", label: msg("Push up") },
-  { name: "zoomOut", label: msg("Zoom out") },
-  { name: "crossZoom", label: msg("Cross zoom") },
   { name: "spin", label: msg("Spin") },
-  { name: "flash", label: msg("Flash") },
   { name: "wipe", label: msg("Wipe") },
-  { name: "iris", label: msg("Iris") },
+  { name: "stripes", label: msg("Stripes") },
+  { name: "clock", label: msg("Clock wipe") },
+  { name: "iris", label: msg("Circle") },
 ];
 
 /** What the panel's plus authors: a dissolve as long as the Transitions panel puts on. */

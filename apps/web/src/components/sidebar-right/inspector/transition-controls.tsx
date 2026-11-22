@@ -34,12 +34,15 @@ const OWN_WAY: Partial<Record<TransitionName, Way>> = {
   pushUp: "up",
   whip: "left",
   wipe: "right",
+  stripes: "right",
+  split: "left",
 };
 
 const OWN_COLOR: Partial<Record<TransitionName, number>> = {
   fadeToBlack: 0x000000,
   fadeToWhite: 0xffffff,
   flash: 0xffffff,
+  lightLeak: 0xff8a3d,
 };
 
 const WAYS: { way: Way; label: string; icon: Component<{ class?: string; "aria-hidden"?: "true" }> }[] = [

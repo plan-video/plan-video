@@ -8,17 +8,22 @@
 import { createSignal } from 'solid-js';
 import {
 	AdjustmentLayer,
+	Cache,
 	ChildOf,
 	Computed,
 	FrameRate,
 	Geometry,
 	Group,
+	Hidden,
+	Paint,
+	PaintType,
 	Sequential,
 	Transition,
 	TransitionIn,
 	colorToHex,
 	framesToSeconds,
 	getActiveEntity,
+	getEntityTree,
 	getParentEntity,
 	getParentNode,
 	isAdjustmentLayer,
@@ -59,7 +64,7 @@ export type Join = {
 const [pickedTransition, setPickedTransition] = createSignal<TransitionName>('dissolve');
 export { pickedTransition, setPickedTransition };
 
-/** The inspector clears this once it has opened it. */
+/** Brings that clip's transition rows into view; the inspector clears it once it has. */
 const [transitionEndRequest, requestTransitionEnd] = createSignal<{ clip: Entity; edge: ClipEdge } | null>(null, {
 	equals: false,
 });
@@ -104,6 +109,35 @@ export function joinBefore(world: World, clip: Entity): Join | null {
 
 export function takesTransition(entity: Entity): boolean {
 	return !isScene(entity) && !isMask(entity) && !isAudio(entity) && !isAdjustmentLayer(entity);
+}
+
+/** The video on top at the playhead, else the picture on top: an overlay like a sticker shouldn't take the cut. */
+export function clipAtPlayhead(world: World): Entity | null {
+	const scene = getActiveEntity(world);
+	if (!scene || !isScene(scene)) return null;
+	return topClipAt(world, scene, PaintType.VIDEO) ?? topClipAt(world, scene, PaintType.IMAGE);
+}
+
+function topClipAt(world: World, scene: Entity, paint: PaintType): Entity | null {
+	const computed = store(world, Computed);
+	const shows = (clip: Entity) => getEntityTree(world, clip).some((node) => node.get(Paint)?.value === paint);
+	const visit = (parent: Entity): Entity | null => {
+		const frame = computed.localTime[parent.id()] ?? 0;
+		const children = parent.get(Cache)?.children ?? [];
+		for (let i = children.length - 1; i >= 0; i--) {
+			const child = children[i]!;
+			if (child.has(Hidden)) continue;
+			if (frame < (computed.start[child.id()] ?? 0) || frame >= (computed.end[child.id()] ?? 0)) continue;
+			if (child.has(Sequential)) {
+				const inner = visit(child);
+				if (inner) return inner;
+			} else if ((child.has(Geometry) || child.has(Group)) && takesTransition(child) && shows(child)) {
+				return child;
+			}
+		}
+		return null;
+	};
+	return visit(scene);
 }
 
 export function spotAt(world: World, clip: Entity, edge: ClipEdge): Spot {

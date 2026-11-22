@@ -57,14 +57,11 @@ export function TransitionSettings(props: TransitionSettingsProps) {
   const [open, setOpen] = createSignal<ClipEdge | null>(null);
   const frameRate = useTrait(world, FrameRate);
 
-  // Opened a frame later, so the panel places itself by where the rows ended up.
   createEffect(() => {
     const request = transitionEndRequest();
     if (!request) return;
     requestTransitionEnd(null);
-    if (request.clip !== entity()) return;
-    anchorRef?.scrollIntoView({ block: "start" });
-    requestAnimationFrame(() => setOpen(request.edge));
+    if (request.clip === entity()) anchorRef?.scrollIntoView({ block: "start" });
   });
 
   const readEnd = (edge: ClipEdge): End => {
