@@ -31,6 +31,8 @@ const MOTIONS: Option<"smooth" | "snap">[] = [
 
 const seconds = (values: number[]) => values.map((value) => ({ id: value, label: `${value}s` }));
 
+const clipLengths = (values: number[]): Option<number | "clip">[] => [...seconds(values), { id: "clip", label: msg("Whole clip") }];
+
 const sameFound = (a: FoundEffect | null, b: FoundEffect | null) =>
   a === b || (!!a && !!b && a.entity === b.entity && a.kind === b.kind && JSON.stringify(a.options) === JSON.stringify(b.options));
 
@@ -173,6 +175,110 @@ export function EffectSettings(props: { selection: Entity[] }) {
                     options={[...seconds([3, 5]), { id: "scene" as const, label: msg("To the end") }]}
                     value={options().length}
                     onChange={(length) => change("bars", { length })}
+                  />
+                </>
+              )}
+            </Match>
+            <Match when={effect().kind === "zoomBlur" && (effect().options as EffectOptions["zoomBlur"])}>
+              {(options) => (
+                <>
+                  <Row label={t("Strength")} options={STRENGTHS} value={options().strength} onChange={(strength) => change("zoomBlur", { strength })} />
+                  <Row label={t("Length")} options={seconds([0.5, 1, 2])} value={options().length} onChange={(length) => change("zoomBlur", { length })} />
+                </>
+              )}
+            </Match>
+
+            <Match when={effect().kind === "handheld" && (effect().options as EffectOptions["handheld"])}>
+              {(options) => (
+                <>
+                  <Row label={t("Strength")} options={STRENGTHS} value={options().strength} onChange={(strength) => change("handheld", { strength })} />
+                  <Row label={t("Length")} options={clipLengths([3, 5])} value={options().length} onChange={(length) => change("handheld", { length })} />
+                </>
+              )}
+            </Match>
+
+            <Match when={effect().kind === "pulse" && (effect().options as EffectOptions["pulse"])}>
+              {(options) => (
+                <>
+                  <Row label={t("Strength")} options={STRENGTHS} value={options().strength} onChange={(strength) => change("pulse", { strength })} />
+                  <Row
+                    label={t("Speed")}
+                    options={[{ id: "slow" as const, label: msg("Slow") }, { id: "normal" as const, label: msg("Normal") }, { id: "fast" as const, label: msg("Fast") }]}
+                    value={options().tempo}
+                    onChange={(tempo) => change("pulse", { tempo })}
+                  />
+                  <Row label={t("Length")} options={clipLengths([2, 4])} value={options().length} onChange={(length) => change("pulse", { length })} />
+                </>
+              )}
+            </Match>
+
+            <Match when={effect().kind === "fade" && (effect().options as EffectOptions["fade"])}>
+              {(options) => (
+                <>
+                  <Row
+                    label={t("Direction")}
+                    options={[{ id: "in" as const, label: msg("Fade in") }, { id: "out" as const, label: msg("Fade out") }]}
+                    value={options().direction}
+                    onChange={(direction) => change("fade", { direction })}
+                  />
+                  <Row
+                    label={t("Color")}
+                    options={[{ id: "black" as const, label: msg("Black") }, { id: "white" as const, label: msg("White") }]}
+                    value={options().color}
+                    onChange={(color) => change("fade", { color })}
+                  />
+                  <Row label={t("Length")} options={seconds([0.5, 1, 2])} value={options().length} onChange={(length) => change("fade", { length })} />
+                </>
+              )}
+            </Match>
+
+            <Match when={effect().kind === "glitch" && (effect().options as EffectOptions["glitch"])}>
+              {(options) => (
+                <>
+                  <Row label={t("Strength")} options={STRENGTHS} value={options().strength} onChange={(strength) => change("glitch", { strength })} />
+                  <Row label={t("Length")} options={seconds([0.5, 1, 2])} value={options().length} onChange={(length) => change("glitch", { length })} />
+                </>
+              )}
+            </Match>
+
+            <Match when={(effect().kind === "rgbSplit" || effect().kind === "glow") && (effect() as FoundEffect & { kind: "rgbSplit" | "glow" })}>
+              {(found) => (
+                <>
+                  <Row label={t("Strength")} options={STRENGTHS} value={found().options.strength} onChange={(strength) => change(found().kind, { strength })} />
+                  <Row label={t("Length")} options={clipLengths([3, 5])} value={found().options.length} onChange={(length) => change(found().kind, { length })} />
+                </>
+              )}
+            </Match>
+
+            <Match when={effect().kind === "blackWhite" && (effect().options as EffectOptions["blackWhite"])}>
+              {(options) => (
+                <Row label={t("Length")} options={clipLengths([3, 5])} value={options().length} onChange={(length) => change("blackWhite", { length })} />
+              )}
+            </Match>
+
+            <Match when={effect().kind === "lightLeak" && (effect().options as EffectOptions["lightLeak"])}>
+              {(options) => (
+                <>
+                  <Row
+                    label={t("Color")}
+                    options={[{ id: "warm" as const, label: msg("Warm") }, { id: "pink" as const, label: msg("Pink") }]}
+                    value={options().color}
+                    onChange={(color) => change("lightLeak", { color })}
+                  />
+                  <Row label={t("Length")} options={seconds([1, 2, 3])} value={options().length} onChange={(length) => change("lightLeak", { length })} />
+                </>
+              )}
+            </Match>
+
+            <Match when={effect().kind === "vignette" && (effect().options as EffectOptions["vignette"])}>
+              {(options) => (
+                <>
+                  <Row label={t("Strength")} options={STRENGTHS} value={options().strength} onChange={(strength) => change("vignette", { strength })} />
+                  <Row
+                    label={t("Length")}
+                    options={[...seconds([3, 5]), { id: "scene" as const, label: msg("To the end") }]}
+                    value={options().length}
+                    onChange={(length) => change("vignette", { length })}
                   />
                 </>
               )}

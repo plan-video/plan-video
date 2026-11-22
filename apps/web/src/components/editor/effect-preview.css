@@ -108,3 +108,107 @@
 @keyframes fx-bar-bottom { 0%, 20% { transform: translateY(100%) } 40%, 80% { transform: none } 95%, 100% { transform: translateY(100%) } }
 .fx[data-kind="bars"] .fx-bar-top { animation-name: fx-bar-top; }
 .fx[data-kind="bars"] .fx-bar-bottom { animation-name: fx-bar-bottom; }
+
+@keyframes fx-zoom-blur {
+  0%, 22% { transform: none; filter: blur(0) }
+  34% { transform: scale(1.35); filter: blur(5px) }
+  46%, 100% { transform: none; filter: blur(0) }
+}
+.fx[data-kind="zoomBlur"] .fx-shot { transform-origin: 50% 50%; animation-name: fx-zoom-blur; animation-timing-function: cubic-bezier(0.5, 0, 0.5, 1); }
+
+@keyframes fx-handheld {
+  0% { transform: scale(1.08) translate(0, 0) rotate(0) }
+  25% { transform: scale(1.08) translate(-1.6%, 1%) rotate(-0.6deg) }
+  50% { transform: scale(1.08) translate(1.2%, -1.2%) rotate(0.5deg) }
+  75% { transform: scale(1.08) translate(-0.8%, -0.6%) rotate(-0.3deg) }
+  100% { transform: scale(1.08) translate(0, 0) rotate(0) }
+}
+.fx[data-kind="handheld"] .fx-shot { animation-name: fx-handheld; animation-timing-function: ease-in-out; }
+
+@keyframes fx-pulse {
+  0% { transform: scale(1.1); animation-timing-function: cubic-bezier(0.2, 0.7, 0.3, 1) }
+  24.9% { transform: none }
+  25% { transform: scale(1.1); animation-timing-function: cubic-bezier(0.2, 0.7, 0.3, 1) }
+  49.9% { transform: none }
+  50% { transform: scale(1.1); animation-timing-function: cubic-bezier(0.2, 0.7, 0.3, 1) }
+  74.9% { transform: none }
+  75% { transform: scale(1.1); animation-timing-function: cubic-bezier(0.2, 0.7, 0.3, 1) }
+  100% { transform: none }
+}
+.fx[data-kind="pulse"] .fx-shot { transform-origin: 50% 50%; animation-name: fx-pulse; }
+
+@keyframes fx-fade { 0%, 20% { opacity: 1 } 65%, 100% { opacity: 0 } }
+.fx[data-kind="fade"] .fx-over { background: #000; animation-name: fx-fade; }
+
+/* Each channel: the shot multiplied by one primary, then screened over the others. */
+.fx-r, .fx-g, .fx-b {
+  background-image: linear-gradient(var(--channel), var(--channel)), url("/site/effects-shot.webp");
+  background-size: cover, cover;
+  background-position: center, center;
+  background-blend-mode: multiply;
+}
+.fx-g { --channel: #0f0; }
+.fx-r { --channel: #f00; mix-blend-mode: screen; }
+.fx-b { --channel: #00f; mix-blend-mode: screen; }
+
+@keyframes fx-split-r { 0%, 15% { transform: none } 40%, 85% { transform: translateX(-1%) } 100% { transform: none } }
+@keyframes fx-split-b { 0%, 15% { transform: none } 40%, 85% { transform: translateX(1%) } 100% { transform: none } }
+.fx[data-kind="rgbSplit"] .fx-r { animation-name: fx-split-r; }
+.fx[data-kind="rgbSplit"] .fx-b { animation-name: fx-split-b; }
+
+@keyframes fx-glitch-r {
+  0%, 20% { transform: none }
+  21% { transform: translateX(-2%) } 27% { transform: translateX(-0.75%) } 31% { transform: translateX(-2.5%) }
+  37% { transform: none } 45% { transform: translateX(-1.5%) } 52% { transform: translateX(-3%) }
+  58%, 100% { transform: none }
+}
+@keyframes fx-glitch-b {
+  0%, 20% { transform: none }
+  21% { transform: translateX(2%) } 27% { transform: translateX(1%) } 31% { transform: translateX(2.5%) }
+  37% { transform: none } 45% { transform: translateX(1.5%) } 52% { transform: translateX(3%) }
+  58%, 100% { transform: none }
+}
+.fx[data-kind="glitch"] .fx-r { animation-name: fx-glitch-r; animation-timing-function: steps(1, end); }
+.fx[data-kind="glitch"] .fx-b { animation-name: fx-glitch-b; animation-timing-function: steps(1, end); }
+
+.fx-slice { opacity: 0; }
+.fx-slice-a { clip-path: inset(30% 0 58% 0); }
+.fx-slice-b { clip-path: inset(66% 0 20% 0); }
+@keyframes fx-slice-a {
+  0%, 22% { opacity: 0 } 23% { opacity: 1; transform: translateX(9%) } 29% { transform: translateX(-6%) }
+  35% { opacity: 0 } 46% { opacity: 1; transform: translateX(-11%) } 54%, 100% { opacity: 0 }
+}
+@keyframes fx-slice-b {
+  0%, 26% { opacity: 0 } 27% { opacity: 1; transform: translateX(-8%) } 33% { opacity: 0 }
+  50% { opacity: 1; transform: translateX(7%) } 57%, 100% { opacity: 0 }
+}
+.fx[data-kind="glitch"] .fx-slice-a { animation-name: fx-slice-a; animation-timing-function: steps(1, end); }
+.fx[data-kind="glitch"] .fx-slice-b { animation-name: fx-slice-b; animation-timing-function: steps(1, end); }
+
+.fx-halo { opacity: 0; filter: blur(5px) brightness(1.35) contrast(1.8); mix-blend-mode: screen; }
+@keyframes fx-glow { 0%, 15% { opacity: 0 } 45%, 85% { opacity: 0.75 } 100% { opacity: 0 } }
+.fx[data-kind="glow"] .fx-halo { animation-name: fx-glow; }
+
+@keyframes fx-leak {
+  0% { opacity: 0; background-position: -40% 0, 120% 100% }
+  45% { opacity: 1 }
+  100% { opacity: 0; background-position: 90% 0, 0% 100% }
+}
+.fx[data-kind="lightLeak"] .fx-over {
+  background:
+    radial-gradient(closest-side, rgb(255 138 61 / 0.95), rgb(255 138 61 / 0.45) 45%, transparent) no-repeat,
+    radial-gradient(closest-side, rgb(255 77 109 / 0.8), rgb(255 77 109 / 0.3) 50%, transparent) no-repeat;
+  background-size: 110% 190%, 70% 120%;
+  mix-blend-mode: screen;
+  animation-name: fx-leak;
+  animation-timing-function: ease-in-out;
+}
+
+@keyframes fx-vignette { 0%, 15% { opacity: 0 } 45%, 85% { opacity: 1 } 100% { opacity: 0 } }
+.fx[data-kind="vignette"] .fx-over {
+  background: radial-gradient(farthest-side, transparent 55%, rgb(0 0 0 / 0.85));
+  animation-name: fx-vignette;
+}
+
+@keyframes fx-gray { 0%, 15% { filter: grayscale(0) } 45%, 85% { filter: grayscale(1) contrast(1.08) } 100% { filter: grayscale(0) } }
+.fx[data-kind="blackWhite"] .fx-shot { animation-name: fx-gray; }

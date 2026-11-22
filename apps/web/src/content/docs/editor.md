@@ -16,7 +16,7 @@ The tabs on the editor's rail hold what you can add:
 | **Text** | **Add a text box**, or a ready-made style. Many styles move: they float, pulse, wiggle or flicker for as long as the text is on screen. Hover a style to see it move. |
 | **Captions** | Caption styles that play as you look at them. Pick one, then **Generate captions** writes captions from the scene's speech. See [Captions](/docs/captions). |
 | **Transitions** | **Dissolve**, **Whip**, **Wipe** and more, between two clips or on every cut |
-| **Effects** | **Auto zoom**, **Blur**, **Shake**, **Slow motion** and more, for the selected clip or the one at the playhead |
+| **Effects** | Eighteen, in **Camera**, **Moments** and **Looks**: **Auto zoom**, **Handheld**, **Glitch**, **Glow**, **Vignette** and more, for the selected clip or the one at the playhead. Its settings then show in the inspector. |
 | **Layout** | Scene sizes like **Short-form 9:16** and **Square video 1:1** |
 | **Extensions** | Add-ons like **Progress bar** and **Killfeed** |
 

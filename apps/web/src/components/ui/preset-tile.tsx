@@ -134,3 +134,12 @@ export function usePreviewClock(playing: () => boolean, options: { loop: number;
 
   return time;
 }
+
+export function PresetSection(props: { title: string; children: JSX.Element }) {
+  return (
+    <section class="flex flex-col gap-2">
+      <h3 class="text-xs font-450 text-muted-foreground">{props.title}</h3>
+      {props.children}
+    </section>
+  );
+}
