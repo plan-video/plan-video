@@ -5,8 +5,8 @@
 import { Show, onCleanup, onMount } from 'solid-js';
 import { toast } from 'somoto';
 import FilmIcon from 'lucide-solid/icons/film';
-import { useWorld } from '@plan.video/koota-solid';
-import { FrameRate, Selected, framesToSeconds, getActiveEntity } from '@plan.video/runtime';
+import { useQuery, useWorld } from '@plan.video/koota-solid';
+import { ChildOf, FrameRate, Root, Selected, framesToSeconds, getActiveEntity } from '@plan.video/runtime';
 import { droppedFiles, importFiles } from '@/engine/asset-actions';
 import { insertAsset } from '@/engine/insert-asset';
 import { insertAssetsInNewScene } from '@/engine/new-scene';
@@ -30,6 +30,8 @@ export function Timeline() {
   const timeline = useTimeline();
   const library = useLibrary();
   const index = useTimelineIndex();
+  // With no scene yet, the canvas shows its own "Drop media here" placeholder.
+  const scenes = useQuery(ChildOf(world.get(Root)!));
 
   onMount(() => timeline.attachCanvas());
   onCleanup(() => timeline.detachCanvas());
@@ -168,7 +170,7 @@ export function Timeline() {
         on:dragover={handleDragOver}
         on:dragleave={handleDragLeave}
       />
-      <Show when={index().layers.length === 0}>
+      <Show when={scenes().length > 0 && index().layers.length === 0}>
         {/* Pulled left by half the layer column, so it sits in the middle of the whole timeline. */}
         <div
           class="pointer-events-none absolute inset-0 flex items-center justify-center gap-2 text-xs text-muted-foreground"
