@@ -8,7 +8,8 @@ import { PLATFORMS } from "@/components/calendar/utils";
 import { PlatformLogo } from "@/components/publish/controls";
 import { useAuth } from "@/context/auth";
 import { cx } from "@/lib/cva";
-import { dashboardRailLabels, dashboardTheme, setDashboardRailLabels, setDashboardTheme } from "@/lib/dashboard-theme";
+import { THEME_PRESETS, activeThemeId, customThemes, liveThemeSpec, selectTheme, type SavedTheme } from "@/lib/app-theme";
+import { dashboardRailLabels, dashboardTheme, setDashboardRailLabels, setDashboardTheme, themeModeChoice, type ThemeModeChoice } from "@/lib/dashboard-theme";
 import { msg, t } from "@/lib/i18n";
 import { smoothly } from "@/lib/motion";
 import { ONBOARDING_STEPS, onboardingStep, setOnboardingStep, type OnboardingStep } from "@/lib/onboarding";
@@ -16,6 +17,7 @@ import { isPhone } from "@/lib/phone";
 import { addQueueSlots, clearQueueSlots, describeQueue, loadQueueSlots, queueSlots, type QueueSlot } from "@/lib/queue-slots";
 import { PUBLISHING_PLATFORMS } from "@/lib/social";
 import { accountLabel, connectionsFor, socialConnections } from "@/lib/social-connections";
+import { resolvePalette, type ThemeMode, type ThemeSpec } from "@/lib/theme-palette";
 import { activeWorkspace, shownWorkspaceName, updateWorkspace, type Workspace } from "@/lib/workspaces";
 
 import { createConnectFlow } from "./connections-view";
@@ -78,8 +80,27 @@ const CURRENT_THEME: Palette = {
   bar: "var(--plane-border-strong)",
   accent: "var(--plane-accent-primary)",
 };
-const DARK: Palette = { canvas: "#0e0f11", surface: "#1c1d1f", line: "#2b2c2e", ink: "#edeeef", faint: "#8c8c8d", bar: "#3b3c3e", accent: "#2f6ff0" };
-const LIGHT: Palette = { canvas: "#f3f3f3", surface: "#ffffff", line: "#ebebeb", ink: "#1c1c1c", faint: "#8e8e8e", bar: "#dcdcdc", accent: "#2563eb" };
+
+function themePicture(spec: ThemeSpec, mode: ThemeMode): Palette {
+  const palette = resolvePalette(spec, mode);
+  return {
+    canvas: palette.canvas,
+    surface: palette.surface,
+    line: palette.borderSubtle,
+    ink: palette.textPrimary,
+    faint: palette.textTertiary,
+    bar: palette.borderStrong,
+    accent: palette.accent,
+  };
+}
+
+const MODES: { value: ThemeModeChoice; label: string }[] = [
+  { value: "light", label: msg("Light") },
+  { value: "dark", label: msg("Dark") },
+  { value: "system", label: msg({ message: "System", context: "appearance" }) },
+];
+
+const themeName = (theme: SavedTheme) => (theme.name === "plan.video" ? theme.name : t(theme.name));
 
 const PICTURE_RAIL: { icon: PlaneIconName; label: string }[] = [
   { icon: "calendar", label: msg({ message: "Schedule", context: "noun" }) },
@@ -88,11 +109,12 @@ const PICTURE_RAIL: { icon: PlaneIconName; label: string }[] = [
 ];
 
 /** The dashboard, small: its rail, side panel and calendar in the colours it's being chosen in. */
-function DashboardPicture(props: { palette: Palette; names: boolean }) {
+function DashboardPicture(props: { palette: Palette; names: boolean; compact?: boolean }) {
   return (
     <span aria-hidden="true" class="flex aspect-[3/2] w-full overflow-hidden pt-2" style={{ background: props.palette.canvas }}>
       <span class={cx("flex shrink-0 flex-col items-center", props.names ? "w-11 gap-2" : "w-7 gap-2.5")}>
-        <For each={PICTURE_RAIL}>
+        {/* A small picture has room for two, and a third would be cut in half. */}
+        <For each={props.compact ? PICTURE_RAIL.slice(0, 2) : PICTURE_RAIL}>
           {(item, index) => {
             const color = () => (index() === 0 ? props.palette.ink : props.palette.faint);
             return (
@@ -129,17 +151,36 @@ function DashboardPicture(props: { palette: Palette; names: boolean }) {
   );
 }
 
-function ChoiceCells(props: { label: string; children: JSX.Element }) {
+/** "System" follows the device, so it shows both: light on the left, dark on the right. */
+function ModePicture(props: { mode: ThemeModeChoice; names: boolean }) {
+  const picture = (mode: ThemeMode) => <DashboardPicture palette={themePicture(liveThemeSpec(), mode)} names={props.names} compact />;
   return (
-    <div role="radiogroup" aria-label={props.label} class="grid grid-cols-2 gap-3">
+    <Show when={props.mode === "system"} fallback={picture(props.mode as ThemeMode)}>
+      <span class="relative block">
+        {picture("light")}
+        <span class="absolute inset-0 [clip-path:inset(0_0_0_50%)]">{picture("dark")}</span>
+      </span>
+    </Show>
+  );
+}
+
+function ChoiceCells(props: { label: string; columns?: 2 | 3 | 4; children: JSX.Element }) {
+  return (
+    <div role="radiogroup" aria-label={props.label} class={cx("grid", props.columns === 4 ? "grid-cols-4 gap-x-2.5 gap-y-3" : props.columns === 3 ? "grid-cols-3 gap-3" : "grid-cols-2 gap-3")}>
       {props.children}
     </div>
   );
 }
 
-function ChoiceCell(props: { label: string; selected: boolean; onSelect(): void; children: JSX.Element }) {
+function ChoiceCell(props: { label: string; selected: boolean; small?: boolean; onSelect(): void; children: JSX.Element }) {
   return (
-    <button type="button" role="radio" aria-checked={props.selected} class="group flex min-w-0 cursor-pointer flex-col items-center gap-2.5 rounded-[8px] outline-none focus-ring" onClick={props.onSelect}>
+    <button
+      type="button"
+      role="radio"
+      aria-checked={props.selected}
+      class={cx("group flex min-w-0 cursor-pointer flex-col items-center rounded-[8px] outline-none focus-ring", props.small ? "gap-1.5" : "gap-2.5")}
+      onClick={props.onSelect}
+    >
       <span
         class={cx(
           "w-full overflow-hidden rounded-[8px] ring-1 transition-shadow",
@@ -148,7 +189,15 @@ function ChoiceCell(props: { label: string; selected: boolean; onSelect(): void;
       >
         {props.children}
       </span>
-      <span class={cx("text-[14px] leading-5 font-medium", props.selected ? "text-(--plane-text-primary)" : "text-(--plane-text-secondary)")}>{props.label}</span>
+      <span
+        class={cx(
+          "max-w-full truncate font-medium",
+          props.small ? "text-[13px] leading-[18px]" : "text-[14px] leading-5",
+          props.selected ? "text-(--plane-text-primary)" : "text-(--plane-text-secondary)",
+        )}
+      >
+        {props.label}
+      </span>
     </button>
   );
 }
@@ -404,14 +453,26 @@ export function DashboardOnboardingView(props: { onDone(view?: DashboardView): v
               </Match>
 
               <Match when={step() === "look"}>
-                <ChoiceCells label={t("Theme")}>
-                  <ChoiceCell label={t("Light")} selected={dashboardTheme() === "light"} onSelect={() => setDashboardTheme("light")}>
-                    <DashboardPicture palette={LIGHT} names={dashboardRailLabels()} />
-                  </ChoiceCell>
-                  <ChoiceCell label={t("Dark")} selected={dashboardTheme() === "dark"} onSelect={() => setDashboardTheme("dark")}>
-                    <DashboardPicture palette={DARK} names={dashboardRailLabels()} />
-                  </ChoiceCell>
-                </ChoiceCells>
+                <div class="flex flex-col gap-6">
+                  <ChoiceCells label={t("Mode")} columns={3}>
+                    <For each={MODES}>
+                      {(mode) => (
+                        <ChoiceCell label={t(mode.label)} selected={themeModeChoice() === mode.value} onSelect={() => setDashboardTheme(mode.value)}>
+                          <ModePicture mode={mode.value} names={dashboardRailLabels()} />
+                        </ChoiceCell>
+                      )}
+                    </For>
+                  </ChoiceCells>
+                  <ChoiceCells label={t("Theme")} columns={4}>
+                    <For each={[...THEME_PRESETS, ...customThemes()]}>
+                      {(theme) => (
+                        <ChoiceCell label={themeName(theme)} small selected={activeThemeId() === theme.id} onSelect={() => selectTheme(theme.id)}>
+                          <DashboardPicture palette={themePicture(theme.spec, dashboardTheme())} names={false} compact />
+                        </ChoiceCell>
+                      )}
+                    </For>
+                  </ChoiceCells>
+                </div>
               </Match>
 
               <Match when={step() === "rail"}>
