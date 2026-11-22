@@ -540,8 +540,21 @@ function BulkTools() {
   const editingIndex = () => bulk.posts.findIndex((post) => post.id === editing());
   const room = () => MAX_POSTS - bulk.posts.length;
 
-  const addFiles = async (dropped: File[]) => {
+  // One drop at a time, so a second one made while the first is still reading sees its posts: the limit and duplicates hold.
+  let drops: Promise<void> = Promise.resolve();
+  let dropsWaiting = 0;
+  const addFiles = (dropped: File[]) => {
+    dropsWaiting++;
+    const run = drops.then(() => readDrop(dropped)).finally(() => {
+      if (--dropsWaiting === 0) setReading(null);
+    });
+    drops = run.catch(() => {});
+    return run;
+  };
+
+  const readDrop = async (dropped: File[]) => {
     await restored;
+    const database = batchDatabase;
     const known = new Set(bulk.posts.map((post) => fileKey(post.media.file)));
     const turnedAway = dropped.filter((file) => mediaKind(file) === "image" && imageFileProblem(file));
     if (turnedAway.length) {
@@ -577,6 +590,8 @@ function BulkTools() {
         queue,
         readMedia,
         (media) => {
+          // The workspace changed while this read: its batch is gone, so the file doesn't land in the next one.
+          if (batchDatabase !== database) return releaseMedia(media);
           void keepInLibrary([media]);
           const id = newId();
           const fitting = bulk.platforms.filter((platform) => socialPlatform(platform).kinds.includes(media.kind));
@@ -608,8 +623,8 @@ function BulkTools() {
         },
         READ_AT_ONCE,
       );
-    } finally {
-      setReading(null);
+    } catch (error) {
+      console.error("[bulk] Could not read the files", error);
     }
     if (failed) toast.error(t("{count, plural, =1 {Could not read one file} other {Could not read # files}}", { count: failed }));
   };
