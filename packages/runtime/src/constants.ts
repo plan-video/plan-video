@@ -89,6 +89,8 @@ export enum EffectType {
   INVERT,
   SATURATE,
   SEPIA,
+  RGB_SPLIT,
+  GLOW,
 }
 
 export enum MotionType {

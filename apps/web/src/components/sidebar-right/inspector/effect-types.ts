@@ -9,7 +9,7 @@ import { msg } from "@/lib/i18n";
 import type { EffectType as EffectName } from "@plan.video/jsx";
 import type { EffectType } from "@plan.video/runtime";
 
-// `blur` is px, `hueRotate` degrees, the rest a 0-1 amount. A value carries over a type switch only within a unit.
+// `blur`, `rgbSplit` and `glow` are px, `hueRotate` degrees, the rest a 0-1 amount. A value carries over a type switch only within a unit.
 export type EffectUnit = "amount" | "px" | "deg";
 
 export type EffectOption = {
@@ -28,6 +28,8 @@ export const EFFECT_OPTIONS: EffectOption[] = [
   { name: "invert", label: msg("Invert"), unit: "amount", value: 0.5 },
   { name: "saturate", label: msg("Saturate"), unit: "amount", value: 0.8 },
   { name: "sepia", label: msg("Sepia"), unit: "amount", value: 0.5 },
+  { name: "rgbSplit", label: msg("RGB split"), unit: "px", value: 6 },
+  { name: "glow", label: msg("Glow"), unit: "px", value: 12 },
 ];
 
 export const DEFAULT_EFFECT: EffectOption = EFFECT_OPTIONS[0]!;

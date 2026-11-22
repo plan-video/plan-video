@@ -277,6 +277,8 @@ export const EFFECT_TYPES: Record<string, EffectType> = {
 	invert: EffectType.INVERT,
 	saturate: EffectType.SATURATE,
 	sepia: EffectType.SEPIA,
+	rgbSplit: EffectType.RGB_SPLIT,
+	glow: EffectType.GLOW,
 };
 
 const STROKE_JOINS: Record<string, StrokeJoin> = {

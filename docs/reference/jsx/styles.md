@@ -50,6 +50,8 @@ A filter over the parent's **rendered pixels** — its fills, strokes and childr
 | `type` | `value` means |
 | ------ | ------------- |
 | `"blur"` | Radius in px. |
+| `"glow"` | Radius in px of the soft light around the brightest parts. |
+| `"rgbSplit"` | How far red and blue part, in px. |
 | `"hueRotate"` | Degrees. |
 | `"brightness"`, `"contrast"`, `"grayscale"`, `"invert"`, `"saturate"`, `"sepia"` | Amount, `0`–`1`. |
 

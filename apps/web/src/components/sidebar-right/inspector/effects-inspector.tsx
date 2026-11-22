@@ -147,7 +147,7 @@ export function EffectsInspector(props: EffectsInspectorProps) {
         </Show>
 
         <Show when={option().unit === "px"}>
-          <ControlRow label={t("Radius")} contentClass="grid grid-cols-2 gap-2">
+          <ControlRow label={option().name === "rgbSplit" ? t("Distance") : t("Radius")} contentClass="grid grid-cols-2 gap-2">
             <ControlledTextField
               value={value()}
               onNumber={(next) => editValue(Math.max(0, next))}
@@ -160,8 +160,8 @@ export function EffectsInspector(props: EffectsInspectorProps) {
             <IncrementDecrementControl
               onDecrement={() => editValue(Math.max(0, value() - 1))}
               onIncrement={() => editValue(value() + 1)}
-              decrementLabel={t("Decrease blur radius")}
-              incrementLabel={t("Increase blur radius")}
+              decrementLabel={option().name === "blur" ? t("Decrease blur radius") : t("Decrease")}
+              incrementLabel={option().name === "blur" ? t("Increase blur radius") : t("Increase")}
             />
           </ControlRow>
         </Show>

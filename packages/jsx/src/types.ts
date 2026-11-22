@@ -42,7 +42,10 @@ export type BlendMode =
   | "color"
   | "luminosity";
 
-/** CSS filter functions over the parent's rendered pixels: `blur` takes a radius in px, `hueRotate` degrees, the rest 0–1. */
+/**
+ * Filters over the parent's rendered pixels: `blur` and `glow` take a radius in px, `rgbSplit` how far
+ * red and blue part in px, `hueRotate` degrees, the rest 0–1.
+ */
 export type EffectType =
   | "blur"
   | "brightness"
@@ -51,7 +54,9 @@ export type EffectType =
   | "hueRotate"
   | "invert"
   | "saturate"
-  | "sepia";
+  | "sepia"
+  | "rgbSplit"
+  | "glow";
 
 /**
  * `cubicBezier(x1,y1,x2,y2)` takes CSS-style control points, `spring(bounce,duration)` a 0–1 bounce
@@ -493,7 +498,7 @@ export type ShadowProps = ColorProps & OpacityProps & Pick<CompositeProps, "hidd
  */
 export type EffectProps = Pick<CompositeProps, "hidden"> & TrackChildren & {
   type: EffectType;
-  /** The amount: px for "blur", degrees for "hueRotate", 0–1 otherwise. */
+  /** The amount: px for "blur", "glow" and "rgbSplit", degrees for "hueRotate", 0–1 otherwise. */
   value: number;
 };
 

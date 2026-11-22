@@ -7,6 +7,7 @@ import { EffectType } from '../constants';
 import { Hidden, Effect, Computed, Cache } from '../traits';
 import { getPreviewScale } from '../queries/camera';
 import { adjustingLayers } from '../systems/transform';
+import { glowFilter, rgbSplitFilter } from './svg-filter';
 
 import type { Entity, World } from 'koota';
 
@@ -50,6 +51,8 @@ export function effectFilter(world: World, sub: Entity): string | null {
 		const clamped = Math.min(1, Math.max(0, value));
 		return clamped > EPSILON ? `sepia(${clamped})` : null;
 	}
+	if (type === EffectType.RGB_SPLIT) return rgbSplitFilter(Math.max(0, value) * getPreviewScale(world));
+	if (type === EffectType.GLOW) return glowFilter(Math.max(0, value) * getPreviewScale(world));
 	return null;
 }
 
