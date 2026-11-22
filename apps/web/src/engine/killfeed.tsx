@@ -250,7 +250,7 @@ const union = (a: Box, b: Box): Box => ({
 	bottom: Math.max(a.bottom, b.bottom),
 });
 
-function stackColumn(world: World, scene: Entity, time: number, stackName: string): (Box & { ratio: number }) | null {
+export function stackColumn(world: World, scene: Entity, time: number, stackName: string): (Box & { ratio: number }) | null {
 	const computed = store(world, Computed);
 	const fps = world.get(FrameRate)?.value || 30;
 	const frame = Math.round(time * fps);

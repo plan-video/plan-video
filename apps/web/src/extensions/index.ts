@@ -7,6 +7,7 @@ import type { Component } from "solid-js";
 import { msg } from "@/lib/i18n";
 import { CodKillfeedCover, CodKillfeedPanel, PubgKillfeedCover, PubgKillfeedPanel, RustKillfeedCover, RustKillfeedPanel } from "@/components/sidebar-left/bar-killfeed-panel";
 import { Cs2KillfeedCover, Cs2KillfeedPanel } from "@/components/sidebar-left/cs2-killfeed-panel";
+import { TikTokChatCover, TikTokChatPanel, TwitchChatCover, TwitchChatPanel } from "@/components/sidebar-left/chat-panel";
 import { CutoutCover, CutoutPanel } from "@/components/sidebar-left/cutout-panel";
 import { KillfeedCover, KillfeedPanel } from "@/components/sidebar-left/killfeed-panel";
 import { ProgressBarCover, ProgressBarPanel } from "@/components/sidebar-left/progress-bar-panel";
@@ -46,6 +47,24 @@ export const EXTENSIONS: Extension[] = [
     author: "plan.video",
     Cover: ProgressBarCover,
     Panel: ProgressBarPanel,
+  },
+  {
+    id: "twitch-chat",
+    name: msg("Chat"),
+    tag: "Twitch",
+    summary: msg("Chat messages the way they look on Twitch, with name colors and badges, dropped onto your clip."),
+    author: "plan.video",
+    Cover: TwitchChatCover,
+    Panel: TwitchChatPanel,
+  },
+  {
+    id: "tiktok-chat",
+    name: msg("Chat"),
+    tag: "TikTok",
+    summary: msg("Comments the way they look on TikTok LIVE, with profile pictures and badges, dropped onto your clip."),
+    author: "plan.video",
+    Cover: TikTokChatCover,
+    Panel: TikTokChatPanel,
   },
   {
     id: "valorant-killfeed",

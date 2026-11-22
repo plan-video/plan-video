@@ -5,6 +5,7 @@
 import type { Asset } from '@plan.video/assets';
 
 export const KILLFEED_FOLDER = 'killfeed';
+export const CHAT_FOLDER = 'chat';
 
 // Drawn this many times the placed height in a 1080-wide frame, so an entry scales up and stays sharp.
 export const PICTURE_SCALE = 3;
@@ -15,7 +16,7 @@ export function killfeedUnit(width: number, height: number): number {
 }
 
 export function isKillfeedPicture(asset: Asset): boolean {
-	return asset.type === 'IMAGE' && asset.path.startsWith(`${KILLFEED_FOLDER}/`);
+	return asset.type === 'IMAGE' && [KILLFEED_FOLDER, CHAT_FOLDER].some((folder) => asset.path.startsWith(`${folder}/`));
 }
 
 export function killfeedPictureSize(asset: { width: number; height: number }, width: number, height: number): { width: number; height: number } {

@@ -18,9 +18,11 @@ import { SceneDropOverlay } from "./scene-drop-overlay";
 import { NetworkPreviewOverlay } from "./network-preview";
 import { ASSET_DRAG_TYPE } from "@/components/sidebar-left/folder-item";
 import { BAR_KILLFEED_DRAG_TYPE } from "@/components/sidebar-left/bar-killfeed-panel";
+import { CHAT_DRAG_TYPE } from "@/components/sidebar-left/chat-panel";
 import { CS2_KILLFEED_DRAG_TYPE } from "@/components/sidebar-left/cs2-killfeed-panel";
 import { KILLFEED_DRAG_TYPE } from "@/components/sidebar-left/killfeed-panel";
 import { insertBarKillfeeds, insertCs2Killfeeds, insertKillfeeds, parseBarKillfeedDrag, parseCs2KillfeedDrag, parseKillfeedDrag } from "@/engine/killfeed";
+import { insertChatMessages, parseChatDrag } from "@/engine/live-chat";
 import { t } from "@/lib/i18n";
 
 import type { Asset } from "@plan.video/assets";
@@ -87,6 +89,14 @@ export function Canvas() {
       const drag = parseBarKillfeedDrag(barKillfeed);
       const placed = scene ? await insertBarKillfeeds(world, drag.id, drag.specs, { parent: scene, center: localPt, placement: drag.placement, spacing: drag.spacing }) : [];
       if (!placed.length) toast(t("Drop it on a scene"), { description: t("A killfeed goes on the video frame.") });
+      return;
+    }
+
+    const chat = event.dataTransfer?.getData(CHAT_DRAG_TYPE);
+    if (chat) {
+      const drag = parseChatDrag(chat);
+      const placed = scene ? await insertChatMessages(world, drag.platform, drag.messages, drag.style, { parent: scene, center: localPt }) : [];
+      if (!placed.length) toast(t("Drop it on a scene"), { description: t("A chat message goes on the video frame.") });
       return;
     }
 

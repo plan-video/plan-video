@@ -18,9 +18,11 @@ The tabs on the editor's rail hold what you can add:
 | **Transitions** | Sixteen, in **Basic**, **Movement**, **Zoom** and **Stylized**: **Dissolve**, **Whip**, **Light leak**, **Glitch** and more, on a clip, between two clips or on every cut. Click one to add it to the selected clip, or to the clip under the playhead. Hover one to see it play. |
 | **Effects** | Eighteen, in **Camera**, **Moments** and **Looks**: **Auto zoom**, **Handheld**, **Glitch**, **Glow**, **Vignette** and more, for the selected clip or the one at the playhead. Its settings then show in the inspector. |
 | **Layout** | Scene sizes like **Short-form 9:16** and **Square video 1:1** |
-| **Extensions** | Add-ons like **Progress bar** and **Killfeed** |
+| **Extensions** | Add-ons like **Progress bar**, **Killfeed** and **Chat** |
 
 In the **Valorant** killfeed, **Find kills in the video** reads the killfeed in the top right of your clip and lists your kills and deaths, with the player names, agents, weapon and headshots it shows. Click a kill to change it; rename yourself once and every kill follows. **Add kills where they happen** then puts each one on the frame it came in on. It works on clips where Valorant's own killfeed is visible, such as full-screen recordings.
+
+**Chat** draws messages the way they look in **Twitch** chat or in **TikTok LIVE** comments. Type a username and a message, pick a name color and badges, or add your own badge with **+**. On TikTok you can also add a profile picture. Add up to seven messages, and they come in one second apart, under each other. Drag them onto the video, or click **Add to scene** to put them at the playhead. **More options** turns the background off or changes the animation.
 
 ## Change what's selected
 
