@@ -196,20 +196,20 @@ const livePlatforms = (posts: readonly BulkPost[]) => sortPlatforms(new Set(post
 const ownCaptions = (post: BulkPost) =>
   Object.fromEntries(post.platforms.filter((id) => id !== "youtube").map((id) => [id, finalCaption(post, id)]));
 
-type Issue = { level: "error" | "warning"; message: string; platform?: PlatformId };
+type Issue = { level: "error" | "warning"; message: string; platform?: PlatformId; time?: true };
 
 function postIssues(post: BulkPost, index: number): Issue[] {
-  const issues: Issue[] = [];
+  // The file's own problem comes first: the row names only one, and settings can't fix this one.
+  const issues: Issue[] = mediaProblems([post.media]).map((message) => ({ level: "error", message }));
   if (!post.platforms.length) {
     const noneFit = bulk.platforms.length > 0 && bulk.platforms.every((id) => !takes(post, id));
     issues.push({ level: "error", message: noneFit ? msg("None of the networks you picked take this file.") : msg("Pick at least one platform.") });
   }
   const when = scheduleProblem(atLocal(post.day, post.time));
-  if (when) issues.push({ level: "error", message: when });
+  if (when) issues.push({ level: "error", message: when, time: true });
   if (post.repeat && post.repeatEnd.startsWith("on:") && post.repeatEnd.slice(3) < post.day) {
     issues.push({ level: "error", message: msg("Pick a repeat end on or after the first post.") });
   }
-  for (const message of mediaProblems([post.media])) issues.push({ level: "error", message });
   const summary = summarizeMedia([post.media]);
   issues.push(
     ...checkPost({
@@ -495,8 +495,23 @@ function BulkTools() {
   const [reading, setReading] = createSignal<{ done: number; total: number } | null>(null);
   const [saving, setSaving] = createSignal<"draft" | "scheduled" | "now" | null>(null);
 
-  const issues = createMemo(() => new Map(bulk.posts.map((post, index) => [post.id, postIssues(post, index)])));
+  // Times run out while the page sits open, so the checks run again as the clock moves, not only when a post changes.
+  const [now, setNow] = createSignal(Date.now());
+  const tick = setInterval(() => setNow(Date.now()), 30_000);
+  onCleanup(() => clearInterval(tick));
+  createEffect(
+    on(now, () => {
+      // As on a restore: a time the plan set moves on once it passes; one set by hand stays for the person to see.
+      if (!restoring() && bulk.posts.some((post) => !post.ownTime && scheduleProblem(atLocal(post.day, post.time)))) replan();
+    }),
+  );
+  const issues = createMemo(() => {
+    now();
+    return new Map(bulk.posts.map((post, index) => [post.id, postIssues(post, index)]));
+  });
   const blocked = () => bulk.posts.filter((post) => issues().get(post.id)?.some((issue) => issue.level === "error"));
+  // Post now goes out now, so a post's own time can't stop it.
+  const blockedNow = () => bulk.posts.filter((post) => issues().get(post.id)?.some((issue) => issue.level === "error" && !issue.time));
   // Settings are shared, so a problem with them is named once in the footer, not on every row.
   const settingsProblems = createMemo(() => {
     const problems: Issue[] = [];
@@ -708,9 +723,11 @@ function BulkTools() {
       afterReorder();
     });
 
-  const save = async (status: "draft" | "scheduled", guestReason: "schedule" | "post" = "schedule") => {
+  const save = async (status: "draft" | "scheduled", guestReason: "schedule" | "post" = "schedule"): Promise<void> => {
     if (saving() || reading() || !bulk.posts.length) return;
-    if (status === "scheduled" && blocked().length) return;
+    // The checks may be up to a tick old: a time that has just passed can't be scheduled.
+    setNow(Date.now());
+    if (status === "scheduled" && blocked().length) return showFix();
     // Guest mode's demo never sends anything.
     if (status === "scheduled" && auth.isGuest()) {
       askForAccount({ reason: guestReason });
@@ -744,8 +761,8 @@ function BulkTools() {
     }
   };
 
-  const postNow = async () => {
-    if (saving() || reading() || blocked().length) return;
+  const postNow = async (): Promise<void> => {
+    if (saving() || reading() || blockedNow().length) return;
     const sending = bulk.posts.filter(sendable);
     if (!sending.length) return;
     if (auth.isGuest()) return save("scheduled", "post");
@@ -933,7 +950,7 @@ function BulkTools() {
               </Button>
               <Show when={bulk.posts.some(sendable)}>
                 <Tooltip>
-                  <TooltipTrigger as={Button} variant="secondary" class="gap-1.5 px-3" disabled={!!saving() || !!reading() || blocked().length > 0} onClick={() => void postNow()}>
+                  <TooltipTrigger as={Button} variant="secondary" class="gap-1.5 px-3" disabled={!!saving() || !!reading() || blockedNow().length > 0} onClick={() => void postNow()}>
                     <Show when={saving() === "now"}>
                       <Icon name="spinner-loader" class="-ml-1 size-5 animate-spin" />
                     </Show>
