@@ -4,6 +4,7 @@
 
 import { intlLocale, localized, msg, t } from "./i18n";
 import type { PictureEdit } from "./picture-edit";
+import type { VideoEdit } from "./video-edit";
 import { formatDuration, isAspect, type MediaSummary } from "./social";
 
 export type PostMedia = {
@@ -19,6 +20,8 @@ export type PostMedia = {
   poster: string;
   /** A picture cropped or turned here, kept with the file it came from so the edit can be changed or undone. */
   edit?: { original: File; settings: PictureEdit; cutout?: File };
+  /** A video trimmed or cropped here, kept the same way. */
+  videoEdit?: { original: File; settings: VideoEdit };
 };
 
 const VIDEO_EXTENSIONS = /\.(mp4|mov|m4v|webm|mkv)$/i;
@@ -240,7 +243,7 @@ export function releaseMedia(media: PostMedia): void {
   URL.revokeObjectURL(media.url);
 }
 
-export async function videoFrames(media: PostMedia, count: number): Promise<{ time: number; src: string }[]> {
+export async function videoFrames(media: Pick<PostMedia, "url" | "duration">, count: number): Promise<{ time: number; src: string }[]> {
   return withVideo(media.url, async (video) => {
     const duration = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : media.duration;
     const frames: { time: number; src: string }[] = [];

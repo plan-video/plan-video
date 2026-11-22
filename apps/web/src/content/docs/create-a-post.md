@@ -7,7 +7,7 @@ Every post starts in **New post** in the dashboard.
     Choose the accounts to post to, or an account group.
   </Step>
   <Step title="Add media">
-    Add a video or up to 35 pictures from your computer or your [media library](/docs/media-library). You can also attach a project from the editor; its export is added for you. Click a picture to crop, rotate or flip it.
+    Add a video or up to 35 pictures from your computer or your [media library](/docs/media-library). You can also attach a project from the editor; its export is added for you. Click a picture to crop, rotate or flip it. Click **Quick edit** on a video to trim, crop or mute it without opening the editor.
   </Step>
   <Step title="Write the caption">
     One caption goes to every network. Open a network's tab to give it its own caption, media or options instead.

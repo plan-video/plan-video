@@ -8,6 +8,7 @@ import { createStore, produce, reconcile } from "solid-js/store";
 import { toast } from "somoto";
 
 import { Button } from "@/components/ui/button";
+import { VideoEditor } from "@/components/publish/video-editor";
 import { capCentered } from "@/components/ui/cap-label";
 import { Checkbox, CheckboxControl, CheckboxInput } from "@/components/ui/checkbox";
 import { Icon } from "@/components/dashboard/dashboard-icon";
@@ -179,6 +180,7 @@ const [settings, setSettings] = createStore<PlatformSettings>(defaultPlatformSet
 const [scheduleMode, setScheduleMode] = createSignal<ScheduleMode>("spread");
 const [signed, setSigned] = createSignal(true);
 const [editing, setEditing] = createSignal<string | null>(null);
+const [quickEditing, setQuickEditing] = createSignal<string | null>(null);
 const [batchOpen, setBatchOpen] = createSignal(false);
 const [selectionCaption, setSelectionCaption] = createSignal("");
 const [movingPost, setMovingPost] = createSignal<string | null>(null);
@@ -996,7 +998,38 @@ function BulkTools() {
           <PostPanel index={editingIndex()} issues={issues().get(bulk.posts[editingIndex()]!.id) ?? []} problem={blockingSetting()} />
         </Show>
       </Show>
+      <QuickVideoEditor />
     </div>
+  );
+}
+
+/** Opens on the file the video came from, so an earlier trim can be widened or undone. */
+function QuickVideoEditor() {
+  onCleanup(() => setQuickEditing(null));
+  const post = () => bulk.posts.find((entry) => entry.id === quickEditing());
+  return (
+    <Show when={post()}>
+      {(open) => {
+        const { id, media } = open();
+        const original = media.videoEdit?.original ?? media.file;
+        const before = media.url;
+        return (
+          <VideoEditor
+            file={original}
+            edit={media.videoEdit?.settings}
+            onSave={async (file, edit) => {
+              const read = await readMedia(file);
+              const index = bulk.posts.findIndex((entry) => entry.id === id);
+              if (index < 0) return releaseMedia(read);
+              setBulk("posts", index, "media", edit ? { ...read, videoEdit: { original, settings: edit } } : read);
+              if (batchDatabase) void writeBatchFile(batchDatabase, { id, file: read.file, poster: read.poster }).catch(warnNotKept);
+              URL.revokeObjectURL(before);
+            }}
+            onClose={() => setQuickEditing(null)}
+          />
+        );
+      }}
+    </Show>
   );
 }
 
@@ -1907,6 +1940,12 @@ function PostPanel(props: { index: number; issues: Issue[]; problem?: Issue }) {
             <div class="rounded-xl border border-border-strong bg-accent/30 px-2.5 py-2 text-xs leading-4 text-muted-foreground">
               <IssueList issues={props.issues} />
             </div>
+          </Show>
+          <Show when={post().media.kind === "video"}>
+            <Button variant="secondary" class="gap-1 self-start pl-1" onClick={() => setQuickEditing(post().id)}>
+              <Icon name="scissors" class="size-5" />
+              {t("Quick edit")}
+            </Button>
           </Show>
         </PanelSection>
 

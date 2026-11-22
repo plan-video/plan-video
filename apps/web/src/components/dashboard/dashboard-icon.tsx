@@ -44,6 +44,7 @@ import RepeatLucide from "lucide-solid/icons/repeat";
 import RepeatOffLucide from "lucide-solid/icons/repeat-off";
 import RotateCcwLucide from "lucide-solid/icons/rotate-ccw-square";
 import RotateCwLucide from "lucide-solid/icons/rotate-cw-square";
+import ScissorsLucide from "lucide-solid/icons/scissors";
 import SignatureLucide from "lucide-solid/icons/signature";
 import SmilePlusLucide from "lucide-solid/icons/face-slightly-smiling-plus";
 import SquareTerminalLucide from "lucide-solid/icons/square-terminal";
@@ -53,6 +54,8 @@ import StarLucide from "lucide-solid/icons/star";
 import TriangleAlertLucide from "lucide-solid/icons/triangle-exclamation-point";
 import TypeLucide from "lucide-solid/icons/type";
 import VideoLucide from "lucide-solid/icons/video";
+import Volume2Lucide from "lucide-solid/icons/volume-2";
+import VolumeXLucide from "lucide-solid/icons/volume-x";
 
 import { Icon as EditorIcon } from "@/components/ui/icon";
 import { cx } from "@/lib/cva";
@@ -132,11 +135,14 @@ const LUCIDE: Record<string, Glyph> = {
   play: PlayLucide,
   "rotate-left": RotateCcwLucide,
   "rotate-right": RotateCwLucide,
+  scissors: ScissorsLucide,
   signature: SignatureLucide,
   "spinner-loader": LoaderCircleLucide,
   text: TypeLucide,
   video: VideoLucide,
   "view.grid": LayoutGridLucide,
+  volume: Volume2Lucide,
+  "volume-off": VolumeXLucide,
 };
 
 const FILLED = new Set(["favorited"]);

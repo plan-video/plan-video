@@ -79,6 +79,7 @@ import {
 import { takeHandOff, takeHandedFiles } from "@/components/publish/handoff";
 import { MediaPicker } from "@/components/publish/media-picker";
 import { PictureEditor } from "@/components/publish/picture-editor";
+import { VideoEditor } from "@/components/publish/video-editor";
 import { PUBLISHING_PLATFORMS, sendPost } from "@/components/publish/publisher";
 import { RepeatEndField, RepeatField } from "@/components/publish/repeat-field";
 import { PlatformSettingsFields, platformsWithSettings, tiktokLimitIssues } from "@/components/publish/platform-settings";
@@ -1264,6 +1265,7 @@ export function DashboardNewPostView() {
 
       <PreviewPanel issues={issues()} />
       <SlotPictureEditor />
+      <SlotVideoEditor />
     </div>
   );
 }
@@ -1297,6 +1299,7 @@ const maxFor = (slot: MediaSlot) => (post.kind === "story" ? 1 : slot.platform ?
 
 
 const [editingPicture, setEditingPicture] = createSignal<{ slot: MediaSlot; item: PostMedia } | null>(null);
+const [editingVideo, setEditingVideo] = createSignal<{ slot: MediaSlot; item: PostMedia } | null>(null);
 
 /** The networks that cut this slot's first picture from the middle as it is now. */
 function croppedBy(slot: MediaSlot): PlatformId[] {
@@ -1331,6 +1334,35 @@ function SlotPictureEditor() {
           onClose={() => setEditingPicture(null)}
         />
       )}
+    </Show>
+  );
+}
+
+/** Opens on the file the video came from, so an earlier trim can be widened or undone. */
+function SlotVideoEditor() {
+  onCleanup(() => setEditingVideo(null));
+  return (
+    <Show when={editingVideo()}>
+      {(open) => {
+        const { slot, item } = open();
+        const original = item.videoEdit?.original ?? item.file;
+        return (
+          <VideoEditor
+            file={original}
+            edit={item.videoEdit?.settings}
+            onSave={async (file, edit) => {
+              const read = await readMedia(file);
+              const next = edit ? { ...read, videoEdit: { original, settings: edit } } : read;
+              if (!slot.items().some((entry) => entry.id === item.id)) return releaseMedia(read);
+              slot.setItems(slot.items().map((entry) => (entry.id === item.id ? next : entry)));
+              // Its times and frame no longer match the video.
+              slot.setCover(null);
+              releaseUnused([item]);
+            }}
+            onClose={() => setEditingVideo(null)}
+          />
+        );
+      }}
     </Show>
   );
 }
@@ -1768,6 +1800,12 @@ function MediaEditor(props: { slot: MediaSlot }) {
                     <MediaPicker class={cx(buttonVariants({ variant: "secondary" }), "button-type")} kinds={libraryKinds()} max={1} onPick={(files) => void addFiles(files)}>
                       {t("From library")}
                     </MediaPicker>
+                    <Show when={slot.platform || !post.project}>
+                      <Button variant="secondary" class="gap-1 pl-1" onClick={() => setEditingVideo({ slot, item: item() })}>
+                        <Icon name="scissors" class="size-5" />
+                        {t("Quick edit")}
+                      </Button>
+                    </Show>
                     <Show when={!slot.platform}>
                       <Button variant="secondary" class="gap-1 pl-1" disabled={opening()} onClick={() => void openInEditor()}>
                         <Show when={opening()} fallback={<Icon name="edit-video" class="size-5" />}>
@@ -1935,7 +1973,21 @@ function MediaProblems(props: { slot: MediaSlot }) {
           )}
         </For>
         <Show when={video()}>
-          <span class="pl-3.5 leading-4 text-muted-foreground">{t("Edit it in plan.video to trim or reframe it, then export again.")}</span>
+          <Show
+            when={props.slot.platform || !post.project}
+            fallback={<span class="pl-3.5 leading-4 text-muted-foreground">{t("Edit it in plan.video to trim or reframe it, then export again.")}</span>}
+          >
+            <span class="pl-3.5 leading-4 text-muted-foreground">
+              {t("Trim or crop it here, or edit it in plan.video.")}{" "}
+              <button
+                type="button"
+                class="rounded-sm text-foreground underline-offset-2 hover:underline focus-ring"
+                onClick={() => setEditingVideo({ slot: props.slot, item: props.slot.items()[0]! })}
+              >
+                {t("Quick edit")}
+              </button>
+            </span>
+          </Show>
         </Show>
       </div>
     </Show>

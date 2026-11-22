@@ -25,6 +25,16 @@ Click a picture in a post, or **Edit** on a picture in Media, to crop, rotate or
 - In a post, the edit only changes that post. While the post is open, click the picture again to change the crop, or **Reset** to go back to the picture as it was.
 - In Media, **Save copy** keeps the original and adds the edited picture next to it.
 
+## Edit a video
+
+In a post, click **Quick edit** on a video to make it fit without opening the editor:
+
+- **Trim:** drag the handles at each end of the strip to keep only the part you want. It stays at least 3 seconds long.
+- **Crop:** pick **9:16**, **16:9**, **1:1** or **4:3**, then drag the frame to choose what stays. A video in a shape networks don't take opens already cropped to the closest one.
+- **Mute:** post it without its sound.
+
+**Save** makes a new MP4, up to 1080p, on your device. Click **Quick edit** again to change the edit, or **Reset** to go back to the video as it was. For captions, cuts or effects, use **Edit in plan.video** to open it in the [editor](/docs/editor).
+
 ## Storage
 
 Your files count toward your plan's storage. You can see how much you use under **Settings** → **Storage**.

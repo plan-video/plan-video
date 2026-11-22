@@ -23,6 +23,7 @@
 - **Drag a post by its handle** to change the order, or choose **Shuffle** from the **⋯** menu. The times follow the rows, apart from any you set by hand. With the keyboard, focus the handle and use the up and down arrows.
 - **Select posts** to have the panel change only those, even if you set them by hand. Hold Shift to select a range.
 - **Click a post's name** to see its preview and every setting it has.
+- **Fix a video** that's the wrong shape or too long: click its name, then **Quick edit** under the preview to [trim, crop or mute it](/docs/media-library#edit-a-video).
 
 Your batch stays on this device until you schedule it or choose **Clear all** from the **⋯** menu, so you can refresh or come back later and carry on. Each workspace keeps its own. It doesn't follow you to another device.
 
