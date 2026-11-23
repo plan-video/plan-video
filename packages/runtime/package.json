@@ -24,9 +24,9 @@
     "@plan.video/assets": "*",
     "@plan.video/jsx": "*",
     "animejs": "^4.4.1",
-    "colord": "^2.11.0",
+    "colord": "^2.13.0",
     "koota": "^0.6.6",
-    "mediabunny": "^1.65.2"
+    "mediabunny": "^1.66.0"
   },
   "devDependencies": {
     "@webgpu/types": "^0.1.74",
