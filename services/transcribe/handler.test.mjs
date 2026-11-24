@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Agent, createServer, request } from "node:http";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, statSync } from "node:fs";
 import { mkdtemp, readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -234,13 +234,14 @@ test("an upload that stalls or only trickles is dropped, so it can't hold a slot
   t.mock.timers.enable({ apis: ["setInterval", "Date"], now: 1_000_000 });
   const dir = mkdtempSync(join(tmpdir(), "stall-"));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
+  let uploads = 0;
   const upload = async (feed) => {
     const req = new PassThrough();
-    const saving = saveBody(req, join(dir, "a.wav"), 1_000_000).then(() => "saved", (error) => error.message);
-    await feed(req);
+    const file = join(dir, `${uploads++}.wav`);
+    const saving = saveBody(req, file, 1_000_000).then(() => "saved", (error) => error.message);
+    await feed(req, file);
     return saving;
   };
-  // The clock is fake but the disk isn't: each write is waited on until saveBody has taken it, or a slow disk looks like a stall.
   const ticks = async (seconds, each) => {
     for (let i = 0; i < seconds; i += 5) {
       await each?.();
@@ -249,9 +250,27 @@ test("an upload that stalls or only trickles is dropped, so it can't hold a slot
       await new Promise((resolve) => setImmediate(resolve));
     }
   };
-  assert.match(await upload((req) => ticks(35)), /didn't arrive/);
+  // The clock is fake but the disk isn't: `drain` comes while bytes still wait in the pipe, so a slow disk
+  // would look like a stall. Each write is waited on until it is in the file, or the upload was dropped.
+  const onDisk = (file) => {
+    try {
+      return statSync(file).size;
+    } catch {
+      return 0;
+    }
+  };
+  const steady = async (req, file) => {
+    let sent = 0;
+    await ticks(35, async () => {
+      req.write(Buffer.alloc(60_000));
+      sent += 60_000;
+      await until(() => req.destroyed || onDisk(file) >= sent);
+    });
+    req.end();
+  };
+  assert.match(await upload(() => ticks(35)), /didn't arrive/);
   assert.match(await upload((req) => ticks(35, () => req.write(Buffer.alloc(10)))), /didn't arrive/);
-  assert.equal(await upload(async (req) => { await ticks(35, () => req.write(Buffer.alloc(60_000)) || once(req, "drain")); req.end(); }), "saved");
+  assert.equal(await upload(steady), "saved");
 });
 
 test("a burst of clips sent at once can't each pass on the same old total", async () => {
