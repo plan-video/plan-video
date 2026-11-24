@@ -913,7 +913,7 @@ function MediaTile(
         />
         <span class="pointer-events-none absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-black/45 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
         <Show when={props.item.kind === "video"}>
-          <span class="absolute bottom-1.5 right-1.5 flex items-center rounded-md bg-black/75 px-1 py-px text-xs font-medium text-white tabular-nums">
+          <span class="absolute bottom-2 right-2 flex items-center rounded-md bg-black/60 px-1.5 py-0.5 text-[11px] font-medium leading-none text-white tabular-nums backdrop-blur-sm">
             {formatDuration(props.item.duration)}
           </span>
         </Show>
@@ -937,14 +937,9 @@ function MediaTile(
         onEdit={props.onEdit}
         class="absolute right-1.5 top-1.5 size-6 bg-black/55 text-white opacity-0 hover:bg-black/75 group-hover:opacity-100 focus-visible:opacity-100 data-[expanded]:opacity-100"
       />
-      <div class="flex min-w-0 flex-col gap-0.5 px-0.5">
-        <span class="truncate text-xs text-foreground" title={props.item.name}>
-          {props.item.name}
-        </span>
-        <span class="truncate text-xs text-muted-foreground tabular-nums">
-          {dimensions(props.item)} · {formatBytes(props.item.size)}
-        </span>
-      </div>
+      <span class="truncate px-0.5 text-[13px] text-foreground/90" title={props.item.name}>
+        {props.item.name.replace(/\.[^.]+$/, "") || props.item.name}
+      </span>
     </div>
   );
 }
