@@ -20,7 +20,7 @@ export type ChatMessage = {
 
 export type ChatBackground = "bubble" | "none";
 
-export type ChatBadge = { id: string; label: string; params?: Record<string, number>; svg: string; width: number; height: number };
+export type ChatBadge = { id: string; label: string; params?: Record<string, number>; url: string; width: number; height: number };
 
 /** Twitch's own name colours, in the order its colour picker shows them. */
 export const TWITCH_COLORS = [
@@ -42,77 +42,47 @@ export const DEFAULT_CHAT: Record<ChatPlatform, ChatMessage> = {
   tiktok: { name: "viewer", color: TIKTOK_NAME_COLOR, text: "you are boosted!", badges: ["level-24"] },
 };
 
-const square = (fill: string, glyph: string, label: string, id: string): ChatBadge => ({
-  id,
-  label,
-  width: 18,
-  height: 18,
-  svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18"><rect width="18" height="18" rx="3" fill="${fill}"/>${glyph}</svg>`,
-});
+export const svgUrl = (svg: string) => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 
-const W = `fill="#fff"`;
-const S = (width = 1.8) => `fill="none" stroke="#fff" stroke-width="${width}" stroke-linecap="round" stroke-linejoin="round"`;
-const NUMBER = `font-family="Arial, Helvetica, sans-serif" font-weight="700" fill="#fff"`;
+const badgeFiles = import.meta.glob<string>("../assets/images/chat-badges/*.png", { eager: true, query: "?url", import: "default" });
+
+/** The platforms' own badge pictures, saved at 4x the size chat shows them. */
+const file = (name: string) => badgeFiles[`../assets/images/chat-badges/${name}.png`]!;
+
+const twitch = (id: string, label: string): ChatBadge => ({ id, label, url: file(`twitch-${id}`), width: 18, height: 18 });
 
 export const TWITCH_BADGES: ChatBadge[] = [
-  square("#E91916", `<rect x="3" y="5.5" width="8.5" height="7" rx="1.4" ${W}/><path d="M12 8.2 15 6.4v5.2L12 9.8z" ${W}/>`, msg("Broadcaster"), "broadcaster"),
-  square("#00AD03", `<path d="M14.2 3.8 7.4 10.6M5.2 8.8l4 4M4 14l1.8-1.8" ${S()}/><path d="M14.6 3.4v2.2l-1-1z" ${W}/>`, msg("Moderator"), "moderator"),
-  square("#E005B9", `<path d="M5.4 4.6h7.2L15 7.6 9 14 3 7.6z" ${W}/><path d="M3 7.6h12M7 4.6 9 7.6l2-3M9 7.6V14" fill="none" stroke="#E005B9" stroke-width=".7"/>`, msg("VIP"), "vip"),
-  {
-    id: "founder",
-    label: msg("Founder"),
-    width: 18,
-    height: 18,
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#E35BE8"/><stop offset="1" stop-color="#8B2BE2"/></linearGradient></defs><rect width="18" height="18" rx="3" fill="url(#g)"/><text x="3" y="14.5" font-size="13" ${NUMBER}>1</text><text x="9.4" y="8.6" font-size="6.6" ${NUMBER}>ST</text></svg>`,
-  },
-  square("#9146FF", `<path d="m9 3 1.8 3.8 4.1.5-3 2.8.8 4.1L9 12.2l-3.7 2 .8-4.1-3-2.8 4.1-.5z" ${W}/>`, msg("Subscriber"), "subscriber"),
-  square("#9146FF", `<path d="m5 9.2 2.7 2.7L13.2 6.3" ${S(2.2)}/>`, msg("Verified"), "verified"),
-  square("#00A8E1", `<path d="M3.5 6.5 6.4 9 9 4.8 11.6 9l2.9-2.5-1.2 6.5H4.7z" ${W}/>`, msg("Prime Gaming"), "prime"),
-  square("#59399A", `<rect x="3" y="5.5" width="10.5" height="7" rx="1.2" ${S(1.4)}/><path d="M14.4 7.8v2.4" ${S(1.4)}/><path d="M8.9 6.4 6.6 9.3h1.9l-.6 2.3 2.3-2.9H8.3z" ${W}/>`, msg("Turbo"), "turbo"),
-  square("#1F69FF", `<path d="M12.7 3.6 14.4 5.3 8.2 11.5 6.5 9.8zM6 10.6l1.4 1.4-.9 1.9c-.6.9-2 1.3-3.3 1 .5-.6.4-1.5.8-2.4z" ${W}/>`, msg("Artist"), "artist"),
-  square("#000000", `<path d="M12.8 3.5a3 3 0 0 0-3.3 4L4 13a1.4 1.4 0 0 0 2 2l5.5-5.5a3 3 0 0 0 4-3.3l-1.9 1.9-1.6-.4-.4-1.6z" ${W}/>`, msg("Staff"), "staff"),
-  square("#FAAF19", `<path d="M9 3.2 14 5v3.8c0 3-2.1 5.1-5 6.2-2.9-1.1-5-3.2-5-6.2V5z" ${W}/><path d="m9 6.1.9 1.8 2 .3-1.5 1.4.4 2L9 10.6l-1.8 1 .4-2-1.5-1.4 2-.3z" fill="#FAAF19"/>`, msg("Admin"), "admin"),
+  twitch("broadcaster", msg("Broadcaster")),
+  twitch("moderator", msg("Moderator")),
+  twitch("vip", msg("VIP")),
+  twitch("founder", msg("Founder")),
+  twitch("subscriber", msg("Subscriber")),
+  twitch("verified", msg("Verified")),
+  twitch("prime", msg("Prime Gaming")),
+  twitch("turbo", msg("Turbo")),
+  twitch("artist", msg("Artist")),
+  twitch("staff", msg("Staff")),
+  twitch("admin", msg("Admin")),
 ];
 
-const pill = (id: string, label: string, width: number, from: string, to: string, inner: string): ChatBadge => ({
-  id,
-  label,
-  width,
-  height: 16,
-  svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} 16"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${from}"/><stop offset="1" stop-color="${to}"/></linearGradient></defs><rect width="${width}" height="16" rx="${width === 16 ? 4 : 8}" fill="url(#g)"/>${inner}</svg>`,
-});
-
-const GEM = `<path d="M5.4 4h5.2L13 7l-5 5.4L3 7z" ${W}/>`;
-const CROWN = `<path d="M3 5.5 5.2 7.4 7 4.2l1.8 3.2L11 5.5l-.9 5.3H3.9z" ${W}/>`;
-
-const level = (n: number, from: string, to: string): ChatBadge => ({
-  ...pill(`level-${n}`, msg("Level {n}"), 32, from, to, `${GEM}<text x="14.5" y="11.6" font-size="9.5" ${NUMBER}>${n}</text>`),
-  params: { n },
-});
-
-const top = (n: number, from: string, to: string): ChatBadge => ({
-  ...pill(`top-${n}`, msg("Top viewer No. {n}"), 36, from, to, `${CROWN}<text x="13" y="11.4" font-size="8.6" ${NUMBER}>No.${n}</text>`),
-  params: { n },
-});
+// Level pills are TikTok's gem on the colour TikTok sends for that level's tier.
+const level = (n: number): ChatBadge => ({ id: `level-${n}`, label: msg("Level {n}"), params: { n }, url: file(`tiktok-level-${n}`), width: 32, height: 16 });
 
 export const TIKTOK_BADGES: ChatBadge[] = [
-  level(8, "#00B89F", "#4BDDC2"),
-  level(24, "#3570FF", "#6FA4FF"),
-  level(38, "#8A3FFC", "#C479FF"),
-  pill("moderator", msg("Moderator"), 16, "#22B573", "#2FCB82", `<path d="M8 2.8 12.4 4.4v3.3c0 2.6-1.8 4.4-4.4 5.4-2.6-1-4.4-2.8-4.4-5.4V4.4z" ${W}/><path d="m6 8 1.5 1.5L10.2 6.7" fill="none" stroke="#22B573" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>`),
-  top(1, "#FFC93C", "#FF9A16"),
-  top(2, "#B9C6D6", "#8396AD"),
-  top(3, "#E7A574", "#B9693A"),
-  pill("subscriber", msg("Subscriber"), 16, "#FF3B87", "#A33BFF", `<path d="m8 2.8 1.6 3.3 3.6.4-2.7 2.5.7 3.6L8 10.8l-3.2 1.8.7-3.6-2.7-2.5 3.6-.4z" ${W}/>`),
-  pill("fan-club", msg("Fan club"), 30, "#FE2C55", "#FF5C7C", `<path d="M8 12.4 3.6 8.2a2.5 2.5 0 0 1 4.4-2.4 2.5 2.5 0 0 1 4.4 2.4z" ${W}/><text x="14" y="11.6" font-size="9.5" ${NUMBER}>12</text>`),
+  level(8),
+  level(12),
+  level(24),
+  level(30),
+  { id: "moderator", label: msg("Moderator"), url: file("tiktok-moderator"), width: 16, height: 16 },
+  { id: "fan-club", label: msg("Fan club"), url: file("tiktok-fan-club"), width: 22, height: 16 },
+  { id: "gifter", label: msg("Gifter"), url: file("tiktok-gifter"), width: 16, height: 16 },
   {
     id: "verified",
     label: msg("Verified"),
     width: 16,
     height: 16,
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><circle cx="8" cy="8" r="8" fill="#20D5EC"/><path d="m4.6 8.2 2.3 2.3 4.5-4.6" ${S()}/></svg>`,
+    url: svgUrl(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><circle cx="8" cy="8" r="8" fill="#20D5EC"/><path d="m4.6 8.2 2.3 2.3 4.5-4.6" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`),
   },
-  pill("gifter", msg("Gifter"), 16, "#FF8A3D", "#FE2C55", `<rect x="3.2" y="6.6" width="9.6" height="6.4" rx=".8" ${W}/><rect x="2.6" y="4.8" width="10.8" height="2.4" rx=".6" ${W}/><path d="M8 4.8v8.2" stroke="#FE5C49" stroke-width="1.2"/><path d="M8 4.8C6.6 2.6 4.6 3 5 4.2c.3.6 1.6.6 3 .6zm0 0c1.4-2.2 3.4-1.8 3 .6-.3.6-1.6.6-3 .6" ${W}/>`),
 ];
 
 export const CHAT_BADGES: Record<ChatPlatform, ChatBadge[]> = { twitch: TWITCH_BADGES, tiktok: TIKTOK_BADGES };
@@ -215,8 +185,6 @@ function loadImage(url: string): Promise<HTMLImageElement> {
   return loading;
 }
 
-export const svgUrl = (svg: string) => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-
 const isPicture = (badge: string) => badge.startsWith("data:");
 
 export function chatBadge(platform: ChatPlatform, id: string): ChatBadge | undefined {
@@ -226,7 +194,7 @@ export function chatBadge(platform: ChatPlatform, id: string): ChatBadge | undef
 export function badgeUrl(platform: ChatPlatform, badge: string): string | undefined {
   if (isPicture(badge)) return badge;
   const known = chatBadge(platform, badge);
-  return known ? svgUrl(known.svg) : undefined;
+  return known?.url;
 }
 
 /** TikTok's picture for someone who hasn't set one: a grey head and shoulders. */
