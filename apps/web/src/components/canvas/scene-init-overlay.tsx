@@ -282,7 +282,7 @@ export function SceneInitOverlay() {
               <DropdownMenuTrigger
                 as="button"
                 type="button"
-                class="flex items-center ursor-pointer bg-transparent border-none p-0 text-xs font-450 text-muted-foreground outline-none"
+                class="flex items-center cursor-pointer bg-transparent border-none p-0 text-xs font-450 text-muted-foreground outline-none"
               >
                 <span>{t(selectedPreset().label)}</span>
                 <Icon name="chevron-down" class="size-6" />
@@ -319,16 +319,17 @@ export function SceneInitOverlay() {
           </div>
           <div
             ref={frameRef}
-            class="flex size-full flex-col items-center justify-center gap-3 overflow-hidden rounded-md border border-dashed border-foreground/20 bg-accent/40 px-4 text-center transition-colors"
-            classList={{ 'border-primary! bg-primary/10!': dropping() }}
+            class="flex size-full flex-col items-center justify-center gap-3 overflow-hidden bg-black px-4 text-center outline -outline-offset-1 outline-white/8 transition-colors"
+            classList={{ 'outline-2 outline-primary!': dropping() }}
           >
-            <FilmIcon class="size-7 text-muted-foreground" stroke-width={1.5} />
-            <span class="text-[13px] font-medium text-foreground">{t("Drop media here")}</span>
+            {/* Black in both themes, as the scene it becomes is: the text here keeps to light-on-dark. */}
+            <FilmIcon class="size-7 text-white/45" stroke-width={1.5} />
+            <span class="text-[13px] font-medium text-white/90">{t("Drop media here")}</span>
             {/* Quiet on purpose: the Assets panel beside it holds the one blue Import button on this screen. */}
-            <Button variant="secondary" class="px-3" onClick={handleImport}>{t("Import media")}</Button>
+            <Button variant="secondary" class="px-3 bg-white/10! text-white! hover:bg-white/15! active:bg-white/20!" onClick={handleImport}>{t("Import media")}</Button>
             <button
               type="button"
-              class="rounded-sm text-xs text-muted-foreground underline-offset-2 outline-none hover:text-foreground hover:underline focus-ring"
+              class="rounded-sm text-xs text-white/50 underline-offset-2 outline-none hover:text-white/90 hover:underline focus-ring"
               onClick={handleInitializeScene}
             >
               {t("Start with an empty scene")}
