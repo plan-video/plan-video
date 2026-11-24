@@ -152,7 +152,7 @@ export function DashboardSocialAccounts(props: {
 
           <div class="flex flex-col gap-1 text-xs leading-4 text-(--plane-text-tertiary)">
             <p>
-              <span class="text-(--plane-text-primary) tabular-nums">${planPrice(AGENCY, billing(), count())}</span>
+              <span class="text-(--plane-text-primary) tabular-nums">{formatPrice(planPrice(AGENCY, billing(), count()))}</span>
               {t("/mo")} · {priceNote(AGENCY, billing(), count())}
             </p>
             <Show when={count() > current()}>

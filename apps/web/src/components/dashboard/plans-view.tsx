@@ -259,7 +259,7 @@ function PlanCard(props: {
         <p class="mt-0.5 min-h-10 text-[13px] leading-5 text-[#000]/65">{t(props.plan.text)}</p>
 
         <p class="mt-5 flex items-baseline gap-1">
-          <span class="text-[36px] leading-none font-normal tracking-[-0.03em] tabular-nums">${props.plan.price[props.billing]}</span>
+          <span class="text-[36px] leading-none font-normal tracking-[-0.03em] tabular-nums">{formatPrice(props.plan.price[props.billing])}</span>
           <span class="text-[13px] text-[#000]/55">{t("/mo")}</span>
         </p>
         <p class="mt-2 text-xs leading-4 text-[#000]/55">{priceNote(props.plan, props.billing)}</p>
