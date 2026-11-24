@@ -263,7 +263,7 @@ async function newestPosts(accessToken, org) {
     const listed = await linkedin(`${REST}/posts?author=${org}&q=author&start=${start}&count=${NUMBERED_POSTS}&sortBy=CREATED`, accessToken, { headers: { ...VERSIONED, "X-RestLi-Method": "FINDER" } }).catch(() => ({
       error: "Couldn't reach LinkedIn. Try again in a moment.",
     }));
-    if (listed.error) return page ? { posts } : { error: listed.status === 403 ? "Click Add Page in Connections again, so plan.video can read this Page's numbers." : listed.error };
+    if (listed.error) return page ? { posts } : { error: listed.status === 403 ? "In Connections, choose LinkedIn → A company Page again, so plan.video can read this Page's numbers." : listed.error };
     posts.push(...(listed.payload?.elements ?? []).filter((post) => typeof post?.id === "string" && post.lifecycleState === "PUBLISHED"));
     const next = (listed.payload?.paging?.links ?? []).find((link) => link?.rel === "next")?.href;
     const at = typeof next === "string" ? Number(new URL(next, REST).searchParams.get("start")) : NaN;

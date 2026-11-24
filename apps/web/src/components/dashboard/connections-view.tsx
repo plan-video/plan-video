@@ -10,6 +10,7 @@ import { PLATFORMS, platformName } from "@/components/calendar/utils";
 import { PUBLISHING_PLATFORMS } from "@/lib/social";
 import { PlatformLogo } from "@/components/publish/controls";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Icon } from "@/components/dashboard/dashboard-icon";
 import { TextField, TextFieldInput, TextFieldLabel } from "@/components/ui/text-field";
 import { useAuth } from "@/context/auth";
@@ -389,7 +390,8 @@ export function DashboardConnectionsView() {
                 /** LinkedIn logins run out after 60 days and can't be renewed in the background. */
                 const renewing = (forPages: boolean) => accounts().some((account) => account.linkedin && !!account.linkedin.organizationId === forPages && linkedinNeedsRenewal(account.linkedin));
                 const renew = () => renewing(false);
-                const hasPages = () => accounts().some((account) => account.linkedin?.organizationId);
+                const pageCount = () => accounts().filter((account) => account.linkedin?.organizationId).length;
+                const hasPages = () => pageCount() > 0;
                 /**
                  * An older "Sign in with Bluesky" stays in the browser that made it, and an Instagram, Facebook or
                  * Threads account added by name before it could sign in has no login, so posts can't go out from the server.
@@ -411,7 +413,14 @@ export function DashboardConnectionsView() {
                               fallback={
                                 <>
                                   <span class="size-1.5 rounded-full bg-meter-green" />
-                                  {t("{count, plural, one {# account} other {# accounts}}", { count: accounts().length })}
+                                  {hasPages()
+                                    ? [
+                                        accounts().length > pageCount() && t("{count, plural, one {# profile} other {# profiles}}", { count: accounts().length - pageCount() }),
+                                        t("{count, plural, one {# Page} other {# Pages}}", { count: pageCount() }),
+                                      ]
+                                        .filter(Boolean)
+                                        .join(" · ")
+                                    : t("{count, plural, one {# account} other {# accounts}}", { count: accounts().length })}
                                 </>
                               }
                             >
@@ -436,30 +445,49 @@ export function DashboardConnectionsView() {
                           </Button>
                         }
                       >
-                        <Show when={item.id === "linkedin" && (LINKEDIN_PAGES || hasPages())}>
-                          <Button
-                            variant="secondary"
-                            class="mr-2"
-                            onClick={() => {
-                              if (auth.isGuest()) return askForAccount({ reason: "connect", platform: item.id });
-                              if (!renewing(true) && refuseWhenFull()) return;
-                              void beginLinkedIn(true).catch((error: unknown) => {
-                                toast.error(error instanceof Error ? error.message : t("Couldn't start {network} login.", { network: "LinkedIn" }));
-                              });
-                            }}
-                          >
-                            {renewing(true) ? t("Reconnect Pages") : t("Add Page")}
-                          </Button>
-                        </Show>
                         <Show when={PUBLISHING_PLATFORMS.includes(item.id)} fallback={<span class="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">{t("Soon")}</span>}>
-                        <Button
-                          variant="secondary"
-                          onClick={() => {
-                            start(item.id, renew() || moved());
-                          }}
+                        <Show
+                          when={item.id === "linkedin" && (LINKEDIN_PAGES || hasPages())}
+                          fallback={
+                            <Button
+                              variant="secondary"
+                              onClick={() => {
+                                start(item.id, renew() || moved());
+                              }}
+                            >
+                              {renew() || moved() ? t("Reconnect") : accounts().length ? t("Add account") : t("Connect")}
+                            </Button>
+                          }
                         >
-                          {renew() || moved() ? t("Reconnect") : accounts().length ? t("Add account") : t("Connect")}
-                        </Button>
+                          <DropdownMenu placement="bottom-end">
+                            <DropdownMenuTrigger as={Button} variant="secondary" class="gap-1 pr-1.5">
+                              {renew() || renewing(true) ? t("Reconnect") : accounts().length ? t("Add account") : t("Connect")}
+                              <Icon name="chevron-down" class="size-4 text-muted-foreground" />
+                            </DropdownMenuTrigger>
+                            <DropdownMenuPortal>
+                              <DropdownMenuContent class="w-64">
+                                <DropdownMenuItem tone="neutral" class="h-auto flex-col items-start gap-0.5 py-1.5" onSelect={() => start(item.id, renew())}>
+                                  <span class="text-foreground">{renew() ? t("Reconnect your profile") : t("Your profile")}</span>
+                                  <span class="text-muted-foreground">{t("Post as yourself")}</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  tone="neutral"
+                                  class="h-auto flex-col items-start gap-0.5 py-1.5"
+                                  onSelect={() => {
+                                    if (auth.isGuest()) return askForAccount({ reason: "connect", platform: item.id });
+                                    if (!renewing(true) && refuseWhenFull()) return;
+                                    void beginLinkedIn(true).catch((error: unknown) => {
+                                      toast.error(error instanceof Error ? error.message : t("Couldn't start {network} login.", { network: "LinkedIn" }));
+                                    });
+                                  }}
+                                >
+                                  <span class="text-foreground">{renewing(true) ? t("Reconnect your Pages") : t("A company Page")}</span>
+                                  <span class="text-muted-foreground">{t("Post as a business Page you manage")}</span>
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenuPortal>
+                          </DropdownMenu>
+                        </Show>
                         </Show>
                       </Show>
                       </Show>

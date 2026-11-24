@@ -46,11 +46,11 @@ Posting to company Pages needs a second app, because LinkedIn keeps the **Commun
     Add its **Client ID** and **Primary Client Secret** to `/etc/plan-video/linkedin.env` as `LINKEDIN_PAGES_CLIENT_ID` and `LINKEDIN_PAGES_CLIENT_SECRET`, then restart both services.
   </Step>
   <Step title="Show the button">
-    Build the website with `VITE_LINKEDIN_PAGES=true`. **Connections** then shows **Add Page** next to LinkedIn. Connecting adds every Page the person can post to; remove the ones you don't want.
+    Build the website with `VITE_LINKEDIN_PAGES=true`. LinkedIn's **Connect** button in **Connections** then offers **A company Page** next to **Your profile**. Connecting adds every Page the person can post to; remove the ones you don't want.
   </Step>
 </Steps>
 
-plan.video asks this app for the scopes `rw_organization_admin`, `w_organization_social`, `w_organization_social_feed` (for follow-up comments) and `r_organization_social` (for Analytics). A Page connected before a scope was added doesn't have it until you click **Add Page** again in Connections. For more than the Development Tier allows, request **Standard Tier** under **Products** once it all works. LinkedIn wants a screen recording, and a rejected app can't apply again.
+plan.video asks this app for the scopes `rw_organization_admin`, `w_organization_social`, `w_organization_social_feed` (for follow-up comments) and `r_organization_social` (for Analytics). A Page connected before a scope was added doesn't have it until you choose **A company Page** again in Connections. For more than the Development Tier allows, request **Standard Tier** under **Products** once it all works. LinkedIn wants a screen recording, and a rejected app can't apply again.
 
 ## Logins run out
 

@@ -318,7 +318,7 @@ test("a Page with no posts makes no statistics calls, and followers LinkedIn won
 
 test("a login without the reading permission, or a role without numbers, is told what to do", async (t) => {
   fakePageApi(t, { posts: { status: 403 } });
-  assert.match((await pageNumbers("token", "42")).error, /Add Page/);
+  assert.match((await pageNumbers("token", "42")).error, /A company Page/);
   t.mock.restoreAll();
   fakePageApi(t, { stats: { shares: { status: 403 } } });
   assert.match((await pageNumbers("token", "42")).error, /administrators/);
