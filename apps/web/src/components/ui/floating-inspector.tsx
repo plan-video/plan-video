@@ -17,6 +17,7 @@ import {
   type Component,
   type ComponentProps,
 } from "solid-js"
+import { Portal } from "solid-js/web"
 
 import { cx } from "@/lib/cva"
 import { clamp } from "@/utils"
@@ -239,27 +240,29 @@ export const FloatingInspector = (props: FloatingInspectorProps) => {
 
   return (
     <Show when={isOpen()}>
-      <FloatingInspectorTopContext.Provider value={{ top: () => position().top }}>
-        <FloatingInspectorContext.Provider value={contextValue}>
-          <div
-            ref={rootRef}
-            data-slot="floating-inspector"
-            class={cx(
-              "bg-background border-border fixed z-50 w-[264px] overflow-hidden rounded-xl border",
-              "shadow-[0_12px_24px_rgba(0,0,0,0.24)]",
-              local.class,
-            )}
-            style={{
-              left: `${position().left}px`,
-              top: `${position().top}px`,
-              width: `${width()}px`,
-            }}
-            {...rest}
-          >
-            {local.children}
-          </div>
-        </FloatingInspectorContext.Provider>
-      </FloatingInspectorTopContext.Provider>
+      <Portal>
+        <FloatingInspectorTopContext.Provider value={{ top: () => position().top }}>
+          <FloatingInspectorContext.Provider value={contextValue}>
+            <div
+              ref={rootRef}
+              data-slot="floating-inspector"
+              class={cx(
+                "bg-background border-border fixed z-50 w-[264px] overflow-hidden rounded-xl border",
+                "shadow-[0_12px_24px_rgba(0,0,0,0.24)]",
+                local.class,
+              )}
+              style={{
+                left: `${position().left}px`,
+                top: `${position().top}px`,
+                width: `${width()}px`,
+              }}
+              {...rest}
+            >
+              {local.children}
+            </div>
+          </FloatingInspectorContext.Provider>
+        </FloatingInspectorTopContext.Provider>
+      </Portal>
     </Show>
   )
 }
