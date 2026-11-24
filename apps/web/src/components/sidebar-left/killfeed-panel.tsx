@@ -200,9 +200,9 @@ export function KillfeedPanel() {
               next={nextKill}
               onDragStart={handleDragStart}
             >
-              <Row label={t("Kill")}>
-                <Segmented options={KILL_TYPES} value={killType()} onChange={setKillType} />
-              </Row>
+              <Section label={t("Kill")}>
+                <Segmented options={KILL_TYPES} value={killType()} onChange={setKillType} label={t("Kill")} />
+              </Section>
 
               <Section label={t("Players")} action={<Show when={!spec().suicide}><SwapButton onClick={swap} /></Show>}>
                 <div class="flex flex-col gap-1.5">
