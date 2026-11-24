@@ -128,7 +128,6 @@ const GREYS = {
   secondaryPressing: ["#343434", "#dedede"],
   timelineMuted: ["#282828", "#ededed"],
   timelineAccent: ["#282828", "#f3f3f3"],
-  artCard: ["#262626", "#ffffff"],
 } as const;
 
 const LINES = {
@@ -140,9 +139,6 @@ const LINES = {
   editorBorderStrong: ["#343434", "#e6e6e6"],
   editorBorderInput: ["#3e3e3e", "#e0e0e0"],
   timelineInput: ["#3e3e3e", "#d4d4d4"],
-  artCardEdge: ["#393939", "#e3e3e3"],
-  artLine: ["#414141", "#dedede"],
-  artLineSoft: ["#313131", "#ececec"],
 } as const;
 
 const TEXTS = {
@@ -292,16 +288,12 @@ function canonical(spec: ThemeSpec) {
 export const isDefaultTheme = (spec: ThemeSpec) => sameSpec(spec, DEFAULT_THEME);
 
 function clipTokens(palette: ThemePalette): Record<string, string> {
-  const { video, audio, text, caption } = palette.clips;
+  const { audio, caption } = palette.clips;
   return {
-    ...(video && { "--art-video": video.background, "--art-video-ink": video.primary }),
     ...(audio && {
-      "--art-audio": audio.background,
-      "--art-audio-ink": audio.primary,
       "--audio-background": audio.background,
       "--audio-primary": audio.primary,
     }),
-    ...(text && { "--art-text": text.background, "--art-text-ink": text.foreground }),
     ...(caption && { "--caption-background": caption.background }),
   };
 }
@@ -349,10 +341,6 @@ function dashboardTokens(palette: ThemePalette): Record<string, string> {
     "--plane-accent-secondary": palette.accentText,
     "--plane-accent-subtle": palette.accentSubtle,
     "--plane-accent-subtle-active": palette.accentSubtleActive,
-    "--art-card": palette.artCard,
-    "--art-card-edge": palette.artCardEdge,
-    "--art-line": palette.artLine,
-    "--art-line-soft": palette.artLineSoft,
     "--secondary": palette.mode === "light" ? palette.secondary : palette.layer2,
     "--secondary-hover": palette.mode === "light" ? palette.secondaryHover : palette.layer2Hover,
     "--secondary-pressing": palette.mode === "light" ? palette.secondaryPressing : palette.layer2Active,

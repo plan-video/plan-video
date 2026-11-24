@@ -580,16 +580,6 @@ html.dashboard-theme {
   --plane-fill-subtle: rgb(255 255 255 / 0.07);
   --plane-fill-recessed: rgb(0 0 0 / 0.2);
   --plane-chart-muted: rgb(255 255 255 / 0.42);
-  --art-card: #252628;
-  --art-card-edge: #38393b;
-  --art-line: #404143;
-  --art-line-soft: #303133;
-  --art-video: #355187;
-  --art-video-ink: #b9d2ff;
-  --art-audio: #126147;
-  --art-audio-ink: #88e8bf;
-  --art-text: #415566;
-  --art-text-ink: #b8d5ef;
   --logo-tile: #ffffff;
   --logo-ink: #000000;
   --scrollbar-thumb: rgb(255 255 255 / 0.13);
@@ -639,16 +629,6 @@ html.dashboard-theme {
 /* Kobalte pins <html> to dark (an inline color-scheme), so the dashboard's choice needs !important to reach native controls. */
 html.dashboard-theme[data-dashboard-theme="light"] {
   color-scheme: light !important;
-  --art-card: #ffffff;
-  --art-card-edge: #e3e3e3;
-  --art-line: #dedede;
-  --art-line-soft: #ececec;
-  --art-video: #e5edfd;
-  --art-video-ink: #2563eb;
-  --art-audio: #ddf6ec;
-  --art-audio-ink: #0a9e72;
-  --art-text: #edf0f4;
-  --art-text-ink: #7b8ba0;
   --logo-tile: #000000;
   --logo-ink: #ffffff;
   --scrollbar-thumb: rgb(0 0 0 / 0.16);
