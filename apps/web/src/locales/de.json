@@ -3889,5 +3889,9 @@
   "Usage isn't available right now.": "Die Nutzung ist gerade nicht verfügbar.",
   "all workspaces": "alle Workspaces",
   "this month": "diesen Monat",
-  "Resets on {date}": "Wird am {date} zurückgesetzt"
+  "Resets on {date}": "Wird am {date} zurückgesetzt",
+  "Update social accounts": "Social-Media-Konten ändern",
+  "Switched to {plan}": "Zu {plan} gewechselt",
+  "You move to {plan} with {count} social accounts now, at {price}/mo. You're charged today, less what's left of {current}.": "Du wechselst jetzt zu {plan} mit {count} Social-Media-Konten für {price}/Monat. Das wird dir heute berechnet, abzüglich des Rests von {current}.",
+  "You move to {plan} with {count} social accounts now, at {price}/mo, billed yearly. You're charged today, less what's left of {current}.": "Du wechselst jetzt zu {plan} mit {count} Social-Media-Konten für {price}/Monat bei jährlicher Abrechnung. Das wird dir heute berechnet, abzüglich des Rests von {current}."
 }

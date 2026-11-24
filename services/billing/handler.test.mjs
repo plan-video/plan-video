@@ -124,3 +124,40 @@ test("end, for a deleted account, expires open checkouts and cancels every subsc
     "DELETE /v1/subscriptions/sub_planvideo_creator_yearly_paused",
   ]);
 });
+
+test("checkout moving up to Agency with more accounts moves both lines at once, charged now", async (t) => {
+  const posts = [];
+  t.mock.method(globalThis, "fetch", async (url, init = {}) => {
+    const { pathname } = new URL(url);
+    const method = init.method ?? "GET";
+    if (pathname === "/auth/v1/user") return Response.json({ id: "user-1", email: "a@b.test" });
+    if (pathname === "/rest/v1/rpc/billing_user") return Response.json([{ stripe_customer_id: "cus_1", access_level: 3 }]);
+    if (pathname === "/rest/v1/rpc/billing_set_plan") return Response.json(true);
+    if (pathname === "/v1/customers/cus_1") return Response.json({ id: "cus_1" });
+    if (pathname === "/v1/prices")
+      return Response.json({ data: ["agency_monthly", "accounts_monthly"].map((key) => ({ id: `price_${key}`, lookup_key: `planvideo_${key}` })) });
+    if (pathname === "/v1/subscriptions" && method === "GET")
+      return Response.json({ data: [{ id: "sub_1", status: "active", items: { data: [{ id: "si_plan", price: { lookup_key: "planvideo_pro_monthly" } }] } }] });
+    if (method === "POST") posts.push({ path: pathname, body: new URLSearchParams(init.body) });
+    return Response.json({});
+  });
+
+  const req = Object.assign(Readable.from([Buffer.from(JSON.stringify({ plan: "agency", billing: "monthly", accounts: 110 }))]), {
+    method: "POST",
+    headers: { authorization: `Bearer x.${Buffer.from("{}").toString("base64url")}.y` },
+  });
+  let status = 0;
+  let answer = "";
+  const res = { writableEnded: false, writeHead: (code) => (status = code), end: (text) => (answer = text) };
+  await handleBilling(req, res, "/api/billing/checkout", { stripeKey: "sk", webhookSecret: "wh", supabaseUrl: "https://db.test", supabaseAnonKey: "anon", databaseKey: "billing", publicUrl: "https://plan.test" });
+
+  assert.equal(status, 200, answer);
+  assert.deepEqual(JSON.parse(answer), { updated: true });
+  assert.deepEqual(posts.map((post) => post.path), ["/v1/subscriptions/sub_1"]);
+  const body = posts[0].body;
+  assert.equal(body.get("items[0][id]"), "si_plan");
+  assert.equal(body.get("items[0][price]"), "price_agency_monthly");
+  assert.equal(body.get("items[1][price]"), "price_accounts_monthly");
+  assert.equal(body.get("items[1][quantity]"), "10");
+  assert.equal(body.get("proration_behavior"), "always_invoice");
+});

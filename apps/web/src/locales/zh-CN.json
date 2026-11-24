@@ -3889,5 +3889,9 @@
   "Usage isn't available right now.": "暂时无法查看用量。",
   "all workspaces": "所有工作区",
   "this month": "本月",
-  "Resets on {date}": "{date} 重置"
+  "Resets on {date}": "{date} 重置",
+  "Update social accounts": "更改社交账号数量",
+  "Switched to {plan}": "已切换到 {plan}",
+  "You move to {plan} with {count} social accounts now, at {price}/mo. You're charged today, less what's left of {current}.": "你将立即切换到 {plan}，含 {count} 个社交账号，{price}/月。今天收费，并扣除 {current} 剩余的部分。",
+  "You move to {plan} with {count} social accounts now, at {price}/mo, billed yearly. You're charged today, less what's left of {current}.": "你将立即切换到 {plan}，含 {count} 个社交账号，按年付费，{price}/月。今天收费，并扣除 {current} 剩余的部分。"
 }

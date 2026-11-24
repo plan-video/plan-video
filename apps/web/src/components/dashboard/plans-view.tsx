@@ -10,10 +10,12 @@ import { CARD_COLORS, CARD_DEEP, cardColor, type CardColor } from "@/lib/card-co
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth";
-import { billingAccount, keepPlan, openBillingPortal, startCheckout, type PaidPlan } from "@/lib/billing";
+import { billingAccount, keepPlan, openBillingPortal, setAccounts, startCheckout, type PaidPlan } from "@/lib/billing";
 import { dashboardTheme } from "@/lib/dashboard-theme";
 import { msg, t } from "@/lib/i18n";
-import { PLANS, YEARLY_SAVING, formatPrice, planOfLevel, priceNote, type Billing, type Plan } from "@/lib/plans";
+import { PLANS, YEARLY_SAVING, formatPrice, planOfLevel, planPrice, priceNote, type Billing, type Plan } from "@/lib/plans";
+import { connectedAccountCount } from "@/lib/social-connections";
+import { Icon } from "@/components/ui/icon";
 import { zonedFormat } from "@/lib/time-zone";
 
 const BILLING_OPTIONS: readonly { id: Billing; label: string; badge?: string }[] = [
@@ -25,6 +27,11 @@ const BILLING_OPTIONS: readonly { id: Billing; label: string; badge?: string }[]
 const PLAN_COLORS: CardColor[] = ["sky", "lavender", "peach", "green"];
 
 const LIST_ROWS = Math.max(...PLANS.map((plan) => plan.features.length));
+
+const AGENCY = PLANS.find((plan) => plan.extraAccounts)!;
+const INCLUDED = AGENCY.extraAccounts!.included;
+/** Must match the pricing page's stepper and the billing service. */
+const MOST_ACCOUNTS = 1000;
 
 const FULL_DATE = zonedFormat({ month: "long", day: "numeric", year: "numeric" });
 const DAY = zonedFormat({ month: "long", day: "numeric" });
@@ -57,6 +64,19 @@ export function DashboardPlansView() {
   const currentName = () => t(planOfLevel(auth.accessLevel()).name);
   const renewal = () => summary()?.currentPeriodEnd;
 
+  const onAgency = () => auth.accessLevel() >= 4;
+  const ownAccounts = () => INCLUDED + (summary()?.extraAccounts ?? auth.extraAccounts());
+  const usedAccounts = () => {
+    const id = auth.user()?.id;
+    return id ? connectedAccountCount(id) : 0;
+  };
+  // Not below what's connected, so no account stops posting.
+  const fewestAccounts = () => (onAgency() ? Math.max(INCLUDED, usedAccounts()) : INCLUDED);
+  const [pickedAccounts, setPickedAccounts] = createSignal<number>();
+  const accounts = () => Math.max(fewestAccounts(), pickedAccounts() ?? (onAgency() ? ownAccounts() : INCLUDED));
+  const pickAccounts = (value: number) => setPickedAccounts(Math.min(MOST_ACCOUNTS, Math.max(fewestAccounts(), Math.round(value) || fewestAccounts())));
+  const accountsFor = (plan: Plan) => (plan.extraAccounts ? accounts() : undefined);
+
   const go = async (id: string, run: () => Promise<unknown>) => {
     if (leaving()) return;
     setLeaving(id);
@@ -67,28 +87,41 @@ export function DashboardPlansView() {
     }
   };
 
-  /** Stripe's confirm page can't move both lines (Agency extras to yearly), so it's charged and confirmed here. */
-  const chargedHere = (choice: Choice) =>
-    choice.plan.id === "agency" && summary()?.plan === "agency" && (summary()?.extraAccounts ?? 0) > 0 && choice.billing === "yearly" && currentBilling() === "monthly";
+  /** Stripe's confirm page moves one line only, so Agency with extra accounts is charged and confirmed here. */
+  const chargedHere = (choice: Choice) => !!summary() && !!choice.plan.extraAccounts && (accounts() > INCLUDED || (summary()?.extraAccounts ?? 0) > 0);
 
-  const choose = (choice: Choice, downgrade: boolean) => {
+  const updateAccounts = () =>
+    void go(AGENCY.id, async () => {
+      try {
+        await setAccounts(accounts());
+        toast.success(t("Social accounts updated"));
+        setPickedAccounts(undefined);
+        await refetch();
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : t("Couldn't change your social accounts. Try again in a moment."));
+      }
+    });
+
+  const choose = (choice: Choice, downgrade: boolean, current: boolean) => {
     if (choice.plan.id === "free") return void go("free", () => openBillingPortal("cancel"));
+    if (current) return updateAccounts();
     if (downgrade || chargedHere(choice)) {
       setConfirming(choice);
       setChargeNow(!downgrade);
       setConfirmOpen(true);
       return;
     }
-    void go(choice.plan.id, () => startCheckout(choice.plan.id as PaidPlan, choice.billing));
+    void go(choice.plan.id, () => startCheckout(choice.plan.id as PaidPlan, choice.billing, accountsFor(choice.plan)));
   };
 
   const confirmSwitch = () => {
     const choice = confirming();
     if (!choice) return;
     void go("confirm", async () => {
-      const done = await startCheckout(choice.plan.id as PaidPlan, choice.billing);
+      const done = await startCheckout(choice.plan.id as PaidPlan, choice.billing, accountsFor(choice.plan));
       if (!done) return;
-      if (done.updated) toast.success(t("Switched to yearly billing"));
+      if (done.updated) toast.success(choice.plan.id === summary()?.plan ? t("Switched to yearly billing") : t("Switched to {plan}", { plan: t(choice.plan.name) }));
+      setPickedAccounts(undefined);
       await refetch();
       setConfirmOpen(false);
     });
@@ -142,7 +175,10 @@ export function DashboardPlansView() {
             const level = index() + 1;
             const color = PLAN_COLORS[index()]!;
             const current = () => auth.accessLevel();
-            const isCurrent = () => level === current() && (level === 1 || !currentBilling() || billing() === currentBilling());
+            const samePlan = () => level === current() && (level === 1 || !currentBilling() || billing() === currentBilling());
+            // On Agency, a different number of accounts is a change to make, not the current plan.
+            const accountsChanged = () => !!plan.extraAccounts && samePlan() && !!summary() && accounts() !== ownAccounts();
+            const isCurrent = () => samePlan() && !accountsChanged();
             const downgrade = () => level < current() || (level === current() && level > 1 && billing() === "monthly" && currentBilling() === "yearly");
             const starts = () => {
               const now = summary();
@@ -151,6 +187,7 @@ export function DashboardPlansView() {
               return now.scheduled && now.scheduled.plan === plan.id && now.scheduled.billing === billing() ? now.scheduled.at : undefined;
             };
             const label = () => {
+              if (accountsChanged()) return t("Update social accounts");
               if (isCurrent()) return t("Current plan");
               const at = starts();
               if (at !== undefined) return t("Starts {date}", { date: DAY.format(at) });
@@ -167,11 +204,16 @@ export function DashboardPlansView() {
                 color={color}
                 billing={billing()}
                 label={label()}
-                filled={level > current()}
+                filled={level > current() || accountsChanged()}
                 disabled={disabled()}
                 loading={waiting() && level <= current()}
                 pending={leaving() === plan.id || (level === 1 && leaving() === "free")}
-                onChoose={() => choose({ plan, billing: billing() }, downgrade())}
+                onChoose={() => choose({ plan, billing: billing() }, downgrade(), accountsChanged())}
+                accounts={
+                  plan.extraAccounts
+                    ? { value: accounts(), fewest: fewestAccounts(), own: samePlan() && summary() ? ownAccounts() : undefined, used: usedAccounts(), onChange: pickAccounts }
+                    : undefined
+                }
               />
             );
           }}
@@ -185,16 +227,21 @@ export function DashboardPlansView() {
               const sameBilling = () => choice().plan.id === summary()?.plan;
               const charged = chargeNow;
               const date = () => (renewal() ? FULL_DATE.format(renewal()!) : "");
-              const price = () => formatPrice(choice().plan.price[choice().billing]);
+              const price = () => formatPrice(planPrice(choice().plan, choice().billing, accountsFor(choice().plan)));
+              const movingUp = () => charged() && choice().plan.id !== summary()?.plan;
               return (
                 <>
                   <AlertDialogHeader>
                     <AlertDialogTitle>
-                      {charged() ? t("Switch to yearly billing?") : sameBilling() ? t("Switch to monthly billing?") : t("Switch to {plan}?", { plan: t(choice().plan.name) })}
+                      {movingUp() ? t("Switch to {plan}?", { plan: t(choice().plan.name) }) : charged() ? t("Switch to yearly billing?") : sameBilling() ? t("Switch to monthly billing?") : t("Switch to {plan}?", { plan: t(choice().plan.name) })}
                     </AlertDialogTitle>
                     <AlertDialogDescription>
-                      {charged()
-                        ? t("Agency and your {count} extra social accounts move to yearly billing now. You're charged for the year today, less what's left of this month.", { count: summary()?.extraAccounts ?? 0 })
+                      {movingUp()
+                        ? choice().billing === "yearly"
+                          ? t("You move to {plan} with {count} social accounts now, at {price}/mo, billed yearly. You're charged today, less what's left of {current}.", { plan: t(choice().plan.name), count: accounts(), price: price(), current: currentName() })
+                          : t("You move to {plan} with {count} social accounts now, at {price}/mo. You're charged today, less what's left of {current}.", { plan: t(choice().plan.name), count: accounts(), price: price(), current: currentName() })
+                        : charged()
+                        ? t("Agency and your {count} extra social accounts move to yearly billing now. You're charged for the year today, less what's left of this month.", { count: accounts() - INCLUDED })
                         : sameBilling()
                         ? t("You keep yearly billing until {date}. {plan} then costs {price}/mo, billed monthly.", { date: date(), plan: t(choice().plan.name), price: price() })
                         : choice().billing === "yearly"
@@ -207,7 +254,7 @@ export function DashboardPlansView() {
                       {t("Cancel")}
                     </Button>
                     <Button disabled={!!leaving()} aria-busy={leaving() === "confirm"} onClick={confirmSwitch}>
-                      {charged() ? t("Switch to yearly") : t("Switch on {date}", { date: renewal() ? DAY.format(renewal()!) : "" })}
+                      {movingUp() ? t("Upgrade to {plan}", { plan: t(choice().plan.name) }) : charged() ? t("Switch to yearly") : t("Switch on {date}", { date: renewal() ? DAY.format(renewal()!) : "" })}
                     </Button>
                   </AlertDialogFooter>
                 </>
@@ -240,6 +287,7 @@ function PlanCard(props: {
   loading: boolean;
   pending: boolean;
   onChoose: () => void;
+  accounts?: { value: number; fewest: number; own?: number; used: number; onChange: (value: number) => void };
 }) {
   const ink = (): JSX.CSSProperties => ({ "--plan-ink": dashboardTheme() === "light" ? CARD_DEEP[props.color] : CARD_COLORS[props.color] });
 
@@ -259,10 +307,10 @@ function PlanCard(props: {
         <p class="mt-0.5 min-h-10 text-[13px] leading-5 text-[#000]/65">{t(props.plan.text)}</p>
 
         <p class="mt-5 flex items-baseline gap-1">
-          <span class="text-[36px] leading-none font-normal tracking-[-0.03em] tabular-nums">{formatPrice(props.plan.price[props.billing])}</span>
+          <span class="text-[36px] leading-none font-normal tracking-[-0.03em] tabular-nums">{formatPrice(planPrice(props.plan, props.billing, props.accounts?.value))}</span>
           <span class="text-[13px] text-[#000]/55">{t("/mo")}</span>
         </p>
-        <p class="mt-2 text-xs leading-4 text-[#000]/55">{priceNote(props.plan, props.billing)}</p>
+        <p class="mt-2 text-xs leading-4 text-[#000]/55">{priceNote(props.plan, props.billing, props.accounts?.value)}</p>
 
         <div class="mt-auto pt-5">
           <button
@@ -298,7 +346,62 @@ function PlanCard(props: {
         </For>
       </ul>
 
-      <div class="pb-3" style={{ "grid-row": `${props.plan.features.length + 3} / -1` }} />
+      <div class="flex flex-col justify-end pb-3" style={{ "grid-row": `${props.plan.features.length + 3} / -1` }}>
+        <Show when={props.accounts}>{(accounts) => <AccountsStepper plan={props.plan} billing={props.billing} {...accounts()} />}</Show>
+      </div>
     </article>
+  );
+}
+
+function AccountsStepper(props: { plan: Plan; billing: Billing; value: number; fewest: number; own?: number; used: number; onChange: (value: number) => void }) {
+  const button =
+    "grid size-7 place-items-center rounded-md text-(--plane-text-secondary) press hover:text-(--plane-text-primary) disabled:pointer-events-none disabled:opacity-40 focus-ring";
+  const id = `plan-accounts-${props.plan.id}`;
+
+  return (
+    <div class={`${LIST_LINE} mt-3 flex flex-col gap-2 border-t border-(--plane-border-subtle-1) pt-3`}>
+      <div class="flex items-center justify-between gap-3">
+        <label for={id} class="text-[13px] leading-5 text-(--plane-text-primary)">
+          {t("Social accounts")}
+        </label>
+        <div class="flex items-center rounded-md bg-(--plane-layer-transparent-hover)">
+          <button type="button" aria-label={t("Fewer accounts")} class={button} disabled={props.value <= props.fewest} onClick={() => props.onChange(props.value - 1)}>
+            <Icon name="minus" />
+          </button>
+          <input
+            id={id}
+            type="number"
+            inputmode="numeric"
+            min={props.fewest}
+            max={MOST_ACCOUNTS}
+            value={props.value}
+            onChange={(event) => {
+              props.onChange(event.currentTarget.valueAsNumber);
+              event.currentTarget.value = String(props.value);
+            }}
+            class="w-12 appearance-none bg-transparent text-center text-[13px] text-(--plane-text-primary) tabular-nums outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
+          />
+          <button type="button" aria-label={t("More accounts")} class={button} disabled={props.value >= MOST_ACCOUNTS} onClick={() => props.onChange(props.value + 1)}>
+            <Icon name="plus-add" />
+          </button>
+        </div>
+      </div>
+      <p class="text-xs leading-4 text-(--plane-text-tertiary)">
+        <Show
+          when={props.own !== undefined && props.value !== props.own}
+          fallback={t("{count} included, then {price} a month each", { count: props.plan.extraAccounts!.included, price: formatPrice(props.plan.extraAccounts!.price) })}
+        >
+          {props.value > props.own!
+            ? props.billing === "yearly"
+              ? t("The {count} added are charged today for what's left of this year.", { count: props.value - props.own! })
+              : t("The {count} added are charged today for what's left of this month.", { count: props.value - props.own! })
+            : t("The {count} taken off are credited on your next bill.", { count: props.own! - props.value })}
+        </Show>
+        <Show when={props.fewest > props.plan.extraAccounts!.included && props.value === props.fewest}>
+          {" "}
+          {t("You have {count} accounts connected. Disconnect some to go lower.", { count: props.used })}
+        </Show>
+      </p>
+    </div>
   );
 }

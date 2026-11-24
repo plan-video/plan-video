@@ -3889,5 +3889,9 @@
   "Usage isn't available right now.": "現在、使用量を表示できません。",
   "all workspaces": "すべてのワークスペース",
   "this month": "今月",
-  "Resets on {date}": "{date}にリセット"
+  "Resets on {date}": "{date}にリセット",
+  "Update social accounts": "SNSアカウント数を変更",
+  "Switched to {plan}": "{plan}に切り替えました",
+  "You move to {plan} with {count} social accounts now, at {price}/mo. You're charged today, less what's left of {current}.": "SNSアカウント{count}件で今すぐ{plan}に切り替わります（{price}/月）。{current}の残り分を差し引いた額が本日請求されます。",
+  "You move to {plan} with {count} social accounts now, at {price}/mo, billed yearly. You're charged today, less what's left of {current}.": "SNSアカウント{count}件で今すぐ{plan}に切り替わります（年払いで{price}/月）。{current}の残り分を差し引いた額が本日請求されます。"
 }

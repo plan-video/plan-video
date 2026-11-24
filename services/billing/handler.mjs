@@ -412,7 +412,9 @@ async function checkout(env, user, body) {
   const all = await prices(env);
   const price = all.get(lookupKey(plan, billing));
   if (!price) throw new Refused(503, "That plan can't be bought yet.");
-  const extras = plan === ACCOUNTS_PLAN ? extrasFor(body.accounts) ?? 0 : 0;
+  // Undefined when not asked: a switch then keeps the extras already paid for.
+  const asked = plan === ACCOUNTS_PLAN ? extrasFor(body.accounts) : undefined;
+  const extras = asked ?? 0;
   const extrasPrice = all.get(accountsKey(billing));
   if (extras > 0 && !extrasPrice) throw new Refused(503, "Extra social accounts can't be bought yet.");
 
@@ -421,7 +423,7 @@ async function checkout(env, user, body) {
   if (current) {
     // By plan rather than price: someone on an older price of the same plan keeps it.
     if (current.plan === plan && current.billing === billing) throw new Refused(409, "You're on this plan already.");
-    const kept = plan === ACCOUNTS_PLAN ? current.extraAccounts : 0;
+    const kept = plan === ACCOUNTS_PLAN ? asked ?? current.extraAccounts : 0;
     if (waitsForRenewal(current, { plan, billing })) {
       const at = await scheduleSwitch(env, current.sub, price, kept, extrasPrice);
       return { scheduled: { plan, billing, at } };
@@ -430,14 +432,16 @@ async function checkout(env, user, body) {
     // One subscription bills one way, so both lines move at once, and Stripe's confirm page takes
     // one line only: charged here, as the Plans tab said before asking.
     const extrasLine = accountsItem(current.sub.items.data);
-    if (extrasLine) {
+    if (extrasLine || kept > 0) {
       if (!extrasPrice) throw new Refused(503, "Extra social accounts can't be bought yet.");
+      const extrasItem = !extrasLine
+        ? { price: extrasPrice.id, quantity: kept }
+        : kept > 0
+          ? { id: extrasLine.id, price: extrasPrice.id, quantity: kept }
+          : { id: extrasLine.id, deleted: true };
       await charging(() =>
         stripe(env, "POST", `/subscriptions/${current.sub.id}`, {
-          items: [
-            { id: planItem(current.sub.items.data).id, price: price.id },
-            { id: extrasLine.id, price: extrasPrice.id },
-          ],
+          items: [{ id: planItem(current.sub.items.data).id, price: price.id }, extrasItem],
           proration_behavior: "always_invoice",
           payment_behavior: "error_if_incomplete",
         }),
