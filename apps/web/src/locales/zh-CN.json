@@ -1276,6 +1276,7 @@
   "None of your channels has plugs": "你连接的平台都不支持引流",
   "Plugs work on {networks}. Add an account there to set them up.": "引流功能支持 {networks}。在那里添加账号即可设置。",
   "Each post is checked every {hours, plural, one {# hour} other {# hours}}, {checks, plural, one {# time} other {# times}} after it goes out": "每条帖子发布后每 {hours, plural, other {# 小时}}检查一次，共检查 {checks, plural, other {# 次}}",
+  "Reposts and replies count toward your plan's X posts": "转发和回复都计入你套餐的 X 帖子数",
   "Plug updated": "引流设置已更新",
   "Plug activated": "引流已开启",
   "{plug} on @{handle}": "已为 @{handle} 开启{plug}",

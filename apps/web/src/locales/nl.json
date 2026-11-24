@@ -1276,6 +1276,7 @@
   "None of your channels has plugs": "Geen van je kanalen heeft plugs",
   "Plugs work on {networks}. Add an account there to set them up.": "Plugs werken op {networks}. Voeg daar een account toe om ze in te stellen.",
   "Each post is checked every {hours, plural, one {# hour} other {# hours}}, {checks, plural, one {# time} other {# times}} after it goes out": "Elke post wordt na plaatsing {checks, plural, one {# keer} other {# keer}} gecontroleerd, {hours, plural, one {elk uur} other {om de # uur}}",
+  "Reposts and replies count toward your plan's X posts": "Reposts en reacties tellen mee voor de X-posts van je abonnement",
   "Plug updated": "Plug bijgewerkt",
   "Plug activated": "Plug geactiveerd",
   "{plug} on @{handle}": "{plug} op @{handle}",

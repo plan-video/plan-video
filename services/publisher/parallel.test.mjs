@@ -551,11 +551,11 @@ test("plugs run in their account's lane too", async () => {
   const plugs = {
     platforms: ["x"],
     forAccount: () => [{ kind: "comment" }],
-    run: async () => {
+    run: async (_row, _wanted, _session, done) => {
       most = Math.max(most, ++going);
       await nextTurn();
       going--;
-      return ["comment"];
+      await done("comment");
     },
   };
   const w = world({ plugs, posts: [post("u1", "a", [["x", "x1"]]), post("u1", "b", [["x", "x1"]]), post("u2", "c", [["x", "x2"]])] });

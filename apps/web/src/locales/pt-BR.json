@@ -1276,6 +1276,7 @@
   "None of your channels has plugs": "Nenhum dos seus canais tem divulgações",
   "Plugs work on {networks}. Add an account there to set them up.": "As divulgações funcionam no {networks}. Adicione uma conta lá para configurá-las.",
   "Each post is checked every {hours, plural, one {# hour} other {# hours}}, {checks, plural, one {# time} other {# times}} after it goes out": "Depois de publicado, cada post é verificado {checks, plural, =0 {# vezes} one {# vez} many {# vezes} other {# vezes}}, a cada {hours, plural, =0 {# horas} one {# hora} many {# horas} other {# horas}}",
+  "Reposts and replies count toward your plan's X posts": "Reposts e respostas contam nos posts no X do seu plano",
   "Plug updated": "Divulgação atualizada",
   "Plug activated": "Divulgação ativada",
   "{plug} on @{handle}": "{plug} em @{handle}",

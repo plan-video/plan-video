@@ -738,18 +738,25 @@ export function createWorker({
 
   async function plugOne(row) {
     const finish = (values) => db.update("post_deliveries", { id: row.id }, values);
+    // updated_at stays when the post went out, since checks don't touch it, so checks keep to their hours.
+    const sentAt = Date.parse(row.updated_at);
+    const checked = () => finish({ plug_checks: row.plug_checks + 1, next_at: iso(sentAt + (row.plug_checks + 2) * PLUG_EVERY_MS) });
     try {
       const settings = (await db.rpc("publisher_plugs", { owner: row.user_id, workspace: row.workspace_id })) ?? [];
-      const sentAt = Date.parse(row.updated_at);
       const wanted = plugs.forAccount(settings, row.connection_id, row.platform, sentAt).filter((plug) => !row.plugs_done.includes(plug.kind));
       if (!wanted.length) return finish({ plug_checks: PLUG_CHECKS });
-      const done = await plugs.run(row, wanted, (await vault.fresh(row.user_id, row.connection_id)).session);
-      const checks = row.plug_checks + 1;
-      await finish({ plugs_done: [...row.plugs_done, ...done], plug_checks: checks, next_at: iso(Date.parse(row.next_at) + PLUG_EVERY_MS) });
+      const done = [...row.plugs_done];
+      await plugs.run(row, wanted, (await vault.fresh(row.user_id, row.connection_id)).session, (...kinds) => {
+        done.push(...kinds.filter((kind) => !done.includes(kind)));
+        return finish({ plugs_done: [...done] });
+      });
+      await checked();
     } catch (error) {
-      if (error instanceof PublishError && error.retry) return finish({ next_at: iso(now() + 15 * 60_000) });
+      // Tried again until the next check is due, since every look at X is billed.
+      const again = Math.max(now() + 15 * 60_000, error instanceof PublishError ? (error.until ?? 0) : 0);
+      if (error instanceof PublishError && error.retry && again < sentAt + (row.plug_checks + 2) * PLUG_EVERY_MS) return finish({ next_at: iso(again) });
       log.error("[publisher] plug failed", row.id, error instanceof Error ? error.message : error);
-      await finish({ plug_checks: row.plug_checks + 1, next_at: iso(Date.parse(row.next_at) + PLUG_EVERY_MS) });
+      await checked();
     }
   }
 

@@ -1276,6 +1276,7 @@
   "None of your channels has plugs": "Nessuno dei tuoi canali supporta le automazioni",
   "Plugs work on {networks}. Add an account there to set them up.": "Le automazioni funzionano su {networks}. Aggiungi un account lì per configurarle.",
   "Each post is checked every {hours, plural, one {# hour} other {# hours}}, {checks, plural, one {# time} other {# times}} after it goes out": "Ogni post viene controllato ogni {hours, plural, one {ora} many {# ore} other {# ore}}, {checks, plural, one {# volta} many {# volte} other {# volte}} dopo l'uscita",
+  "Reposts and replies count toward your plan's X posts": "Repost e risposte contano nei post su X del tuo piano",
   "Plug updated": "Automazione aggiornata",
   "Plug activated": "Automazione attivata",
   "{plug} on @{handle}": "{plug} su @{handle}",

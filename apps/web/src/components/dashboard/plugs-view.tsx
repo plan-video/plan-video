@@ -154,6 +154,7 @@ function ChannelPlugs(props: { account: SocialConnection }) {
           <h2 class="truncate text-sm font-medium text-foreground">@{props.account.handle}</h2>
           <p class="text-xs text-muted-foreground">
             {socialPlatform(props.account.platform as PlatformId).name} · {t("Each post is checked every {hours, plural, one {# hour} other {# hours}}, {checks, plural, one {# time} other {# times}} after it goes out", { hours: PLUG_CHECK_HOURS, checks: PLUG_CHECKS })}
+            <Show when={props.account.platform === "x"}> · {t("Reposts and replies count toward your plan's X posts")}</Show>
           </p>
         </div>
       </div>
