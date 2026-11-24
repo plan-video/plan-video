@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { createSignal } from "solid-js";
-import { msg, t } from "./i18n";
+import { intlLocale, msg, t } from "./i18n";
 
 export type Billing = "monthly" | "yearly";
 
@@ -104,7 +104,7 @@ export const PLANS: Plan[] = [
     accounts: 100,
     captionHours: 40,
     builds: msg("Pro"),
-    features: [msg("100 social accounts, then $1 each"), msg("250 GB storage"), msg("Unlimited posts per month"), msg("Unlimited team members")],
+    features: [msg("100 social accounts, then €1 each"), msg("250 GB storage"), msg("Unlimited posts per month"), msg("Unlimited team members")],
     extraAccounts: { included: 100, price: 1 },
   },
 ];
@@ -125,8 +125,13 @@ export function planPrice(plan: Plan, billing: Billing, accounts?: number): numb
   return plan.price[billing] + added;
 }
 
+/** Plans are charged in euros: services/billing/scripts/setup-stripe.mjs makes the prices. */
+export function formatPrice(amount: number): string {
+  return new Intl.NumberFormat(intlLocale("en"), { style: "currency", currency: "EUR", minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(amount);
+}
+
 export function priceNote(plan: Plan, billing: Billing, accounts?: number): string {
   const price = planPrice(plan, billing, accounts);
   if (!price) return t("Free forever, no card needed");
-  return billing === "yearly" ? t("{price} billed yearly", { price: `$${price * 12}` }) : t("Billed monthly");
+  return billing === "yearly" ? t("{price} billed yearly", { price: formatPrice(price * 12) }) : t("Billed monthly");
 }

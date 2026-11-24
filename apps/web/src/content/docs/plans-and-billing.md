@@ -4,9 +4,9 @@ Every plan includes the calendar and the built-in video editor. Paid plans add u
 
 | | Free | Creator | Pro | Agency |
 | --- | --- | --- | --- | --- |
-| Monthly | $0 | $19 | $39 | $79 |
-| Yearly, per month | $0 | $15 | $31 | $63 |
-| Social accounts | 3 | 15 | 40 | 100, then $1 each |
+| Monthly | €0 | €19 | €39 | €79 |
+| Yearly, per month | €0 | €15 | €31 | €63 |
+| Social accounts | 3 | 15 | 40 | 100, then €1 each |
 | Storage | 5 GB | 50 GB | 150 GB | 250 GB |
 | Scheduled posts | 10 per account | Unlimited | Unlimited | Unlimited |
 | Export | 1080p | 4K | 4K | 4K |

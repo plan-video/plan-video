@@ -12,7 +12,7 @@ import { intlLocale, t } from "@/lib/i18n";
 import { zonedFormat } from "@/lib/time-zone";
 import { useAuth } from "@/context/auth";
 import { LEVEL_OF_PLAN, billingAccount, type BillingSummary } from "@/lib/billing";
-import { planOfLevel } from "@/lib/plans";
+import { formatPrice, planOfLevel } from "@/lib/plans";
 import {
   For,
   Show,
@@ -245,7 +245,7 @@ export function DashboardFreePlanDetails() {
   return (
     <DashboardPlanDetails
       details={[
-        { label: t("Free"), value: "$0.00" },
+        { label: t("Free"), value: formatPrice(0) },
       ]}
     />
   );

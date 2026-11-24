@@ -11,7 +11,7 @@ import { Icon } from "@/components/ui/icon";
 import { useAuth } from "@/context/auth";
 import { setAccounts, type BillingSummary } from "@/lib/billing";
 import { t } from "@/lib/i18n";
-import { PLANS, accountLimit, planOfLevel, planPrice, priceNote, type Billing } from "@/lib/plans";
+import { PLANS, accountLimit, formatPrice, planOfLevel, planPrice, priceNote, type Billing } from "@/lib/plans";
 import { connectedAccountCount } from "@/lib/social-connections";
 
 import { DashboardInfoActionRow, DashboardSurfaceSection } from "./shared";
@@ -70,12 +70,12 @@ export function DashboardSocialAccounts(props: {
               plan: t(planOfLevel(auth.accessLevel()).name),
               count: most(),
               included: INCLUDED,
-              price: `$${AGENCY.extraAccounts!.price}`,
+              price: formatPrice(AGENCY.extraAccounts!.price),
             })}
           >
             {extra() > 0
-              ? t("{included} with Agency and {extra} more at {price} a month each, across all your workspaces.", { included: INCLUDED, extra: extra(), price: `$${AGENCY.extraAccounts!.price}` })
-              : t("{included} with Agency, across all your workspaces. Each one more is {price} a month.", { included: INCLUDED, price: `$${AGENCY.extraAccounts!.price}` })}
+              ? t("{included} with Agency and {extra} more at {price} a month each, across all your workspaces.", { included: INCLUDED, extra: extra(), price: formatPrice(AGENCY.extraAccounts!.price) })
+              : t("{included} with Agency, across all your workspaces. Each one more is {price} a month.", { included: INCLUDED, price: formatPrice(AGENCY.extraAccounts!.price) })}
           </Show>
         }
         action={
@@ -107,7 +107,7 @@ export function DashboardSocialAccounts(props: {
           <AlertDialogHeader>
             <AlertDialogTitle>{t("Social accounts")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t("Agency includes {included}. Each one more is {price} a month, billed with your plan.", { included: INCLUDED, price: `$${AGENCY.extraAccounts!.price}` })}
+              {t("Agency includes {included}. Each one more is {price} a month, billed with your plan.", { included: INCLUDED, price: formatPrice(AGENCY.extraAccounts!.price) })}
             </AlertDialogDescription>
           </AlertDialogHeader>
 

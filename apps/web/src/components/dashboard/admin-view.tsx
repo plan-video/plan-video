@@ -25,7 +25,7 @@ import {
   type NetworkSummary,
 } from "@/lib/admin";
 import { intlLocale, msg, t } from "@/lib/i18n";
-import { planOfLevel } from "@/lib/plans";
+import { formatPrice, planOfLevel } from "@/lib/plans";
 import { formatBytes } from "@/lib/social-media";
 import type { PlatformId } from "@/lib/social";
 
@@ -113,7 +113,7 @@ function CostsSection(props: { report: AdminReport; agent: AgentUsage | null }) 
       </div>
       <div class="flex flex-col gap-1 border-t border-border-strong pt-3">
         <Row label={t("Total so far")} value={usd(total())} />
-        <Row label={t("Paid plans, a month")} hint={t("if everyone paid monthly")} value={usd(revenue())} />
+        <Row label={t("Paid plans, a month")} hint={t("if everyone paid monthly")} value={formatPrice(revenue())} />
       </div>
       <Show when={!props.report.costs.length}>
         <p class="text-xs text-muted-foreground">{t("Add fixed costs such as the server with ADMIN_MONTHLY_COSTS in publisher.env, like Server=8,Database=25.")}</p>

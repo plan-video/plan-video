@@ -13,7 +13,7 @@ import { useAuth } from "@/context/auth";
 import { billingAccount, keepPlan, openBillingPortal, startCheckout, type PaidPlan } from "@/lib/billing";
 import { dashboardTheme } from "@/lib/dashboard-theme";
 import { msg, t } from "@/lib/i18n";
-import { PLANS, YEARLY_SAVING, planOfLevel, priceNote, type Billing, type Plan } from "@/lib/plans";
+import { PLANS, YEARLY_SAVING, formatPrice, planOfLevel, priceNote, type Billing, type Plan } from "@/lib/plans";
 import { zonedFormat } from "@/lib/time-zone";
 
 const BILLING_OPTIONS: readonly { id: Billing; label: string; badge?: string }[] = [
@@ -185,7 +185,7 @@ export function DashboardPlansView() {
               const sameBilling = () => choice().plan.id === summary()?.plan;
               const charged = chargeNow;
               const date = () => (renewal() ? FULL_DATE.format(renewal()!) : "");
-              const price = () => `$${choice().plan.price[choice().billing]}`;
+              const price = () => formatPrice(choice().plan.price[choice().billing]);
               return (
                 <>
                   <AlertDialogHeader>
