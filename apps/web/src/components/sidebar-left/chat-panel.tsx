@@ -38,7 +38,10 @@ const ANIMATIONS: { id: KillfeedAnimation; label: string }[] = [
   { id: "fade", label: msg("Fade") },
 ];
 
-const STAGE_BACKGROUND = "/site/sunset.webp";
+const STAGE_BACKGROUND: Record<ChatPlatform, string> = {
+  twitch: "radial-gradient(120% 140% at 50% 0%, #34245A 0%, #0E0B14 72%)",
+  tiktok: "radial-gradient(90% 120% at 15% 0%, #123A3E 0%, transparent 60%), radial-gradient(90% 120% at 85% 100%, #3E1424 0%, transparent 60%), #0B0B0D",
+};
 
 function createChatExtension(platform: ChatPlatform): { Panel: Component; Cover: Component } {
   /** Kept across tab switches. */
@@ -180,9 +183,9 @@ function createChatExtension(platform: ChatPlatform): { Panel: Component; Cover:
         <div
           draggable={true}
           onDragStart={handleDragStart}
-          class="group relative flex max-h-44 min-h-20 cursor-grab flex-col justify-end gap-1 overflow-hidden rounded-md border border-border bg-black p-3 active:cursor-grabbing"
+          class="group relative flex max-h-44 min-h-20 cursor-grab flex-col justify-end gap-1 overflow-hidden rounded-md border border-border p-3 active:cursor-grabbing"
+          style={{ background: STAGE_BACKGROUND[platform] }}
         >
-          <img src={STAGE_BACKGROUND} alt="" draggable={false} class="pointer-events-none absolute inset-0 size-full object-cover" />
           <For each={feed.entries()}>
             {(message, index) => (
               <Show when={several()} fallback={<Message message={message} class="relative" />}>
@@ -457,8 +460,7 @@ function createChatExtension(platform: ChatPlatform): { Panel: Component; Cover:
       .then((canvas) => setSrc(canvas.toDataURL("image/png")))
       .catch(() => {});
     return (
-      <div class="relative flex h-20 w-full items-center justify-center overflow-hidden bg-black px-3">
-        <img src={STAGE_BACKGROUND} alt="" draggable={false} class="pointer-events-none absolute inset-0 size-full object-cover" />
+      <div class="relative flex h-20 w-full items-center justify-center overflow-hidden px-3" style={{ background: STAGE_BACKGROUND[platform] }}>
         <Show when={src()}>
           {(url) => <img src={url()} alt="" draggable={false} class="pointer-events-none relative max-h-full max-w-full object-contain" />}
         </Show>

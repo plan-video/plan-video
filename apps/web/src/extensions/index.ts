@@ -41,14 +41,6 @@ export const EXTENSIONS: Extension[] = [
     unlisted: true,
   },
   {
-    id: "progress-bar",
-    name: msg("Progress bar"),
-    summary: msg("A bar that fills across the frame as the video plays, so viewers stay to the end."),
-    author: "plan.video",
-    Cover: ProgressBarCover,
-    Panel: ProgressBarPanel,
-  },
-  {
     id: "twitch-chat",
     name: msg("Chat"),
     tag: "Twitch",
@@ -110,6 +102,14 @@ export const EXTENSIONS: Extension[] = [
     author: "plan.video",
     Cover: RustKillfeedCover,
     Panel: RustKillfeedPanel,
+  },
+  {
+    id: "progress-bar",
+    name: msg("Progress bar"),
+    summary: msg("A bar that fills across the frame as the video plays, so viewers stay to the end."),
+    author: "plan.video",
+    Cover: ProgressBarCover,
+    Panel: ProgressBarPanel,
   },
 ];
 
