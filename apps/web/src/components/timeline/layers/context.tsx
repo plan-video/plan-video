@@ -71,6 +71,8 @@ export function LayerContextProvider(props: { children: JSX.Element }) {
   };
 
   const handleMove = (event: PointerEvent): void => {
+    if ((event.buttons & 1) === 0) return handleUp();
+
     pointerX = event.clientX;
     pointerY = event.clientY;
     dirty = true;

@@ -109,6 +109,7 @@ export function NodeLayer(props: LayerRowProps) {
   let resizeStartHeight = 0;
 
   const handleResizeMove = (e: PointerEvent) => {
+    if ((e.buttons & 1) === 0) return handleResizeEnd();
     const next = Math.max(MIN_CLIP_HEIGHT, Math.min(MAX_CLIP_HEIGHT, resizeStartHeight + e.clientY - resizeStartY));
     editor.editProperty(entity(), 'clipHeight', next);
   };

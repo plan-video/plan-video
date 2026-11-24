@@ -97,6 +97,12 @@ export function createPointer(options: PointerOptions) {
     shiftPressed = event.shiftKey;
     modPressed = MAC ? event.metaKey : event.ctrlKey;
 
+    // A move with the button up means the release went somewhere this never heard.
+    if (position && position.state !== 'idle' && position.state !== 'lifted' && (event.buttons & 1) === 0) {
+      cancel();
+      return;
+    }
+
     const currentX = event.clientX - rect.left;
     const currentY = event.clientY - rect.top;
 
@@ -123,8 +129,19 @@ export function createPointer(options: PointerOptions) {
     if (!rect) return;
     if (!position || position.state === 'idle') return;
 
-    const currentX = event.clientX - rect.left;
-    const currentY = event.clientY - rect.top;
+    shiftPressed = event.shiftKey;
+    modPressed = MAC ? event.metaKey : event.ctrlKey;
+    lift(event.clientX - rect.left, event.clientY - rect.top);
+  }
+
+  /** Lets go where the pointer was last seen held. */
+  function cancel() {
+    if (!position || position.state === 'idle') return;
+    lift(position.currentX, position.currentY);
+  }
+
+  function lift(currentX: number, currentY: number) {
+    if (!position || position.state === 'idle') return;
 
     position = {
       ...position,
@@ -135,8 +152,6 @@ export function createPointer(options: PointerOptions) {
       deltaY: currentY - position.initialY,
     };
     pressRegionID = null;
-    shiftPressed = event.shiftKey;
-    modPressed = MAC ? event.metaKey : event.ctrlKey;
   }
 
 
@@ -278,6 +293,7 @@ export function createPointer(options: PointerOptions) {
     down,
     move,
     up,
+    cancel,
     scope,
     region,
     reset,

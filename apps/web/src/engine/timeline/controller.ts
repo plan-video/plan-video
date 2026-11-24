@@ -261,6 +261,8 @@ export function createTimelineController(world: World) {
 		// On the body, so a drag that leaves the canvas still finishes.
 		document.body.addEventListener('pointermove', pointer.move, { passive: true });
 		document.body.addEventListener('pointerup', pointer.up, { passive: true });
+		document.addEventListener('pointercancel', pointer.cancel, { passive: true });
+		window.addEventListener('blur', pointer.cancel);
 	};
 
 	const unmount = (): void => {
@@ -269,6 +271,8 @@ export function createTimelineController(world: World) {
 
 		document.body.removeEventListener('pointermove', pointer.move);
 		document.body.removeEventListener('pointerup', pointer.up);
+		document.removeEventListener('pointercancel', pointer.cancel);
+		window.removeEventListener('blur', pointer.cancel);
 	};
 
 	return {
