@@ -3889,5 +3889,9 @@
   "Usage isn't available right now.": "Kullanım şu anda görüntülenemiyor.",
   "all workspaces": "tüm çalışma alanları",
   "this month": "bu ay",
-  "Resets on {date}": "{date} tarihinde sıfırlanır"
+  "Resets on {date}": "{date} tarihinde sıfırlanır",
+  "Update social accounts": "Sosyal hesapları güncelle",
+  "Switched to {plan}": "{plan} planına geçildi",
+  "You move to {plan} with {count} social accounts now, at {price}/mo. You're charged today, less what's left of {current}.": "{count} sosyal hesapla şimdi {plan} planına geçiyorsun, {price}/ay. Bugün ücretlendirilir; {current} planından kalan süre düşülür.",
+  "You move to {plan} with {count} social accounts now, at {price}/mo, billed yearly. You're charged today, less what's left of {current}.": "{count} sosyal hesapla şimdi {plan} planına geçiyorsun, yıllık faturalandırmayla {price}/ay. Bugün ücretlendirilir; {current} planından kalan süre düşülür."
 }

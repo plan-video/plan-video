@@ -3889,5 +3889,9 @@
   "Usage isn't available right now.": "지금은 사용량을 볼 수 없어요.",
   "all workspaces": "모든 워크스페이스",
   "this month": "이번 달",
-  "Resets on {date}": "{date}에 초기화"
+  "Resets on {date}": "{date}에 초기화",
+  "Update social accounts": "소셜 계정 수 변경",
+  "Switched to {plan}": "{plan}(으)로 전환했어요",
+  "You move to {plan} with {count} social accounts now, at {price}/mo. You're charged today, less what's left of {current}.": "소셜 계정 {count}개로 지금 {plan}(으)로 전환돼요. 요금은 {price}/월이에요. {current}의 남은 기간을 뺀 금액이 오늘 청구돼요.",
+  "You move to {plan} with {count} social accounts now, at {price}/mo, billed yearly. You're charged today, less what's left of {current}.": "소셜 계정 {count}개로 지금 {plan}(으)로 전환돼요. 요금은 연간 결제로 {price}/월이에요. {current}의 남은 기간을 뺀 금액이 오늘 청구돼요."
 }

@@ -39,6 +39,10 @@ Open **Settings** → **Usage** to see how much of your plan you've used: the sc
 
 Open **Settings** → **Billing**, pick a plan, and pay through Stripe. Your new plan starts straight away.
 
+## More than 100 social accounts
+
+Agency includes 100 social accounts, and each one more is €1 a month. Set how many you need with **Social accounts** on the Agency card, in **Settings** → **Billing** or on the pricing page, before you upgrade. Already on Agency? Change the number there and click **Update social accounts**. Accounts you add are charged straight away for the rest of the month, and accounts you take off are credited on your next bill.
+
 ## Change or cancel
 
 - **Change plan:** pick another plan in **Billing**.

@@ -3889,5 +3889,9 @@
   "Usage isn't available right now.": "Gebruik is nu niet beschikbaar.",
   "all workspaces": "alle werkruimtes",
   "this month": "deze maand",
-  "Resets on {date}": "Wordt gereset op {date}"
+  "Resets on {date}": "Wordt gereset op {date}",
+  "Update social accounts": "Accounts aanpassen",
+  "Switched to {plan}": "Overgestapt naar {plan}",
+  "You move to {plan} with {count} social accounts now, at {price}/mo. You're charged today, less what's left of {current}.": "Je stapt nu over naar {plan} met {count} accounts, voor {price}/mnd. Dit wordt vandaag in rekening gebracht, min wat er van {current} over is.",
+  "You move to {plan} with {count} social accounts now, at {price}/mo, billed yearly. You're charged today, less what's left of {current}.": "Je stapt nu over naar {plan} met {count} accounts, voor {price}/mnd, jaarlijks gefactureerd. Dit wordt vandaag in rekening gebracht, min wat er van {current} over is."
 }
