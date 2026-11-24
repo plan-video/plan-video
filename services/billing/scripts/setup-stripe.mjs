@@ -77,7 +77,7 @@ for (const plan of Object.keys(LEVELS)) {
       price &&
       price.product === product.id &&
       price.unit_amount === cents &&
-      price.currency === "usd" &&
+      price.currency === "eur" &&
       price.recurring?.interval === interval &&
       price.tax_behavior === "inclusive";
     if (!fits) {
@@ -85,7 +85,7 @@ for (const plan of Object.keys(LEVELS)) {
       const old = price;
       price = await stripe("POST", "/prices", {
         product: product.id,
-        currency: "usd",
+        currency: "eur",
         unit_amount: cents,
         recurring: { interval },
         lookup_key: lookup,
@@ -126,7 +126,7 @@ for (const plan of Object.keys(LEVELS)) {
       price &&
       price.product === product.id &&
       price.unit_amount === cents &&
-      price.currency === "usd" &&
+      price.currency === "eur" &&
       price.recurring?.interval === interval &&
       price.tax_behavior === "inclusive";
     if (fits) {
@@ -136,7 +136,7 @@ for (const plan of Object.keys(LEVELS)) {
     const old = price;
     price = await stripe("POST", "/prices", {
       product: product.id,
-      currency: "usd",
+      currency: "eur",
       unit_amount: cents,
       recurring: { interval },
       lookup_key: lookup,
