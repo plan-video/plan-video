@@ -551,7 +551,7 @@ test("plugs run in their account's lane too", async () => {
   const plugs = {
     platforms: ["x"],
     forAccount: () => [{ kind: "comment" }],
-    run: async (_row, _wanted, _session, done) => {
+    run: async (_row, _wanted, _session, { done }) => {
       most = Math.max(most, ++going);
       await nextTurn();
       going--;

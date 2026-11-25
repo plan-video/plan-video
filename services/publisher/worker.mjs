@@ -745,10 +745,14 @@ export function createWorker({
       const settings = (await db.rpc("publisher_plugs", { owner: row.user_id, workspace: row.workspace_id })) ?? [];
       const wanted = plugs.forAccount(settings, row.connection_id, row.platform, sentAt).filter((plug) => !row.plugs_done.includes(plug.kind));
       if (!wanted.length) return finish({ plug_checks: PLUG_CHECKS });
-      const done = [...row.plugs_done];
-      await plugs.run(row, wanted, (await vault.fresh(row.user_id, row.connection_id)).session, (...kinds) => {
-        done.push(...kinds.filter((kind) => !done.includes(kind)));
-        return finish({ plugs_done: [...done] });
+      let done = [...row.plugs_done];
+      const keep = (kinds) => {
+        done = kinds;
+        return finish({ plugs_done: kinds });
+      };
+      await plugs.run(row, wanted, (await vault.fresh(row.user_id, row.connection_id)).session, {
+        done: (...kinds) => keep([...done, ...kinds.filter((kind) => !done.includes(kind))]),
+        undo: (kind) => keep(done.filter((item) => item !== kind)),
       });
       await checked();
     } catch (error) {

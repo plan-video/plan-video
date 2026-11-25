@@ -1,5 +1,5 @@
 // Bluesky is asked whether the account already reposted or replied, so nothing is done twice there.
-// X bills every read and post, so each plug done is kept at once and an X reply is never tried again.
+// X bills every read and post, so a reply is kept as done before it goes out and is never sent twice.
 
 import { postNow, reply, repost } from "./networks/bluesky.mjs";
 
@@ -29,16 +29,24 @@ export function createPlugs({ x } = {}) {
     },
 
     /** Calls `done` with each kind as it's done, and with all of them once the post can't take any. */
-    async run(row, wanted, session, done) {
+    async run(row, wanted, session, { done, undo }) {
       const network = steps[row.platform];
       const target = row.publish_id ? await network.find(row, session) : null;
       if (!target) return done(...KINDS);
       for (const plug of wanted) {
         const likes = typeof plug.likes === "number" && plug.likes > 0 ? Math.floor(plug.likes) : 1;
         if (target.likes < likes) continue;
-        if (plug.kind === "auto-repost") await network.repost(session, target, row);
-        else await network.reply(session, target, plug.message, row);
+        if (plug.kind === "auto-repost") {
+          await network.repost(session, target, row);
+          await done(plug.kind);
+          continue;
+        }
+        // Kept before it's sent: a reply made but not kept would go out again at the next check.
         await done(plug.kind);
+        await network.reply(session, target, plug.message, row).catch(async (error) => {
+          await undo(plug.kind);
+          throw error;
+        });
       }
     },
   };

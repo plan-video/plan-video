@@ -135,6 +135,18 @@ test("a plug's reply X may have made is never sent again, and still counts", asy
   assert.deepEqual(w.counted(), ["x", "x", "xlink"]);
 });
 
+test("a plug's reply X made is never sent again when keeping it fails", async (t) => {
+  const w = setup(t, { plugs: [replyPlug], likes: () => 50 });
+  await w.send();
+  const update = w.db.update.bind(w.db);
+  t.mock.method(w.db, "update", async (table, filter, values) => {
+    if (values.plugs_done && w.replies().length) throw new Error("database unreachable");
+    return update(table, filter, values);
+  });
+  await w.checks(3);
+  assert.equal(w.replies().length, 1);
+});
+
 test("a plug past the plan's X posts never reaches X", async (t) => {
   const w = setup(t, { plugs: [repostPlug], likes: () => 50 });
   await w.send();
