@@ -24,6 +24,22 @@ function token(claims) {
 }
 const EDITOR_TOKEN = token({ sub: ALICE });
 const CONNECTOR_TOKEN = token({ sub: ALICE, client_id: "claude" });
+/** A connector on a database without the agent functions yet. */
+const BEFORE_TOKEN = token({ sub: ALICE, client_id: "before" });
+
+const CONTEXT = {
+  owner: ALICE,
+  workspace: "default",
+  name: "Personal",
+  role: "owner",
+  level: 2,
+  timeZone: "UTC",
+  calendarId: "posts",
+  connections: [{ id: "bsky", platform: "bluesky", handle: "me.bsky.social", ready: true }],
+  library: [{ id: "pic", name: "pic.jpg", kind: "image", type: "image/jpeg", size: 10, width: 100, height: 100, duration: 0, lastModified: 1, createdAt: "2026-11-01T00:00:00Z", uses: 0 }],
+};
+/** What the stand-ins were asked, by route. */
+const asked = [];
 
 function claimsOf(req) {
   const value = String(req.headers.authorization ?? "").slice(7);
@@ -45,18 +61,33 @@ function sparePort() {
 }
 
 before(async () => {
-  supabase = createServer((req, res) => {
+  supabase = createServer(async (req, res) => {
     const claims = claimsOf(req);
+    const chunks = [];
+    for await (const chunk of req) chunks.push(chunk);
+    const body = chunks.length ? JSON.parse(Buffer.concat(chunks).toString("utf8")) : null;
     res.setHeader("Content-Type", "application/json");
     if (req.url === "/auth/v1/user" && claims?.sub === ALICE && !claims.client_id) return res.end(JSON.stringify({ id: ALICE }));
     if (req.url === "/rest/v1/rpc/connector_identity" && claims?.client_id) return res.end(JSON.stringify({ user_id: ALICE, client_id: claims.client_id }));
+    if (req.url.startsWith("/rest/v1/rpc/agent_") || req.url === "/api/storage/agent-copy") {
+      asked.push({ url: req.url, client: claims?.client_id, body });
+      if (claims?.client_id === "before") {
+        res.statusCode = 404;
+        return res.end(JSON.stringify({ code: "PGRST202", message: "Could not find the function" }));
+      }
+      if (req.url === "/rest/v1/rpc/agent_context") return res.end(JSON.stringify(CONTEXT));
+      if (req.url === "/rest/v1/rpc/agent_posts") return res.end("[]");
+      if (req.url === "/rest/v1/rpc/agent_save_post") return res.end(JSON.stringify({ version: 1 }));
+      if (req.url === "/api/storage/agent-copy") return res.end(JSON.stringify({ copied: body.copies.length }));
+    }
     res.statusCode = 401;
     res.end("{}");
   });
   await new Promise((resolve) => supabase.listen(0, "127.0.0.1", resolve));
 
   dir = mkdtempSync(join(tmpdir(), "mcp-test-"));
-  writeFileSync(join(dir, "mcp.env"), `SUPABASE_URL=http://127.0.0.1:${supabase.address().port}\nSUPABASE_ANON_KEY=anon\nALLOWED_ORIGINS=${ORIGIN}\n`);
+  const stand = `http://127.0.0.1:${supabase.address().port}`;
+  writeFileSync(join(dir, "mcp.env"), `SUPABASE_URL=${stand}\nSUPABASE_ANON_KEY=anon\nSTORAGE_URL=${stand}\nALLOWED_ORIGINS=${ORIGIN}\n`);
   port = await sparePort();
   child = spawn(process.execPath, ["server.mjs"], {
     cwd: new URL(".", import.meta.url),
@@ -241,14 +272,14 @@ test("a signed-in tab answers an agent's call with a big result, end to end", as
   tab.on("message", (data) => {
     const call = JSON.parse(String(data));
     if (call.type !== "call") return;
-    assert.equal(call.tool, "list_posts");
+    assert.equal(call.tool, "analytics");
     tab.send(JSON.stringify({ type: "result", id: call.id, ok: true, text: "[]", images: [{ mediaType: "image/png", data: image }] }));
   });
 
   const res = await fetch(`http://127.0.0.1:${port}/mcp`, {
     method: "POST",
     headers: { Authorization: `Bearer ${CONNECTOR_TOKEN}`, "Content-Type": "application/json", Accept: "application/json, text/event-stream", "X-Forwarded-For": "198.51.100.41" },
-    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "list_posts", arguments: {} } }),
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "analytics", arguments: {} } }),
   });
   assert.equal(res.status, 200);
   const { result } = await res.json();
@@ -273,7 +304,7 @@ function askAgent(ip = "198.51.100.41") {
   return fetch(`http://127.0.0.1:${port}/mcp`, {
     method: "POST",
     headers: { Authorization: `Bearer ${CONNECTOR_TOKEN}`, "Content-Type": "application/json", Accept: "application/json, text/event-stream", "X-Forwarded-For": ip },
-    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "list_posts", arguments: {} } }),
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "analytics", arguments: {} } }),
   }).then((res) => res.json());
 }
 
@@ -441,4 +472,55 @@ test("directories that can't sign in read the tools from the server card", async
   assert.match(card.transport.url, /\/mcp$/);
   const catalog = JSON.parse(readFileSync(new URL("./catalog.json", import.meta.url), "utf8"));
   assert.deepEqual(card.tools.map((tool) => tool.name), catalog.tools.map((tool) => tool.name));
+});
+
+function callTool(name, args, { ip = "198.51.100.60", bearer = CONNECTOR_TOKEN } = {}) {
+  return fetch(`http://127.0.0.1:${port}/mcp`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${bearer}`, "Content-Type": "application/json", Accept: "application/json, text/event-stream", "X-Forwarded-For": ip },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } }),
+  }).then(async (res) => (await res.json()).result);
+}
+
+test("a post is scheduled with no tab open, with the connector's own token, its file copied first", async () => {
+  asked.length = 0;
+  const result = await callTool("schedule_post", { caption: "Hello", platforms: ["bluesky"], day: "2099-01-01", time: "10:00", draft: true, media: "media:pic" });
+  assert.equal(result.isError, undefined, result.content[0].text);
+  const post = JSON.parse(result.content[0].text);
+  assert.equal(post.status, "draft");
+  const routes = asked.map((call) => call.url);
+  assert.deepEqual(routes, ["/rest/v1/rpc/agent_context", "/api/storage/agent-copy", "/rest/v1/rpc/agent_save_post"]);
+  assert.ok(asked.every((call) => call.client === "claude"));
+  const [, copy, save] = asked;
+  assert.deepEqual(copy.body.copies, [{ from: "media/pic", to: save.body.post.files[0] }]);
+  assert.equal(save.body.base, null);
+  assert.equal(save.body.owner, ALICE);
+});
+
+test("what needs the person says so when no tab is open, and goes to their tab when one is", async () => {
+  const alone = await callTool("publish_post", { id: "p1" });
+  assert.equal(alone.isError, true);
+  assert.match(alone.content[0].text, /^Publishing now waits for the user's yes in plan\.video\. plan\.video isn't open\./);
+
+  const tab = await signedInTab("198.51.100.61");
+  const call = askedOn(tab);
+  const answer = callTool("publish_post", { id: "p1" });
+  tab.send(JSON.stringify({ type: "result", id: await call, ok: true, text: "sent" }));
+  assert.deepEqual((await answer).content[0], { type: "text", text: "sent" });
+  tab.close();
+  await closed(tab);
+});
+
+test("before the database has the agent functions, posting goes to the tab as it did", async () => {
+  const alone = await callTool("list_posts", {}, { bearer: BEFORE_TOKEN });
+  assert.equal(alone.isError, true);
+  assert.match(alone.content[0].text, /plan\.video isn't open/);
+
+  const tab = await signedInTab("198.51.100.62");
+  const call = askedOn(tab);
+  const answer = callTool("list_posts", {}, { bearer: BEFORE_TOKEN });
+  tab.send(JSON.stringify({ type: "result", id: await call, ok: true, text: "[]" }));
+  assert.deepEqual((await answer).content[0], { type: "text", text: "[]" });
+  tab.close();
+  await closed(tab);
 });

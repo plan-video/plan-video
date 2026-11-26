@@ -45,13 +45,13 @@ const POSTING = ["social_accounts", "social_schema", "tiktok_creator", "analytic
 const MEDIA =
   "One video, or up to 35 pictures as a list for a carousel, from the user's media library, by media id from list_media, such as media:2f9c1e. Paths and URLs are refused.";
 
-const POSTING_INSTRUCTIONS = `These tools plan and publish the user's social posts on plan.video. They run in the plan.video tab the user has open in their browser, signed in, on the workspace open there. When no tab is open, the tools say so: ask the user to open https://plan.video, keep the tab open, and try again.
+const POSTING_INSTRUCTIONS = `These tools plan and publish the user's social posts on plan.video, in the workspace open last in their plan.video dashboard. Reading, drafts and scheduling a post at least 10 minutes ahead work with plan.video closed. Publishing now, deleting, scheduling sooner, posting to the TikTok profile, tiktok_creator and analytics run in the user's plan.video tab, where they say yes to what goes out: when no tab is open, the tool says so. Ask the user to open https://plan.video in their browser, signed in, and try again.
 
 How to work:
 - Start with social_accounts: it gives the connected accounts, their ids, and the dashboard time zone that every day and time is read in.
 - Check social_schema before writing for a short network such as X or Bluesky. One caption is shared by every network on a post; when networks need different captions, make one post per network.
 - Media comes from the user's media library. Find files with list_media and pass the media id as media, or a list of picture ids to post them together as a carousel. You can't upload files from your side: when the one they want isn't in the library, ask them to add it in the dashboard's Media tab.
-- schedule_post puts a post on the calendar at a day and time, or as a draft. A scheduled post goes out on its own at that time, even with the tab closed, once it has synced to the account: the tools and that sync are all that need the tab. publish_post sends a post at once and can't be undone: call it only when the user asks to publish now. Ask before deleting a post they didn't point to.
+- schedule_post puts a post on the calendar at a day and time, or as a draft. A scheduled post goes out on its own at that time. publish_post sends a post at once and can't be undone: call it only when the user asks to publish now. Ask before deleting a post they didn't point to.
 - TikTok asks for a few answers before a post goes to someone's profile, scheduled or published. Call tiktok_creator first, then in one message tell the user which account it posts as, and ask who can watch (from its choices; there is no default), whether to allow comments, Duet and Stitch, and whether the post promotes their own brand, a third party, both or nothing. Show TikTok's consent line from tiktok_creator word for word with its links, and pass agreed true only after they say yes.
 - Posts that went out can't be changed, but copy_post makes a new post from any post, with its file and settings, on the day and time asked. When the user refers to posts they made, find them with list_posts rather than asking for the content again.
 - When asked for the best days or times, or how they're doing, call analytics first and go by the weekdays and hours with the highest median views. When it says there's too little to go on, say so and pick sensible times.
@@ -97,6 +97,7 @@ async function postingTools() {
       name: tool.name,
       title: tool.title,
       description: tool.description
+        .replace(", once it has synced to the account, so the app has to stay open until then", "")
         .replace("Attach one local video, or pictures for a carousel, with media.", "Attach a video, or pictures for a carousel, from the media library with media.")
         .replace("Read the person's numbers", "Read the user's numbers")
         .replace("when they ask how they're doing", "when the user asks how they're doing"),

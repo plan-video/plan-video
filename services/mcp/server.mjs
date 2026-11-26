@@ -2,9 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Agents reach /mcp with a token from Supabase's OAuth server; the tools run in the user's
-// open plan.video tab over /api/mcp/tab. Stateless: each MCP request gets a fresh server and
-// transport, so the only state is the open tabs.
+// Agents reach /mcp with a token from Supabase's OAuth server. Posting tools run here (posting.mjs), reading and
+// writing with that token; what needs the person, such as publishing now, runs in their open plan.video tab over
+// /api/mcp/tab. Stateless: each MCP request gets a fresh server and transport, so the only state is the open tabs.
 
 import { isIP } from "node:net";
 import { createServer } from "node:http";
@@ -15,7 +15,9 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprot
 import { WebSocket, WebSocketServer } from "ws";
 
 import { bearer, createAuth } from "./auth.mjs";
-import { Relay, RelayError, tooManyValues } from "./relay.mjs";
+import { createPostingTools } from "./posting.mjs";
+import { noTab, Relay, RelayError, tooManyValues } from "./relay.mjs";
+import { createStore } from "./store.mjs";
 
 const HOST = "127.0.0.1";
 const PORT = Number(process.env.MCP_PORT) || 8791;
@@ -84,6 +86,7 @@ for (const key of ["SUPABASE_URL", "SUPABASE_ANON_KEY"]) {
 const PUBLIC_URL = (env.PUBLIC_URL || "https://plan.video").replace(/\/$/, "");
 const ORIGINS = new Set((env.ALLOWED_ORIGINS || [PUBLIC_URL, wwwOf(PUBLIC_URL)].join(",")).split(",").map((origin) => origin.trim()));
 const RESOURCE = `${PUBLIC_URL}${MCP_PATH}`;
+const STORAGE_URL = (env.STORAGE_URL || "http://127.0.0.1:8788").replace(/\/$/, "");
 const METADATA_URL = `${PUBLIC_URL}/.well-known/oauth-protected-resource${MCP_PATH}`;
 
 const { version } = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8"));
@@ -107,6 +110,7 @@ const SERVER_CARD = JSON.stringify({
 
 const auth = createAuth({ supabaseUrl: env.SUPABASE_URL, supabaseAnonKey: env.SUPABASE_ANON_KEY });
 const relay = new Relay({ site: PUBLIC_URL });
+const postingFor = (token) => createPostingTools(createStore({ supabaseUrl: env.SUPABASE_URL, anonKey: env.SUPABASE_ANON_KEY, storageUrl: STORAGE_URL, token }));
 
 // Rate limits live in memory: a restart only forgives a few minutes.
 
@@ -184,7 +188,7 @@ function toContent(output) {
   return { content: [{ type: "text", text: output.text }, ...images] };
 }
 
-function mcpServer(userId) {
+function mcpServer(userId, token) {
   const server = new Server(
     SERVER_INFO,
     { capabilities: { tools: {} }, instructions: catalog.instructions },
@@ -195,6 +199,12 @@ function mcpServer(userId) {
     if (!TOOL_NAMES.has(name)) return toolError(`Unknown tool: ${name}`);
     if (name === "get_authoring_reference") return { content: [{ type: "text", text: catalog.reference }] };
     if (!allow(`call:${userId}`, 120, 60)) return toolError("Too many calls in a minute. Wait a moment, then go on.");
+    const posting = postingFor(token);
+    if (posting.handles(name)) {
+      const outcome = await posting.run(name, args);
+      if (!("tab" in outcome)) return outcome.error ? toolError(outcome.text) : { content: [{ type: "text", text: outcome.text }] };
+      if (!relay.hasTab(userId)) return toolError(`${outcome.tab} ${noTab(PUBLIC_URL)}`);
+    }
     try {
       return toContent(await relay.call(userId, name, args));
     } catch (error) {
@@ -227,7 +237,7 @@ async function handleMcp(req, res) {
     return json(res, error.status ?? 400, { jsonrpc: "2.0", error: { code: -32700, message: error.status ? error.message : "Parse error." }, id: null });
   }
 
-  const server = mcpServer(who.userId);
+  const server = mcpServer(who.userId, token);
   const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
   res.on("close", () => {
     void transport.close();

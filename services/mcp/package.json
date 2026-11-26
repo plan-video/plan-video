@@ -5,10 +5,12 @@
   "type": "module",
   "scripts": {
     "catalog": "node scripts/build-catalog.mjs",
+    "posting": "node scripts/build-posting.mjs",
     "test": "node --test"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.2",
-    "ws": "^8.21.3"
+    "ws": "^8.21.3",
+    "zod": "^4.4.3"
   }
 }

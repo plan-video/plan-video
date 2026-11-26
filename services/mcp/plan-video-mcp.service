@@ -6,7 +6,8 @@ Wants=network-online.target
 # Its own user, unlike the other services: this one is reachable by anyone on
 # the internet, so it must not be able to read their secrets. It needs only
 # /etc/plan-video/mcp.env (owned by planvideo-mcp, mode 600):
-#   SUPABASE_URL, SUPABASE_ANON_KEY, and optionally PUBLIC_URL, ALLOWED_ORIGINS.
+#   SUPABASE_URL, SUPABASE_ANON_KEY, and optionally PUBLIC_URL, ALLOWED_ORIGINS, STORAGE_URL.
+# Agents' posts are read and written with each agent's own token, so it holds no database key.
 #
 #   useradd --system --no-create-home --shell /usr/sbin/nologin planvideo-mcp
 
