@@ -7,6 +7,7 @@ import type { EventDraft } from "@/components/calendar/types";
 import { isDateKey, localDateKey } from "@/components/calendar/utils";
 
 import { msg } from "@/lib/i18n";
+import { latestSchedule, postTitle, scheduleProblem } from "@/lib/post-rules";
 import { clockAt, momentOf, timeZone, zoneCity, zonedFormat, zonedParts, zonedTime } from "@/lib/time-zone";
 import type { AccountChoices } from "@/lib/social-connections";
 import type { InstagramPostSettings, PinterestPostSettings, PlatformId, TikTokPostSettings, XPostSettings, YouTubePostSettings } from "@/lib/social";
@@ -42,6 +43,8 @@ export type PlannedPost = {
 
 const SLOT_MINUTES = 15;
 
+export { latestSchedule, postTitle, scheduleProblem };
+
 export function timeOf(date: Date): string {
   return clockAt(date);
 }
@@ -55,24 +58,6 @@ export function nextSlot(from = new Date(), stepMinutes = SLOT_MINUTES): Date {
   const parts = zonedParts(from);
   const minutes = Math.ceil((parts.minutes + 1) / stepMinutes) * stepMinutes;
   return new Date(zonedTime(parts.year, parts.month, parts.date, parts.hours, minutes));
-}
-
-export function latestSchedule(from = new Date()): Date {
-  const parts = zonedParts(from);
-  return new Date(zonedTime(parts.year, parts.month + 2, parts.date, parts.hours, parts.minutes));
-}
-
-export function scheduleProblem(at: Date | null): string | null {
-  if (!at) return msg("Pick a date and a time.");
-  if (at.getTime() <= Date.now()) return msg("Pick a time in the future.");
-  if (at > latestSchedule()) return msg("Posts can be scheduled up to 2 months ahead.");
-  return null;
-}
-
-export function postTitle(caption: string, fallback: string): string {
-  const line = caption.split("\n").map((part) => part.trim()).find(Boolean) ?? "";
-  const title = line || fallback;
-  return [...title].length > 80 ? `${[...title].slice(0, 79).join("")}…` : title;
 }
 
 function draftOf(post: PlannedPost, calendarId: string): EventDraft {
