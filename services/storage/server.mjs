@@ -631,6 +631,75 @@ const PUBLIC_ROUTES = {
   "POST /api/storage/preview-url": previewUrl,
 };
 
+/** Its type as stored, which a copy keeps. */
+async function describe(key) {
+  try {
+    const head = await s3.send(new HeadObjectCommand({ Bucket: BUCKET, Key: key }));
+    return { size: head.ContentLength ?? 0, type: head.ContentType ?? "" };
+  } catch (error) {
+    if (error?.$metadata?.httpStatusCode === 404) return null;
+    throw error;
+  }
+}
+
+const AGENT_REFUSALS = { 28000: 401, 42501: 403, P0002: 409, 22023: 400 };
+
+// An agent at plan.video/mcp (services/mcp) attaches a library file, or a post's own, to a post it makes with no
+// tab open, so nothing goes through a browser. Only a connector's token is taken here: agent_copy_files, asked
+// with it, says the files are that workspace's and whose plan the copies count against.
+async function agentCopy(body, req) {
+  const token = tokenOf(req);
+  if (!token || token.length > 4096 || !grantedToApp(token)) throw new Refused(401, "Sign in to plan.video again.");
+  const owner = typeof body?.owner === "string" ? body.owner.toLowerCase() : "";
+  const workspace = typeof body?.workspace === "string" ? body.workspace : "";
+  if (!UUID.test(owner) || !ID.test(workspace)) throw new Refused(400, "That isn't a workspace.");
+  const copies = Array.isArray(body.copies) ? body.copies : [];
+  if (!copies.length || copies.length > 35) throw new Refused(400, "That file can't be stored.");
+  limit(`agent-copy:${owner}`, 600, 3600);
+
+  const res = await supabaseCall("/rest/v1/rpc/agent_copy_files", token, {
+    method: "POST",
+    body: JSON.stringify({ owner, workspace, sources: copies.map((copy) => copy?.from), files: copies.map((copy) => copy?.to) }),
+  });
+  const found = await res.json().catch(() => null);
+  if (!res.ok) {
+    if (found?.code === "PGRST202") throw new Refused(404, "Not found.");
+    const status = AGENT_REFUSALS[found?.code];
+    if (!status) throw new Refused(503, "Cloud storage can't check this workspace right now.");
+    throw new Refused(status, typeof found?.message === "string" ? found.message : "That file can't be stored.");
+  }
+  const level = Math.trunc(Number(found?.level)) || 1;
+  const plan = PLANS[Math.min(PLANS.length, Math.max(1, level)) - 1];
+
+  // Checked and copied one at a time with the owner's uploads, so each check counts what came before.
+  return oneAtATime(owner, async () => {
+    const planned = [];
+    for (const { from, to } of copies) {
+      const [purpose, id] = from.split("/");
+      const key = purpose === "media" ? `media/${owner}/${id}` : await postKey(owner, id);
+      const file = await describe(key);
+      if (!file || file.size <= 0) throw new Refused(409, "That file is no longer in cloud storage.");
+      const kind = MEDIA_TYPES[file.type];
+      if (!kind || (kind === "image" && file.size > IMAGE_MAX) || (kind === "video" && file.size > VIDEO_MAX)) throw new Refused(400, "That file can't go on a post.");
+      planned.push({ key, to: `posts/${owner}/${to}`, ...file });
+    }
+    const room = await projected(owner);
+    if (total(room.parts) + planned.reduce((sum, file) => sum + file.size, 0) > QUOTAS[plan]) {
+      const full = `Your ${QUOTAS[plan] / GB} GB of cloud storage is full.`;
+      throw new Refused(413, plan === "free" ? `${full} Creator has ${QUOTAS.creator / GB} GB.` : full);
+    }
+    for (const file of planned) {
+      await s3.send(new CopyObjectCommand({ Bucket: BUCKET, CopySource: `${BUCKET}/${file.key}`, Key: file.to, ContentType: file.type, MetadataDirective: "REPLACE" }));
+    }
+    usage.delete(owner);
+    return { copied: planned.length };
+  });
+}
+
+const AGENT_ROUTES = {
+  "POST /api/storage/agent-copy": agentCopy,
+};
+
 /** Requests about a shared workspace may only take these routes, as its owner. */
 const TEAM_ROUTES = new Set([uploadUrl, readUrl, readUrls, remove, settle]);
 
@@ -680,11 +749,12 @@ const server = createServer(async (req, res) => {
     const path = (req.url ?? "").split("?")[0];
     const route = ROUTES[`${req.method} ${path}`];
     const open = PUBLIC_ROUTES[`${req.method} ${path}`];
-    if (!route && !open) throw new Refused(404, "Not found.");
+    const agent = AGENT_ROUTES[`${req.method} ${path}`];
+    if (!route && !open && !agent) throw new Refused(404, "Not found.");
 
     limit(`ip:${clientIp(req)}`, 1200, 600);
 
-    const user = open ? null : await userFor(req);
+    const user = open || agent ? null : await userFor(req);
     let body = {};
     if (req.method === "POST") {
       try {
@@ -699,7 +769,7 @@ const server = createServer(async (req, res) => {
       if (!TEAM_ROUTES.has(route)) throw new Refused(400, "That can't be done for a shared workspace.");
       actor = await teamActor(req, user, body);
     }
-    json(res, 200, open ? await open(body) : await route(actor, body, req));
+    json(res, 200, agent ? await agent(body, req) : open ? await open(body) : await route(actor, body, req));
   } catch (error) {
     if (error instanceof Refused) {
       json(res, error.status, { error: error.message });
@@ -713,7 +783,7 @@ const server = createServer(async (req, res) => {
 server.requestTimeout = 30_000;
 server.headersTimeout = 15_000;
 
-export { PUBLIC_ROUTES, ROUTES, Refused, clientIp, deleteKeys, listKeys, s3, server, teamActor };
+export { AGENT_ROUTES, PUBLIC_ROUTES, ROUTES, Refused, clientIp, deleteKeys, listKeys, s3, server, teamActor };
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
   server.listen(PORT, HOST, () => console.log(`storage signer listening on ${HOST}:${PORT}`));
