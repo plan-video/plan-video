@@ -1,12 +1,15 @@
 <AccordionGroup>
   <Accordion title="The agent says plan.video isn't open">
-    Your agent's requests run through your plan.video tab. Open [plan.video](https://plan.video) in a browser, sign in, and ask again.
+    Publishing now, deleting, posts due within 10 minutes, posts to your TikTok profile and Analytics run through your plan.video tab. Open [plan.video](https://plan.video) in a browser, sign in, and ask again. Drafts and posts scheduled further ahead don't need it.
   </Accordion>
   <Accordion title="The agent says I didn't confirm">
-    plan.video asks you in your open tab before an agent publishes, deletes or schedules, and no answer in time counts as no. Keep the tab where you can see it, and ask again.
+    plan.video asks you in your open tab before an agent publishes, deletes, or schedules a post due within 10 minutes or to your TikTok profile, and no answer in time counts as no. Keep the tab where you can see it, and ask again.
   </Accordion>
   <Accordion title="The tab didn't answer in time">
     The tab may be in the background or still at work. Bring it to the front, check what was done, then ask again.
+  </Accordion>
+  <Accordion title="The agent says the post changed in plan.video">
+    Someone changed the post while the agent was saving it, so the agent's change wasn't saved over theirs. Ask the agent to read the post again and make its change.
   </Accordion>
   <Accordion title="Too many calls in a minute">
     An agent can make 120 calls a minute. Wait a moment and ask it to go on.

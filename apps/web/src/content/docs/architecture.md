@@ -17,7 +17,7 @@ plan.video is one web app plus a handful of small services. The browser does the
     - **storage**
       Signs links to your files
     - **mcp**
-      Hands agents' requests to an open tab
+      Runs agents' requests, and hands what needs you to your open tab
     - **The other services**
       Network sign-ins, Assistant, captions, billing
   </Lane>

@@ -9,11 +9,11 @@ An agent you allow can:
 - schedule, change and delete posts
 - publish posts when you ask
 
-plan.video asks you in your open tab before an agent publishes, deletes, takes a post off the schedule, or saves a post that will go out by itself. Click **Allow** or **Don't allow**. No answer in time counts as no. Saving a draft doesn't ask.
+plan.video asks you in your open tab before an agent publishes, deletes a post, or schedules one that goes out within 10 minutes or to your TikTok profile. Click **Allow** or **Don't allow**. No answer in time counts as no. Drafts, and posts scheduled further ahead, don't ask: they're on your calendar, where you can change or delete them before they go out.
 
 It can't see your network logins, change your plan, or delete your account.
 
-Requests pass through plan.video to your open tab and back; plan.video doesn't log or keep them. What the agent receives is handled by the company that runs it, under its own privacy policy.
+plan.video handles requests as they arrive, and passes the ones that need you to your open tab; it doesn't log or keep them. What the agent receives is handled by the company that runs it, under its own privacy policy.
 
 ## Disconnect an agent
 

@@ -943,7 +943,7 @@
   "Plan Video connector": "Plan Video 커넥터",
   "In Claude, open Customize, then Connectors, add a custom connector and paste this URL.": "Claude에서 맞춤 설정 > 커넥터로 이동해 사용자 지정 커넥터를 추가하고 이 URL을 붙여넣으세요.",
   "Copy URL": "URL 복사",
-  "Sign in with your plan.video account, then ask Claude to write, schedule, move or publish your posts. Keep plan.video open in a tab while it works.": "plan.video 계정으로 로그인한 다음, Claude에게 게시물 작성, 예약, 이동, 게시를 요청하세요. 작업하는 동안 plan.video를 탭에 열어 두세요.",
+  "Sign in with your plan.video account, then ask Claude to write, schedule, move or publish your posts. It asks you here before it publishes or deletes anything.": "plan.video 계정으로 로그인한 다음, Claude에게 게시물 작성, 예약, 이동, 게시를 요청하세요. 게시하거나 삭제하기 전에는 여기에서 먼저 물어봅니다.",
   "Connected apps": "연결된 앱",
   "Connected {date}": "{date}에 연결됨",
   "All media": "모든 미디어",

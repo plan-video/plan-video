@@ -164,6 +164,7 @@ node services/billing/scripts/db-key.mjs
 | `SUPABASE_ANON_KEY` | Required | Its publishable key |
 | `PUBLIC_URL` | | Your site's address. It names the server to agents, and the site they ask people to open, so it must be right. Default `https://plan.video`. |
 | `ALLOWED_ORIGINS` | | Sites whose tabs may connect, separated by commas. Default `PUBLIC_URL` and its `www.` address. |
+| `STORAGE_URL` | | Where it reaches `storage` to attach files to agents' posts. Default `http://127.0.0.1:8788`, the same server. |
 
 ## monitor.env
 

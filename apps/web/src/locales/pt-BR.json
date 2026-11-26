@@ -943,7 +943,7 @@
   "Plan Video connector": "Conector do Plan Video",
   "In Claude, open Customize, then Connectors, add a custom connector and paste this URL.": "No Claude, abra Personalizar e depois Conectores, adicione um conector personalizado e cole esta URL.",
   "Copy URL": "Copiar URL",
-  "Sign in with your plan.video account, then ask Claude to write, schedule, move or publish your posts. Keep plan.video open in a tab while it works.": "Entre com sua conta do plan.video e peça ao Claude para escrever, agendar, mover ou publicar seus posts. Deixe o plan.video aberto em uma aba enquanto ele trabalha.",
+  "Sign in with your plan.video account, then ask Claude to write, schedule, move or publish your posts. It asks you here before it publishes or deletes anything.": "Entre com sua conta do plan.video e peça ao Claude para escrever, agendar, mover ou publicar seus posts. Antes de publicar ou excluir algo, ele pergunta a você aqui.",
   "Connected apps": "Apps conectados",
   "Connected {date}": "Conectado em {date}",
   "All media": "Toda a mídia",
