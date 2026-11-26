@@ -26,6 +26,7 @@ export type DashboardView =
   | "scheduled"
   | "posted"
   | "drafts"
+  | "approvals"
   | "failed"
   | "connections"
   | "workspace"

@@ -11,6 +11,7 @@ These are the tools plan.video gives your agent. You don't need to call them you
 | `copy_post` | Makes a new post from an existing one, on a new day or as a draft. |
 | `list_posts` | Lists posts on your calendar, with their status and whether they went out. |
 | `update_post` | Changes a draft or a scheduled post, or takes a scheduled one back to a draft. A post still scheduled goes out at its time. |
+| `ask_for_approval` | Holds a post until a client or your team approves it, and gives the link to send them. |
 | `delete_post` | Deletes a draft or a scheduled post. |
 | `publish_post` | Sends a saved post now, to one account per network. |
 

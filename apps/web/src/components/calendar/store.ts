@@ -43,7 +43,8 @@ import {
   shiftDay,
   WEEKDAY_NAMES,
 } from "./utils";
-import type { Base } from "@/lib/post-sync-core";
+import { awaitingApproval, canApprove, mustAskForApproval, type Approval } from "@/lib/approval-state";
+import { stable, type Base } from "@/lib/post-sync-core";
 import type { TikTokPostSettings, YouTubePostSettings } from "@/lib/social";
 import type {
   Calendar,
@@ -657,10 +658,30 @@ function savedOver(input: StoredEvent & { timeZone: string }, saved: StoredEvent
   return { ...shiftSeries(input, daysBetween(seen.day, saved.day)), day: saved.day, start: saved.start, timeZone: zone };
 }
 
+/**
+ * What a member changed in a scheduled post: everything but its status and when it was timed, as the database
+ * compares. Its zone is left out too: an older post gains one on any write, such as a send's progress.
+ */
+const contentOf = ({ status: _status, sendFrom: _sendFrom, deliveries: _deliveries, thumbnail: _thumbnail, timeZone: _zone, ...rest }: StoredEvent) =>
+  stable(rest);
+
+/**
+ * Scheduled, a post waits for nobody: an owner or admin scheduling one that waits approves it, and a member's
+ * waits until it's approved, as does any change of theirs to a scheduled post where members need approval.
+ */
+export function withApprovalRules(saved: StoredEvent | undefined, next: StoredEvent, at = new Date().toISOString()): StoredEvent {
+  if (next.status !== "scheduled") return next;
+  if (canApprove()) return awaitingApproval(next) ? { ...next, approval: { state: "approved", via: "team", at } } : next;
+  if (saved?.status === "scheduled" && contentOf(saved) === contentOf(next)) return next;
+  if (!awaitingApproval(next) && !mustAskForApproval(undefined)) return next;
+  const approval: Approval = awaitingApproval(next) ? next.approval! : { state: "pending", at };
+  return { ...next, status: "draft", approval, sendFrom: at };
+}
+
 function putEvent(input: StoredEvent, options?: { quiet?: boolean }) {
   const written = { ...input, timeZone: input.timeZone ?? timeZone() };
   const saved = storedEvents().find((event) => event.id === input.id);
-  const next = saved ? savedOver(written, saved) : written;
+  const next = withApprovalRules(saved, saved ? savedOver(written, saved) : written);
   setStoredEvents((current) =>
     current.some((event) => event.id === next.id)
       ? current.map((event) => (event.id === next.id ? next : event))
@@ -706,6 +727,7 @@ function toCalendarEvent(event: StoredEvent, day: string): CalendarEvent {
     sourceId: event.id,
     start: event.start,
     status: event.status,
+    ...(event.approval ? { approval: event.approval.state } : {}),
     delivery: deliveryOf(event),
     ...(waiting ? { waiting } : {}),
     title: event.title,
@@ -779,6 +801,7 @@ export function isEventVisible(event: CalendarEvent) {
   if (!goesOutFromPicked(event)) return false;
   const status = statusFilter();
   if (status === "failed") return event.delivery === "failed";
+  if (status === "approval") return event.approval === "pending" || event.approval === "changes";
   return status === "all" || event.status === status;
 }
 
@@ -947,6 +970,7 @@ function eventFromDraft(draft: EventDraft): { next: StoredEvent; before?: Stored
     sendFrom: new Date().toISOString(),
     start: draft.allDay ? "00:00" : draft.start,
     status: draft.status,
+    ...(before?.approval ? { approval: before.approval } : {}),
     title,
   }, { youtube: draft.youtube?.description });
   return { next, before };
@@ -1087,6 +1111,15 @@ export function setEventStatus(sourceId: string, status: PostStatus): string | u
   if (overLimit) return overLimit;
   putRetimed(existing, { ...existing, status });
   if (status === "posted") keepSent(everyFileOf(existing));
+}
+
+/** Asking for approval keeps the post off the schedule until it's approved; `null` stops asking. */
+export function setPostApproval(sourceId: string, approval: Approval | null): string | undefined {
+  const existing = findEvent(sourceId);
+  if (!existing) return msg("This post no longer exists.");
+  if (existing.status === "posted") return POSTED_LOCKED;
+  const { approval: _before, ...rest } = existing;
+  putRetimed(existing, approval ? { ...rest, approval, status: approval.state === "approved" ? existing.status : "draft" } : rest);
 }
 
 export function setDelivery(sourceId: string, platform: string, delivery: Delivery, status?: PostStatus) {

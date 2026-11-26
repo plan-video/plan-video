@@ -14,7 +14,10 @@ import { cloudEnabled } from "@/lib/cloud-storage";
 import { askForAccount } from "@/lib/guest";
 import { t } from "@/lib/i18n";
 import { paidToolsLocked } from "@/lib/paid-tools";
+import { awaitingApproval } from "@/lib/approval-state";
+import { askForApproval } from "@/lib/approvals";
 import { loadPreview, mediaLeftOut, previewLink, previewOf, sharePost, stopSharing } from "@/lib/post-previews";
+import { copyApprovalLink, personName } from "./approval-card";
 import { popupFooter } from "./popup";
 import type { StoredEvent } from "./types";
 
@@ -43,9 +46,23 @@ export function SharePanel(props: { post: StoredEvent; onBack(): void }) {
     if (shared()) void sharePost(props.post);
   });
 
+  const waiting = () => awaitingApproval(props.post);
+  const ask = async () => {
+    if (auth.isGuest()) return askForAccount({ reason: "approval" });
+    setBusy(true);
+    try {
+      const asked = await askForApproval(props.post.id, personName(auth.user()));
+      if ("error" in asked) toast.error(t(asked.error));
+      else await copyApprovalLink(asked.previewId);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const copy = async () => {
     const id = shared()?.id;
     if (!id) return;
+    if (waiting()) return copyApprovalLink(id);
     try {
       await navigator.clipboard.writeText(previewLink(id));
       toast.success(t("Link copied"), { description: t("Anyone with it can see this post and comment.") });
@@ -97,6 +114,11 @@ export function SharePanel(props: { post: StoredEvent; onBack(): void }) {
                   {t("Copy")}
                 </Button>
               </div>
+              <Show when={waiting()}>
+                <p class="text-xs leading-4 text-muted-foreground">
+                  {t("It's waiting for approval. Whoever has the link can approve it or ask for changes, without an account.")}
+                </p>
+              </Show>
               <Show when={noMedia()}>
                 <p class="text-xs leading-4 text-meter-yellow">
                   {cloudEnabled
@@ -120,6 +142,11 @@ export function SharePanel(props: { post: StoredEvent; onBack(): void }) {
         <Button variant="ghost" class="mr-auto" onClick={() => props.onBack()}>
           {t("Back")}
         </Button>
+        <Show when={props.post.status !== "posted" && !waiting() && !paidToolsLocked()}>
+          <Button variant="secondary" disabled={busy()} onClick={() => void ask()}>
+            {t("Ask for approval")}
+          </Button>
+        </Show>
         <Show
           when={shared()}
           fallback={

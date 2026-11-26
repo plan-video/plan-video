@@ -85,6 +85,7 @@ import { PlaneIcon, type PlaneIconName } from "@/components/dashboard/plane-icon
 import { listProjects, projectKey, projectsRevision, type ProjectInfo } from "@/projects";
 import { cx } from "@/lib/cva";
 import { isAdmin } from "@/lib/admin";
+import { awaitingApproval, canApprove, loadWorkspaceRules } from "@/lib/approval-state";
 import { intlLocale, msg, t } from "@/lib/i18n";
 import { isPhone } from "@/lib/phone";
 import { planOfLevel } from "@/lib/plans";
@@ -113,6 +114,7 @@ const DASHBOARD_VIEWS: readonly DashboardView[] = [
   "scheduled",
   "posted",
   "drafts",
+  "approvals",
   "failed",
   "connections",
   "workspace",
@@ -138,6 +140,7 @@ const POST_LISTS: Partial<Record<DashboardView, PostsTab>> = {
   scheduled: "scheduled",
   posted: "posted",
   drafts: "draft",
+  approvals: "approval",
   failed: "failed",
 };
 
@@ -145,6 +148,7 @@ const POST_LISTS: Partial<Record<DashboardView, PostsTab>> = {
 const POST_PAGES: readonly { view: DashboardView; tab: PostsTab; label: string; icon: PlaneIconName }[] = [
   { view: "scheduled", tab: "scheduled", label: msg("Scheduled"), icon: "clock" },
   { view: "drafts", tab: "draft", label: msg("Drafts"), icon: "draft" },
+  { view: "approvals", tab: "approval", label: msg("Needs approval"), icon: "inbox" },
   { view: "posted", tab: "posted", label: msg("Posted"), icon: "check" },
   { view: "failed", tab: "failed", label: msg("Failed"), icon: "alert" },
 ];
@@ -234,6 +238,7 @@ const OWN_HEADER = new Set<DashboardView>([
   "scheduled",
   "posted",
   "drafts",
+  "approvals",
   "failed",
   "notifications",
   "new-post",
@@ -377,6 +382,7 @@ export function DashboardPage() {
   useDeliveries(() => auth.user()?.id);
 
   createEffect(on([() => auth.user()?.id, activeWorkspaceId], () => void loadOwnPreviews()));
+  createEffect(on([() => (auth.isGuest() ? undefined : auth.user()?.id), activeWorkspaceId], ([id]) => void loadWorkspaceRules(id)));
   let previewSync: ReturnType<typeof setTimeout> | undefined;
   createEffect(
     on([allPosts, calendarLoaded, ownPreviews], () => {
@@ -391,8 +397,10 @@ export function DashboardPage() {
   onCleanup(() => clearTimeout(previewSync));
   const failedCount = () => allPosts().filter((post) => hasFailed(post) && !isGoingOut(post)).length;
   const sendingBadge = () => (allPosts().some((post) => isGoingOut(post) && !waitingOf(post)) ? t("Sending") : undefined);
+  const approvalCount = () => allPosts().filter(awaitingApproval).length;
   const countOf = (tab: PostsTab) => {
     if (tab === "failed") return failedCount();
+    if (tab === "approval") return approvalCount();
     if (tab === "posted" || tab === "all") return 0;
     return allPosts().filter((post) => post.status === tab).length;
   };
@@ -660,13 +668,13 @@ export function DashboardPage() {
                   <DashboardSidebarSection title={t("Posts")}>
                     <For each={POST_PAGES}>
                       {(page) => (
-                        <Show when={page.tab !== "failed" || failedCount() > 0 || listTab() === "failed"}>
+                        <Show when={(page.tab !== "failed" && page.tab !== "approval") || countOf(page.tab) > 0 || listTab() === page.tab}>
                           <DashboardSidebarItem
                             active={listTab() === page.tab}
                             onClick={() => setView(page.view)}
                             icon={page.icon}
                             label={t(page.label)}
-                            badge={page.tab === "failed" ? countBadge(failedCount()) : undefined}
+                            badge={page.tab === "failed" ? countBadge(failedCount()) : page.tab === "approval" && canApprove() ? countBadge(approvalCount()) : undefined}
                             badgeAlert={page.tab === "failed"}
                             count={countOf(page.tab)}
                           />

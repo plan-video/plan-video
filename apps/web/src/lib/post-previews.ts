@@ -6,6 +6,7 @@ import { flushPostSync } from "@/lib/post-sync";
 import { createSignal } from "solid-js";
 
 import { allPosts, ownCaptions, postFileStates } from "@/components/calendar/store";
+import type { Approval } from "@/lib/approval-state";
 import type { PostStatus, StoredEvent } from "@/components/calendar/types";
 import { platformName } from "@/components/calendar/utils";
 import { t } from "@/lib/i18n";
@@ -46,6 +47,8 @@ export type PreviewComment = {
   name: string;
   byOwner: boolean;
   body: string;
+  /** A request for approval or a decision on it. Absent before approvals. */
+  kind?: "comment" | "requested" | "approved" | "changes";
   resolvedAt: string | null;
   createdAt: string;
 };
@@ -56,6 +59,11 @@ export type SharedPreview = {
   updatedAt: string;
   isOwner: boolean;
   comments: PreviewComment[];
+  /** The post as it is now, which the snapshot can be behind. Absent before approvals, and once the post is deleted. */
+  status?: PostStatus | null;
+  approval?: Approval | null;
+  /** False for a member of the post's workspace: only its owner, admins and whoever has the link decide. */
+  canReview?: boolean;
 };
 
 /** A shared workspace's previews are its owner's (`ownerId`). */
@@ -237,6 +245,14 @@ export async function addComment(id: string, name: string, body: string, parent?
   if (!supabase) return t("Comments aren't available here.");
   const { error } = await supabase.rpc("add_post_preview_comment", { preview: id, name, body, parent: parent ?? null });
   if (error) return error.message || t("Could not post the comment.");
+}
+
+/** For whoever has the link. Resolves with the post's status after it, or the reason it couldn't be. */
+export async function reviewPreview(id: string, decision: "approved" | "changes", name: string, note?: string): Promise<{ status: PostStatus } | { error: string }> {
+  if (!supabase) return { error: t("Approvals aren't available here.") };
+  const { data, error } = await supabase.rpc("review_post_preview", { preview: id, decision, name, note: note?.trim() || null });
+  if (error) return { error: error.message || t("Couldn't save that. Try again.") };
+  return { status: ((data as { status?: PostStatus } | null)?.status ?? "draft") as PostStatus };
 }
 
 export async function previewMediaUrl(id: string, file?: string): Promise<string | null> {

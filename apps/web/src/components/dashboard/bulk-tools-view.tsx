@@ -60,6 +60,7 @@ import { shrinkToThumbnail, thumbnailFromFile } from "@/lib/post-thumbnail";
 import { cadencePhrase, formatDay as formatCalendarDay, localDateKey, newId, resolveRepeatEnd, shiftDay } from "@/components/calendar/utils";
 import { useAuth } from "@/context/auth";
 import { askForAccount } from "@/lib/guest";
+import { mustAskForApproval } from "@/lib/approval-state";
 import { droppedFiles, pickFiles } from "@/engine/asset-actions";
 import { track } from "@/lib/analytics";
 import { cx } from "@/lib/cva";
@@ -759,14 +760,20 @@ function BulkTools() {
       const first = planned.map((post) => post.when).sort((a, b) => a.getTime() - b.getTime())[0]!;
       const count = planned.length;
       track(status === "draft" ? "bulk_drafts_saved" : "bulk_scheduled", { posts: count });
+      // Where members need approval, the store held them for it rather than scheduling them.
+      const held = status === "scheduled" && mustAskForApproval(auth.user()?.id);
       toast.success(
         status === "draft"
           ? t("{count, plural, one {Saved # draft} other {Saved # drafts}}", { count })
-          : t("{count, plural, one {Scheduled # post} other {Scheduled # posts}}", { count }),
+          : held
+            ? t("{count, plural, one {Sent # post for approval} other {Sent # posts for approval}}", { count })
+            : t("{count, plural, one {Scheduled # post} other {Scheduled # posts}}", { count }),
         {
           description: [
-            status === "scheduled" && planned.some((post) => isUploading(post.id)) ? t("Uploading now. Keep this tab open until it's done.") : null,
-            t("Starting {date}. They wait on your calendar until you post them.", { date: formatWhen(first) }),
+            status === "scheduled" && !held && planned.some((post) => isUploading(post.id)) ? t("Uploading now. Keep this tab open until it's done.") : null,
+            held
+              ? t("They go out at their times once the owner or an admin approves them.")
+              : t("Starting {date}. They wait on your calendar until you post them.", { date: formatWhen(first) }),
           ]
             .filter(Boolean)
             .join(" "),
@@ -966,7 +973,7 @@ function BulkTools() {
               <Button variant="ghost" class="text-muted-foreground" disabled={!!saving() || !!reading()} onClick={() => void save("draft")}>
                 {t("Save as drafts")}
               </Button>
-              <Show when={bulk.posts.some(sendable)}>
+              <Show when={bulk.posts.some(sendable) && !mustAskForApproval(auth.user()?.id)}>
                 <Tooltip>
                   <TooltipTrigger as={Button} variant="secondary" class="gap-1.5 px-3" disabled={!!saving() || !!reading() || blockedNow().length > 0} onClick={() => void postNow()}>
                     <Show when={saving() === "now"}>
