@@ -203,6 +203,33 @@ export function captionLength(text: string): number {
   return [...text].length;
 }
 
+// X's own count (twitter-text's v3 config): a link is 23, an emoji 2, and a character outside these ranges 2.
+const X_URL = /(?<![\p{L}\p{N}@.])(?:https?:\/\/)?(?:[\p{L}\p{N}-]+\.)+\p{L}{2,}(?::\d+)?(?:\/\S*)?/gu;
+const X_EMOJI = /\p{RI}\p{RI}|[#*0-9]\uFE0F?\u20E3|\p{Extended_Pictographic}(?:\uFE0F|\p{Emoji_Modifier})*(?:\u200D\p{Extended_Pictographic}(?:\uFE0F|\p{Emoji_Modifier})*)*/gu;
+const X_LIGHT: [number, number][] = [
+  [0, 4351],
+  [8192, 8205],
+  [8208, 8223],
+  [8242, 8247],
+];
+
+export function xLength(text: string): number {
+  let length = 0;
+  // A link leaves a gap that isn't counted, so the words around it don't run together into another link.
+  const rest = text
+    .normalize("NFC")
+    .replace(X_URL, () => ((length += 23), "\0"))
+    .replace(X_EMOJI, () => ((length += 2), "\0"));
+  for (const char of rest) {
+    const code = char.codePointAt(0)!;
+    if (code) length += X_LIGHT.some(([low, high]) => code >= low && code <= high) ? 1 : 2;
+  }
+  return length;
+}
+
+/** How long `network` counts a caption. */
+export const captionLengthOn = (network: PlatformId, text: string) => (network === "x" ? xLength(text) : captionLength(text));
+
 export function hashtagCount(text: string): number {
   return text.match(/#[\p{L}\p{N}_]+/gu)?.length ?? 0;
 }
@@ -296,7 +323,7 @@ export function checkPost(input: PostCheckInput): PostIssue[] {
     }
 
     const caption = input.caption(id);
-    const length = captionLength(caption);
+    const length = captionLengthOn(id, caption);
     if (length > platform.captionLimit) {
       add(
         "error",

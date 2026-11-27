@@ -71,6 +71,7 @@ import { rememberPinterestBoard } from "@/lib/pinterest-boards";
 import {
   PUBLISHING_PLATFORMS,
   captionLength,
+  captionLengthOn,
   checkPost,
   defaultPlatformSettings,
   instagramPostSettings,
@@ -2098,10 +2099,10 @@ function CaptionFields(props: { index: number }) {
 
   const limit = () => {
     const id = active();
-    if (id !== "all") return { limit: socialPlatform(id).captionLimit, name: socialPlatform(id).name };
+    if (id !== "all") return { id, limit: socialPlatform(id).captionLimit, name: socialPlatform(id).name };
     const sharing = post().platforms.filter((platform) => post().overrides[platform] === undefined);
     const tightest = sharing.map(socialPlatform).sort((a, b) => a.captionLimit - b.captionLimit)[0];
-    return tightest ? { limit: tightest.captionLimit, name: tightest.name } : null;
+    return tightest ? { id: tightest.id, limit: tightest.captionLimit, name: tightest.name } : null;
   };
   const withSignature = () => signedCaption(value());
 
@@ -2198,7 +2199,7 @@ function CaptionFields(props: { index: number }) {
                 <Show when={active() === "all" && post().platforms.length > 1}>
                   <span class="text-muted-foreground">{current().name}</span>
                 </Show>
-                <CharCount count={captionLength(withSignature())} limit={current().limit} />
+                <CharCount count={captionLengthOn(current().id, withSignature())} limit={current().limit} />
               </span>
             )}
           </Show>

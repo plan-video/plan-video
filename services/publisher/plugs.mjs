@@ -31,6 +31,7 @@ export function createPlugs({ x } = {}) {
     /** Calls `done` with each kind as it's done, and with all of them once the post can't take any. */
     async run(row, wanted, session, { done, undo }) {
       const network = steps[row.platform];
+      await network.ready?.(row);
       const target = row.publish_id ? await network.find(row, session) : null;
       if (!target) return done(...KINDS);
       for (const plug of wanted) {

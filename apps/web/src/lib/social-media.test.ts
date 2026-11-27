@@ -4,6 +4,7 @@
 
 import { describe, expect, it } from "vitest";
 
+import { xLength } from "./social";
 import { fileTitle, postableExport } from "./social-media";
 
 describe("postableExport", () => {
@@ -42,5 +43,23 @@ describe("fileTitle", () => {
     expect(fileTitle("20261127_101500.mp4")).toBe("");
     expect(fileTitle("3f2a9c1e-4b7d-4e2a-9f1c-0a1b2c3d4e5f.mp4")).toBe("");
     expect(fileTitle("IMG_4821 copy.jpg")).toBe("");
+  });
+});
+
+describe("xLength", () => {
+  it("counts as X does, so a post X would refuse is caught before it's sent", () => {
+    expect(xLength("Hello, world")).toBe(12);
+    expect(xLength("あ".repeat(141))).toBe(282);
+    expect(xLength("新しい動画")).toBe(10);
+    expect(xLength("Hi 👋 👍🏽 👨‍👩‍👧 🇳🇱")).toBe(14);
+    expect(xLength("café")).toBe(4);
+    expect(xLength("e.g. this")).toBe(9);
+  });
+
+  it("counts every link as 23, with or without https", () => {
+    expect(xLength("Read https://plan.video/blog/a-very-long-path-that-goes-on-and-on-and-on")).toBe(28);
+    expect(xLength("plan.video/news")).toBe(23);
+    expect(xLength("a.co")).toBe(23);
+    expect(xLength("@plan.video")).toBe(11);
   });
 });
