@@ -77,6 +77,7 @@ import {
   shiftDay,
 } from "@/components/calendar/utils";
 import { takeHandOff, takeHandedFiles } from "@/components/publish/handoff";
+import { fileNameCaptions } from "@/lib/file-name-captions";
 import { MediaPicker } from "@/components/publish/media-picker";
 import { GoogleDriveLogo } from "@/components/publish/google-drive-logo";
 import { PictureEditor } from "@/components/publish/picture-editor";
@@ -102,6 +103,7 @@ import { copyApprovalLink, personName } from "@/components/calendar/approval-car
 import {
   captionLength,
   checkPost,
+  settingsIssues,
   defaultPlatformSettings,
   instagramPostSettings,
   pinterestPostSettings,
@@ -160,6 +162,7 @@ import {
   POSTABLE_IMAGES,
   POSTABLE_VIDEOS,
   baseName,
+  fileTitle,
   formatBytes,
   imageFileProblem,
   mediaKind,
@@ -363,6 +366,33 @@ async function attachProject(project: ProjectInfo & { cover?: Blob | null }, han
   setPost("project", linked);
 }
 
+/** The media whose file name fills the caption, while that caption is left as it was filled. */
+let named: { file: File; name: string } | null = null;
+
+/** YouTube and Pinterest get the name as a title, so their caption stays empty. */
+const captionWantsName = () => !post.platforms.length || post.platforms.some((id) => !socialPlatform(id).title);
+
+/** The file's name goes in the titles and caption, never over words the person wrote. */
+function nameAfterMedia(before: PostMedia | undefined, after: PostMedia | undefined) {
+  if (!fileNameCaptions() || post.kind === "story" || before?.file === after?.file) return;
+  const was = before ? fileTitle(before.file.name) : "";
+  const name = after ? fileTitle(after.file.name) : "";
+  named = after && name ? { file: after.file, name } : null;
+  const title = (text: string) => [...text].slice(0, 100).join("");
+  const untouched = (value: string, previous: string) => !value.trim() || value === previous;
+  batch(() => {
+    if (untouched(post.caption, was)) setPost("caption", captionWantsName() ? name : "");
+    if (untouched(post.settings.youtube.title, title(was))) setPost("settings", "youtube", "title", title(name));
+    if (untouched(post.settings.pinterest.title, title(was))) setPost("settings", "pinterest", "title", title(name));
+  });
+}
+
+function captionFollowsAccounts(wants: boolean) {
+  if (!named || !fileNameCaptions() || post.kind === "story" || post.media[0]?.file !== named.file) return;
+  if (wants && !post.caption.trim()) setPost("caption", named.name);
+  else if (!wants && post.caption === named.name) setPost("caption", "");
+}
+
 function withCredits(caption: string, credits: readonly string[]): string {
   const missing = credits.filter((credit) => !caption.includes(credit));
   if (!missing.length) return caption;
@@ -563,6 +593,7 @@ async function putFiles(files: File[]) {
   const chosen = kind === "story" ? files : kind === "video" ? videos.slice(0, 1) : files.slice(0, MAX_IMAGES);
   const media = await Promise.all(chosen.map(readMedia));
   const replaced = allMedia();
+  const first = post.media[0];
   const platforms = post.platforms.filter((id) => platformsFor(kind).includes(id));
   batch(() => {
     setPost("kind", kind);
@@ -572,6 +603,7 @@ async function putFiles(files: File[]) {
     setPost("ownMedia", reconcile({}));
     setPost("cover", null);
     setPost("project", null);
+    nameAfterMedia(first, media[0]);
   });
   for (const item of replaced) releaseMedia(item);
 }
@@ -779,6 +811,7 @@ export function DashboardNewPostView() {
     applyTemplate(template);
   }
   if (post.when === "now") setPost("when", "schedule");
+  createEffect(on(createMemo(captionWantsName), captionFollowsAccounts, { defer: true }));
   createEffect(() => {
     const kind = kindFromMedia();
     if (kind !== post.kind) setPost("kind", kind);
@@ -1244,10 +1277,11 @@ export function DashboardNewPostView() {
               <MediaSection />
             </div>
             <Show when={post.kind !== "story"}>
+              <TitleSection />
               <CaptionSection />
               <ThreadSection />
             </Show>
-            <PlatformSettingsSection issues={issues()} />
+            <PlatformSettingsSection />
             <Show when={mirror().length}>
               <IssueList issues={mirror()} names={post.platforms.length > 1} class="@3xl:hidden" />
             </Show>
@@ -1650,6 +1684,7 @@ function MediaEditor(props: { slot: MediaSlot }) {
         batch(() => {
           slot.setItems([read]);
           slot.setCover(null);
+          if (!slot.platform) nameAfterMedia(replaced[0], read);
         });
         releaseUnused(replaced);
         void keepInLibrary([read]);
@@ -1688,6 +1723,7 @@ function MediaEditor(props: { slot: MediaSlot }) {
       batch(() => {
         slot.setItems([...keep, ...read]);
         slot.setCover(null);
+        if (!slot.platform) nameAfterMedia(before[0], items()[0]);
       });
       if (keep !== before) releaseUnused(before);
       void keepInLibrary(read);
@@ -1703,10 +1739,12 @@ function MediaEditor(props: { slot: MediaSlot }) {
   const pickDrive = async () => void addFiles(await pickFromDrive({ accept: accept(), multiple: post.kind !== "video", tooLarge: postableTooLarge }));
 
   const remove = (id: string) => {
-    const gone = items().filter((entry) => entry.id === id);
+    const before = items();
+    const gone = before.filter((entry) => entry.id === id);
     batch(() => {
-      slot.setItems(items().filter((entry) => entry.id !== id));
+      slot.setItems(before.filter((entry) => entry.id !== id));
       if (!items().some((entry) => entry.kind === "video")) slot.setCover(null);
+      if (!slot.platform) nameAfterMedia(before[0], items()[0]);
     });
     releaseUnused(gone);
   };
@@ -2477,6 +2515,40 @@ function listItems(parts: readonly string[]): string {
   return ITEM_LIST().format(parts);
 }
 
+function TitleSection() {
+  const titled = () =>
+    post.platforms.filter((id) => socialPlatform(id).title && (post.kind === "text" || socialPlatform(id).kinds.includes(post.kind)));
+  return (
+    <Show when={titled().length}>
+      <FormSection title={t("Title")} hint={listNames(titled())}>
+        <For each={titled()}>
+          {(id) => {
+            const value = () => platformTitle(post.settings, id);
+            return (
+              <div class="flex h-11 items-center gap-2.5 rounded-xl border border-(--border-input) px-3.5 transition-colors focus-within:border-primary">
+                <Show when={titled().length > 1}>
+                  <PlatformLogo id={id} class="size-4 shrink-0" />
+                </Show>
+                <input
+                  class="min-w-0 flex-1 bg-transparent text-[15px] text-foreground outline-none placeholder:text-muted-foreground"
+                  aria-label={titled().length > 1 ? `${t("Title")} · ${socialPlatform(id).name}` : t("Title")}
+                  placeholder={id === "youtube" ? t("What's the video called?") : t("Give the pin a title")}
+                  value={value()}
+                  onInput={(event) => setPost("settings", id as "youtube" | "pinterest", "title", event.currentTarget.value)}
+                  onKeyDown={(event) => event.stopPropagation()}
+                />
+                <Show when={value()}>
+                  <CharCount count={captionLength(value())} limit={socialPlatform(id).title!.limit} />
+                </Show>
+              </div>
+            );
+          }}
+        </For>
+      </FormSection>
+    </Show>
+  );
+}
+
 function CaptionSection() {
   const auth = useAuth();
 
@@ -2522,6 +2594,9 @@ function CaptionSection() {
 
   const signed = () => appendSignature(value(), signatureText());
   const tags = () => hashtagCount(signed());
+  const isDescription = () => active() === "youtube" || (active() === "all" && post.platforms.length === 1 && post.platforms[0] === "youtube");
+  const alsoDescription = () =>
+    active() === "all" && post.platforms.length > 1 && post.platforms.includes("youtube") && post.overrides.youtube === undefined;
 
   const saveToVault = () => {
     const made = createVaultItem({ kind: "caption", title: "", body: value() });
@@ -2533,8 +2608,14 @@ function CaptionSection() {
 
   return (
     <FormSection
-      title={t("Caption")}
-      hint={active() === "all" ? undefined : t("Only for {platform}", { platform: socialPlatform(active() as PlatformId).name })}
+      title={isDescription() ? t("Description") : t("Caption")}
+      hint={
+        active() !== "all"
+          ? t("Only for {platform}", { platform: socialPlatform(active() as PlatformId).name })
+          : alsoDescription()
+            ? t("Also the description on YouTube")
+            : undefined
+      }
       action={
         <span class="-mr-1 flex items-center gap-2">
           <Show when={active() !== "all" && post.overrides[active() as PlatformId] !== undefined}>
@@ -2559,7 +2640,13 @@ function CaptionSection() {
         <textarea
           ref={field}
           class="field-sizing-content max-h-[32rem] min-h-40 w-full resize-y bg-transparent px-3.5 pt-3 pb-1 text-[15px] leading-relaxed text-foreground outline-none placeholder:text-muted-foreground supports-[field-sizing:content]:resize-none"
-          placeholder={active() === "all" ? t("Write a caption. Add #hashtags and @mentions.") : t("Write a caption just for this platform.")}
+          placeholder={
+            isDescription()
+              ? t("What's the video about?")
+              : active() === "all"
+                ? t("Write a caption. Add #hashtags and @mentions.")
+                : t("Write a caption just for this platform.")
+          }
           value={value()}
           onInput={(event) => write(event.currentTarget.value)}
           onKeyDown={(event) => {
@@ -2919,11 +3006,15 @@ function PlatformTab(props: { selected: boolean; onClick(): void; children: JSX.
   );
 }
 
-function PlatformSettingsSection(props: { issues: PostIssue[] }) {
+function PlatformSettingsSection() {
   const settings = (...args: unknown[]) => (setPost as (...path: unknown[]) => void)("settings", ...args);
   const shown = () => platformsWithSettings(post.kind, post.platforms);
   const current = () => (shown().includes(previewing()) ? previewing() : shown()[0]!);
-  const blocked = (id: PlatformId) => props.issues.some((issue) => issue.platform === id && issue.level === "error");
+  const blocked = (id: PlatformId) => {
+    let found = false;
+    if (post.kind !== "story") settingsIssues(id, post.settings, (level) => (found ||= level === "error"));
+    return found;
+  };
   const [open, setOpen] = createSignal(false);
   return (
     <Show when={shown().length}>
@@ -2966,18 +3057,7 @@ function PlatformSettingsSection(props: { issues: PostIssue[] }) {
           onChange={settings as SetStoreFunction<PlatformSettings>}
           tiktokAccount={() => accountsFor("tiktok", post.accounts).find((account) => account.tiktok)}
           youtubeChannels={() => accountsFor("youtube", post.accounts)}
-          youtubeDescription={{
-            value: () => captionFor("youtube"),
-            onInput: (text) => setPost("overrides", "youtube", text),
-            own: () => post.overrides.youtube !== undefined,
-            reset: () =>
-              setPost(
-                "overrides",
-                produce((overrides) => {
-                  delete overrides.youtube;
-                }),
-              ),
-          }}
+          noTitles
         />
         </div>
         </Show>

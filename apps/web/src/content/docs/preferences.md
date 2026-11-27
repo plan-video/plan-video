@@ -34,3 +34,7 @@ With another app's keys, the arrow keys move the playhead: ← and → step a fr
 ## Time zone
 
 Your time zone starts as your device's. Change it under **Preferences** → **Time zone**. Scheduling, the calendar and analytics all use it, and posts go out at that time.
+
+## New post
+
+When you add a video or pictures to a new post, its file name fills in an empty title and caption. To keep them empty, turn off **Preferences** → **Use the file name as the title and caption**. The choice is kept on this device.

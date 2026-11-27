@@ -51,6 +51,7 @@ const FITS: Record<number, ScaleFit> = {
   [ScaleModeType.NONE]: "none",
 };
 
+// eslint-disable-next-line no-control-regex -- file names can hold control characters
 const safeName = (name: string) => name.replace(/[\\/:*?"<>|\u0000-\u001f]+/g, "-").trim() || "media";
 
 /** The entity whose AssetId draws `entity`: itself, or its first visible video or image fill. */

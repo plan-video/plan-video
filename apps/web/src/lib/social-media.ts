@@ -130,6 +130,17 @@ export function baseName(file: File): string {
   return file.name.replace(/\.[^.]+$/, "");
 }
 
+const MADE_UP_NAME = /^(img|vid|dsc[fn]?|dcim|pxl|mvimg|mvi|gopr|g[hx]\d+|dji|mov|screenshot|screen ?shot|screen recording|recording|capture|whatsapp (image|video)|signal|video|image|photo|untitled)\b/i;
+
+/** A file's name as a person would write it, or "" when a camera or app made it up (IMG_4821, Screenshot 2026-11-27 at 10.02). */
+export function fileTitle(name: string): string {
+  const stem = name.replace(/\.[^.\s]+$/, "").replace(/_+/g, " ");
+  const words = (stem.includes(" ") ? stem : stem.replace(/-+/g, " ")).replace(/\s+/g, " ").trim();
+  const rest = words.replace(MADE_UP_NAME, "").replace(/\b(at|copy|edited|final)\b/gi, "");
+  if (!/\p{L}/u.test(rest) || /^[\da-f-]{16,}$/i.test(stem)) return "";
+  return words;
+}
+
 const POSTER_HEIGHT = 320;
 
 /** A video that is never on the page often reports a seek as done, then paints a blank frame. */
