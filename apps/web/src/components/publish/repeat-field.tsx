@@ -154,9 +154,9 @@ export function RepeatEndField(props: { value: string; repeat: string; day: stri
   );
 }
 
-type Choice = { id: string; label: string };
+export type Choice = { id: string; label: string };
 
-function ChoiceSelect(props: { label: string; options: Choice[]; value: string; onChange(id: string): void; class?: string }) {
+export function ChoiceSelect(props: { label: string; options: Choice[]; value: string; onChange(id: string): void; class?: string }) {
   return (
     <Select<Choice>
       class={props.class}

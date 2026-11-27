@@ -16,10 +16,10 @@ import { DashboardPageHeader } from "@/components/dashboard/page-header";
 import { SeePlansButton } from "@/components/dashboard/paid-lock";
 import { BulkArt } from "@/components/dashboard/empty-art";
 import { Popover, PopoverContent, PopoverPortal, PopoverTrigger } from "@/components/ui/popover";
+import { Switch as Toggle, SwitchControl, SwitchInput, SwitchLabel, SwitchThumb } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   CharCount,
-  Field,
   PlatformLogo,
   PlatformLogos,
   PlatformPicker,
@@ -39,7 +39,7 @@ import { MediaPicker } from "@/components/publish/media-picker";
 import { PlatformSettingsFields, platformsWithSettings, tiktokLimitIssues } from "@/components/publish/platform-settings";
 import { PostPreview } from "@/components/publish/post-preview";
 import { sendPost } from "@/components/publish/publisher";
-import { RepeatEndField, RepeatField } from "@/components/publish/repeat-field";
+import { ChoiceSelect, RepeatEndField, RepeatField } from "@/components/publish/repeat-field";
 import {
   atLocal,
   formatDay,
@@ -442,6 +442,13 @@ const SCHEDULE_MODES: { id: ScheduleMode; label: string }[] = [
   { id: "queue", label: msg({ message: "Auto-schedule", context: "short label" }) },
   { id: "best", label: msg("Best times") },
 ];
+
+const EVERY_CHOICES = [1, 2, 3, 4, 5, 7, 14];
+
+function everyChoices(current: number) {
+  const days = EVERY_CHOICES.includes(current) ? EVERY_CHOICES : [...EVERY_CHOICES, current].sort((a, b) => a - b);
+  return days.map((count) => ({ id: String(count), label: t("{count, plural, =1 {Every day} other {Every # days}}", { count }) }));
+}
 
 const PANEL = "flex w-[340px] shrink-0 flex-col border-l border-border-strong bg-sidebar/40 max-md:w-full max-md:border-l-0";
 const PLATFORM_SETTINGS_ID = "bulk-platform-settings";
@@ -1797,59 +1804,64 @@ function BatchPanel(props: { target: BulkPost[]; problem?: Issue; class?: string
             </Show>
           </Show>
           <Show when={scheduleMode() === "spread"}>
-            <div class="flex min-w-0 flex-col gap-1">
-              <span class="text-xs text-muted-foreground">{t("Starting")}</span>
+            <div class="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2">
+              <span class="whitespace-nowrap text-xs text-foreground">{t("Starting")}</span>
               <DatePicker
+                label={t("Starting")}
                 value={bulk.startDay}
                 min={localDateKey(new Date())}
                 max={localDateKey(latestSchedule())}
                 onChange={(day) => changeWhen(() => setBulk("startDay", day))}
               />
-            </div>
-            <div class="grid grid-cols-2 gap-2">
-              <Field label={t("Posts a day")}>
-                <input
-                  class={cx(fieldControl, "tabular-nums")}
-                  type="number"
-                  min={1}
-                  max={MOST_A_DAY}
-                  value={bulk.times.length}
-                  onInput={(event) => {
-                    const value = Math.round(Number(event.currentTarget.value));
-                    if (Number.isFinite(value) && value >= 1) setPostsADay(Math.min(value, MOST_A_DAY));
-                  }}
-                  onKeyDown={fieldKeys}
-                />
-              </Field>
-              <Field label={t("Every")}>
-                <span class="relative block">
-                  <input
-                    class={cx(fieldControl, "pr-12 tabular-nums")}
-                    type="number"
-                    min={1}
-                    max={30}
-                    value={bulk.every}
-                    onInput={(event) => {
-                      const value = Math.round(Number(event.currentTarget.value));
-                      if (Number.isFinite(value) && value >= 1) changeWhen(() => setBulk("every", Math.min(value, 30)));
-                    }}
-                    onKeyDown={fieldKeys}
-                  />
-                  <span class="pointer-events-none absolute inset-y-0 right-2 flex items-center text-xs text-muted-foreground">
-                    {t("{count, plural, one {day} other {days}}", { count: bulk.every })}
-                  </span>
-                </span>
-              </Field>
-            </div>
-            <div class="flex min-w-0 flex-col gap-1">
-              <span class="text-xs text-muted-foreground">{t("At")}</span>
-              <div class="grid grid-cols-3 gap-2">
+              <span class="whitespace-nowrap text-xs text-foreground">{t("How often")}</span>
+              <ChoiceSelect
+                label={t("How often")}
+                options={everyChoices(bulk.every)}
+                value={String(bulk.every)}
+                onChange={(every) => changeWhen(() => setBulk("every", Number(every)))}
+              />
+              <span class="self-start pt-1.5 whitespace-nowrap text-xs text-foreground">{t("Times")}</span>
+              <div class="grid grid-cols-2 gap-2">
                 <Index each={bulk.times}>
-                  {(time, index) => <TimePicker value={time()} onChange={(next) => changeWhen(() => setBulk("times", index, next))} />}
+                  {(time, index) => (
+                    <div class="relative min-w-0">
+                      <TimePicker value={time()} onChange={(next) => changeWhen(() => setBulk("times", index, next))} />
+                      <Show when={bulk.times.length > 1}>
+                        <button
+                          type="button"
+                          aria-label={t("Remove {name}", { name: time() })}
+                          class="absolute inset-y-0 right-1 my-auto grid size-5 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-ring"
+                          onClick={() => changeWhen(() => setBulk("times", (times) => times.filter((_, at) => at !== index)))}
+                        >
+                          <Icon name="close-remove" class="size-4" />
+                        </button>
+                      </Show>
+                    </div>
+                  )}
                 </Index>
+                <Show when={bulk.times.length < MOST_A_DAY}>
+                  <button
+                    type="button"
+                    class="flex h-7 min-w-0 items-center gap-1 rounded-md pr-2 pl-0.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-ring"
+                    onClick={() => setPostsADay(bulk.times.length + 1)}
+                  >
+                    <Icon name="plus-add" class="size-6 shrink-0" />
+                    <span class="truncate">{t("Add time")}</span>
+                  </button>
+                </Show>
               </div>
+              <Toggle
+                checked={bulk.skipWeekends}
+                onChange={(skip) => changeWhen(() => setBulk("skipWeekends", skip))}
+                class="col-span-2 flex h-7 items-center justify-between gap-3"
+              >
+                <SwitchLabel class="cursor-pointer text-xs font-normal text-foreground">{t("Skip weekends")}</SwitchLabel>
+                <SwitchInput />
+                <SwitchControl variant="compact" class="cursor-pointer">
+                  <SwitchThumb variant="compact" />
+                </SwitchControl>
+              </Toggle>
             </div>
-            <SwitchRow label={t("Skip weekends")} checked={bulk.skipWeekends} onChange={(skip) => changeWhen(() => setBulk("skipWeekends", skip))} />
           </Show>
         </PanelSection>
 
