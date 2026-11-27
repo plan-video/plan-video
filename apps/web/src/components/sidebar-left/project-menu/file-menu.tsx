@@ -27,7 +27,7 @@ import { useProject } from "@/context/project";
 import { useExport } from "@/context/export";
 import { getDefaultExportTemplate } from "@/components/sidebar-right/inspector/export-templates";
 import { t } from "@/lib/i18n";
-import { mimeTypeToExtension } from "@/utils";
+import { mimeTypeToExtension, saveZip } from "@/utils";
 
 import type { Entity } from "koota";
 
@@ -136,6 +136,7 @@ export function FileMenu() {
 export function FileAssetMenu() {
   const world = useWorld();
   const library = useLibrary();
+  const project = useProject();
 
   const handleDownloadAll = async () => {
     const all = library()?.list() ?? [];
@@ -144,22 +145,25 @@ export function FileAssetMenu() {
       return;
     }
 
-    let destination: FileSystemDirectoryHandle;
-    try {
-      destination = await window.showDirectoryPicker({
-        mode: "readwrite",
-        startIn: "downloads",
-      });
-    } catch (e) {
-      if ((e as Error).name === "AbortError") return;
-      toast.error(t("Failed to download assets"), {
-        description: (e as Error).message,
-      });
-      return;
+    let destination: FileSystemDirectoryHandle | null = null;
+    if ("showDirectoryPicker" in window) {
+      try {
+        destination = await window.showDirectoryPicker({
+          mode: "readwrite",
+          startIn: "downloads",
+        });
+      } catch (e) {
+        if ((e as Error).name === "AbortError") return;
+        toast.error(t("Failed to download assets"), {
+          description: (e as Error).message,
+        });
+        return;
+      }
     }
 
     try {
       const usedNames = new Set<string>();
+      const zipped: { name: string; input: File }[] = [];
       await Promise.all(
         all.map(async (asset) => {
           const file = await getAssetFile(asset);
@@ -179,6 +183,10 @@ export function FileAssetMenu() {
           }
           usedNames.add(name);
 
+          if (!destination) {
+            zipped.push({ name, input: file });
+            return;
+          }
           const fileHandle = await destination.getFileHandle(name, { create: true });
           const writable = await fileHandle.createWritable();
           try {
@@ -188,6 +196,7 @@ export function FileAssetMenu() {
           }
         })
       );
+      if (!destination) await saveZip(`${project.name().trim() || "media"}.zip`, zipped);
       toast.success(t("Downloaded {count, plural, one {# asset} other {# assets}}", { count: all.length }));
     } catch (e) {
       toast.error(t("Failed to download assets"), {

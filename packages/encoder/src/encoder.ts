@@ -22,6 +22,7 @@ import {
 	FramePromises,
 } from '@plan.video/runtime';
 
+import { ensureAacEncoder } from './aac';
 import { TargetBuffer } from './buffer';
 import { createOutputFormat } from './format';
 import { computeOutputSize, createRenderEventDetail } from './utils';
@@ -96,6 +97,8 @@ export async function createEncoder(world: World, config: EncoderConfig) {
 			'Choose a lower resolution, a lower bitrate, or another codec.',
 		);
 	}
+
+	if (audioEnabled && audioCodec === 'aac') await ensureAacEncoder();
 
 	const canvas = world.get(RenderSurface)?.canvas;
 	assert(canvas instanceof HTMLCanvasElement, 'The capture world has no canvas to draw into');

@@ -6,7 +6,8 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./aac": "./src/aac.ts"
   },
   "scripts": {
     "check": "tsc --noEmit"
@@ -17,6 +18,7 @@
     "webcodecs"
   ],
   "dependencies": {
+    "@mediabunny/aac-encoder": "^1.65.2",
     "@plan.video/runtime": "*",
     "koota": "^0.6.6",
     "mediabunny": "^1.65.2"

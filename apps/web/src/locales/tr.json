@@ -1468,7 +1468,6 @@
   "Granted": "İzin verildi",
   "Denied": "Reddedildi",
   "Clipboard access denied": "Pano erişimi reddedildi",
-  "Local fonts are not supported in this browser": "Yerel yazı tipleri bu tarayıcıda desteklenmiyor",
   "Local network access denied": "Yerel ağ erişimi reddedildi",
   "Persistent storage is not supported in this browser": "Kalıcı depolama bu tarayıcıda desteklenmiyor",
   "Persistent storage was not granted": "Kalıcı depolama izni verilmedi",
@@ -3010,7 +3009,6 @@
   "Close section": "Bölümü kapat",
   "Open section": "Bölümü aç",
   "Unsupported browser": "Desteklenmeyen tarayıcı",
-  "The video editor requires a Chromium-based browser. Please switch to Google Chrome, Microsoft Edge, Brave, or Arc.": "Video düzenleyici Chromium tabanlı bir tarayıcı gerektirir. Lütfen Google Chrome, Microsoft Edge, Brave veya Arc'a geçin.",
   "{count, plural, one {{credits} credit ({discount}% off)} other {{credits} credits ({discount}% off)}}": "{count, plural, other {{credits} kredi (%{discount} indirim)}}",
   "{count, plural, one {{credits} credit} other {{credits} credits}}": "{count, plural, other {{credits} kredi}}",
   "/month, billed annually": "/ay, yıllık faturalandırılır",
@@ -3979,5 +3977,6 @@
   "This post isn't saved yet. Wait a moment and try again.": "Bu gönderi henüz kaydedilmedi. Biraz bekle ve yeniden dene.",
   "None of this post's networks can publish from plan.video.": "Bu gönderinin ağlarından hiçbiri plan.video'dan yayın yapamıyor.",
   "The project's video didn't export, so the post has no video. Open it, retry the export or attach a video, then post it again.": "Projenin videosu dışa aktarılmadı, bu yüzden gönderide video yok. Gönderiyi aç, dışa aktarmayı yeniden dene veya video ekle, sonra yeniden yayınla.",
-  "The post's media never reached plan.video's storage. Open plan.video in the browser it was made in, then post it again.": "Gönderinin medyası plan.video depolamasına hiç ulaşmadı. plan.video'yu gönderinin oluşturulduğu tarayıcıda aç, sonra yeniden yayınla."
+  "The post's media never reached plan.video's storage. Open plan.video in the browser it was made in, then post it again.": "Gönderinin medyası plan.video depolamasına hiç ulaşmadı. plan.video'yu gönderinin oluşturulduğu tarayıcıda aç, sonra yeniden yayınla.",
+  "The video editor needs a recent version of Chrome, Edge, Firefox, Brave or Arc.": "Video düzenleyici için Chrome, Edge, Firefox, Brave veya Arc'ın güncel bir sürümü gerekir."
 }

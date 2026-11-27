@@ -1468,7 +1468,6 @@
   "Granted": "Toegestaan",
   "Denied": "Geweigerd",
   "Clipboard access denied": "Toegang tot klembord geweigerd",
-  "Local fonts are not supported in this browser": "Lokale lettertypen worden niet ondersteund in deze browser",
   "Local network access denied": "Toegang tot lokaal netwerk geweigerd",
   "Persistent storage is not supported in this browser": "Permanente opslag wordt niet ondersteund in deze browser",
   "Persistent storage was not granted": "Permanente opslag is niet toegestaan",
@@ -3010,7 +3009,6 @@
   "Close section": "Sectie inklappen",
   "Open section": "Sectie uitklappen",
   "Unsupported browser": "Browser niet ondersteund",
-  "The video editor requires a Chromium-based browser. Please switch to Google Chrome, Microsoft Edge, Brave, or Arc.": "De video-editor vereist een browser op basis van Chromium. Stap over op Google Chrome, Microsoft Edge, Brave of Arc.",
   "{count, plural, one {{credits} credit ({discount}% off)} other {{credits} credits ({discount}% off)}}": "{count, plural, one {{credits} credit ({discount}% korting)} other {{credits} credits ({discount}% korting)}}",
   "{count, plural, one {{credits} credit} other {{credits} credits}}": "{count, plural, one {{credits} credit} other {{credits} credits}}",
   "/month, billed annually": "/maand, jaarlijks gefactureerd",
@@ -3979,5 +3977,6 @@
   "This post isn't saved yet. Wait a moment and try again.": "Deze post is nog niet opgeslagen. Wacht even en probeer het opnieuw.",
   "None of this post's networks can publish from plan.video.": "Geen van de netwerken van deze post kan vanuit plan.video posten.",
   "The project's video didn't export, so the post has no video. Open it, retry the export or attach a video, then post it again.": "De video van het project is niet geëxporteerd, dus de post heeft geen video. Open hem, probeer de export opnieuw of voeg een video toe en plaats de post opnieuw.",
-  "The post's media never reached plan.video's storage. Open plan.video in the browser it was made in, then post it again.": "De media van de post zijn nooit in de opslag van plan.video aangekomen. Open plan.video in de browser waarin hij is gemaakt en plaats hem opnieuw."
+  "The post's media never reached plan.video's storage. Open plan.video in the browser it was made in, then post it again.": "De media van de post zijn nooit in de opslag van plan.video aangekomen. Open plan.video in de browser waarin hij is gemaakt en plaats hem opnieuw.",
+  "The video editor needs a recent version of Chrome, Edge, Firefox, Brave or Arc.": "De video-editor heeft een recente versie van Chrome, Edge, Firefox, Brave of Arc nodig."
 }

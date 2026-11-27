@@ -1468,7 +1468,6 @@
   "Granted": "Concedido",
   "Denied": "Negado",
   "Clipboard access denied": "Acesso à área de transferência negado",
-  "Local fonts are not supported in this browser": "Este navegador não oferece suporte a fontes locais",
   "Local network access denied": "Acesso à rede local negado",
   "Persistent storage is not supported in this browser": "Este navegador não oferece suporte a armazenamento persistente",
   "Persistent storage was not granted": "O armazenamento persistente não foi concedido",
@@ -3010,7 +3009,6 @@
   "Close section": "Fechar seção",
   "Open section": "Abrir seção",
   "Unsupported browser": "Navegador não compatível",
-  "The video editor requires a Chromium-based browser. Please switch to Google Chrome, Microsoft Edge, Brave, or Arc.": "O editor de vídeo requer um navegador baseado em Chromium. Mude para Google Chrome, Microsoft Edge, Brave ou Arc.",
   "{count, plural, one {{credits} credit ({discount}% off)} other {{credits} credits ({discount}% off)}}": "{count, plural, =0 {{credits} créditos ({discount}% de desconto)} one {{credits} crédito ({discount}% de desconto)} many {{credits} créditos ({discount}% de desconto)} other {{credits} créditos ({discount}% de desconto)}}",
   "{count, plural, one {{credits} credit} other {{credits} credits}}": "{count, plural, =0 {{credits} créditos} one {{credits} crédito} many {{credits} créditos} other {{credits} créditos}}",
   "/month, billed annually": "/mês, cobrado anualmente",
@@ -3979,5 +3977,6 @@
   "This post isn't saved yet. Wait a moment and try again.": "Esta publicação ainda não foi salva. Aguarde um momento e tente de novo.",
   "None of this post's networks can publish from plan.video.": "Nenhuma das redes desta publicação pode publicar pelo plan.video.",
   "The project's video didn't export, so the post has no video. Open it, retry the export or attach a video, then post it again.": "O vídeo do projeto não foi exportado, então a publicação está sem vídeo. Abra-a, tente exportar de novo ou anexe um vídeo e publique de novo.",
-  "The post's media never reached plan.video's storage. Open plan.video in the browser it was made in, then post it again.": "A mídia da publicação nunca chegou ao armazenamento do plan.video. Abra o plan.video no navegador em que ela foi criada e publique de novo."
+  "The post's media never reached plan.video's storage. Open plan.video in the browser it was made in, then post it again.": "A mídia da publicação nunca chegou ao armazenamento do plan.video. Abra o plan.video no navegador em que ela foi criada e publique de novo.",
+  "The video editor needs a recent version of Chrome, Edge, Firefox, Brave or Arc.": "O editor de vídeo precisa de uma versão recente do Chrome, Edge, Firefox, Brave ou Arc."
 }

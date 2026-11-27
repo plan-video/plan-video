@@ -4,7 +4,7 @@ The dev server reloads as you edit, and you need no accounts or keys to start: i
 
 - **Node.js 22** and npm. Node.js 20.19 or later runs the website, but the services need 22.
 - **git**. The install step uses it to apply the fixes in `patches/`.
-- **A Chromium browser**, such as Chrome, Edge, Brave or Arc. The editor only opens in one; the dashboard opens in any browser.
+- **A recent Chrome, Edge, Firefox, Brave or Arc.** The editor only opens in these; the dashboard opens in any browser.
 
 ## Run it
 

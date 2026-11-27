@@ -1468,7 +1468,6 @@
   "Granted": "Przyznano",
   "Denied": "Odmówiono",
   "Clipboard access denied": "Odmówiono dostępu do schowka",
-  "Local fonts are not supported in this browser": "Ta przeglądarka nie obsługuje lokalnych czcionek",
   "Local network access denied": "Odmówiono dostępu do sieci lokalnej",
   "Persistent storage is not supported in this browser": "Ta przeglądarka nie obsługuje trwałej pamięci",
   "Persistent storage was not granted": "Nie przyznano trwałej pamięci",
@@ -3010,7 +3009,6 @@
   "Close section": "Zwiń sekcję",
   "Open section": "Rozwiń sekcję",
   "Unsupported browser": "Nieobsługiwana przeglądarka",
-  "The video editor requires a Chromium-based browser. Please switch to Google Chrome, Microsoft Edge, Brave, or Arc.": "Edytor wideo wymaga przeglądarki opartej na Chromium. Przejdź na Google Chrome, Microsoft Edge, Brave lub Arc.",
   "{count, plural, one {{credits} credit ({discount}% off)} other {{credits} credits ({discount}% off)}}": "{count, plural, one {{credits} kredyt ({discount}% taniej)} few {{credits} kredyty ({discount}% taniej)} many {{credits} kredytów ({discount}% taniej)} other {{credits} kredytu ({discount}% taniej)}}",
   "{count, plural, one {{credits} credit} other {{credits} credits}}": "{count, plural, one {{credits} kredyt} few {{credits} kredyty} many {{credits} kredytów} other {{credits} kredytu}}",
   "/month, billed annually": "/mies., rozliczane rocznie",
@@ -3979,5 +3977,6 @@
   "This post isn't saved yet. Wait a moment and try again.": "Ten post nie został jeszcze zapisany. Poczekaj chwilę i spróbuj ponownie.",
   "None of this post's networks can publish from plan.video.": "Żadna z sieci tego posta nie może publikować z plan.video.",
   "The project's video didn't export, so the post has no video. Open it, retry the export or attach a video, then post it again.": "Film z projektu nie został wyeksportowany, więc post nie ma filmu. Otwórz go, ponów eksport lub załącz film i opublikuj ponownie.",
-  "The post's media never reached plan.video's storage. Open plan.video in the browser it was made in, then post it again.": "Multimedia posta nigdy nie dotarły do miejsca plan.video. Otwórz plan.video w przeglądarce, w której powstał, i opublikuj go ponownie."
+  "The post's media never reached plan.video's storage. Open plan.video in the browser it was made in, then post it again.": "Multimedia posta nigdy nie dotarły do miejsca plan.video. Otwórz plan.video w przeglądarce, w której powstał, i opublikuj go ponownie.",
+  "The video editor needs a recent version of Chrome, Edge, Firefox, Brave or Arc.": "Edytor wideo wymaga aktualnej wersji Chrome, Edge, Firefox, Brave lub Arc."
 }

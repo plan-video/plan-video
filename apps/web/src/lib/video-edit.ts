@@ -104,6 +104,7 @@ export async function renderVideo(
   options: { onProgress?(progress: number): void; signal?: AbortSignal } = {},
 ): Promise<File> {
   const { ALL_FORMATS, BlobSource, BufferTarget, Conversion, ConversionCanceledError, Input, Mp4OutputFormat, Output, QUALITY_HIGH } = await import("mediabunny");
+  if (!edit.muted) await (await import("@plan.video/encoder/aac")).ensureAacEncoder();
   const crop = pixelCrop(edit.crop, size);
   const out = videoOutputSize(crop);
   const input = new Input({ source: new BlobSource(file), formats: ALL_FORMATS });

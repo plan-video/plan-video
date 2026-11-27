@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { Match, Switch, createSignal, onCleanup } from "solid-js";
+import { Match, Show, Switch, createSignal, onCleanup } from "solid-js";
 import { toast } from "somoto";
 
 import { DefaultCalendarViewToggle } from "@/components/calendar/view-toggle";
@@ -174,10 +174,6 @@ function DashboardPermissionsSection() {
   };
 
   const handleFontsRequest = async () => {
-    if (typeof window.queryLocalFonts !== "function") {
-      toast.error(t("Local fonts are not supported in this browser"));
-      return;
-    }
     try {
       await window.queryLocalFonts();
     } catch {
@@ -208,17 +204,19 @@ function DashboardPermissionsSection() {
             />
           }
         />
-        <DashboardInfoActionRow
-          title={t("Fonts access")}
-          description={t("Required to use installed fonts.")}
-          action={
-            <PermissionActionButton
-              state={fontState()}
-              pendingLabel={t("Allow fonts access...")}
-              onRequest={handleFontsRequest}
-            />
-          }
-        />
+        <Show when={"queryLocalFonts" in globalThis}>
+          <DashboardInfoActionRow
+            title={t("Fonts access")}
+            description={t("Required to use installed fonts.")}
+            action={
+              <PermissionActionButton
+                state={fontState()}
+                pendingLabel={t("Allow fonts access...")}
+                onRequest={handleFontsRequest}
+              />
+            }
+          />
+        </Show>
         <DashboardInfoActionRow
           title={t("Persistent storage")}
           description={t("Prevents the browser from evicting your projects and imported assets under disk pressure.")}

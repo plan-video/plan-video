@@ -33,7 +33,7 @@ The **Schedule post** button beside **Export**, or attaching the project to a ne
 
 ## Keep editing in another app
 
-To finish an edit in Premiere Pro or DaVinci Resolve, click **Export**, then **Open in Premiere Pro or Resolve**, and pick a folder. plan.video saves a new folder there with a timeline file (`.xml`) and a `media` folder holding every clip it uses.
+To finish an edit in Premiere Pro or DaVinci Resolve, click **Export**, then **Open in Premiere Pro or Resolve**, and pick a folder. plan.video saves a new folder there with a timeline file (`.xml`) and a `media` folder holding every clip it uses. Firefox can't write into a folder, so there the same folder downloads as a `.zip`: unzip it first.
 
 In Premiere Pro, choose **File** → **Import** and pick the `.xml`. In DaVinci Resolve, choose **File** → **Import** → **Timeline**. The sequence opens at your scene's size and frame rate, with each clip cut, placed, sized and cropped as in plan.video, at its speed and volume. If the app asks where a clip is, point it at the `media` folder once and it finds the rest.
 

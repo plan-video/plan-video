@@ -314,19 +314,21 @@ export function ColorOpacityPicker(props: ColorOpacityPickerProps) {
 
       <div class="flex flex-col gap-3 px-4 pt-3 pb-4">
         <div class="flex items-center gap-2.5">
-          <Tooltip>
-            <TooltipTrigger
-              as={Button}
-              size="icon-square"
-              variant="ghost"
-              class="text-muted-foreground"
-              onClick={handleEyeDropper}
-              disabled={isEyeDropperOpen() || !("EyeDropper" in window)}
-            >
-              <Icon name="tool.color-picker" class="size-6" />
-            </TooltipTrigger>
-            <TooltipContent>{t("Pick color from screen")}</TooltipContent>
-          </Tooltip>
+          <Show when={"EyeDropper" in window}>
+            <Tooltip>
+              <TooltipTrigger
+                as={Button}
+                size="icon-square"
+                variant="ghost"
+                class="text-muted-foreground"
+                onClick={handleEyeDropper}
+                disabled={isEyeDropperOpen()}
+              >
+                <Icon name="tool.color-picker" class="size-6" />
+              </TooltipTrigger>
+              <TooltipContent>{t("Pick color from screen")}</TooltipContent>
+            </Tooltip>
+          </Show>
           <div class="flex flex-1 flex-col gap-2">
             <div class="flex items-center gap-3">
               <Show when={props.keyframeTarget !== undefined}>

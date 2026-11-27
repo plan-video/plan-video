@@ -76,6 +76,15 @@ export async function saveAssetAs(asset: Pick<Asset, 'handle' | 'mimeType' | 'pa
 	const suggestedName = assetName(asset);
 	const extension = suggestedName.match(/\.[^.]+$/)?.[0];
 
+	// Firefox and Safari have no save dialog: the browser's own download takes the file.
+	if (!('showSaveFilePicker' in window)) {
+		const url = URL.createObjectURL(await asset.handle.getFile());
+		const link = Object.assign(document.createElement('a'), { href: url, download: suggestedName });
+		link.click();
+		setTimeout(() => URL.revokeObjectURL(url), 60_000);
+		return true;
+	}
+
 	let target: FileSystemFileHandle;
 	try {
 		target = await window.showSaveFilePicker({

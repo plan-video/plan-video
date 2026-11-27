@@ -413,10 +413,6 @@ export function FontDropdown(props: FontDropdownProps) {
   };
 
   const handleGrantAccess = async () => {
-    if (typeof window.queryLocalFonts !== 'function') {
-      toast.error(t('Local fonts are not supported in this browser'));
-      return;
-    }
     try {
       await window.queryLocalFonts();
       refetch();
@@ -473,34 +469,36 @@ export function FontDropdown(props: FontDropdownProps) {
               </For>
             </DropdownMenuGroup>
 
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuGroupLabel>{t("System Fonts")}</DropdownMenuGroupLabel>
-              <Show when={!localFonts.latest?.length}>
-                <Button
-                  variant="secondary"
-                  class="text-foreground gap-0"
-                  onClick={handleGrantAccess}
-                >
-                  <Icon name="lock-closed-small" class="size-6" />
-                  <span class="mr-3">{t("Grant Access")}</span>
-                </Button>
-              </Show>
-              <Show when={filteredLocalFonts().length}>
-                <For each={filteredLocalFonts()}>
-                  {(font) => (
-                    <LazyFontItem
-                      family={font.family}
-                      checked={props.family === font.family}
-                      onPointerEnter={preview}
-                      onSelect={props.onFamilyChange}
-                    >
-                      {font.family}
-                    </LazyFontItem>
-                  )}
-                </For>
-              </Show>
-            </DropdownMenuGroup>
+            <Show when={"queryLocalFonts" in globalThis}>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuGroupLabel>{t("System Fonts")}</DropdownMenuGroupLabel>
+                <Show when={!localFonts.latest?.length}>
+                  <Button
+                    variant="secondary"
+                    class="text-foreground gap-0"
+                    onClick={handleGrantAccess}
+                  >
+                    <Icon name="lock-closed-small" class="size-6" />
+                    <span class="mr-3">{t("Grant Access")}</span>
+                  </Button>
+                </Show>
+                <Show when={filteredLocalFonts().length}>
+                  <For each={filteredLocalFonts()}>
+                    {(font) => (
+                      <LazyFontItem
+                        family={font.family}
+                        checked={props.family === font.family}
+                        onPointerEnter={preview}
+                        onSelect={props.onFamilyChange}
+                      >
+                        {font.family}
+                      </LazyFontItem>
+                    )}
+                  </For>
+                </Show>
+              </DropdownMenuGroup>
+            </Show>
           </div>
         </DropdownMenuContent>
       </DropdownMenuPortal>

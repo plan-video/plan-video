@@ -1468,7 +1468,6 @@
   "Granted": "許可済み",
   "Denied": "拒否",
   "Clipboard access denied": "クリップボードへのアクセスが拒否されました",
-  "Local fonts are not supported in this browser": "このブラウザはローカルフォントに対応していません",
   "Local network access denied": "ローカルネットワークへのアクセスが拒否されました",
   "Persistent storage is not supported in this browser": "このブラウザは永続ストレージに対応していません",
   "Persistent storage was not granted": "永続ストレージが許可されませんでした",
@@ -3010,7 +3009,6 @@
   "Close section": "セクションを閉じる",
   "Open section": "セクションを開く",
   "Unsupported browser": "非対応のブラウザ",
-  "The video editor requires a Chromium-based browser. Please switch to Google Chrome, Microsoft Edge, Brave, or Arc.": "動画エディターには Chromium ベースのブラウザが必要です。Google Chrome、Microsoft Edge、Brave、Arc のいずれかをご利用ください。",
   "{count, plural, one {{credits} credit ({discount}% off)} other {{credits} credits ({discount}% off)}}": "{count, plural, other {{credits}クレジット（{discount}%オフ）}}",
   "{count, plural, one {{credits} credit} other {{credits} credits}}": "{count, plural, other {{credits}クレジット}}",
   "/month, billed annually": "/月（年払い）",
@@ -3979,5 +3977,6 @@
   "This post isn't saved yet. Wait a moment and try again.": "この投稿はまだ保存されていません。少し待ってからもう一度お試しください。",
   "None of this post's networks can publish from plan.video.": "この投稿のネットワークはどれもplan.videoから投稿できません。",
   "The project's video didn't export, so the post has no video. Open it, retry the export or attach a video, then post it again.": "プロジェクトの動画が書き出されなかったため、投稿に動画がありません。投稿を開いて書き出しをやり直すか動画を添付してから、もう一度投稿してください。",
-  "The post's media never reached plan.video's storage. Open plan.video in the browser it was made in, then post it again.": "投稿のメディアがplan.videoのストレージに届きませんでした。作成したブラウザーでplan.videoを開き、もう一度投稿してください。"
+  "The post's media never reached plan.video's storage. Open plan.video in the browser it was made in, then post it again.": "投稿のメディアがplan.videoのストレージに届きませんでした。作成したブラウザーでplan.videoを開き、もう一度投稿してください。",
+  "The video editor needs a recent version of Chrome, Edge, Firefox, Brave or Arc.": "動画エディターには、Chrome、Edge、Firefox、Brave、Arc のいずれかの最新バージョンが必要です。"
 }

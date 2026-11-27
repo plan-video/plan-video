@@ -1468,7 +1468,6 @@
   "Granted": "已授权",
   "Denied": "已拒绝",
   "Clipboard access denied": "剪贴板访问被拒绝",
-  "Local fonts are not supported in this browser": "此浏览器不支持本地字体",
   "Local network access denied": "本地网络访问被拒绝",
   "Persistent storage is not supported in this browser": "此浏览器不支持持久存储",
   "Persistent storage was not granted": "未获得持久存储权限",
@@ -3010,7 +3009,6 @@
   "Close section": "收起分区",
   "Open section": "展开分区",
   "Unsupported browser": "浏览器不受支持",
-  "The video editor requires a Chromium-based browser. Please switch to Google Chrome, Microsoft Edge, Brave, or Arc.": "视频编辑器需要基于 Chromium 的浏览器。请改用 Google Chrome、Microsoft Edge、Brave 或 Arc。",
   "{count, plural, one {{credits} credit ({discount}% off)} other {{credits} credits ({discount}% off)}}": "{count, plural, other {{credits} 点（优惠 {discount}%）}}",
   "{count, plural, one {{credits} credit} other {{credits} credits}}": "{count, plural, other {{credits} 点}}",
   "/month, billed annually": "/月，按年付费",
@@ -3979,5 +3977,6 @@
   "This post isn't saved yet. Wait a moment and try again.": "这条帖子还没有保存。请稍等片刻再试。",
   "None of this post's networks can publish from plan.video.": "这条帖子的平台都无法从 plan.video 发布。",
   "The project's video didn't export, so the post has no video. Open it, retry the export or attach a video, then post it again.": "项目的视频没有导出，所以这条帖子没有视频。打开它，重试导出或添加视频，然后再发一次。",
-  "The post's media never reached plan.video's storage. Open plan.video in the browser it was made in, then post it again.": "这条帖子的媒体没有到达 plan.video 的存储。请在创建它的浏览器中打开 plan.video，然后再发一次。"
+  "The post's media never reached plan.video's storage. Open plan.video in the browser it was made in, then post it again.": "这条帖子的媒体没有到达 plan.video 的存储。请在创建它的浏览器中打开 plan.video，然后再发一次。",
+  "The video editor needs a recent version of Chrome, Edge, Firefox, Brave or Arc.": "视频编辑器需要较新版本的 Chrome、Edge、Firefox、Brave 或 Arc。"
 }

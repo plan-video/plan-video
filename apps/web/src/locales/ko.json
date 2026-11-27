@@ -1468,7 +1468,6 @@
   "Granted": "허용됨",
   "Denied": "거부됨",
   "Clipboard access denied": "클립보드 접근이 거부됐어요",
-  "Local fonts are not supported in this browser": "이 브라우저는 로컬 글꼴을 지원하지 않아요",
   "Local network access denied": "로컬 네트워크 접근이 거부됐어요",
   "Persistent storage is not supported in this browser": "이 브라우저는 영구 저장소를 지원하지 않아요",
   "Persistent storage was not granted": "영구 저장소 권한을 받지 못했어요",
@@ -3010,7 +3009,6 @@
   "Close section": "섹션 접기",
   "Open section": "섹션 펼치기",
   "Unsupported browser": "지원되지 않는 브라우저",
-  "The video editor requires a Chromium-based browser. Please switch to Google Chrome, Microsoft Edge, Brave, or Arc.": "동영상 편집기는 Chromium 기반 브라우저가 필요합니다. Google Chrome, Microsoft Edge, Brave 또는 Arc로 전환해 주세요.",
   "{count, plural, one {{credits} credit ({discount}% off)} other {{credits} credits ({discount}% off)}}": "{count, plural, other {{credits} 크레딧 ({discount}% 할인)}}",
   "{count, plural, one {{credits} credit} other {{credits} credits}}": "{count, plural, other {{credits} 크레딧}}",
   "/month, billed annually": "/월, 연간 결제",
@@ -3979,5 +3977,6 @@
   "This post isn't saved yet. Wait a moment and try again.": "이 게시물은 아직 저장되지 않았어요. 잠시 후 다시 시도하세요.",
   "None of this post's networks can publish from plan.video.": "이 게시물의 네트워크 중 plan.video에서 올릴 수 있는 곳이 없어요.",
   "The project's video didn't export, so the post has no video. Open it, retry the export or attach a video, then post it again.": "프로젝트 동영상을 내보내지 못해 게시물에 동영상이 없어요. 게시물을 열고 내보내기를 다시 시도하거나 동영상을 첨부한 뒤 다시 올리세요.",
-  "The post's media never reached plan.video's storage. Open plan.video in the browser it was made in, then post it again.": "게시물의 미디어가 plan.video 저장 공간에 도착하지 않았어요. 작성한 브라우저에서 plan.video를 열고 다시 올리세요."
+  "The post's media never reached plan.video's storage. Open plan.video in the browser it was made in, then post it again.": "게시물의 미디어가 plan.video 저장 공간에 도착하지 않았어요. 작성한 브라우저에서 plan.video를 열고 다시 올리세요.",
+  "The video editor needs a recent version of Chrome, Edge, Firefox, Brave or Arc.": "동영상 편집기를 사용하려면 최신 버전의 Chrome, Edge, Firefox, Brave 또는 Arc가 필요해요."
 }

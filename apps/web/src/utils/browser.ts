@@ -112,6 +112,46 @@ export async function downloadObject(source: Blob, name?: string): Promise<void>
   a.remove();
 }
 
+const SAVES = "saves";
+
+/** False in Firefox and Safari: they have no save dialog, so saves go through the site's own storage and download from there. */
+export const canPickSaveLocation = () => "showSaveFilePicker" in window;
+
+/**
+ * The file a save streams into: the one the person picks, or where the browser can't ask, a file in the
+ * site's own storage that `handOver` then downloads. Null when the dialog was cancelled.
+ */
+export async function pickSaveFile(suggestedName: string, types?: FilePickerAcceptType[]): Promise<FileSystemFileHandle | null> {
+  if (canPickSaveLocation()) {
+    try {
+      return await window.showSaveFilePicker({ suggestedName, types });
+    } catch (error) {
+      if ((error as Error).name === "AbortError") return null;
+      throw error;
+    }
+  }
+  const root = await navigator.storage.getDirectory();
+  // Only the latest save stays: the storage is the person's disk, and earlier ones have long been downloaded.
+  await root.removeEntry(SAVES, { recursive: true }).catch(() => {});
+  const folder = await root.getDirectoryHandle(SAVES, { create: true });
+  return folder.getFileHandle(suggestedName.replace(/[\\/]/g, "-"), { create: true });
+}
+
+/** Downloads a file `pickSaveFile` wrote into the site's storage; a picked file is already where it belongs. */
+export async function handOver(handle: FileSystemFileHandle): Promise<void> {
+  if (!canPickSaveLocation()) await downloadObject(await handle.getFile(), handle.name);
+}
+
+/** For browsers that can't pick a folder to write into: the files go out as one zip, folders kept as paths. */
+export async function saveZip(name: string, files: { name: string; input: Blob | string }[]): Promise<boolean> {
+  const handle = await pickSaveFile(name, [{ description: "ZIP", accept: { "application/zip": [".zip"] } }]);
+  if (!handle) return false;
+  const { downloadZip } = await import("client-zip");
+  await downloadZip(files).body!.pipeTo(await handle.createWritable());
+  await handOver(handle);
+  return true;
+}
+
 export function isInputTarget(e: KeyboardEvent) {
   const target = e.target as HTMLElement;
   return target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;

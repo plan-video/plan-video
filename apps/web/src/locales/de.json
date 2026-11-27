@@ -1468,7 +1468,6 @@
   "Granted": "Erteilt",
   "Denied": "Verweigert",
   "Clipboard access denied": "Zugriff auf die Zwischenablage verweigert",
-  "Local fonts are not supported in this browser": "Lokale Schriften werden in diesem Browser nicht unterstützt",
   "Local network access denied": "Zugriff auf das lokale Netzwerk verweigert",
   "Persistent storage is not supported in this browser": "Dauerhafter Speicher wird in diesem Browser nicht unterstützt",
   "Persistent storage was not granted": "Dauerhafter Speicher wurde nicht gewährt",
@@ -3010,7 +3009,6 @@
   "Close section": "Bereich einklappen",
   "Open section": "Bereich ausklappen",
   "Unsupported browser": "Browser nicht unterstützt",
-  "The video editor requires a Chromium-based browser. Please switch to Google Chrome, Microsoft Edge, Brave, or Arc.": "Der Videoeditor benötigt einen Chromium-basierten Browser. Wechsle bitte zu Google Chrome, Microsoft Edge, Brave oder Arc.",
   "{count, plural, one {{credits} credit ({discount}% off)} other {{credits} credits ({discount}% off)}}": "{count, plural, one {{credits} Credit ({discount} % Rabatt)} other {{credits} Credits ({discount} % Rabatt)}}",
   "{count, plural, one {{credits} credit} other {{credits} credits}}": "{count, plural, one {{credits} Credit} other {{credits} Credits}}",
   "/month, billed annually": "/Monat, jährlich abgerechnet",
@@ -3979,5 +3977,6 @@
   "This post isn't saved yet. Wait a moment and try again.": "Dieser Beitrag ist noch nicht gespeichert. Warte kurz und versuch es noch einmal.",
   "None of this post's networks can publish from plan.video.": "Keines der Netzwerke dieses Beitrags kann von plan.video aus posten.",
   "The project's video didn't export, so the post has no video. Open it, retry the export or attach a video, then post it again.": "Das Video des Projekts wurde nicht exportiert, der Beitrag hat also kein Video. Öffne ihn, wiederhole den Export oder hänge ein Video an und poste ihn dann erneut.",
-  "The post's media never reached plan.video's storage. Open plan.video in the browser it was made in, then post it again.": "Die Medien des Beitrags sind nie im Speicher von plan.video angekommen. Öffne plan.video in dem Browser, in dem er erstellt wurde, und poste ihn dann erneut."
+  "The post's media never reached plan.video's storage. Open plan.video in the browser it was made in, then post it again.": "Die Medien des Beitrags sind nie im Speicher von plan.video angekommen. Öffne plan.video in dem Browser, in dem er erstellt wurde, und poste ihn dann erneut.",
+  "The video editor needs a recent version of Chrome, Edge, Firefox, Brave or Arc.": "Der Videoeditor braucht eine aktuelle Version von Chrome, Edge, Firefox, Brave oder Arc."
 }

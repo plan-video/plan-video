@@ -8,7 +8,7 @@ import { canEncodeVideo } from "mediabunny";
 import { useWorld } from "@plan.video/koota-solid";
 import { computeOutputSize } from "@plan.video/encoder";
 import { Computed, Library, getActiveEntity } from "@plan.video/runtime";
-import { assert, downloadObject, isInputTarget } from "@/utils";
+import { assert, downloadObject, handOver, isInputTarget, pickSaveFile, saveZip } from "@/utils";
 import { t } from "@/lib/i18n";
 import { useEngineContext } from "@/engine";
 import { useProject } from "@/context/project";
@@ -92,26 +92,23 @@ export function ExportProvider(props: { children: JSX.Element }) {
 
     const name = project.name().replace(/\s+/g, "-").toLowerCase();
 
-    let target: FileSystemFileHandle;
+    let target: FileSystemFileHandle | null;
     try {
-      target = await window.showSaveFilePicker({
-        suggestedName: `${name}.${format}`,
-        types: [
-          {
-            description: format,
-            accept: {
-              [mimeType]: [`.${format}`],
-            } as Record<`${string}/${string}`, `.${string}`[]>,
-          },
-        ],
-      });
+      target = await pickSaveFile(`${name}.${format}`, [
+        {
+          description: format,
+          accept: {
+            [mimeType]: [`.${format}`],
+          } as Record<`${string}/${string}`, `.${string}`[]>,
+        },
+      ]);
     } catch (e) {
-      if ((e as Error).name === "AbortError") return;
       toast.error(t("Failed to start export"), {
         description: (e as Error).message,
       });
       return;
     }
+    if (!target) return;
 
     try {
       const result = await renderScene(engine, { scene, target, config, source: "ui" });
@@ -122,6 +119,7 @@ export function ExportProvider(props: { children: JSX.Element }) {
           description: result.error.message,
         });
       } else if (result.type === "success") {
+        await handOver(target);
         setSaved({ handle: target, scene, video: videoEnabled, postable: postableExport(config) });
       }
     } catch (e) {
@@ -153,30 +151,40 @@ export function ExportProvider(props: { children: JSX.Element }) {
       return;
     }
 
-    let parent: FileSystemDirectoryHandle;
-    try {
-      parent = await window.showDirectoryPicker({ id: "timeline-export", mode: "readwrite", startIn: "documents" });
-    } catch (e) {
-      if ((e as Error).name === "AbortError") return;
-      toast.error(t("Failed to start export"), { description: (e as Error).message });
-      return;
+    const xmlName = `${title}.xml`;
+    let parent: FileSystemDirectoryHandle | null = null;
+    if ("showDirectoryPicker" in window) {
+      try {
+        parent = await window.showDirectoryPicker({ id: "timeline-export", mode: "readwrite", startIn: "documents" });
+      } catch (e) {
+        if ((e as Error).name === "AbortError") return;
+        toast.error(t("Failed to start export"), { description: (e as Error).message });
+        return;
+      }
     }
 
     const id = toast.loading(t("Saving the timeline and its media…"));
     try {
       let folderName = title;
-      for (let n = 2; await parent.getDirectoryHandle(folderName).then(() => true, () => false); n++) folderName = `${title} ${n}`;
-      const folder = await parent.getDirectoryHandle(folderName, { create: true });
-      const media = await folder.getDirectoryHandle("media", { create: true });
-      for (const { name, asset } of files) {
-        const source = await asset.handle.getFile();
-        const writable = await (await media.getFileHandle(name, { create: true })).createWritable();
-        await source.stream().pipeTo(writable);
+      if (parent) {
+        for (let n = 2; await parent.getDirectoryHandle(folderName).then(() => true, () => false); n++) folderName = `${title} ${n}`;
+        const folder = await parent.getDirectoryHandle(folderName, { create: true });
+        const media = await folder.getDirectoryHandle("media", { create: true });
+        for (const { name, asset } of files) {
+          const source = await asset.handle.getFile();
+          const writable = await (await media.getFileHandle(name, { create: true })).createWritable();
+          await source.stream().pipeTo(writable);
+        }
+        const writable = await (await folder.getFileHandle(xmlName, { create: true })).createWritable();
+        await writable.write(buildPremiereXml(timeline));
+        await writable.close();
+      } else {
+        folderName = `${title}.zip`;
+        const media = await Promise.all(
+          files.map(async ({ name, asset }) => ({ name: `${title}/media/${name}`, input: await asset.handle.getFile() })),
+        );
+        await saveZip(folderName, [...media, { name: `${title}/${xmlName}`, input: buildPremiereXml(timeline) }]);
       }
-      const xmlName = `${title}.xml`;
-      const writable = await (await folder.getFileHandle(xmlName, { create: true })).createWritable();
-      await writable.write(buildPremiereXml(timeline));
-      await writable.close();
       toast.success(t("Timeline saved in {folder}", { folder: folderName }), {
         id,
         description: leftOut
