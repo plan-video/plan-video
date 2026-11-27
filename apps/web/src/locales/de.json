@@ -681,7 +681,6 @@
   "Choose files": "Dateien auswählen",
   "Select all": "Alle auswählen",
   "Post to": "Posten auf",
-  "When · {zone}": "Wann · {zone}",
   "{count, plural, one {Filled # caption} other {Filled # captions}}": "{count, plural, one {# Bildunterschrift eingefügt} other {# Bildunterschriften eingefügt}}",
   "{count, plural, one {Filled # title} other {Filled # titles}}": "{count, plural, one {# Titel ausgefüllt} other {# Titel ausgefüllt}}",
   "{count, plural, one {# more had no post to go on.} other {# more had no posts to go on.}}": "{count, plural, one {# weitere fand keinen Post.} other {# weitere fanden keinen Post.}}",

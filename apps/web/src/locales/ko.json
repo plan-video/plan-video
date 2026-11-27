@@ -681,7 +681,6 @@
   "Choose files": "파일 선택",
   "Select all": "모두 선택",
   "Post to": "게시할 곳",
-  "When · {zone}": "게시 시간 · {zone}",
   "{count, plural, one {Filled # caption} other {Filled # captions}}": "{count, plural, other {캡션 #개를 채웠습니다}}",
   "{count, plural, one {Filled # title} other {Filled # titles}}": "{count, plural, other {제목 #개를 채웠어요}}",
   "{count, plural, one {# more had no post to go on.} other {# more had no posts to go on.}}": "{count, plural, other {나머지 #개는 넣을 게시물이 없습니다.}}",

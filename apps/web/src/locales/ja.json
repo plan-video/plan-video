@@ -681,7 +681,6 @@
   "Choose files": "ファイルを選択",
   "Select all": "すべて選択",
   "Post to": "投稿先",
-  "When · {zone}": "日時 · {zone}",
   "{count, plural, one {Filled # caption} other {Filled # captions}}": "{count, plural, other {#件のキャプションを入力しました}}",
   "{count, plural, one {Filled # title} other {Filled # titles}}": "{count, plural, other {タイトルを#件入力しました}}",
   "{count, plural, one {# more had no post to go on.} other {# more had no posts to go on.}}": "{count, plural, other {残り#件は入れる投稿がありませんでした。}}",

@@ -681,7 +681,6 @@
   "Choose files": "Escolher arquivos",
   "Select all": "Selecionar tudo",
   "Post to": "Publicar em",
-  "When · {zone}": "Quando · {zone}",
   "{count, plural, one {Filled # caption} other {Filled # captions}}": "{count, plural, one {# legenda preenchida} many {# legendas preenchidas} other {# legendas preenchidas}}",
   "{count, plural, one {Filled # title} other {Filled # titles}}": "{count, plural, one {# título preenchido} other {# títulos preenchidos}}",
   "{count, plural, one {# more had no post to go on.} other {# more had no posts to go on.}}": "{count, plural, one {Mais # ficou sem post.} many {Mais # ficaram sem post.} other {Mais # ficaram sem post.}}",

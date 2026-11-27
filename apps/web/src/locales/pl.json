@@ -681,7 +681,6 @@
   "Choose files": "Wybierz pliki",
   "Select all": "Zaznacz wszystko",
   "Post to": "Publikuj na",
-  "When · {zone}": "Kiedy · {zone}",
   "{count, plural, one {Filled # caption} other {Filled # captions}}": "{count, plural, one {Wypełniono # opis} few {Wypełniono # opisy} many {Wypełniono # opisów} other {Wypełniono # opisu}}",
   "{count, plural, one {Filled # title} other {Filled # titles}}": "{count, plural, one {Uzupełniono # tytuł} few {Uzupełniono # tytuły} many {Uzupełniono # tytułów} other {Uzupełniono # tytułu}}",
   "{count, plural, one {# more had no post to go on.} other {# more had no posts to go on.}}": "{count, plural, one {Dla # kolejnego zabrakło posta.} few {Dla # kolejnych zabrakło postów.} many {Dla # kolejnych zabrakło postów.} other {Dla # kolejnego zabrakło postów.}}",

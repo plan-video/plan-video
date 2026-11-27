@@ -681,7 +681,6 @@
   "Choose files": "Dosya seç",
   "Select all": "Tümünü seç",
   "Post to": "Yayınlanacak yer",
-  "When · {zone}": "Zaman · {zone}",
   "{count, plural, one {Filled # caption} other {Filled # captions}}": "{count, plural, other {# açıklama dolduruldu}}",
   "{count, plural, one {Filled # title} other {Filled # titles}}": "{count, plural, other {# başlık dolduruldu}}",
   "{count, plural, one {# more had no post to go on.} other {# more had no posts to go on.}}": "{count, plural, other {# tanesi için gönderi kalmadı.}}",

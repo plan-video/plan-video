@@ -681,7 +681,6 @@
   "Choose files": "Bestanden kiezen",
   "Select all": "Alles selecteren",
   "Post to": "Posten op",
-  "When · {zone}": "Wanneer · {zone}",
   "{count, plural, one {Filled # caption} other {Filled # captions}}": "{count, plural, one {# bijschrift ingevuld} other {# bijschriften ingevuld}}",
   "{count, plural, one {Filled # title} other {Filled # titles}}": "{count, plural, one {# titel ingevuld} other {# titels ingevuld}}",
   "{count, plural, one {# more had no post to go on.} other {# more had no posts to go on.}}": "{count, plural, one {Nog # had geen post meer.} other {Nog # hadden geen post meer.}}",

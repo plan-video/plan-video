@@ -1073,8 +1073,8 @@ function EmptyState(props: { dragging: boolean; reading: boolean; onPick(): void
 }
 
 const ROW_GRID = "grid items-center gap-3 px-5 max-md:grid-cols-[1rem_minmax(0,1fr)_minmax(0,1fr)_1.75rem] max-md:gap-x-2 max-md:gap-y-1 max-md:px-3";
-const ROW_COLUMNS = "md:grid-cols-[1rem_minmax(11rem,1fr)_minmax(11rem,1fr)_6rem_9rem]";
-const ROW_COLUMNS_TITLED = "md:grid-cols-[1rem_minmax(9rem,1fr)_minmax(7rem,1fr)_minmax(7rem,1fr)_5rem_8rem]";
+const ROW_COLUMNS = "md:grid-cols-[1rem_minmax(11rem,1fr)_minmax(11rem,1fr)_6rem_9rem_1.75rem]";
+const ROW_COLUMNS_TITLED = "md:grid-cols-[1rem_minmax(9rem,1fr)_minmax(7rem,1fr)_minmax(7rem,1fr)_5rem_8rem_1.75rem]";
 const ROW_CELL = "min-h-8 rounded-md border border-transparent bg-transparent px-2 text-xs transition-colors hover:bg-accent";
 const CELL_INSET = "border-x border-transparent px-2";
 
@@ -1102,7 +1102,8 @@ function PostTable(props: { issuesOf(post: BulkPost): Issue[]; onRemove(id: stri
         </Show>
         <span class={CELL_INSET}>{t("Caption")}</span>
         <span class={CELL_INSET}>{t("Post to")}</span>
-        <span class={cx(CELL_INSET, "-mr-2 truncate text-right")}>{t("When · {zone}", { zone: timeZoneName() })}</span>
+        <span class={cx(CELL_INSET, "text-right")}>{t("When")}</span>
+        <span />
       </div>
       <For each={bulk.posts}>
         {(post, index) => <PostRow post={post} index={index()} titled={titled()} columns={columns()} issues={props.issuesOf(post)} onRemove={() => props.onRemove(post.id)} />}
@@ -1344,7 +1345,7 @@ function PostRow(props: { post: BulkPost; index: number; titled: boolean; column
       <DateTimePicker
         plain
         label={t("When {name} goes out", { name: media().file.name })}
-        class={cx(ROW_CELL, "pl-2 max-md:order-2 max-md:col-span-2 md:translate-x-1 md:pr-1 md:text-right data-[expanded]:bg-accent")}
+        class={cx(ROW_CELL, "max-md:order-2 max-md:col-span-2 md:w-auto md:justify-self-end data-[expanded]:bg-accent")}
         day={props.post.day}
         time={props.post.time}
         minDay={localDateKey(new Date())}
@@ -1363,10 +1364,11 @@ function PostRow(props: { post: BulkPost; index: number; titled: boolean; column
         variant="ghost"
         size="icon-square"
         aria-label={t("Remove {name}", { name: media().file.name })}
-        class="opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 md:absolute md:inset-y-0 md:right-0.5 md:my-auto md:h-8 md:w-4 max-md:order-1 max-md:opacity-100"
+        title={t("Remove")}
+        class="text-muted-foreground hover:text-foreground max-md:order-1"
         onClick={() => props.onRemove()}
       >
-        <Icon name="trash" class="size-5 text-muted-foreground md:size-4" />
+        <Icon name="trash" class="size-5" />
       </Button>
     </div>
   );

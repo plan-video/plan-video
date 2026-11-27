@@ -681,7 +681,6 @@
   "Choose files": "Choisir des fichiers",
   "Select all": "Tout sélectionner",
   "Post to": "Publier sur",
-  "When · {zone}": "Quand · {zone}",
   "{count, plural, one {Filled # caption} other {Filled # captions}}": "{count, plural, one {# légende remplie} many {# de légendes remplies} other {# légendes remplies}}",
   "{count, plural, one {Filled # title} other {Filled # titles}}": "{count, plural, one {# titre rempli} other {# titres remplis}}",
   "{count, plural, one {# more had no post to go on.} other {# more had no posts to go on.}}": "{count, plural, one {# de plus n’a pas trouvé de publication.} many {# de plus n’ont pas trouvé de publication.} other {# de plus n’ont pas trouvé de publication.}}",

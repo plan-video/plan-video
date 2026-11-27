@@ -681,7 +681,6 @@
   "Choose files": "选择文件",
   "Select all": "全选",
   "Post to": "发布到",
-  "When · {zone}": "时间 · {zone}",
   "{count, plural, one {Filled # caption} other {Filled # captions}}": "{count, plural, other {已填入 # 条说明}}",
   "{count, plural, one {Filled # title} other {Filled # titles}}": "{count, plural, other {已填写 # 个标题}}",
   "{count, plural, one {# more had no post to go on.} other {# more had no posts to go on.}}": "{count, plural, other {还有 # 条没有可对应的帖子。}}",

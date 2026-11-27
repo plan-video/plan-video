@@ -681,7 +681,6 @@
   "Choose files": "Scegli file",
   "Select all": "Seleziona tutto",
   "Post to": "Pubblica su",
-  "When · {zone}": "Quando · {zone}",
   "{count, plural, one {Filled # caption} other {Filled # captions}}": "{count, plural, one {# didascalia inserita} many {# didascalie inserite} other {# didascalie inserite}}",
   "{count, plural, one {Filled # title} other {Filled # titles}}": "{count, plural, one {# titolo compilato} other {# titoli compilati}}",
   "{count, plural, one {# more had no post to go on.} other {# more had no posts to go on.}}": "{count, plural, one {# in più è rimasta senza post.} many {# in più sono rimaste senza post.} other {# in più sono rimaste senza post.}}",
