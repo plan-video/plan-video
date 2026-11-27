@@ -168,7 +168,7 @@ function createBarKillfeed(game: BarGame): { Panel: Component; Cover: Component 
               <WeaponGrid>
                 <For each={shown()}>
                   {(weapon) => (
-                    <WeaponTile label={weapon.label} url={weapon.url} selected={spec().weapon === weapon.id} onClick={() => setSpec("weapon", weapon.id)} />
+                    <WeaponTile label={weapon.label} url={weapon.url} picture={game.pictures} selected={spec().weapon === weapon.id} onClick={() => setSpec("weapon", weapon.id)} />
                   )}
                 </For>
               </WeaponGrid>
