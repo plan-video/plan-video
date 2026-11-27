@@ -2173,7 +2173,6 @@
   "Add a Valorant clip to the scene first.": "先にシーンに Valorant のクリップを追加してください。",
   "No kills found": "キルが見つかりませんでした",
   "Kills are read from Valorant's killfeed in the top right of the video, so it has to show there.": "キルは動画の右上にある Valorant のキルログから読み取るため、そこに表示されている必要があります。",
-  "The killfeed holds {max}, so the first {max} are in it.": "キルログには {max} 件まで入るため、最初の {max} 件を入れました。",
   "Check the names, then add them where they happen.": "名前を確認してから、起きた位置に追加してください。",
   "Find kills in the video": "動画からキルを探す",
   "Reading the video… {percent}%": "動画を読み取り中… {percent}%",

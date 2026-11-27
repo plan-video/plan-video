@@ -2173,7 +2173,6 @@
   "Add a Valorant clip to the scene first.": "Ajoutez d’abord un clip Valorant à la scène.",
   "No kills found": "Aucun kill trouvé",
   "Kills are read from Valorant's killfeed in the top right of the video, so it has to show there.": "Les kills sont lus dans le killfeed de Valorant, en haut à droite de la vidéo : il doit donc y être visible.",
-  "The killfeed holds {max}, so the first {max} are in it.": "Le killfeed en contient {max} : les {max} premiers y sont.",
   "Check the names, then add them where they happen.": "Vérifiez les noms, puis ajoutez-les là où ils ont lieu.",
   "Find kills in the video": "Trouver les kills dans la vidéo",
   "Reading the video… {percent}%": "Lecture de la vidéo… {percent} %",

@@ -2173,7 +2173,6 @@
   "Add a Valorant clip to the scene first.": "请先向场景添加一个 Valorant 片段。",
   "No kills found": "没有找到击杀",
   "Kills are read from Valorant's killfeed in the top right of the video, so it has to show there.": "击杀是从视频右上角的 Valorant 击杀信息中读取的，所以那里必须能看到它。",
-  "The killfeed holds {max}, so the first {max} are in it.": "击杀信息最多容纳 {max} 条，所以放入了前 {max} 条。",
   "Check the names, then add them where they happen.": "检查名字，然后把它们添加到发生的位置。",
   "Find kills in the video": "在视频中查找击杀",
   "Reading the video… {percent}%": "正在读取视频… {percent}%",

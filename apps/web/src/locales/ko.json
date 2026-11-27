@@ -2173,7 +2173,6 @@
   "Add a Valorant clip to the scene first.": "먼저 장면에 발로란트 클립을 추가하세요.",
   "No kills found": "킬을 찾지 못했어요",
   "Kills are read from Valorant's killfeed in the top right of the video, so it has to show there.": "킬은 영상 오른쪽 위의 발로란트 킬로그에서 읽기 때문에 그곳에 보여야 해요.",
-  "The killfeed holds {max}, so the first {max} are in it.": "킬로그에는 {max}개까지 들어가서 처음 {max}개를 넣었어요.",
   "Check the names, then add them where they happen.": "이름을 확인한 다음 일어난 시점에 추가하세요.",
   "Find kills in the video": "영상에서 킬 찾기",
   "Reading the video… {percent}%": "영상 읽는 중… {percent}%",

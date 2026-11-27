@@ -5,7 +5,7 @@
 import { createSignal } from "solid-js";
 import { createStore, produce, type SetStoreFunction } from "solid-js/store";
 
-/** As many as Valorant's shows at once. */
+/** As many as Valorant's shows at once, for a feed built by hand. Kills found in a video come in at their own times, so all are kept. */
 export const MAX_FEED_ENTRIES = 7;
 
 /** Read in full, so a drawing redraws when any setting changes. */
@@ -60,7 +60,7 @@ export function createFeed<T extends object>(first: T): Feed<T> {
     replace: (entries) => {
       if (!entries.length) return;
       setSelected(0);
-      setFeed("entries", entries.slice(0, MAX_FEED_ENTRIES));
+      setFeed("entries", entries);
     },
   };
 }

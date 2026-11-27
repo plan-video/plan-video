@@ -2173,7 +2173,6 @@
   "Add a Valorant clip to the scene first.": "Adicione primeiro um clipe de Valorant à cena.",
   "No kills found": "Nenhum abate encontrado",
   "Kills are read from Valorant's killfeed in the top right of the video, so it has to show there.": "Os abates são lidos do killfeed do Valorant, no canto superior direito do vídeo, então ele precisa aparecer ali.",
-  "The killfeed holds {max}, so the first {max} are in it.": "O killfeed comporta {max}, então os {max} primeiros estão nele.",
   "Check the names, then add them where they happen.": "Confira os nomes e depois adicione-os onde acontecem.",
   "Find kills in the video": "Encontrar abates no vídeo",
   "Reading the video… {percent}%": "Lendo o vídeo… {percent}%",

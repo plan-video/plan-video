@@ -2173,7 +2173,6 @@
   "Add a Valorant clip to the scene first.": "Önce sahneye bir Valorant klibi ekle.",
   "No kills found": "Öldürme bulunamadı",
   "Kills are read from Valorant's killfeed in the top right of the video, so it has to show there.": "Öldürmeler videonun sağ üstündeki Valorant killfeed'inden okunur, bu yüzden orada görünmesi gerekir.",
-  "The killfeed holds {max}, so the first {max} are in it.": "Killfeed {max} tane alır, bu yüzden ilk {max} tanesi içinde.",
   "Check the names, then add them where they happen.": "İsimleri kontrol et, sonra olduğu yerlere ekle.",
   "Find kills in the video": "Videodaki öldürmeleri bul",
   "Reading the video… {percent}%": "Video okunuyor… %{percent}",

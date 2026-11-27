@@ -44,7 +44,7 @@ import {
   killfeedWeapon,
   killfeedWeapons,
 } from "@/lib/killfeed-assets";
-import { MAX_FEED_ENTRIES, plain, USUAL_NAME } from "@/lib/killfeed-feed";
+import { plain, USUAL_NAME } from "@/lib/killfeed-feed";
 import { cx } from "@/lib/cva";
 import { msg, t } from "@/lib/i18n";
 
@@ -306,11 +306,7 @@ function FindKills() {
         deaths
           ? t("Found {count, plural, one {# kill} other {# kills}} and {deaths, plural, one {# death} other {# deaths}}", { count, deaths })
           : t("{count, plural, one {Found # kill} other {Found # kills}}", { count }),
-        {
-          description: kills.length > MAX_FEED_ENTRIES
-            ? t("The killfeed holds {max}, so the first {max} are in it.", { max: MAX_FEED_ENTRIES })
-            : t("Check the names, then add them where they happen."),
-        },
+        { description: t("Check the names, then add them where they happen.") },
       );
     } catch (error) {
       toast.error(t("Could not read the video"), { description: (error as Error).message });
