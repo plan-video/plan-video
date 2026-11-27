@@ -382,7 +382,7 @@ function PlayerRow(props: {
             type="button"
             aria-label={props.role === "victim" ? t("Choose the victim's agent") : spec().suicide ? t("Choose the player's agent") : t("Choose the killer's agent")}
             title={agent()?.name ?? props.player.agent}
-            class="relative size-8 shrink-0 overflow-hidden rounded-[5px] bg-[#0D1014] focus-ring"
+            class="relative size-8 shrink-0 overflow-hidden rounded-[5px] focus-ring"
             style={{ "box-shadow": `inset 0 0 0 1.5px ${roleColor(props.role)}` }}
           >
             <Show when={agent()}>

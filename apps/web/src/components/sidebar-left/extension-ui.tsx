@@ -218,7 +218,7 @@ export function PickRow(props: {
             <span class="shrink-0 text-muted-foreground">{props.label}</span>
           </Show>
           <Show when={props.icon}>
-            {(icon) => <img src={icon()} alt="" draggable={false} class="size-5 shrink-0 rounded-sm bg-[#0D1014] object-cover object-top" />}
+            {(icon) => <img src={icon()} alt="" draggable={false} class="size-5 shrink-0 rounded-sm object-cover object-top" />}
           </Show>
           <span class="min-w-0 flex-1 truncate text-left font-450 text-foreground" classList={{ "opacity-50": props.dim }}>
             {props.value}
@@ -288,7 +288,7 @@ export function PictureList(props: { options: { id: string; label: string; url: 
             title={option.label}
             aria-label={option.label}
             aria-selected={props.value === option.id}
-            class="relative aspect-square min-w-0 overflow-hidden rounded-md border bg-[#0D1014] focus-ring"
+            class="relative aspect-square min-w-0 overflow-hidden rounded-md border focus-ring"
             classList={{
               "border-primary ring-1 ring-primary": props.value === option.id,
               "border-transparent hover:border-border-strong": props.value !== option.id,
