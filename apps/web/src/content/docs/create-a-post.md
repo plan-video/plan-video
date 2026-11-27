@@ -10,7 +10,7 @@ Every post starts in **New post** in the dashboard.
     Add a video or up to 35 pictures from your computer or your [media library](/docs/media-library). You can also attach a project from the editor; its export is added for you. Click a picture to crop, rotate or flip it. Click **Quick edit** on a video to trim, crop or mute it without opening the editor.
   </Step>
   <Step title="Write the caption">
-    One caption goes to every network. Open a network's tab to give it its own caption, media or options instead.
+    One caption goes to every network. On YouTube it's the video's description, and a **Title** field shows above it. Open a network's tab to give it its own caption, media or options instead.
   </Step>
   <Step title="Check the previews">
     Each network shows a live preview, and warns you when something won't fit, like a caption that's too long.
@@ -36,7 +36,7 @@ See [Networks](/docs/networks) for every limit.
 
 ## Network options
 
-Some networks have settings of their own, like TikTok's **Who can watch** or YouTube's title and privacy. They show under **Platform settings**, below the caption, with a tab for each network. See each network's page for what they do.
+Some networks have settings of their own, like TikTok's **Who can watch** or YouTube's privacy. They show under **Platform settings**, below the caption, with a tab for each network. See each network's page for what they do.
 
 ## Threads
 

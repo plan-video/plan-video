@@ -98,6 +98,7 @@ import { paidToolsLocked } from "@/lib/paid-tools";
 import {
   captionLength,
   checkPost,
+  settingsIssues,
   defaultPlatformSettings,
   instagramPostSettings,
   pinterestPostSettings,
@@ -1205,10 +1206,11 @@ export function DashboardNewPostView() {
               <MediaSection />
             </div>
             <Show when={post.kind !== "story"}>
+              <TitleSection />
               <CaptionSection />
               <ThreadSection />
             </Show>
-            <PlatformSettingsSection issues={issues()} />
+            <PlatformSettingsSection />
             <Show when={mirror().length}>
               <IssueList issues={mirror()} names={post.platforms.length > 1} class="@3xl:hidden" />
             </Show>
@@ -2430,6 +2432,40 @@ function listItems(parts: readonly string[]): string {
   return ITEM_LIST().format(parts);
 }
 
+function TitleSection() {
+  const titled = () =>
+    post.platforms.filter((id) => socialPlatform(id).title && (post.kind === "text" || socialPlatform(id).kinds.includes(post.kind)));
+  return (
+    <Show when={titled().length}>
+      <FormSection title={t("Title")} hint={listNames(titled())}>
+        <For each={titled()}>
+          {(id) => {
+            const value = () => platformTitle(post.settings, id);
+            return (
+              <div class="flex h-11 items-center gap-2.5 rounded-xl border border-(--border-input) px-3.5 transition-colors focus-within:border-primary">
+                <Show when={titled().length > 1}>
+                  <PlatformLogo id={id} class="size-4 shrink-0" />
+                </Show>
+                <input
+                  class="min-w-0 flex-1 bg-transparent text-[15px] text-foreground outline-none placeholder:text-muted-foreground"
+                  aria-label={titled().length > 1 ? `${t("Title")} · ${socialPlatform(id).name}` : t("Title")}
+                  placeholder={id === "youtube" ? t("What's the video called?") : t("Give the pin a title")}
+                  value={value()}
+                  onInput={(event) => setPost("settings", id as "youtube" | "pinterest", "title", event.currentTarget.value)}
+                  onKeyDown={(event) => event.stopPropagation()}
+                />
+                <Show when={value()}>
+                  <CharCount count={captionLength(value())} limit={socialPlatform(id).title!.limit} />
+                </Show>
+              </div>
+            );
+          }}
+        </For>
+      </FormSection>
+    </Show>
+  );
+}
+
 function CaptionSection() {
   const auth = useAuth();
 
@@ -2475,6 +2511,9 @@ function CaptionSection() {
 
   const signed = () => appendSignature(value(), signatureText());
   const tags = () => hashtagCount(signed());
+  const isDescription = () => active() === "youtube" || (active() === "all" && post.platforms.length === 1 && post.platforms[0] === "youtube");
+  const alsoDescription = () =>
+    active() === "all" && post.platforms.length > 1 && post.platforms.includes("youtube") && post.overrides.youtube === undefined;
 
   const saveToVault = () => {
     const made = createVaultItem({ kind: "caption", title: "", body: value() });
@@ -2486,8 +2525,14 @@ function CaptionSection() {
 
   return (
     <FormSection
-      title={t("Caption")}
-      hint={active() === "all" ? undefined : t("Only for {platform}", { platform: socialPlatform(active() as PlatformId).name })}
+      title={isDescription() ? t("Description") : t("Caption")}
+      hint={
+        active() !== "all"
+          ? t("Only for {platform}", { platform: socialPlatform(active() as PlatformId).name })
+          : alsoDescription()
+            ? t("Also the description on YouTube")
+            : undefined
+      }
       action={
         <span class="-mr-1 flex items-center gap-2">
           <Show when={active() !== "all" && post.overrides[active() as PlatformId] !== undefined}>
@@ -2512,7 +2557,13 @@ function CaptionSection() {
         <textarea
           ref={field}
           class="field-sizing-content max-h-[32rem] min-h-40 w-full resize-y bg-transparent px-3.5 pt-3 pb-1 text-[15px] leading-relaxed text-foreground outline-none placeholder:text-muted-foreground supports-[field-sizing:content]:resize-none"
-          placeholder={active() === "all" ? t("Write a caption. Add #hashtags and @mentions.") : t("Write a caption just for this platform.")}
+          placeholder={
+            isDescription()
+              ? t("What's the video about?")
+              : active() === "all"
+                ? t("Write a caption. Add #hashtags and @mentions.")
+                : t("Write a caption just for this platform.")
+          }
           value={value()}
           onInput={(event) => write(event.currentTarget.value)}
           onKeyDown={(event) => {
@@ -2872,11 +2923,15 @@ function PlatformTab(props: { selected: boolean; onClick(): void; children: JSX.
   );
 }
 
-function PlatformSettingsSection(props: { issues: PostIssue[] }) {
+function PlatformSettingsSection() {
   const settings = (...args: unknown[]) => (setPost as (...path: unknown[]) => void)("settings", ...args);
   const shown = () => platformsWithSettings(post.kind, post.platforms);
   const current = () => (shown().includes(previewing()) ? previewing() : shown()[0]!);
-  const blocked = (id: PlatformId) => props.issues.some((issue) => issue.platform === id && issue.level === "error");
+  const blocked = (id: PlatformId) => {
+    let found = false;
+    if (post.kind !== "story") settingsIssues(id, post.settings, (level) => (found ||= level === "error"));
+    return found;
+  };
   const [open, setOpen] = createSignal(false);
   return (
     <Show when={shown().length}>
@@ -2919,18 +2974,7 @@ function PlatformSettingsSection(props: { issues: PostIssue[] }) {
           onChange={settings as SetStoreFunction<PlatformSettings>}
           tiktokAccount={() => accountsFor("tiktok", post.accounts).find((account) => account.tiktok)}
           youtubeChannels={() => accountsFor("youtube", post.accounts)}
-          youtubeDescription={{
-            value: () => captionFor("youtube"),
-            onInput: (text) => setPost("overrides", "youtube", text),
-            own: () => post.overrides.youtube !== undefined,
-            reset: () =>
-              setPost(
-                "overrides",
-                produce((overrides) => {
-                  delete overrides.youtube;
-                }),
-              ),
-          }}
+          noTitles
         />
         </div>
         </Show>
