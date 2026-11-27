@@ -4,7 +4,7 @@
 
 import { For, Show } from "solid-js";
 
-import { YouTubeWhiteTile } from "@/components/brand/youtube-icon";
+import { YouTubeBare } from "@/components/brand/youtube-icon";
 import { PlatformLogo } from "@/components/publish/controls";
 import { SOCIAL_PLATFORMS, type PlatformId } from "@/lib/social";
 import { cn } from "./utils";
@@ -22,8 +22,8 @@ export function PostLogos(props: { platforms: readonly string[]; max?: number; c
         <For each={shown()}>
           {(id) => {
             const tile = props.size === "sm" ? "size-3.5 rounded-sm" : "size-4 rounded-sm";
-            // A chip can't hold YouTube's icon 20 high, so here it stays small, on its white tile (see brand/youtube-icon).
-            return id === "youtube" ? <YouTubeWhiteTile fill class={tile} /> : <PlatformLogo id={id} class={tile} />;
+            // A chip can't hold YouTube's icon 20 high, so here it stays small, at the tiles' width (see brand/youtube-icon).
+            return id === "youtube" ? <YouTubeBare title="YouTube" class={tile} /> : <PlatformLogo id={id} class={tile} />;
           }}
         </For>
         <Show when={extra() > 0}>
