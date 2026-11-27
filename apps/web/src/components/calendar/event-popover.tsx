@@ -79,7 +79,8 @@ export function EventPopover(props: { onClose(): void; selected: SelectedEvent }
     return event().delivery === "failed" && post ? deliveriesOf(post).find(({ delivery }) => delivery.state === "failed")?.delivery : undefined;
   };
   const platformNames = () => event().platforms.map(platformName).join(", ");
-  const onGrid = () => params.dashboard === "calendar" && params.view !== "list";
+  const onGrid = () => (params.dashboard ?? "calendar") === "calendar" && params.view !== "list";
+  const hasMenu = () => !posted() || !sentAnywhere() || !!stored()?.description?.trim() || !onGrid();
 
   const remove = (scope: "occurrence" | "series") => {
     const post = stored();
@@ -242,7 +243,7 @@ export function EventPopover(props: { onClose(): void; selected: SelectedEvent }
           </p>
         </div>
         <div class="-mr-1.5 flex shrink-0 items-center">
-          <Show when={mode() === "details" && stored()}>
+          <Show when={mode() === "details" && hasMenu() && stored()}>
             {(post) => (
               <DropdownMenu placement="bottom-end">
                 <DropdownMenuTrigger as="button" type="button" aria-label={t("More")} class={buttonVariants({ variant: "ghost", size: "icon-square" })}>
@@ -739,7 +740,7 @@ function AccountRows(props: { post: StoredEvent }) {
         const outcome = () => outcomeOf(props.post, row, run());
         const name = () => (row.account && accountLabel(row.account)) || platformName(row.platform);
         return (
-          <DetailRow leading={row.account ? <AccountAvatar account={row.account} class="size-5" /> : <PlatformLogo id={row.platform as PlatformId} class="rounded-md" />}>
+          <DetailRow leading={row.account ? <AccountAvatar account={row.account} bare class="size-5" /> : <PlatformLogo id={row.platform as PlatformId} bare class="rounded-md" />}>
             <div class="flex min-w-0 items-center justify-between gap-3">
               <p class="min-w-0 truncate text-foreground" title={row.account ? platformName(row.platform) : undefined}>
                 {name()}
