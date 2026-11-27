@@ -907,6 +907,11 @@ html:not(.dashboard-theme)::-webkit-scrollbar-corner {
   background: var(--site-page);
 }
 
+/* Shows when the page bounces past its top or bottom. */
+html:not(.dashboard-theme, .editor-theme) body {
+  background-color: var(--site-page);
+}
+
 html:not(.dashboard-theme)::-webkit-scrollbar-thumb {
   border: 4px solid transparent;
   border-radius: 999px;
