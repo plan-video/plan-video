@@ -4,7 +4,7 @@ Post to X with text, pictures or a video.
 
 | | Limit |
 | --- | --- |
-| Text | 280 characters |
+| Text | 280 characters, counted as X does: a link is 23, and an emoji or a Chinese, Japanese or Korean character is 2 |
 | Pictures | Up to 4, 5 MB each |
 | Video | Up to 500 MB and 5 minutes in plan.video |
 

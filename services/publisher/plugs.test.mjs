@@ -209,6 +209,13 @@ test("a look at X that fails for now is tried again until the next check, then w
   assert.equal(Date.parse(w.row().next_at), sentAt + 12 * HOUR);
 });
 
+test("a plug's reply X would count as over 280 never reaches X", async (t) => {
+  const w = setup(t, { plugs: [{ ...replyPlug, message: "あ".repeat(141) }], likes: () => 50 });
+  await w.checks(3);
+  assert.equal(w.replies().length, 0);
+  assert.deepEqual(w.row().plugs_done, []);
+});
+
 test("a post deleted on X ends its plugs, without being read again", async (t) => {
   const w = setup(t, { plugs: [repostPlug, replyPlug], answer: (call) => (call.method === "GET" ? Response.json({ title: "Not Found Error" }, { status: 404 }) : undefined) });
   await w.checks(3);

@@ -102,6 +102,7 @@ import { previewOf } from "@/lib/post-previews";
 import { copyApprovalLink, personName } from "@/components/calendar/approval-card";
 import {
   captionLength,
+  captionLengthOn,
   checkPost,
   settingsIssues,
   defaultPlatformSettings,
@@ -2586,10 +2587,10 @@ function CaptionSection() {
 
   const limit = () => {
     const id = active();
-    if (id !== "all") return { limit: socialPlatform(id).captionLimit, name: socialPlatform(id).name };
+    if (id !== "all") return { id, limit: socialPlatform(id).captionLimit, name: socialPlatform(id).name };
     const sharing = post.platforms.filter((platform) => post.overrides[platform] === undefined);
     const tightest = sharing.map(socialPlatform).sort((a, b) => a.captionLimit - b.captionLimit)[0];
-    return tightest ? { limit: tightest.captionLimit, name: tightest.name } : null;
+    return tightest ? { id: tightest.id, limit: tightest.captionLimit, name: tightest.name } : null;
   };
 
   const signed = () => appendSignature(value(), signatureText());
@@ -2686,7 +2687,7 @@ function CaptionSection() {
                 <Show when={active() === "all" && post.platforms.length > 1}>
                   <span class="text-muted-foreground">{current().name}</span>
                 </Show>
-                <CharCount count={captionLength(signed())} limit={current().limit} />
+                <CharCount count={captionLengthOn(current().id, signed())} limit={current().limit} />
               </span>
             )}
           </Show>
@@ -2704,7 +2705,7 @@ function ThreadSection() {
   const others = () => post.platforms.filter((id) => !THREAD_PLATFORMS.includes(id));
   const limit = () => {
     const tightest = [...networks()].sort((a, b) => replyLimit(a) - replyLimit(b))[0];
-    return tightest ? { limit: replyLimit(tightest), name: socialPlatform(tightest).name } : null;
+    return tightest ? { id: tightest, limit: replyLimit(tightest), name: socialPlatform(tightest).name } : null;
   };
   const hint = () => {
     const replying = networks().filter((id) => id !== "linkedin");
@@ -2769,7 +2770,7 @@ function ThreadSection() {
                       <Show when={networks().length > 1}>
                         <span class="text-muted-foreground">{current().name}</span>
                       </Show>
-                      <CharCount count={captionLength(reply.text.trim())} limit={current().limit} />
+                      <CharCount count={captionLengthOn(current().id, reply.text.trim())} limit={current().limit} />
                     </span>
                   )}
                 </Show>

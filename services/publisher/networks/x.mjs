@@ -105,6 +105,29 @@ async function upload(session, media, file) {
   return { mediaId, ready: processing(finished?.data?.processing_info) === "ready" };
 }
 
+// X's own count, as apps/web/src/lib/social.ts xLength: a link is 23, an emoji 2, and a character outside these ranges 2.
+const X_URL = /(?<![\p{L}\p{N}@.])(?:https?:\/\/)?(?:[\p{L}\p{N}-]+\.)+\p{L}{2,}(?::\d+)?(?:\/\S*)?/gu;
+const X_EMOJI = /\p{RI}\p{RI}|[#*0-9]\uFE0F?\u20E3|\p{Extended_Pictographic}(?:\uFE0F|\p{Emoji_Modifier})*(?:\u200D\p{Extended_Pictographic}(?:\uFE0F|\p{Emoji_Modifier})*)*/gu;
+const X_LIGHT = [
+  [0, 4351],
+  [8192, 8205],
+  [8208, 8223],
+  [8242, 8247],
+];
+
+export function xLength(text) {
+  let length = 0;
+  const rest = text
+    .normalize("NFC")
+    .replace(X_URL, () => ((length += 23), "\0"))
+    .replace(X_EMOJI, () => ((length += 2), "\0"));
+  for (const char of rest) {
+    const code = char.codePointAt(0);
+    if (code) length += X_LIGHT.some(([low, high]) => code >= low && code <= high) ? 1 : 2;
+  }
+  return length;
+}
+
 /** Endings of files and code that look like a web address but aren't one, as "Next.js" or "notes.md". */
 const NOT_DOMAINS = new Set(["js", "jsx", "ts", "tsx", "mjs", "cjs", "py", "rb", "rs", "go", "md", "txt", "json", "yml", "yaml", "toml", "css", "html", "htm", "php", "sh", "exe", "zip", "png", "jpg", "jpeg", "gif", "webp", "svg", "mp3", "mp4", "mov", "wav", "pdf", "doc", "docx", "csv"]);
 const ADDRESS = /(?:^|[^\p{L}\p{N}_@#$.-])((?:[\p{L}\p{N}](?:[\p{L}\p{N}-]*[\p{L}\p{N}])?\.)+(\p{L}{2,24}|xn--[a-z0-9-]+))(?=$|[/?#:]|[^\p{L}\p{N}_-])/gu;
@@ -258,7 +281,7 @@ export function createX({ limits, log = console }) {
       /** A reply X may have made counts as made, so a plug never replies twice. */
       async reply(session, post, text, row) {
         const words = text.trim();
-        if (!words || [...words].length > REPLY_LIMIT) throw new PublishError(`A plug's reply on X can be ${REPLY_LIMIT} characters.`);
+        if (!words || xLength(words) > REPLY_LIMIT) throw new PublishError(`A plug's reply on X can be ${REPLY_LIMIT} characters.`);
         await makeWithin(row.user_id, session, words, [], post.id).catch((error) => {
           if (!(error instanceof PublishError && /didn't confirm|didn't say where/.test(error.message))) throw error;
         });

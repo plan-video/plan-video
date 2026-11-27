@@ -6,7 +6,7 @@
 // words-only comments on LinkedIn.
 
 import { intlLocale, msg, t } from "./i18n";
-import { captionLength, formatDuration, socialPlatform, type MediaSummary, type PlatformId, type PostIssue } from "./social";
+import { captionLengthOn, formatDuration, socialPlatform, type MediaSummary, type PlatformId, type PostIssue } from "./social";
 
 export type ThreadReply = {
   id: string;
@@ -70,11 +70,12 @@ export function threadIssues(thread: readonly ThreadReply[], platforms: readonly
   const issues: PostIssue[] = [];
   thread.forEach((reply, index) => {
     const number = index + 1;
-    const length = captionLength(reply.text.trim());
+    const text = reply.text.trim();
     const carries = media(index);
     for (const id of threadPlatforms(platforms)) {
       const add = (level: PostIssue["level"], message: string) => issues.push({ platform: id, level, message });
       const limit = replyLimit(id);
+      const length = captionLengthOn(id, text);
       if (length > limit) add("error", t("Follow-up {number} is over the {limit} character limit.", { number, limit: limit.toLocaleString(intlLocale()) }));
       if (!carries) continue;
       if (!REPLY_MEDIA_PLATFORMS.includes(id)) {

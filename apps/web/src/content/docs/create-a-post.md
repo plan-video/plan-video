@@ -19,7 +19,7 @@ Every post starts in **New post** in the dashboard.
 
 ## Captions for each network
 
-Each network has its own caption limit. plan.video counts an emoji as one character, as the networks do.
+Each network has its own caption limit. plan.video counts characters the way each network does: an emoji is one character, except on X, which counts an emoji, and a Chinese, Japanese or Korean character, as two, and any link as 23.
 
 | Network | Caption limit |
 | --- | --- |
