@@ -756,6 +756,9 @@ export function createWorker({
   }
 
   async function plugOne(row) {
+    // Claimed by matching its check and time, like a send, so two publishers never act on one check.
+    const [claimed] = await db.update("post_deliveries", { id: row.id, plug_checks: row.plug_checks, next_at: row.next_at }, { next_at: iso(now() + 15 * 60_000) });
+    if (!claimed) return;
     const finish = (values) => db.update("post_deliveries", { id: row.id }, values);
     // updated_at stays when the post went out, since checks don't touch it, so checks keep to their hours.
     const sentAt = Date.parse(row.updated_at);

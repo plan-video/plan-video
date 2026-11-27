@@ -43,20 +43,23 @@ function setup(t, { plugs, likes = () => 0, answer = () => undefined, level = 2 
   const log = { error() {}, warn() {} };
   const limits = createPlanLimits({ db, now: () => clock, log });
   const x = createX({ limits, log });
-  const worker = createWorker({
-    db,
-    vault: { fresh: async () => ({ session: { accessToken: "a", xUserId: "42" } }) },
-    media: { postFile: async () => null },
-    networks: { x },
-    plugs: createPlugs({ x }),
-    planLimits: limits,
-    now: () => clock,
-    log,
-  });
+  const publisher = () =>
+    createWorker({
+      db,
+      vault: { fresh: async () => ({ session: { accessToken: "a", xUserId: "42" } }) },
+      media: { postFile: async () => null },
+      networks: { x },
+      plugs: createPlugs({ x }),
+      planLimits: limits,
+      now: () => clock,
+      log,
+    });
+  const worker = publisher();
   const row = () => db.tables.post_deliveries.find((item) => item.post_id === "p");
   return {
     db,
     worker,
+    publisher,
     row,
     reads: () => calls.filter((call) => call.method === "GET"),
     reposts: () => calls.filter((call) => call.url.endsWith("/retweets")),
@@ -72,10 +75,11 @@ function setup(t, { plugs, likes = () => 0, answer = () => undefined, level = 2 
     async checks(count) {
       if (row()?.state !== "sent") await this.send();
       for (let index = 0; index < count; index++) {
-        clock = Math.max(clock, Date.parse(row().next_at));
+        this.toNextCheck();
         await worker.tick();
       }
     },
+    toNextCheck: () => (clock = Math.max(clock, Date.parse(row().next_at))),
     advance: (ms) => (clock += ms),
   };
 }
@@ -134,6 +138,28 @@ test("a plug's reply X may have made is never sent again, and still counts", asy
   assert.equal(w.replies().length, 1);
   assert.deepEqual(w.row().plugs_done, ["auto-plug"]);
   assert.deepEqual(w.counted(), ["x", "x", "xlink"]);
+});
+
+test("a plug's reply X refuses as a duplicate isn't kept as done", async (t) => {
+  const w = setup(t, {
+    plugs: [replyPlug],
+    likes: () => 50,
+    answer: (call) => (call.body?.reply ? Response.json({ detail: "You are not allowed to create a Tweet with duplicate content." }, { status: 403 }) : undefined),
+  });
+  await w.checks(1);
+  assert.equal(w.replies().length, 1);
+  assert.deepEqual(w.row().plugs_done, []);
+});
+
+test("two publishers checking a post at once repost and reply once", async (t) => {
+  const w = setup(t, { plugs: [repostPlug, replyPlug], likes: () => 50 });
+  await w.send();
+  const other = w.publisher();
+  w.toNextCheck();
+  await Promise.all([w.worker.tick(), other.tick()]);
+  assert.equal(w.reposts().length, 1);
+  assert.equal(w.replies().length, 1);
+  assert.deepEqual(w.row().plugs_done, ["auto-repost", "auto-plug"]);
 });
 
 test("a plug's reply X made is never sent again when keeping it fails", async (t) => {
