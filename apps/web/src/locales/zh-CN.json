@@ -3890,5 +3890,6 @@
   "Allow pop-ups for this site, then try again.": "请允许此网站弹出窗口，然后重试。",
   "{count, plural, =1 {Getting a file from Google Drive…} other {Getting # files from Google Drive…}}": "{count, plural, =1 {正在从 Google 云端硬盘获取文件…} other {正在从 Google 云端硬盘获取 # 个文件…}}",
   "{count, plural, =1 {Couldn't get a file from Google Drive} other {Couldn't get # files from Google Drive}}": "{count, plural, =1 {无法从 Google 云端硬盘获取文件} other {无法从 Google 云端硬盘获取 # 个文件}}",
-  "Optional. MP4, MOV, JPG or PNG.": "可选。MP4、MOV、JPG 或 PNG。"
+  "Optional. MP4, MOV, JPG or PNG.": "可选。MP4、MOV、JPG 或 PNG。",
+  "Import from Google Drive": "从 Google 云端硬盘导入"
 }

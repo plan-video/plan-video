@@ -3890,5 +3890,6 @@
   "Allow pop-ups for this site, then try again.": "Bu site için açılır pencerelere izin ver, sonra tekrar dene.",
   "{count, plural, =1 {Getting a file from Google Drive…} other {Getting # files from Google Drive…}}": "{count, plural, =1 {Google Drive'dan bir dosya alınıyor…} other {Google Drive'dan # dosya alınıyor…}}",
   "{count, plural, =1 {Couldn't get a file from Google Drive} other {Couldn't get # files from Google Drive}}": "{count, plural, =1 {Google Drive'dan bir dosya alınamadı} other {Google Drive'dan # dosya alınamadı}}",
-  "Optional. MP4, MOV, JPG or PNG.": "İsteğe bağlı. MP4, MOV, JPG veya PNG."
+  "Optional. MP4, MOV, JPG or PNG.": "İsteğe bağlı. MP4, MOV, JPG veya PNG.",
+  "Import from Google Drive": "Google Drive'dan içe aktar"
 }

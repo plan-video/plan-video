@@ -3890,5 +3890,6 @@
   "Allow pop-ups for this site, then try again.": "このサイトのポップアップを許可してから、もう一度お試しください。",
   "{count, plural, =1 {Getting a file from Google Drive…} other {Getting # files from Google Drive…}}": "{count, plural, =1 {Google ドライブからファイルを取得しています…} other {Google ドライブから#件のファイルを取得しています…}}",
   "{count, plural, =1 {Couldn't get a file from Google Drive} other {Couldn't get # files from Google Drive}}": "{count, plural, =1 {Google ドライブからファイルを取得できませんでした} other {Google ドライブから#件のファイルを取得できませんでした}}",
-  "Optional. MP4, MOV, JPG or PNG.": "任意。MP4、MOV、JPG、PNG。"
+  "Optional. MP4, MOV, JPG or PNG.": "任意。MP4、MOV、JPG、PNG。",
+  "Import from Google Drive": "Google ドライブから読み込む"
 }

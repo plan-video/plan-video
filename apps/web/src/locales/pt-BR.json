@@ -3890,5 +3890,6 @@
   "Allow pop-ups for this site, then try again.": "Permita pop-ups para este site e tente de novo.",
   "{count, plural, =1 {Getting a file from Google Drive…} other {Getting # files from Google Drive…}}": "{count, plural, =1 {Buscando um arquivo no Google Drive…} other {Buscando # arquivos no Google Drive…}}",
   "{count, plural, =1 {Couldn't get a file from Google Drive} other {Couldn't get # files from Google Drive}}": "{count, plural, =1 {Não foi possível buscar um arquivo no Google Drive} other {Não foi possível buscar # arquivos no Google Drive}}",
-  "Optional. MP4, MOV, JPG or PNG.": "Opcional. MP4, MOV, JPG ou PNG."
+  "Optional. MP4, MOV, JPG or PNG.": "Opcional. MP4, MOV, JPG ou PNG.",
+  "Import from Google Drive": "Importar do Google Drive"
 }

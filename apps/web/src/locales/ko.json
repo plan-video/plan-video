@@ -3890,5 +3890,6 @@
   "Allow pop-ups for this site, then try again.": "이 사이트의 팝업을 허용한 다음 다시 시도하세요.",
   "{count, plural, =1 {Getting a file from Google Drive…} other {Getting # files from Google Drive…}}": "{count, plural, =1 {Google Drive에서 파일을 가져오는 중…} other {Google Drive에서 파일 #개를 가져오는 중…}}",
   "{count, plural, =1 {Couldn't get a file from Google Drive} other {Couldn't get # files from Google Drive}}": "{count, plural, =1 {Google Drive에서 파일을 가져오지 못했습니다} other {Google Drive에서 파일 #개를 가져오지 못했습니다}}",
-  "Optional. MP4, MOV, JPG or PNG.": "선택 사항이에요. MP4, MOV, JPG, PNG."
+  "Optional. MP4, MOV, JPG or PNG.": "선택 사항이에요. MP4, MOV, JPG, PNG.",
+  "Import from Google Drive": "Google Drive에서 가져오기"
 }
