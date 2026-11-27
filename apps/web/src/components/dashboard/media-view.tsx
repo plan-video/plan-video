@@ -13,6 +13,7 @@ import { createProjectMarquee } from "@/components/dashboard/project-marquee";
 import { PlaneButton } from "@/components/dashboard/plane-button";
 import { PlaneIcon } from "@/components/dashboard/plane-icons";
 import { PlatformLogo, createDropHandlers } from "@/components/publish/controls";
+import { GoogleDriveLogo } from "@/components/publish/google-drive-logo";
 import { PictureEditor } from "@/components/publish/picture-editor";
 import { handOffFiles } from "@/components/publish/handoff";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Icon } from "@/components/dashboard/dashboard-icon";
 import { cloudEnabled, cloudUsage } from "@/lib/cloud-storage";
+import { driveAvailable, pickFromDrive } from "@/lib/google-drive";
 import { cx } from "@/lib/cva";
 import { intlLocale, msg, t } from "@/lib/i18n";
 import { droppedFiles, pickFiles } from "@/engine/asset-actions";
@@ -45,7 +47,7 @@ import {
   type MediaItem,
 } from "@/lib/media-library";
 import { SOCIAL_PLATFORMS, formatDuration, isAspect, type PlatformId } from "@/lib/social";
-import { MEDIA_LIMITS, POSTABLE_FILES, formatBytes, videoProblems } from "@/lib/social-media";
+import { MEDIA_LIMITS, POSTABLE_FILES, formatBytes, postableTooLarge, videoProblems } from "@/lib/social-media";
 
 type Filter = MediaItem["kind"] | "all";
 type Sort = "newest" | "oldest" | "name" | "largest" | "longest" | "most-used";
@@ -247,6 +249,7 @@ export function DashboardMediaView() {
   };
 
   const pick = async () => void upload(await pickFiles({ accept: POSTABLE_FILES }));
+  const pickDrive = async () => void upload(await pickFromDrive({ accept: POSTABLE_FILES, tooLarge: postableTooLarge }));
 
   const useInPost = async (chosen: readonly MediaItem[]) => {
     const problem = postProblem(chosen);
@@ -432,6 +435,12 @@ export function DashboardMediaView() {
             <LayoutButton label={t("Grid")} icon="view.grid" pressed={layout() === "grid"} onClick={() => setLayout("grid")} />
             <LayoutButton label={t("List")} icon="list" pressed={layout() === "list"} onClick={() => setLayout("list")} />
           </div>
+          <Show when={driveAvailable()}>
+            <PlaneButton variant="ghost" size="lg" class="gap-1.5 pl-1.5" aria-label="Google Drive" onClick={() => void pickDrive()}>
+              <GoogleDriveLogo class="size-3.5" />
+              <span class="max-md:hidden">Google Drive</span>
+            </PlaneButton>
+          </Show>
           <PlaneButton variant="primary" size="lg" class="gap-1 pl-1.5" onClick={() => void pick()}>
             <PlaneIcon name="plus" class="size-3.5" />
             {t("Upload")}
@@ -445,7 +454,7 @@ export function DashboardMediaView() {
             <div class="flex w-full flex-col gap-3 px-6 pt-6 pb-24 max-md:px-4">
               <Show when={!mediaLoadError()} fallback={<p class="py-16 text-center text-xs text-destructive">{t(mediaLoadError() ?? "")}</p>}>
                 <Show when={mediaLoaded()} fallback={<Skeleton />}>
-                  <Show when={mediaItems().length || progress()} fallback={<EmptyLibrary dragging={dragging()} onUpload={() => void pick()} />}>
+                  <Show when={mediaItems().length || progress()} fallback={<EmptyLibrary dragging={dragging()} onUpload={() => void pick()} onDrive={() => void pickDrive()} />}>
                     <Show when={progress() || usage()}>
                       <div class="flex h-6 items-center justify-end gap-3 text-xs text-muted-foreground">
                         <Show when={!progress() && usage()}>
@@ -1225,7 +1234,7 @@ function Skeleton() {
   );
 }
 
-function EmptyLibrary(props: { dragging: boolean; onUpload(): void }) {
+function EmptyLibrary(props: { dragging: boolean; onUpload(): void; onDrive(): void }) {
   return (
     <div
       class="flex flex-col items-center gap-4 rounded-xl border border-dashed px-6 pt-8 pb-16 text-center transition-colors"
@@ -1240,6 +1249,12 @@ function EmptyLibrary(props: { dragging: boolean; onUpload(): void }) {
         <Button class="px-3" onClick={() => props.onUpload()}>
           {t("Upload files")}
         </Button>
+        <Show when={driveAvailable()}>
+          <Button variant="secondary" class="gap-1.5 px-3" onClick={() => props.onDrive()}>
+            <GoogleDriveLogo class="size-4" />
+            Google Drive
+          </Button>
+        </Show>
       </div>
       <p class="text-xs text-muted-foreground">{t(ACCEPTED)}</p>
     </div>
