@@ -68,7 +68,7 @@ const PostAccount = z.object({
   platform: PlatformId,
   accountId: z.string().describe("Empty when the post names a platform but no account."),
   handle: z.string().describe("Account name. Empty when that account is no longer connected."),
-  publishes: z.boolean().describe("True when Plan Video can send to this platform."),
+  publishes: z.boolean().describe("True when plan.video can send to this platform."),
 });
 
 const PostDelivery = z.object({
@@ -115,7 +115,7 @@ export const socialAccounts = defineTool({
   name: "social_accounts",
   title: "Social accounts",
   description:
-    "List the social accounts connected in Plan Video. Call this before scheduling and use the returned ids. Tokens are never returned. When a platform has more than one account, schedule_post has to be given an id from here.",
+    "List the social accounts connected in plan.video. Call this before scheduling and use the returned ids. Tokens are never returned. When a platform has more than one account, schedule_post has to be given an id from here.",
   input: z.object({}),
   output: z.object({
     timeZone: z.string().describe("The dashboard time zone. Day and time arguments are read in this zone."),
@@ -123,8 +123,8 @@ export const socialAccounts = defineTool({
       id: z.string(),
       platform: PlatformId,
       handle: z.string(),
-      publishes: z.boolean().describe("True when Plan Video can send to this platform."),
-      ready: z.boolean().describe("A login is stored for a platform Plan Video sends to, so posts to it can go out. False for a name saved without that login, and for a platform Plan Video doesn't send to yet."),
+      publishes: z.boolean().describe("True when plan.video can send to this platform."),
+      ready: z.boolean().describe("A login is stored for a platform plan.video sends to, so posts to it can go out. False for a name saved without that login, and for a platform plan.video doesn't send to yet."),
       scheduledRoom: z.number().int().nullable().describe("How many more scheduled posts this account can have waiting, on the Free plan's limit. Null when the plan has no limit."),
     })),
   }),
@@ -134,7 +134,7 @@ export const socialSchema = defineTool({
   name: "social_schema",
   title: "Platform rules",
   description:
-    "Posting rules for each platform: caption limit, what it accepts, and whether Plan Video can publish it. Call this before writing a caption for a short platform such as X or Bluesky. One caption is shared by every platform on a post.",
+    "Posting rules for each platform: caption limit, what it accepts, and whether plan.video can publish it. Call this before writing a caption for a short platform such as X or Bluesky. One caption is shared by every platform on a post.",
   input: z.object({
     platform: PlatformId.optional().describe("One platform. Omit for every platform."),
   }),
@@ -181,7 +181,7 @@ export const schedulePost = defineTool({
   name: "schedule_post",
   title: "Schedule post",
   description:
-    "Save a post on the Plan Video calendar. A scheduled post goes out on its own at its day and time, from Plan Video's servers, even with the app closed, once it has synced to the account, so the app has to stay open until then. A draft stays until the user schedules it. Pass platforms and a caption, then either a future day and time or draft true. Call social_accounts first, and pass account ids when a platform has more than one account. Attach one local video, or pictures for a carousel, with media. A platform whose publishes is false in social_schema is only kept on the calendar.",
+    "Save a post on the plan.video calendar. A scheduled post goes out on its own at its day and time, from plan.video's servers, even with the app closed, once it has synced to the account, so the app has to stay open until then. A draft stays until the user schedules it. Pass platforms and a caption, then either a future day and time or draft true. Call social_accounts first, and pass account ids when a platform has more than one account. Attach one local video, or pictures for a carousel, with media. A platform whose publishes is false in social_schema is only kept on the calendar.",
   input: z.object(postFields),
   output: ScheduledPost,
 });
@@ -260,7 +260,7 @@ export const publishPost = defineTool({
   name: "publish_post",
   title: "Publish post",
   description:
-    "Send a saved post now. Every platform on the post has to be one Plan Video sends to, with publishes true in social_schema, which also says what media each needs. This cannot be undone. Do not call it unless the user asked to publish now. Plan Video has to stay open until this answers. Call it again to retry a failed send. A post to the TikTok profile needs tiktok_creator first and agreed true.",
+    "Send a saved post now. Every platform on the post has to be one plan.video sends to, with publishes true in social_schema, which also says what media each needs. This cannot be undone. Do not call it unless the user asked to publish now. plan.video has to stay open until this answers. Call it again to retry a failed send. A post to the TikTok profile needs tiktok_creator first and agreed true.",
   input: z.object({
     id: z.string().min(1),
     agreed: z
