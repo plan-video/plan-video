@@ -14,11 +14,11 @@ import { Checkbox, CheckboxControl, CheckboxInput } from "@/components/ui/checkb
 import { Icon } from "@/components/dashboard/dashboard-icon";
 import { DashboardPageHeader } from "@/components/dashboard/page-header";
 import { SeePlansButton } from "@/components/dashboard/paid-lock";
+import { BulkArt } from "@/components/dashboard/empty-art";
 import { Popover, PopoverContent, PopoverPortal, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   CharCount,
-  DropZone,
   Field,
   PlatformLogo,
   PlatformLogos,
@@ -1049,17 +1049,25 @@ function ScheduleRange(props: { posts: readonly BulkPost[] }) {
 
 function EmptyState(props: { dragging: boolean; reading: boolean; onPick(): void; actions: JSX.Element }) {
   return (
-    <div class="flex min-h-0 flex-1 p-6 max-md:p-3">
-      <DropZone
-        icon="layers"
-        title={props.reading ? t("Reading…") : t("Drop a batch of videos or pictures")}
-        hint={t("Each file becomes its own post or story: an MP4 or MOV up to 5 minutes, or a JPG or PNG. Up to {count} at a time.", { count: MAX_POSTS })}
-        pickLabel={t("Choose files")}
-        dragging={props.dragging}
-        onPick={() => props.onPick()}
-        actions={props.actions}
-        class="flex-1"
-      />
+    <div class="flex min-h-0 flex-1 p-2">
+      <div
+        class="flex flex-1 flex-col items-center gap-4 rounded-xl border border-dashed px-6 pt-8 pb-16 text-center transition-colors"
+        classList={{ "border-primary bg-primary/5": props.dragging, "border-transparent": !props.dragging }}
+      >
+        <BulkArt />
+        <div class="flex flex-col gap-1">
+          <h2 class="text-sm font-medium text-foreground">{props.reading ? t("Reading…") : t("Drop a batch of videos or pictures")}</h2>
+          <p class="max-w-lg text-xs text-balance text-muted-foreground">
+            {t("Each file becomes its own post or story: an MP4 or MOV up to 5 minutes, or a JPG or PNG. Up to {count} at a time.", { count: MAX_POSTS })}
+          </p>
+        </div>
+        <div class="flex flex-wrap justify-center gap-2">
+          <Button class="px-3" disabled={props.reading} onClick={() => props.onPick()}>
+            {t("Choose files")}
+          </Button>
+          {props.actions}
+        </div>
+      </div>
     </div>
   );
 }
