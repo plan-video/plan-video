@@ -261,6 +261,9 @@ export function createX({ limits, log = console }) {
 
     /** For plugs.mjs. Reposts and replies count as posts in the plan's X limits. */
     plug: {
+      /** Before any read: a plan past its X posts can't plug, so its look would be billed for nothing. */
+      ready: (row) => limits.xAllowed(row.user_id, false),
+
       /** Every look is a read X bills, so plugs.mjs asks only while a plug waits on the post. */
       async find(row, session) {
         if (!/^\d{1,30}$/.test(row.publish_id ?? "")) return null;

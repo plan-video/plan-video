@@ -190,9 +190,29 @@ test("a plug past the plan's X posts never reaches X", async (t) => {
   const at = new Date(T0).toISOString();
   for (let index = 0; index < 149; index++) w.db.tables.publisher_uploads.push({ user_id: "u1", platform: "x", at });
   await w.checks(3);
+  assert.equal(w.reads().length, 0);
   assert.equal(w.reposts().length, 0);
   assert.deepEqual(w.row().plugs_done, []);
   assert.equal(w.row().plug_checks, 3);
+});
+
+test("a plug's reply X would count as over 280 never reaches X", async (t) => {
+  const w = setup(t, { plugs: [{ ...replyPlug, message: "あ".repeat(141) }], likes: () => 50 });
+  await w.checks(3);
+  assert.equal(w.replies().length, 0);
+  assert.deepEqual(w.row().plugs_done, []);
+});
+
+test("a check that runs late counts the checks it missed, so X isn't read back to back", async (t) => {
+  const w = setup(t, { plugs: [repostPlug], likes: () => 0 });
+  await w.send();
+  const sentAt = Date.parse(w.row().updated_at);
+  w.advance(13 * HOUR);
+  await w.worker.tick();
+  await w.worker.tick();
+  assert.equal(w.reads().length, 1);
+  assert.equal(w.row().plug_checks, 2);
+  assert.equal(Date.parse(w.row().next_at), sentAt + 18 * HOUR);
 });
 
 test("a look at X that fails for now is tried again until the next check, then waits for it", async (t) => {
@@ -207,13 +227,6 @@ test("a look at X that fails for now is tried again until the next check, then w
   assert.equal(w.row().plug_checks, 1);
   assert.ok(w.reads().length <= 24, `${w.reads().length} looks in one check`);
   assert.equal(Date.parse(w.row().next_at), sentAt + 12 * HOUR);
-});
-
-test("a plug's reply X would count as over 280 never reaches X", async (t) => {
-  const w = setup(t, { plugs: [{ ...replyPlug, message: "あ".repeat(141) }], likes: () => 50 });
-  await w.checks(3);
-  assert.equal(w.replies().length, 0);
-  assert.deepEqual(w.row().plugs_done, []);
 });
 
 test("a post deleted on X ends its plugs, without being read again", async (t) => {

@@ -762,7 +762,11 @@ export function createWorker({
     const finish = (values) => db.update("post_deliveries", { id: row.id }, values);
     // updated_at stays when the post went out, since checks don't touch it, so checks keep to their hours.
     const sentAt = Date.parse(row.updated_at);
-    const checked = () => finish({ plug_checks: row.plug_checks + 1, next_at: iso(sentAt + (row.plug_checks + 2) * PLUG_EVERY_MS) });
+    // A late check stands in for the ones whose times have passed too, so X isn't read again straight away.
+    const checked = () => {
+      const checks = Math.min(PLUG_CHECKS, Math.max(row.plug_checks + 1, Math.floor((now() - sentAt) / PLUG_EVERY_MS)));
+      return finish({ plug_checks: checks, next_at: iso(sentAt + (checks + 1) * PLUG_EVERY_MS) });
+    };
     try {
       const settings = (await db.rpc("publisher_plugs", { owner: row.user_id, workspace: row.workspace_id })) ?? [];
       const wanted = plugs.forAccount(settings, row.connection_id, row.platform, sentAt).filter((plug) => !row.plugs_done.includes(plug.kind));
