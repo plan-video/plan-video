@@ -155,6 +155,22 @@ describe("createTracker", () => {
       [0.2, 2, 136],
     ]);
   });
+
+  it("moves the whole stack up together when one leaves the top as a look-alike joins the bottom", () => {
+    const S = { notch: 960, name: 6 };
+    expect(see([
+      { time: 0, shown: [{ top: 96, notch: 940, name: 4 }, { top: 136, ...S }, { top: 176, ...A }] },
+      { time: 0.1, shown: [{ top: 96, notch: 940, name: 4 }, { top: 136, ...S }, { top: 176, ...A }] },
+      // The scene behind the see-through panel changes A's look as it moves up; the new one below looks as A did.
+      { time: 0.2, shown: [{ top: 96, ...S }, { top: 136, ...A, name: 3 }, { top: 176, ...A }] },
+      { time: 0.3, shown: [{ top: 96, ...S }, { top: 136, ...A, name: 3 }, { top: 176, ...A }] },
+    ])).toEqual([
+      [0, 2, 96],
+      [0, 4, 136],
+      [0, 4, 176],
+      [0.2, 2, 176],
+    ]);
+  });
 });
 
 const reading = (killer: string, victim: string, headshot = false, fits: Reading["fits"] = { killer: { [killer]: 0.9 }, victim: { [victim]: 0.9 } }): Reading => ({
@@ -255,6 +271,10 @@ describe("arrival", () => {
     expect(at(["other", "other", "flash", "kill", "kill"], 4)).toBe(2);
   });
 
+  it("stops at the flash though the entry before it looks alike", () => {
+    expect(at(["kill", "kill", "flash", "kill", "kill"], 4)).toBe(2);
+  });
+
   it("follows back from the first frame that shows it, not the last", () => {
     // Caught at 2, then the stack moved it up and out of the slot.
     expect(at(["empty", "flash", "kill", "kill", "empty"], 2)).toBe(1);
@@ -329,6 +349,10 @@ describe("pickNames", () => {
 
   it("leaves a name it couldn't read clearly to the agent", () => {
     expect(pickNames([{ death: false }], [{ killer: name("ve", 25), victim: name("Taru", 0) }])).toEqual([{ killer: undefined, victim: undefined }]);
+  });
+
+  it("leaves to the agent what no player could be called: letters it can't read, like Korean, come out as these", () => {
+    expect(pickNames([{ death: false }], [{ killer: name("Lt", 77), victim: name("At}", 80) }])).toEqual([{ killer: undefined, victim: undefined }]);
   });
 });
 

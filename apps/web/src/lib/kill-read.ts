@@ -261,6 +261,8 @@ const LIKE = 0.3;
  * after it, since the stack may have moved meanwhile, and `gatherKills` joins the two sightings of each.
  */
 const NEXT = 0.25;
+/** How far apart two entries' moves can be and still be the stack moving as one. */
+const STEP_ROOM = 4;
 
 /**
  * Follows entries from frame to frame, through the stack moving up and a flash hiding it. The feed keeps its order:
@@ -282,24 +284,38 @@ export function createTracker() {
         return alike >= LIKE ? 1 + alike : -1;
       };
 
-      const n = before.length;
-      const m = rows.length;
-      const best = Array.from({ length: n + 1 }, () => new Float64Array(m + 1));
-      for (let i = 1; i <= n; i++) {
-        for (let j = 1; j <= m; j++) {
-          const pair = fit(before[i - 1]!, rows[j - 1]!);
-          best[i]![j] = Math.max(best[i - 1]![j]!, best[i]![j - 1]!, pair > 0 ? best[i - 1]![j - 1]! + pair : -Infinity);
+      // The stack moves as one, so of the pairings in order, the one moving most entries by the same step wins.
+      const pairUp = (step: number) => {
+        const n = before.length;
+        const m = rows.length;
+        const best = Array.from({ length: n + 1 }, () => new Float64Array(m + 1));
+        for (let i = 1; i <= n; i++) {
+          for (let j = 1; j <= m; j++) {
+            const track = before[i - 1]!;
+            const row = rows[j - 1]!;
+            const like = fit(track, row);
+            const pair = like > 0 && Math.abs(row.top - track.row.top - step) <= STEP_ROOM * unit ? like + 1 : like;
+            best[i]![j] = Math.max(best[i - 1]![j]!, best[i]![j - 1]!, pair > 0 ? best[i - 1]![j - 1]! + pair : -Infinity);
+          }
         }
-      }
-      const pairs = new Map<FeedRow, Track>();
-      for (let i = n, j = m; i > 0 && j > 0; ) {
-        if (best[i]![j] === best[i - 1]![j]) i--;
-        else if (best[i]![j] === best[i]![j - 1]) j--;
-        else {
-          pairs.set(rows[j - 1]!, before[i - 1]!);
-          i--;
-          j--;
+        const pairs = new Map<FeedRow, Track>();
+        for (let i = n, j = m; i > 0 && j > 0; ) {
+          if (best[i]![j] === best[i - 1]![j]) i--;
+          else if (best[i]![j] === best[i]![j - 1]) j--;
+          else {
+            pairs.set(rows[j - 1]!, before[i - 1]!);
+            i--;
+            j--;
+          }
         }
+        return { pairs, score: best[n]![m]! };
+      };
+      const steps = new Set(before.flatMap((track) => rows.filter((row) => fit(track, row) > 0).map((row) => row.top - track.row.top)));
+      let pairs = new Map<FeedRow, Track>();
+      let top = -Infinity;
+      for (const step of steps) {
+        const tried = pairUp(step);
+        if (tried.score > top) ({ pairs, score: top } = tried);
       }
 
       const now: Track[] = [];
@@ -727,8 +743,13 @@ export function arrival(frames: { time: number; look: SlotLook }[], seen: number
   let at = frames.findIndex(({ time, look }) => time >= seen - 1e-6 && typeof look !== "string");
   if (at === -1) return null;
   const own = frames[at]!.look as Float32Array;
-  const same = (look: SlotLook) => look === "flash" || (look instanceof Float32Array && correlation(look, own) >= 0.7);
-  while (at > 0 && same(frames[at - 1]!.look)) at--;
+  // An entry comes in as a flash, so whatever showed before its flash was another entry, however alike.
+  let flashed = false;
+  const same = (look: SlotLook) => look === "flash" || (!flashed && look instanceof Float32Array && correlation(look, own) >= 0.7);
+  while (at > 0 && same(frames[at - 1]!.look)) {
+    flashed ||= frames[at - 1]!.look === "flash";
+    at--;
+  }
   return frames[at]!.time;
 }
 
@@ -796,6 +817,10 @@ export function nameStrip(picture: RowPicture, span: [number, number], side: "ki
 
 /** Below this, text recognition is guessing. */
 const READABLE = 60;
+/** What Riot allows a player's name to be. Letters the English model can't read, like Korean, come out as something else. */
+const PLAYER_NAME = /^[\p{L}\p{N} ]{3,16}$/u;
+/** How the English game writes your own name. */
+const ME = "Me";
 
 /**
  * The players' names as read off each entry. You are the same name in every one, so the reading the entries agree
@@ -806,13 +831,13 @@ export function pickNames(
   kills: { death: boolean }[],
   read: { killer: { text: string; confidence: number }; victim: { text: string; confidence: number } }[],
 ): { killer?: string; victim?: string }[] {
+  const clear = (name: { text: string; confidence: number }) => (name.confidence >= READABLE && PLAYER_NAME.test(name.text) ? name.text : undefined);
   const sure = new Map<string, number>();
   kills.forEach((kill, index) => {
     const mine = kill.death ? read[index]!.victim : read[index]!.killer;
-    if (mine.text && mine.confidence >= READABLE) sure.set(mine.text, (sure.get(mine.text) ?? 0) + mine.confidence);
+    if (mine.confidence >= READABLE && (mine.text === ME || PLAYER_NAME.test(mine.text))) sure.set(mine.text, (sure.get(mine.text) ?? 0) + mine.confidence);
   });
   const me = [...sure].sort((a, b) => b[1] - a[1])[0]?.[0];
-  const clear = (name: { text: string; confidence: number }) => (name.text && name.confidence >= READABLE ? name.text : undefined);
   return kills.map((kill, index) => ({
     killer: kill.death ? clear(read[index]!.killer) : me,
     victim: kill.death ? me : clear(read[index]!.victim),
