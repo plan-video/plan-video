@@ -6,9 +6,9 @@
     "test": "node --test"
   },
   "dependencies": {
-    "@atproto-labs/fetch-node": "^0.4.5",
+    "@atproto-labs/fetch-node": "^0.4.6",
     "@atproto/jwk-jose": "^0.2.4",
-    "@atproto/oauth-client-node": "^0.5.16",
-    "@aws-sdk/client-s3": "^3.1164.0"
+    "@atproto/oauth-client-node": "^0.5.19",
+    "@aws-sdk/client-s3": "^3.1173.0"
   }
 }
