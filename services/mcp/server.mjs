@@ -24,6 +24,8 @@ const ENV_PATH = process.env.MCP_ENV || "/etc/plan-video/mcp.env";
 const MCP_PATH = "/mcp";
 const TAB_PATH = "/api/mcp/tab";
 const METADATA_PATHS = new Set(["/.well-known/oauth-protected-resource", `/.well-known/oauth-protected-resource${MCP_PATH}`]);
+/** What directories read when their scan stops at the sign-in. */
+const SERVER_CARD_PATH = "/.well-known/mcp/server-card.json";
 
 // Any site may call /mcp from a browser: it only takes a bearer token, never a cookie.
 const CORS = {
@@ -89,6 +91,19 @@ const catalog = JSON.parse(readFileSync(new URL("./catalog.json", import.meta.ur
 // A copy hosted elsewhere sends the agent's user to its own site.
 catalog.instructions = catalog.instructions.replaceAll("https://plan.video", PUBLIC_URL);
 const TOOL_NAMES = new Set(catalog.tools.map((tool) => tool.name));
+const SERVER_INFO = { name: "plan-video", title: "plan.video", version };
+const SERVER_CARD = JSON.stringify({
+  serverInfo: SERVER_INFO,
+  description: "Plan, schedule and publish posts to YouTube, TikTok, Instagram, X, LinkedIn and more.",
+  websiteUrl: PUBLIC_URL,
+  transport: { type: "streamable-http", url: `${PUBLIC_URL}${MCP_PATH}` },
+  authentication: { required: true, schemes: ["oauth2"] },
+  capabilities: { tools: {} },
+  instructions: catalog.instructions,
+  tools: catalog.tools,
+  resources: [],
+  prompts: [],
+});
 
 const auth = createAuth({ supabaseUrl: env.SUPABASE_URL, supabaseAnonKey: env.SUPABASE_ANON_KEY });
 const relay = new Relay({ site: PUBLIC_URL });
@@ -171,7 +186,7 @@ function toContent(output) {
 
 function mcpServer(userId) {
   const server = new Server(
-    { name: "plan-video", title: "plan.video", version },
+    SERVER_INFO,
     { capabilities: { tools: {} }, instructions: catalog.instructions },
   );
   server.setRequestHandler(ListToolsRequestSchema, () => ({ tools: catalog.tools }));
@@ -354,6 +369,12 @@ const server = createServer((req, res) => {
       resource_name: "plan.video",
       resource_documentation: PUBLIC_URL,
     }, { "Access-Control-Allow-Origin": "*" });
+    return;
+  }
+
+  if (path === SERVER_CARD_PATH && req.method === "GET") {
+    res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "public, max-age=3600", "Access-Control-Allow-Origin": "*" });
+    res.end(SERVER_CARD);
     return;
   }
 

@@ -55,7 +55,7 @@ your-domain.com {
 		}
 	}
 	# Agents, and the WebSocket each open tab keeps to the MCP server.
-	@mcp path /mcp /api/mcp/tab /.well-known/oauth-protected-resource*
+	@mcp path /mcp /api/mcp/tab /.well-known/oauth-protected-resource* /.well-known/mcp/*
 	handle @mcp {
 		reverse_proxy 127.0.0.1:8791
 	}

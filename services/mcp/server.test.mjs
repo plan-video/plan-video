@@ -5,7 +5,7 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { connect } from "node:net";
 import { tmpdir } from "node:os";
@@ -431,4 +431,14 @@ test("a browser on another site can reach /mcp and read why it was refused", asy
   assert.equal(refused.status, 401);
   assert.equal(refused.headers.get("access-control-allow-origin"), "*");
   assert.match(refused.headers.get("access-control-expose-headers"), /WWW-Authenticate/i);
+});
+
+test("directories that can't sign in read the tools from the server card", async () => {
+  const res = await fetch(`http://127.0.0.1:${port}/.well-known/mcp/server-card.json`);
+  assert.equal(res.status, 200);
+  const card = await res.json();
+  assert.equal(card.authentication.required, true);
+  assert.match(card.transport.url, /\/mcp$/);
+  const catalog = JSON.parse(readFileSync(new URL("./catalog.json", import.meta.url), "utf8"));
+  assert.deepEqual(card.tools.map((tool) => tool.name), catalog.tools.map((tool) => tool.name));
 });
