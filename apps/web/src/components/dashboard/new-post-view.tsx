@@ -78,6 +78,7 @@ import {
 } from "@/components/calendar/utils";
 import { takeHandOff, takeHandedFiles } from "@/components/publish/handoff";
 import { MediaPicker } from "@/components/publish/media-picker";
+import { GoogleDriveLogo } from "@/components/publish/google-drive-logo";
 import { PictureEditor } from "@/components/publish/picture-editor";
 import { VideoEditor } from "@/components/publish/video-editor";
 import { PUBLISHING_PLATFORMS, sendPost } from "@/components/publish/publisher";
@@ -85,6 +86,7 @@ import { RepeatEndField, RepeatField } from "@/components/publish/repeat-field";
 import { PlatformSettingsFields, platformsWithSettings, tiktokLimitIssues } from "@/components/publish/platform-settings";
 import { WhenOptions } from "@/components/publish/when-fields";
 import { useAuth } from "@/context/auth";
+import { driveAvailable, pickFromDrive } from "@/lib/google-drive";
 import { askForAccount } from "@/lib/guest";
 import { droppedFiles, pickFiles } from "@/engine/asset-actions";
 import { projectRoute, useReturnHere } from "@/hooks/use-project-route";
@@ -158,6 +160,7 @@ import {
   imageFileProblem,
   mediaKind,
   mediaProblems,
+  postableTooLarge,
   readMedia,
   releaseMedia,
   summarizeMedia,
@@ -1648,10 +1651,9 @@ function MediaEditor(props: { slot: MediaSlot }) {
     }
   };
 
-  const pick = async () =>
-    void addFiles(
-      await pickFiles({ accept: post.kind === "image" ? POSTABLE_IMAGES : post.kind === "video" ? POSTABLE_VIDEOS : POSTABLE_FILES }),
-    );
+  const accept = () => (post.kind === "image" ? POSTABLE_IMAGES : post.kind === "video" ? POSTABLE_VIDEOS : POSTABLE_FILES);
+  const pick = async () => void addFiles(await pickFiles({ accept: accept() }));
+  const pickDrive = async () => void addFiles(await pickFromDrive({ accept: accept(), multiple: post.kind !== "video", tooLarge: postableTooLarge }));
 
   const remove = (id: string) => {
     const gone = items().filter((entry) => entry.id === id);
@@ -1714,6 +1716,12 @@ function MediaEditor(props: { slot: MediaSlot }) {
                   <Icon name="all-media-types" class="-ml-1.5 size-5" />
                   {t("From library")}
                 </MediaPicker>
+                <Show when={driveAvailable()}>
+                  <button type="button" class={cx(dropZoneAction, "gap-1.5")} onClick={() => void pickDrive()}>
+                    <GoogleDriveLogo class="-ml-0.5 size-4" />
+                    Google Drive
+                  </button>
+                </Show>
                 <Show when={post.kind !== "image" && !slot.platform}>
                   <ProjectPicker class={cx(dropZoneAction, "max-md:hidden")} onPick={(project) => void attachProject(project)}>
                     <Icon name="navigation.folder" class="-ml-1.5 size-5" />
