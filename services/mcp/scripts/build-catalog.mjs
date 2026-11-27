@@ -39,7 +39,7 @@ const DESTRUCTIVE = new Set(["delete_elements", "delete_post", "publish_post"]);
 const OPEN_WORLD = new Set(["publish_post"]);
 
 /** In the order an agent meets them. */
-const POSTING = ["social_accounts", "social_schema", "tiktok_creator", "analytics", "list_media", "schedule_post", "copy_post", "list_posts", "update_post", "delete_post", "publish_post"];
+const POSTING = ["social_accounts", "social_schema", "tiktok_creator", "analytics", "list_media", "schedule_post", "copy_post", "list_posts", "update_post", "ask_for_approval", "delete_post", "publish_post"];
 
 /** On the website, media comes from the person's library, not a path on their machine. */
 const MEDIA =
@@ -55,6 +55,7 @@ How to work:
 - TikTok asks for a few answers before a post goes to someone's profile, scheduled or published. Call tiktok_creator first, then in one message tell the user which account it posts as, and ask who can watch (from its choices; there is no default), whether to allow comments, Duet and Stitch, and whether the post promotes their own brand, a third party, both or nothing. Show TikTok's consent line from tiktok_creator word for word with its links, and pass agreed true only after they say yes.
 - Posts that went out can't be changed, but copy_post makes a new post from any post, with its file and settings, on the day and time asked. When the user refers to posts they made, find them with list_posts rather than asking for the content again.
 - When asked for the best days or times, or how they're doing, call analytics first and go by the weekdays and hours with the highest median views. When it says there's too little to go on, say so and pick sensible times.
+- When the user wants a client or their team to approve a post first, call ask_for_approval and give them the link it returns. A post waiting for approval, or sent back with changes, doesn't go out; it's scheduled once it's approved.
 - When several posts are asked for, spread them sensibly over the days and times given, and don't put two on one channel at the same time.
 - After you schedule or change posts, say briefly what you did: where each goes, when, and its caption if it's short.`;
 

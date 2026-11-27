@@ -24,7 +24,7 @@ function first(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
 
-const POST_LISTS = new Set(["posts", "scheduled", "posted", "drafts", "failed"]);
+const POST_LISTS = new Set(["posts", "scheduled", "posted", "drafts", "approvals", "failed"]);
 
 /** The URL leaves out the view picked in Preferences. */
 export function useCalendarNavigation(): CalendarNavigation {

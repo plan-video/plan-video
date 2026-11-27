@@ -10,11 +10,11 @@ const T0 = Date.parse("2026-10-12T16:00:00Z");
 const VIDEO = { key: "posts/u1/p1", size: 10, type: "video/mp4", kind: "video" };
 const picture = (id) => ({ key: `posts/u1/${id}`, size: 10, type: "image/jpeg", kind: "image" });
 
-function setup({ posts, send, check, publish, file = VIDEO, sendFrom = 0, wait = async () => {} } = {}) {
+function setup({ posts, rules, send, check, publish, file = VIDEO, sendFrom = 0, wait = async () => {} } = {}) {
   let clock = T0;
   const stored = new Map([["p1", file]]);
   const looked = [];
-  const db = fakeDb({ posts });
+  const db = fakeDb({ posts, rules });
   const calls = [];
   const published = [];
   const network = (name) => ({
@@ -340,6 +340,47 @@ test("a post deleted, paused or taken off a network before its turn isn't sent",
   await worker.tick();
   assert.equal(calls.length, 0);
   assert.match(db.tables.post_deliveries[0].error, /paused/);
+});
+
+test("a post waiting for approval never goes out, not even by Post now, until it's approved", async () => {
+  const entry = scheduled({ platforms: ["youtube"], approval: { state: "pending" } });
+  const { db, worker, calls } = setup({ posts: [entry] });
+  await worker.tick();
+  assert.equal(calls.length, 0);
+  assert.equal(db.tables.post_deliveries.length, 0);
+  await assert.rejects(worker.request("u1", "p1"), /waiting for approval/);
+  entry.post.approval = { state: "changes" };
+  await assert.rejects(worker.request("u1", "p1"), /waiting for approval/);
+  assert.equal(db.tables.post_deliveries.length, 0);
+  entry.post.approval = { state: "approved" };
+  await worker.tick();
+  assert.deepEqual(calls.map((call) => call.name), ["youtube"]);
+});
+
+test("a post sent for approval after its run was planned isn't sent", async () => {
+  const entry = scheduled({ platforms: ["youtube"] });
+  const { db, worker, calls } = setup({ posts: [entry] });
+  await worker.plan();
+  entry.post.approval = { state: "pending" };
+  await worker.tick();
+  assert.equal(calls.length, 0);
+  assert.match(db.tables.post_deliveries[0].error, /approval/);
+});
+
+test("where members need approval, a member's Post now sends only a post an approver scheduled", async () => {
+  const entry = scheduled({ platforms: ["youtube"], status: "draft" });
+  const { worker, calls } = setup({ posts: [entry], rules: ["u1|w1"] });
+  await assert.rejects(worker.request("u1", "p1", "w1", "member"), /need approval/);
+  entry.post.status = "scheduled";
+  await worker.request("u1", "p1", "w1", "member");
+  await worker.tick();
+  assert.deepEqual(calls.map((call) => call.name), ["youtube"]);
+
+  const other = scheduled({ platforms: ["youtube"], status: "draft" });
+  const admin = setup({ posts: [other], rules: ["u1|w1"] });
+  await admin.worker.request("u1", "p1", "w1", "admin");
+  await admin.worker.tick();
+  assert.deepEqual(admin.calls.map((call) => call.name), ["youtube"]);
 });
 
 test("an upload the network is still processing is checked until it's up", async () => {

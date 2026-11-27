@@ -23,7 +23,7 @@ import { DEFAULT_WORKSPACE, WORKSPACE_DATABASES, storageKeyFor, workspaceDatabas
 import { eraseProjectsById } from "@/projects/host";
 
 /** Raise when the sample data changes, so a demo made before starts over. */
-const VERSION = 2;
+const VERSION = 3;
 
 const DAY_MS = 86_400_000;
 const HOUR_MS = 3_600_000;
@@ -88,6 +88,8 @@ type Sample = {
   clip?: Clip;
   /** Later posts are scheduled unless they're drafts. Earlier ones went out. */
   draft?: boolean;
+  /** A draft someone asked to have approved. */
+  approval?: true;
   repeat?: string;
 };
 
@@ -113,7 +115,7 @@ const POSTS: readonly Sample[] = [
   { title: msg("Weekly tip"), day: 4, time: "09:00", calendar: "posts", platforms: ["tiktok"], clip: "vlogger", repeat: "every:1:week", caption: msg("Cut on the breath, not on the word. #editing") },
   { title: msg("Podcast clip"), day: 5, time: "18:00", calendar: "podcast", platforms: ["youtube", "x"], clip: "creator", caption: msg("The one answer from this episode worth a minute of your day.") },
   { title: msg("How it works"), day: 6, time: "10:00", calendar: "posts", platforms: ["youtube"], clip: "vlogger", caption: msg("The full walkthrough: from an empty project to a scheduled post.") },
-  { title: msg("Changelog"), day: 7, time: "11:00", calendar: "updates", platforms: ["linkedin"], draft: true, caption: msg("What shipped this month.") },
+  { title: msg("Changelog"), day: 7, time: "11:00", calendar: "updates", platforms: ["linkedin"], draft: true, approval: true, caption: msg("What shipped this month.") },
   { title: msg("Launch recap"), day: 10, time: "17:00", calendar: "launch", platforms: ["youtube", "tiktok", "instagram"], clip: "creator", caption: msg("A week on: what worked, and what we'd do again.") },
   { title: msg("Podcast clip"), day: 12, time: "18:00", calendar: "podcast", platforms: ["youtube", "x"], clip: "creator", caption: msg("Two minutes on why we post every day.") },
   { title: msg("Q&A clip"), day: 14, time: "11:00", calendar: "qa", platforms: ["youtube", "instagram"], clip: "creator", caption: msg("What we'd tell anyone starting a channel this year.") },
@@ -189,6 +191,7 @@ function demoPosts(now: number): { calendars: Calendar[]; events: StoredEvent[] 
       recurrenceEnd: null,
       ...(posted && Object.keys(deliveries).length ? { deliveries } : {}),
       sendFrom: new Date(now).toISOString(),
+      ...(sample.approval && !posted ? { approval: { state: "pending" as const, by: "Sam", at: new Date(now - 2 * HOUR_MS).toISOString() } } : {}),
       start,
       status: posted ? "posted" : sample.draft ? "draft" : "scheduled",
       timeZone: zone,

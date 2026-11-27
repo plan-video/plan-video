@@ -10,7 +10,7 @@ The **Calendar** shows every post: drafts, scheduled posts and posts that have g
 
 The calendar opens in month view; change that under **Preferences** → **Open the calendar in**. Press <kbd>T</kbd> for today, and the arrow keys to go back and forward. In month view, click a day to open its week.
 
-The sidebar lists your posts by status: **Scheduled**, **Drafts** and **Posted**, with **Failed** appearing when a post didn't go out. Each opens the list showing only those posts.
+The sidebar lists your posts by status: **Scheduled**, **Drafts** and **Posted**, with **Needs approval** appearing while a post waits for [approval](/docs/clients#approvals) and **Failed** when a post didn't go out. Each opens the list showing only those posts.
 
 ## Move a post
 

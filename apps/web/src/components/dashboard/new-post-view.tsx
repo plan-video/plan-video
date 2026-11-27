@@ -96,6 +96,10 @@ import { cx } from "@/lib/cva";
 import { localized, msg, t } from "@/lib/i18n";
 import { warnBeforeLeaving } from "@/lib/leave-guard";
 import { paidToolsLocked } from "@/lib/paid-tools";
+import { awaitingApproval, canApprove, mustAskForApproval } from "@/lib/approval-state";
+import { askForApproval } from "@/lib/approvals";
+import { previewOf } from "@/lib/post-previews";
+import { copyApprovalLink, personName } from "@/components/calendar/approval-card";
 import {
   captionLength,
   checkPost,
@@ -789,7 +793,7 @@ const SUBMIT_LABELS: Record<When, string> = { now: msg("Post now"), queue: msg("
 export function DashboardNewPostView() {
   const auth = useAuth();
   const [params, setParams] = useSearchParams();
-  const [busy, setBusy] = createSignal<"draft" | "post" | null>(null);
+  const [busy, setBusy] = createSignal<"draft" | "post" | "approval" | null>(null);
   const handed = takeHandOff();
   if (handed) {
     void loadPost(handed.post, handed.replace).catch((error) =>
@@ -1151,6 +1155,41 @@ export function DashboardNewPostView() {
     }
   };
 
+  /** Posts here wait for an owner or admin, as does a member's change to one already waiting. */
+  const mustAsk = () => !toInbox() && (mustAskForApproval(auth.user()?.id) || (!canApprove() && !!replacing() && awaitingApproval(replacing()!)));
+  const canAsk = () => !toInbox() && (mustAsk() || !paidToolsLocked() || !!(post.replaces && previewOf(post.replaces)));
+
+  const askApproval = async () => {
+    if (!canSubmit() || busy()) return;
+    if (auth.isGuest()) {
+      askForAccount({ reason: "approval" });
+      return;
+    }
+    setBusy("approval");
+    try {
+      if (exportRun && (!(await projectExportDone()) || errors().length || mediaErrors().length)) return;
+      if (projectVideoMissing()) {
+        toast.error(t("Attach a video"), { description: t("The project's video didn't export. Retry it on the post, or attach a video.") });
+        return;
+      }
+      const saved = await save("draft");
+      if (!saved) return;
+      const asked = await askForApproval(saved.id, personName(auth.user()));
+      track("post_approval_asked", { platforms: post.platforms.length, kind: post.kind });
+      reset();
+      if ("error" in asked) {
+        toast.error(t("Saved as a draft"), { description: t(asked.error), action: { label: t("Open calendar"), onClick: () => openCalendar(saved.when) } });
+        return;
+      }
+      toast.success(t("Sent for approval"), {
+        description: t("It goes out {when} once it's approved. Send the link to whoever approves it.", { when: formatWhen(saved.when) }),
+        action: { label: t("Copy link"), onClick: () => void copyApprovalLink(asked.previewId) },
+      });
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const [nowFrom, setNowFrom] = createSignal<Exclude<When, "now"> | null>(null);
   const laterWhen = () => nowFrom() ?? (post.when === "now" ? "schedule" : post.when);
   const postNow = async () => {
@@ -1175,7 +1214,7 @@ export function DashboardNewPostView() {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Enter" || !(event.metaKey || event.ctrlKey)) return;
       event.preventDefault();
-      void submit();
+      void (mustAsk() ? askApproval() : submit());
     };
     window.addEventListener("keydown", onKeyDown);
     onCleanup(() => window.removeEventListener("keydown", onKeyDown));
@@ -1258,6 +1297,14 @@ export function DashboardNewPostView() {
             <Button variant="ghost" class="text-muted-foreground" disabled={!!busy() || (!hasContent() && !post.platforms.length)} onClick={() => void saveDraft()}>
               {t("Save draft")}
             </Button>
+            <Show when={canAsk() && !mustAsk()}>
+              <Button variant="ghost" class="gap-1.5 text-muted-foreground" disabled={!canSubmit()} onClick={() => void askApproval()}>
+                <Show when={busy() === "approval"}>
+                  <Icon name="spinner-loader" class="-ml-1 size-5 animate-spin" />
+                </Show>
+                {t("Ask for approval")}
+              </Button>
+            </Show>
             <span
               class="inline-flex items-center gap-2"
               title={
@@ -1270,7 +1317,7 @@ export function DashboardNewPostView() {
                   : undefined
               }
             >
-              <Show when={!toInbox()}>
+              <Show when={!toInbox() && !mustAsk()}>
                 <Button
                   variant="secondary"
                   class="gap-1.5 px-3"
@@ -1285,13 +1332,13 @@ export function DashboardNewPostView() {
                 </Button>
               </Show>
               <Tooltip>
-                <TooltipTrigger as={Button} class="button-type gap-1.5 px-3" disabled={!canSubmit()} onClick={() => void submit()}>
-                  <Show when={busy() === "post" && !nowFrom()}>
+                <TooltipTrigger as={Button} class="button-type gap-1.5 px-3" disabled={!canSubmit()} onClick={() => void (mustAsk() ? askApproval() : submit())}>
+                  <Show when={(busy() === "post" && !nowFrom()) || (mustAsk() && busy() === "approval")}>
                     <Icon name="spinner-loader" class="-ml-1 size-5 animate-spin" />
                   </Show>
-                  {toInbox() ? t("Send to inbox") : t(SUBMIT_LABELS[laterWhen()])}
+                  {mustAsk() ? t("Ask for approval") : toInbox() ? t("Send to inbox") : t(SUBMIT_LABELS[laterWhen()])}
                 </TooltipTrigger>
-                <TooltipContent shortcut="⌘↵">{toInbox() ? t("Send to inbox") : t(SUBMIT_LABELS[laterWhen()])}</TooltipContent>
+                <TooltipContent shortcut="⌘↵">{mustAsk() ? t("Ask for approval") : toInbox() ? t("Send to inbox") : t(SUBMIT_LABELS[laterWhen()])}</TooltipContent>
               </Tooltip>
             </span>
           </div>

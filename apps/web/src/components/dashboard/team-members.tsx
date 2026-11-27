@@ -17,6 +17,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Icon } from "@/components/dashboard/dashboard-icon";
+import { Switch as Toggle, SwitchControl, SwitchInput, SwitchLabel, SwitchThumb } from "@/components/ui/switch";
+import { readWorkspaceRules, setMembersNeedApproval } from "@/lib/approval-state";
 import { msg, t } from "@/lib/i18n";
 import { changeMemberRole, emailInvite, inviteLink, inviteToWorkspace, loadTeamList, removeTeamMember, teamChanges, watchTeamRows, type TeamMember } from "@/lib/team";
 import { zonedFormat } from "@/lib/time-zone";
@@ -254,6 +256,10 @@ export function TeamMembers(props: {
         </Show>
       </DashboardSurfaceCard>
 
+      <Show when={props.teamPlan}>
+        <ApprovalRule scope={props.scope} canManage={canManage()} />
+      </Show>
+
       <AlertDialog open={!!removing()} onOpenChange={(open) => !open && setRemoving(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -273,6 +279,48 @@ export function TeamMembers(props: {
         </AlertDialogContent>
       </AlertDialog>
     </section>
+  );
+}
+
+/** Members' posts wait for an owner or admin. The database holds members to it too. */
+function ApprovalRule(props: { scope: TeamScope; canManage: boolean }) {
+  const [rule, { mutate }] = createResource(() => ({ ...props.scope }), readWorkspaceRules);
+  const [saving, setSaving] = createSignal(false);
+  const change = async (on: boolean) => {
+    setSaving(true);
+    mutate(on);
+    try {
+      const failed = await setMembersNeedApproval(props.scope, on);
+      if (failed) {
+        mutate(!on);
+        toast.error(t(failed));
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <Show when={props.canManage || rule.latest}>
+      <DashboardSurfaceCard class="p-3">
+        <Show
+          when={props.canManage}
+          fallback={<p class="text-xs leading-5 text-muted-foreground">{t("Your posts here wait for an owner or admin to approve them before they go out.")}</p>}
+        >
+          <Toggle checked={!!rule.latest} disabled={saving() || rule.latest === null} onChange={(on) => void change(on)} class="flex items-center gap-4">
+            <SwitchLabel class="min-w-0 flex-1 cursor-pointer pr-4 text-xs font-normal">
+              <span class="block text-foreground">{t("Members need approval")}</span>
+              <span class="mt-1 block text-muted-foreground">
+                {t("Members' posts wait until the owner or an admin approves them. Owners and admins schedule as before.")}
+              </span>
+            </SwitchLabel>
+            <SwitchInput aria-label={t("Members need approval")} />
+            <SwitchControl variant="compact">
+              <SwitchThumb variant="compact" />
+            </SwitchControl>
+          </Toggle>
+        </Show>
+      </DashboardSurfaceCard>
+    </Show>
   );
 }
 

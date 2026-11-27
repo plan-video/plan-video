@@ -77,9 +77,19 @@ const PostDelivery = z.object({
   error: z.string().optional().describe("What the platform said, when the send failed."),
 });
 
+const PostApproval = z
+  .object({
+    state: z.enum(["pending", "changes", "approved"]).describe("pending: waiting to be approved. changes: sent back with a note. approved: it goes out at its time."),
+    by: z.string().optional().describe("Who asked, or who decided."),
+    note: z.string().optional().describe("What to change, when changes were asked for."),
+  })
+  .nullable()
+  .describe("Null when nobody asked for approval. A post waiting for approval or sent back is a draft and doesn't go out.");
+
 const ScheduledPost = z.object({
   id: z.string(),
   status: PostStatus,
+  approval: PostApproval,
   title: z.string(),
   caption: z.string(),
   day: z.string().describe("YYYY-MM-DD in the dashboard time zone."),
@@ -241,6 +251,19 @@ export const updatePost = defineTool({
     thread: Thread.optional().describe("Follow-ups in place of the post's own. Omit to leave them, or pass [] for none."),
   }),
   output: ScheduledPost,
+});
+
+export const askForApproval = defineTool({
+  name: "ask_for_approval",
+  title: "Ask for approval",
+  description:
+    "Ask for a post to be approved before it goes out, by a client or by the workspace's owner or an admin. It stays on the calendar at its time but off the schedule until it's approved; approving schedules it. Returns the link to send to whoever approves: they approve or ask for changes there without an account. Give the user the link. Comes with paid plans.",
+  input: z.object({
+    id: z.string().min(1).describe("A draft or scheduled post, from list_posts."),
+  }),
+  output: ScheduledPost.extend({
+    approvalLink: z.string().describe("Send this to whoever approves the post."),
+  }),
 });
 
 export const deletePost = defineTool({

@@ -15,7 +15,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const dapi = resolve(here, "../../../packages/dapi/src");
 
 /** In the order the agent meets them. */
-const NAMES = ["social_accounts", "social_schema", "tiktok_creator", "analytics", "schedule_post", "copy_post", "list_posts", "update_post", "delete_post", "publish_post"];
+const NAMES = ["social_accounts", "social_schema", "tiktok_creator", "analytics", "schedule_post", "copy_post", "list_posts", "update_post", "ask_for_approval", "delete_post", "publish_post"];
 
 /** On the website, media comes from the person's library, not a path on their machine. */
 const MEDIA =

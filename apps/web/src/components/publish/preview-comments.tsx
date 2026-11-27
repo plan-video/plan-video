@@ -3,14 +3,18 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import ArrowUpLucide from "lucide-solid/icons/arrow-up";
+import CheckLucide from "lucide-solid/icons/check";
+import ClockLucide from "lucide-solid/icons/clock";
+import UndoLucide from "lucide-solid/icons/undo-2";
 import { For, Show, createMemo, createSignal, createUniqueId, onCleanup, onMount, type JSX } from "solid-js";
+import { Dynamic } from "solid-js/web";
 import { toast } from "somoto";
 
 import { PlaneButton, planeButton } from "@/components/dashboard/plane-button";
 import { PlaneIcon } from "@/components/dashboard/plane-icons";
 import { fieldControl } from "@/components/publish/controls";
 import { cx } from "@/lib/cva";
-import { intlLocale, localized, rich, t } from "@/lib/i18n";
+import { intlLocale, localized, msg, rich, t } from "@/lib/i18n";
 import { addComment, reviewerName, setCommentResolved, setReviewerName, type PreviewComment } from "@/lib/post-previews";
 
 const BODY_MAX = 2000;
@@ -22,7 +26,7 @@ const ACTION = "rounded-sm text-xs leading-5 font-medium text-(--plane-text-tert
 
 const RELATIVE = localized((locale) => new Intl.RelativeTimeFormat(locale, { numeric: "auto", style: "short" }));
 
-function ago(at: string, now: number): string {
+export function ago(at: string, now: number): string {
   const time = new Date(at).getTime();
   const seconds = Math.round((time - now) / 1000);
   if (seconds > -60) return t("just now");
@@ -129,7 +133,61 @@ function Initial(props: { name: string; author: boolean; class?: string }) {
   );
 }
 
+type Step = Exclude<PreviewComment["kind"], "comment" | undefined>;
+
+const STEPS: Record<Step, { words: string; mark: typeof CheckLucide; class: string }> = {
+  requested: { words: msg("{name} asked for approval"), mark: ClockLucide, class: "text-meter-yellow" },
+  approved: { words: msg("{name} approved this post"), mark: CheckLucide, class: "text-meter-green" },
+  changes: { words: msg("{name} asked for changes"), mark: UndoLucide, class: "text-destructive" },
+};
+
+const stepOf = (comment: PreviewComment): Step | null => (comment.kind && comment.kind !== "comment" ? comment.kind : null);
+
+function When(props: { at: string; now: number }) {
+  return (
+    <time
+      class="shrink-0 text-xs text-(--plane-text-tertiary)"
+      dateTime={props.at}
+      title={new Date(props.at).toLocaleString(intlLocale(), { dateStyle: "medium", timeStyle: "short" })}
+    >
+      {ago(props.at, props.now)}
+    </time>
+  );
+}
+
+/** A request for approval, or a decision on it, among the comments. */
+function StepRow(props: { comment: PreviewComment; step: Step; now: number }) {
+  const step = () => STEPS[props.step];
+  return (
+    <div class="flex gap-2.5">
+      <span aria-hidden="true" class={cx("grid size-6 shrink-0 place-items-center rounded-full bg-(--plane-layer-3)", step().class)}>
+        <Dynamic component={step().mark} class="size-3.5" />
+      </span>
+      <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+        <p class="flex min-w-0 flex-wrap items-baseline gap-x-1.5 leading-6">
+          <span class="min-w-0 text-[13px] text-(--plane-text-secondary)">
+            {rich(step().words, { name: <span class="font-medium text-(--plane-text-primary)">{props.comment.name}</span> })}
+          </span>
+          <When at={props.comment.createdAt} now={props.now} />
+        </p>
+        <Show when={props.comment.body}>
+          <p class="whitespace-pre-wrap break-words text-[13px] leading-5 text-(--plane-text-primary) select-text">{props.comment.body}</p>
+        </Show>
+      </div>
+    </div>
+  );
+}
+
 function CommentRow(props: { comment: PreviewComment; now: number }) {
+  const step = () => stepOf(props.comment);
+  return (
+    <Show when={step()} fallback={<PlainRow comment={props.comment} now={props.now} />}>
+      {(kind) => <StepRow comment={props.comment} step={kind()} now={props.now} />}
+    </Show>
+  );
+}
+
+function PlainRow(props: { comment: PreviewComment; now: number }) {
   return (
     <div class="flex gap-2.5">
       <Initial name={props.comment.name} author={props.comment.byOwner} />
@@ -165,6 +223,11 @@ function ThreadView(props: {
 }) {
   const [replying, setReplying] = createSignal(false);
   const resolved = () => !!props.thread.comment.resolvedAt;
+  // A request or an approval is a note of what happened; asking for changes starts a conversation.
+  const talk = () => {
+    const step = stepOf(props.thread.comment);
+    return !step || step === "changes";
+  };
 
   const toggleResolved = async () => {
     const error = await setCommentResolved(props.thread.comment.id, !resolved());
@@ -182,7 +245,7 @@ function ThreadView(props: {
           </div>
         )}
       </For>
-      <Show when={!replying() && (!resolved() || props.isOwner)}>
+      <Show when={talk() && !replying() && (!resolved() || props.isOwner)}>
         <div class="-mt-1 flex items-center gap-3 pl-[34px]">
           <Show when={!resolved()}>
             <button type="button" class={ACTION} onClick={() => setReplying(true)}>

@@ -685,6 +685,23 @@
     }
   },
   {
+    "name": "ask_for_approval",
+    "description": "Ask for a post to be approved before it goes out, by a client or by the workspace's owner or an admin. It stays on the calendar at its time but off the schedule until it's approved; approving schedules it. Returns the link to send to whoever approves: they approve or ask for changes there without an account. Give the user the link. Comes with paid plans.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "A draft or scheduled post, from list_posts."
+        }
+      },
+      "required": [
+        "id"
+      ]
+    }
+  },
+  {
     "name": "delete_post",
     "description": "Delete a draft or a scheduled post from the calendar. Posted posts cannot be deleted, because the platform already has them.",
     "input_schema": {

@@ -27,6 +27,7 @@ import { PlatformLogo } from "@/components/publish/controls";
 import { atLocal, nextSlot, timeOf } from "@/components/publish/save";
 import { CalendarPostList, listQuery, setListQuery } from "@/components/dashboard/posts-view";
 import { hasFailed, isGoingOut } from "@/components/publish/publisher";
+import { awaitingApproval } from "@/lib/approval-state";
 import { msg, t } from "@/lib/i18n";
 import { groupSelection } from "@/lib/account-groups";
 import { sortPlatforms, type PlatformId } from "@/lib/social";
@@ -103,8 +104,12 @@ export function DashboardCalendarView() {
 
 function StatusFilter() {
   const failedCount = () => allPosts().filter((post) => hasFailed(post) && !isGoingOut(post)).length;
-  const options = () =>
-    failedCount() || statusFilter() === "failed" ? [...STATUS_FILTERS, { label: msg("Failed"), value: "failed" as const }] : STATUS_FILTERS;
+  const approvalCount = () => allPosts().filter(awaitingApproval).length;
+  const options = () => [
+    ...STATUS_FILTERS,
+    ...(approvalCount() || statusFilter() === "approval" ? [{ label: msg("Needs approval"), value: "approval" as const }] : []),
+    ...(failedCount() || statusFilter() === "failed" ? [{ label: msg("Failed"), value: "failed" as const }] : []),
+  ];
   const label = () => (statusFilter() === "all" ? t("All posts") : t(options().find((option) => option.value === statusFilter())?.label ?? "All posts"));
 
   return (

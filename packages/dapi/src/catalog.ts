@@ -5,7 +5,7 @@
 import type { z } from "zod";
 import type { GenericTool } from "./tool";
 
-import { socialAccounts, socialSchema, tiktokCreator, schedulePost, copyPost, listPosts, updatePost, deletePost, publishPost } from "./tools/posts";
+import { socialAccounts, socialSchema, tiktokCreator, schedulePost, copyPost, listPosts, updatePost, askForApproval, deletePost, publishPost } from "./tools/posts";
 
 /** In listing order. */
 export const catalog = [
@@ -16,6 +16,7 @@ export const catalog = [
   copyPost,
   listPosts,
   updatePost,
+  askForApproval,
   deletePost,
   publishPost,
 ] as const;

@@ -10,6 +10,7 @@ import { Portal } from "solid-js/web";
 import { AccountAvatar } from "@/components/publish/account-avatar";
 import { heldBack } from "@/components/publish/publisher";
 import { useAuth } from "@/context/auth";
+import { APPROVAL_LABELS } from "@/lib/approval-state";
 import { t } from "@/lib/i18n";
 import { accountLabel, accountsFor, loadSocialConnections } from "@/lib/social-connections";
 import { cn, formatDay, platformName, statusLabel } from "./utils";
@@ -79,6 +80,9 @@ export const STATUS_DOT: Record<string, string> = {
   draft: "bg-muted-foreground/60",
   paused: "bg-meter-yellow",
   held: "bg-meter-yellow",
+  pending: "bg-meter-yellow",
+  changes: "bg-destructive",
+  approved: "bg-meter-green",
 };
 
 export function statusOf(event: CalendarEvent): { tone: string; label: string } {
@@ -87,6 +91,8 @@ export function statusOf(event: CalendarEvent): { tone: string; label: string } 
   const held = heldBack({ id: event.sourceId, status: event.status });
   if (held) return { tone: "held", label: held.label };
   if (event.paused) return { tone: "paused", label: t("Paused") };
+  // Approved and scheduled reads as scheduled; approved and still a draft, its time passed while it waited.
+  if (event.approval && (event.approval !== "approved" || event.status === "draft")) return { tone: event.approval, label: t(APPROVAL_LABELS[event.approval]) };
   return { tone: event.status, label: statusLabel(event.status) };
 }
 

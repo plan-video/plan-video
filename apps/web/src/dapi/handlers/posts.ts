@@ -37,7 +37,10 @@ import {
   youtubeTag,
   youtubeTagsLength,
 } from "@/lib/social";
+import { AWAITING_APPROVAL, approvalOf, awaitingApproval } from "@/lib/approval-state";
+import { askForApproval as requestApproval } from "@/lib/approvals";
 import { inEnglish } from "@/lib/i18n";
+import { previewLink } from "@/lib/post-previews";
 import { loadTikTokCreator, type TikTokCreator } from "@/lib/tiktok";
 import { timeZone } from "@/lib/time-zone";
 import { REPLY_DELAYS, threadIssues, threadPlatforms, type ThreadReply } from "@/lib/thread";
@@ -488,9 +491,11 @@ function postView(post: StoredEvent, warnings: string[] = []) {
     if (!delivery || !isPlatform(id)) return [];
     return [{ platform: id, state: delivery.state, ...(delivery.error ? { error: delivery.error } : {}) }];
   });
+  const approval = approvalOf(post);
   return {
     id: post.id,
     status: post.status,
+    approval: approval ? { state: approval.state, ...(approval.by ? { by: approval.by } : {}), ...(approval.note ? { note: approval.note } : {}) } : null,
     title: post.title,
     caption: post.description ?? "",
     day: post.day,
@@ -503,6 +508,14 @@ function postView(post: StoredEvent, warnings: string[] = []) {
     warnings,
     deliveries,
   };
+}
+
+const HELD_FOR_APPROVAL =
+  "Posts in this workspace need approval first, so it waits as a draft until the owner or an admin approves it, then goes out at its time. Call ask_for_approval for the link to send them.";
+
+/** Asked to go out, but held for approval by the workspace's rule. */
+function heldWarning(post: StoredEvent, scheduling: boolean): string[] {
+  return scheduling && post.status === "draft" && awaitingApproval(post) ? [HELD_FOR_APPROVAL] : [];
 }
 
 function deliveryErrors(post: StoredEvent): string {
@@ -687,7 +700,8 @@ async function savePost(
   }]);
   if (error) throw new DapiError("invalid-input", error);
   if (scheduling && isUploading(id)) warnings.push("Its files are still uploading from this browser tab. Keep the tab open until they finish: the post can't go out without them.");
-  return postView(readBack(id), warnings);
+  const saved = readBack(id);
+  return postView(saved, [...warnings, ...heldWarning(saved, scheduling)]);
 }
 
 // Saved through schedule_post so the copy is checked like any new post.
@@ -788,9 +802,11 @@ export const updatePost: ToolHandler<"update_post"> = async (args, ctx) => {
   const time = args.time ? clock(args.time) : existing.allDay ? null : existing.start;
 
   let status = existing.status;
+  if (args.draft === false && awaitingApproval(existing)) throw new DapiError("invalid-input", AWAITING_APPROVAL);
   if (args.draft === true) status = "draft";
   else if (args.draft === false) status = "scheduled";
-  else if (args.day !== undefined && args.time !== undefined && existing.status === "draft") status = "scheduled";
+  // One waiting for approval keeps waiting at its new time.
+  else if (args.day !== undefined && args.time !== undefined && existing.status === "draft" && !awaitingApproval(existing)) status = "scheduled";
   if (status === "scheduled") {
     if (!time) throw new DapiError("invalid-input", "A scheduled post needs a time. Pass one, or draft true.");
     const problem = inEnglish(() => scheduleProblem(atLocal(day, time)));
@@ -880,7 +896,30 @@ export const updatePost: ToolHandler<"update_post"> = async (args, ctx) => {
     const unsaved = await setPostFiles(existing.id, { shared: saved.shared.files });
     if (unsaved) throw new DapiError("invalid-input", `The post's other changes were saved, but its files weren't replaced. ${unsaved}`);
   }
-  return postView(readBack(existing.id), warnings);
+  const after = readBack(existing.id);
+  return postView(after, [...warnings, ...heldWarning(after, status === "scheduled")]);
+};
+
+export const askForApproval: ToolHandler<"ask_for_approval"> = async ({ id }, ctx) => {
+  const user = await ready(ctx);
+  const existing = allPosts().find((post) => post.id === id);
+  if (!existing) throw new DapiError("not-found", "This post no longer exists.");
+  if (existing.status === "posted") throw new DapiError("invalid-input", "This post has already gone out.");
+  await askPerson(ctx, {
+    tool: "update_post",
+    caption: existing.description ?? "",
+    day: existing.day || null,
+    time: existing.allDay ? null : existing.start,
+    channels: channelsOf(existing.platforms, existing.accounts),
+    soon: false,
+    leavesSchedule: existing.status === "scheduled",
+    tiktok: null,
+  });
+  const meta = user.user_metadata as Record<string, unknown> | undefined;
+  const name = (typeof meta?.full_name === "string" && meta.full_name.trim()) || user.email?.split("@")[0] || undefined;
+  const asked = await requestApproval(id, name);
+  if ("error" in asked) throw new DapiError("invalid-input", asked.error);
+  return { ...postView(readBack(id)), approvalLink: previewLink(asked.previewId) };
 };
 
 export const deletePost: ToolHandler<"delete_post"> = async ({ id }, ctx) => {
@@ -909,6 +948,7 @@ export const publishPost: ToolHandler<"publish_post"> = async ({ id, agreed }, c
   const post = allPosts().find((item) => item.id === id);
   if (!post) throw new DapiError("not-found", "This post no longer exists.");
   if (post.status === "posted") throw new DapiError("invalid-input", "This post already went out.");
+  if (awaitingApproval(post)) throw new DapiError("invalid-input", AWAITING_APPROVAL);
   const foreign = post.platforms.filter((platform) => !PUBLISHES.has(platform));
   if (foreign.length > 0) {
     const names = foreign.map((platform) => (isPlatform(platform) ? socialPlatform(platform).name : platform));

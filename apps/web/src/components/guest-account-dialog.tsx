@@ -26,6 +26,8 @@ function reasonText(ask: AccountAsk) {
         : t("The demo's accounts are samples. Create a free account to connect your own accounts.");
     case "share":
       return t("Create a free account to share a preview of a post with anyone.");
+    case "approval":
+      return t("Nothing is sent from the demo. Create an account to have your clients and team approve posts before they go out.");
     case "captions":
       return t("Create a free account to make captions from your video's speech.");
     case "agent":

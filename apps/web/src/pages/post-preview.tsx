@@ -15,6 +15,7 @@ import { PlaneButton } from "@/components/dashboard/plane-button";
 import { PlaneIcon, type PlaneIconName } from "@/components/dashboard/plane-icons";
 import { DashboardSidebarSection, dashboardNavItemClass } from "@/components/dashboard/sidebar";
 import { AccountAvatar } from "@/components/publish/account-avatar";
+import { ApprovalPanel } from "@/components/publish/approval-panel";
 import { PostPreview } from "@/components/publish/post-preview";
 import { CommentComposer, CommentThreads } from "@/components/publish/preview-comments";
 import { useAuth } from "@/context/auth";
@@ -56,17 +57,20 @@ const STATUS_DOT: Record<PreviewSnapshot["status"], string> = {
   posted: "bg-meter-green",
 };
 
-function whenLine(snapshot: PreviewSnapshot): string {
+function whenOf(snapshot: PreviewSnapshot): string {
   const date = new Date(`${snapshot.day}T12:00:00`);
   const day = Number.isNaN(date.getTime())
     ? snapshot.day
     : date.toLocaleDateString(intlLocale(), { weekday: "short", day: "numeric", month: "short" });
-  const when = snapshot.allDay
+  return snapshot.allDay
     ? day
     : snapshot.timeZone
       ? t("{day} at {time} ({zone} time)", { day, time: snapshot.start, zone: snapshot.timeZone.split("/").pop()?.replace(/_/g, " ") })
       : t("{day} at {time}", { day, time: snapshot.start });
-  return t(STATUS_WORDS[snapshot.status] ?? msg("Planned for {when}"), { when });
+}
+
+function whenLine(snapshot: PreviewSnapshot, status: PreviewSnapshot["status"]): string {
+  return t(STATUS_WORDS[status] ?? msg("Planned for {when}"), { when: whenOf(snapshot) });
 }
 
 const isPlatform = (id: string): id is PlatformId => (PLATFORM_IDS as readonly string[]).includes(id);
@@ -253,6 +257,10 @@ function SharedPost(props: {
   onChanged(): Promise<void>;
 }) {
   const snapshot = () => props.preview.snapshot;
+  const status = () => props.preview.status ?? snapshot().status;
+  const approval = () => (
+    <ApprovalPanel previewId={props.previewId} preview={props.preview} when={whenOf(snapshot())} suggestedName={props.suggestedName} onChanged={props.onChanged} />
+  );
 
   const [picked, setPicked] = createSignal({ platform: "", account: 0 });
   const network = (): Network | undefined => snapshot().platforms.find((item) => item.id === picked().platform) ?? snapshot().platforms[0];
@@ -262,6 +270,9 @@ function SharedPost(props: {
     <>
       <PostDetails
         snapshot={snapshot()}
+        status={status()}
+        approval={props.wide && props.preview.approval ? approval : undefined}
+        waiting={props.preview.approval?.state === "pending" || props.preview.approval?.state === "changes"}
         wide={props.wide}
         network={network()}
         accountIndex={accountIndex()}
@@ -271,6 +282,9 @@ function SharedPost(props: {
       <Show when={!props.wide}>
         <div class="flex flex-col gap-4 px-3 pb-6">
           <PostWords snapshot={snapshot()} network={network()} />
+          <Show when={props.preview.approval}>
+            <div class="px-2">{approval()}</div>
+          </Show>
         </div>
       </Show>
       <CommentsPanel
@@ -287,6 +301,10 @@ function SharedPost(props: {
 
 function PostDetails(props: {
   snapshot: PreviewSnapshot;
+  status: PreviewSnapshot["status"];
+  approval?: () => JSX.Element;
+  /** Asked for approval and not approved: not a draft to whoever approves it. */
+  waiting: boolean;
   wide: boolean;
   network: Network | undefined;
   accountIndex: number;
@@ -306,10 +324,11 @@ function PostDetails(props: {
           {props.snapshot.title.trim() || t("Post preview")}
         </h1>
         <p class="flex items-start gap-2 text-xs leading-5 text-(--plane-text-secondary)">
-          <span class={cx("mt-[7px] size-1.5 shrink-0 rounded-full", STATUS_DOT[props.snapshot.status])} title={statusLabel(props.snapshot.status)} />
-          {whenLine(props.snapshot)}
+          <span class={cx("mt-[7px] size-1.5 shrink-0 rounded-full", STATUS_DOT[props.status])} title={statusLabel(props.status)} />
+          {props.waiting ? t("Planned for {when}", { when: whenOf(props.snapshot) }) : whenLine(props.snapshot, props.status)}
         </p>
       </div>
+      <Show when={props.approval}>{(render) => <div class="px-3 pb-4">{render()()}</div>}</Show>
       <div class={cx("flex flex-col gap-4 px-3", props.wide ? "pb-5" : "pb-2")}>
         <Show when={rows().length}>
           <DashboardSidebarSection title={t("Accounts")}>
@@ -580,7 +599,7 @@ function CommentsPanel(props: {
   onChanged(): Promise<void>;
 }) {
   let list: HTMLDivElement | undefined;
-  const count = () => props.preview.comments.length;
+  const count = () => props.preview.comments.filter((comment) => (comment.kind ?? "comment") === "comment" || comment.kind === "changes").length;
 
   const posted = async () => {
     await props.onChanged();
