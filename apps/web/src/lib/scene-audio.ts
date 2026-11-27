@@ -16,6 +16,8 @@ import type { Entity, World } from "koota";
 
 export interface SpeechClip extends ClipTiming {
   file: File;
+  /** The asset it plays. */
+  asset: string;
 }
 
 /** The origin is the scene time of media time 0, where the picture seeks the same moment. */
@@ -30,7 +32,7 @@ export function pictureClips(world: World, scene: Entity): Promise<SpeechClip[]>
 
 async function sceneClips(world: World, scene: Entity, want: "heard" | "seen"): Promise<SpeechClip[]> {
   const fps = world.get(FrameRate)?.value || 30;
-  const clips: SpeechClip[] = [];
+  const clips: SourcedClip[] = [];
   const heard = want === "heard";
 
   const found = new Set<Entity>();
@@ -54,7 +56,9 @@ async function sceneClips(world: World, scene: Entity, want: "heard" | "seen"): 
     const curve = readSpeedCurve(clip);
     const originFrames = computed?.origin ?? 0;
     clips.push({
+      source: `${asset.id}:${JSON.stringify(curve.keys)}`,
       file: await getAssetFile(asset),
+      asset: asset.id,
       origin: originFrames / fps,
       rate: computed?.playbackRate || 1,
       trimStart: source.in / fps,
@@ -65,7 +69,26 @@ async function sceneClips(world: World, scene: Entity, want: "heard" | "seen"): 
     });
   }
 
-  return clips;
+  return oncePerMoment(clips).map(({ source: _, ...clip }) => clip);
+}
+
+type SourcedClip = SpeechClip & { source: string };
+
+/** A layout's copies show the same video at the same moments; scanning each would find everything twice. */
+export function oncePerMoment<T extends ClipTiming & { source: string }>(clips: T[]): T[] {
+  const kept: T[] = [];
+  for (const clip of clips) {
+    const twin = kept.find((other) =>
+      other.source === clip.source && other.origin === clip.origin && (other.rate || 1) === (clip.rate || 1)
+      && other.trimStart <= clip.trimEnd && clip.trimStart <= other.trimEnd);
+    if (!twin) {
+      kept.push({ ...clip });
+      continue;
+    }
+    twin.trimStart = Math.min(twin.trimStart, clip.trimStart);
+    twin.trimEnd = Math.max(twin.trimEnd, clip.trimEnd);
+  }
+  return kept;
 }
 
 /** In scene seconds. Null when no clip's audio could be read. */
