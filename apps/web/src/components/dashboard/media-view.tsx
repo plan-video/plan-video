@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { useSearchParams } from "@solidjs/router";
-import { For, Show, createEffect, createMemo, createResource, createSignal, on, onCleanup, onMount, type JSX } from "solid-js";
+import { For, Show, createEffect, createMemo, createResource, createSignal, on, onCleanup, onMount } from "solid-js";
 import { Portal } from "solid-js/web";
 import { toast } from "somoto";
 
@@ -1225,45 +1225,23 @@ function Skeleton() {
   );
 }
 
-const FEATURES: { icon: string; title: string; hint: string }[] = [
-  { icon: "document", title: msg("Start a post from any file"), hint: msg("Pick one, or a set of pictures, and it opens in New post.") },
-  { icon: "circle-check", title: msg("See where each one fits"), hint: msg("Length and shape are checked against every platform.") },
-  { icon: "all-media-types", title: msg("Reuse what you attach"), hint: msg("Files you add to a post are kept here too.") },
-];
-
 function EmptyLibrary(props: { dragging: boolean; onUpload(): void }) {
   return (
-    <div class="mx-auto flex w-full max-w-3xl flex-col items-center gap-6 pt-8 text-center">
-      <div
-        class="flex w-full flex-col items-center gap-4 rounded-xl border border-dashed px-6 pt-8 pb-12 transition-colors"
-        classList={{ "border-primary bg-primary/5": props.dragging, "border-(--border-input)": !props.dragging }}
-      >
-        <MediaArt />
-        <div class="flex flex-col gap-1">
-          <h2 class="text-sm font-medium text-foreground">{props.dragging ? t("Drop to add to your library") : t("Keep your videos and pictures in one place")}</h2>
-          <p class="text-xs text-muted-foreground">{t("Upload them, or drop them anywhere on this page. Then post any of them in a click.")}</p>
-        </div>
-        <Button class="gap-0.5 pl-1 pr-2.5" onClick={() => props.onUpload()}>
-          <Icon name="plus-add-small" class="size-5" />
+    <div
+      class="flex flex-col items-center gap-4 rounded-xl border border-dashed px-6 pt-8 pb-16 text-center transition-colors"
+      classList={{ "border-primary bg-primary/5": props.dragging, "border-transparent": !props.dragging }}
+    >
+      <MediaArt />
+      <div class="flex flex-col gap-1">
+        <h2 class="text-sm font-medium text-foreground">{props.dragging ? t("Drop to add to your library") : t("Keep your videos and pictures in one place")}</h2>
+        <p class="max-w-lg text-xs text-balance text-muted-foreground">{t("Upload them, or drop them anywhere on this page. Then post any of them in a click.")}</p>
+      </div>
+      <div class="flex flex-wrap justify-center gap-2">
+        <Button class="px-3" onClick={() => props.onUpload()}>
           {t("Upload files")}
         </Button>
-        <p class="text-xs text-muted-foreground">{t(ACCEPTED)}</p>
       </div>
-      <div class="grid w-full grid-cols-1 gap-2 text-left sm:grid-cols-3">
-        <For each={FEATURES}>{(feature) => <Feature {...feature} />}</For>
-      </div>
-    </div>
-  );
-}
-
-function Feature(props: { icon: string; title: string; hint: string }): JSX.Element {
-  return (
-    <div class="depth-panel flex flex-col items-start gap-1.5 rounded-xl border border-border-strong bg-accent/30 p-3">
-      <span class="flex items-center gap-1.5 text-xs font-medium text-foreground">
-        <Icon name={props.icon} class="-ml-0.5 size-4 text-muted-foreground" />
-        {t(props.title)}
-      </span>
-      <span class="text-xs leading-4 text-muted-foreground">{t(props.hint)}</span>
+      <p class="text-xs text-muted-foreground">{t(ACCEPTED)}</p>
     </div>
   );
 }
