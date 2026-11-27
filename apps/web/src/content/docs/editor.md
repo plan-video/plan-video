@@ -20,7 +20,7 @@ The tabs on the editor's rail hold what you can add:
 | **Layout** | Scene sizes like **Short-form 9:16** and **Square video 1:1** |
 | **Extensions** | Add-ons like **Progress bar**, **Killfeed** and **Chat** |
 
-In the **Valorant** killfeed, **Find kills in the video** reads the killfeed in the top right of your clip and lists your kills and deaths, with the player names, agents, weapon and headshots it shows. Click a kill to change it; rename yourself once and every kill follows. **Add kills where they happen** then puts each one on the frame it came in on. It works on clips where Valorant's own killfeed is visible, such as full-screen recordings.
+In the **Valorant** killfeed, **Find kills in the video** reads the killfeed in the top right of your clip and lists your kills and deaths, with the player names, agents, weapon and headshots it shows. Click a kill to change it; rename yourself once and every kill follows. To show only the agents, set **Names** to **Agents** under **More options**. **Add kills where they happen** then puts each one on the frame it came in on. It works on clips where Valorant's own killfeed is visible, such as full-screen recordings.
 
 **Chat** draws messages the way they look in **Twitch** chat or in **TikTok LIVE** comments. Type a username and a message, pick a name color and badges, or add your own badge with **+**. On TikTok you can also add a profile picture. Add up to seven messages, and they come in one second apart, under each other. Drag them onto the video, or click **Add to scene** to put them at the playhead. **More options** turns the background off or changes the animation.
 

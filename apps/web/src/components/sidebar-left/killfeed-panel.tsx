@@ -65,6 +65,24 @@ const LAYOUTS: { id: KillfeedLayout; label: string }[] = [
   { id: "valorant", label: msg("In game") },
 ];
 
+type NameShown = "players" | "agents";
+
+const NAMES: { id: NameShown; label: string }[] = [
+  { id: "players", label: msg("Players") },
+  { id: "agents", label: msg("Agents") },
+];
+
+/** Whether the feed shows players' names or only their agents'; the names are kept either way. */
+const [names, setNames] = createSignal<NameShown>("players");
+
+const agentLabel = (player: KillfeedPlayer) => killfeedAgent(player.agent)?.name ?? player.agent;
+
+/** The entry as it is drawn and added. */
+function shown<T extends KillfeedSpec>(entry: T): T {
+  if (names() === "players") return entry;
+  return { ...entry, killer: { ...entry.killer, name: agentLabel(entry.killer) }, victim: { ...entry.victim, name: agentLabel(entry.victim) } };
+}
+
 const ANIMATIONS: { id: KillfeedAnimation; label: string }[] = [
   { id: "none", label: msg("None") },
   { id: "slide", label: msg("Slide") },
@@ -152,7 +170,7 @@ export function KillfeedPanel() {
   const add = async () => {
     setAdding(true);
     try {
-      const entries = plain(feed.entries());
+      const entries = plain(feed.entries()).map(shown);
       const placed = await insertKillfeeds(world, entries, { placement, spacing: feed.spacing(), starts: entries.map((entry) => entry.at), centered: timed() });
       if (!placed.length) toast(t("Nothing to add it to"), { description: t("Open a scene first.") });
     } catch (error) {
@@ -194,7 +212,7 @@ export function KillfeedPanel() {
               feed={feed}
               open={open()}
               onOpenChange={setOpen}
-              draw={renderKillfeed}
+              draw={(entry, scale) => renderKillfeed(shown(entry), scale)}
               scale={1 / KILLFEED_HEIGHT}
               at={(entry) => entry.at}
               next={nextKill}
@@ -244,6 +262,9 @@ export function KillfeedPanel() {
           <MoreOptions>
             <Row label={t("Layout")}>
               <Segmented options={LAYOUTS} value={placement.layout} onChange={(layout) => setPlacement("layout", layout)} />
+            </Row>
+            <Row label={t("Names")}>
+              <Segmented options={NAMES} value={names()} onChange={setNames} label={t("Names")} />
             </Row>
             <Row label={t("Animation")}>
               <Segmented options={ANIMATIONS} value={placement.animation} onChange={(animation) => setPlacement("animation", animation)} />
@@ -333,7 +354,8 @@ function FindKills() {
 }
 
 const handleDragStart = (event: DragEvent) => {
-  event.dataTransfer?.setData(KILLFEED_DRAG_TYPE, JSON.stringify(feedDrag(feed, placement)));
+  const drag = feedDrag(feed, placement);
+  event.dataTransfer?.setData(KILLFEED_DRAG_TYPE, JSON.stringify({ ...drag, specs: drag.specs.map(shown) }));
   if (event.dataTransfer) event.dataTransfer.effectAllowed = "copy";
 };
 
@@ -394,12 +416,13 @@ function PlayerRow(props: {
           </span>
           <input
             type="text"
-            value={props.player.name}
+            value={names() === "agents" ? agentLabel(props.player) : props.player.name}
+            disabled={names() === "agents"}
             placeholder={t("Player name")}
             aria-label={t("{role} name", { role: props.label })}
             onInput={(event) => props.onChange({ ...props.player, name: event.currentTarget.value })}
             onKeyDown={(event) => event.stopPropagation()}
-            class="h-full min-w-0 flex-1 bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground"
+            class="h-full min-w-0 flex-1 bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground disabled:text-muted-foreground"
           />
           <PopoverTrigger
             as="button"
