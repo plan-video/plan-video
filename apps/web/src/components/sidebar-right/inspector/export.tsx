@@ -97,7 +97,7 @@ export function defaultExportSettings(): ProjectExportConfig {
 function useSceneExport(entity: () => Entity) {
   const world = useWorld();
   const config = useProjectConfig();
-  const { exportScene, exporting } = useExport();
+  const { exportScene, exportTimeline, exporting } = useExport();
 
   const source = useTrait(() => entity(), Source);
   const settings = createMemo(() => {
@@ -183,6 +183,7 @@ function useSceneExport(entity: () => Entity) {
   };
 
   const runExport = () => void exportScene(entity(), fileSettings());
+  const runTimelineExport = () => void exportTimeline(entity());
 
   const postable = createMemo(() => postableExport(effective()));
   const schedulePost = useSchedulePost();
@@ -206,6 +207,7 @@ function useSceneExport(entity: () => Entity) {
     patchSettings,
     reset: () => write(null),
     runExport,
+    runTimelineExport,
     postable,
     schedule,
   };
@@ -243,6 +245,12 @@ function ExportActions(props: { scene: SceneExport; onClick?: () => void }) {
           </Button>
         </TooltipTrigger>
         <TooltipContent class="max-w-64">{scheduleBlocked()}</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger as={Button} variant="ghost" class="w-full text-muted-foreground" onClick={run(props.scene.runTimelineExport)} disabled={props.scene.exporting()}>
+          {t("Open in Premiere Pro or Resolve")}
+        </TooltipTrigger>
+        <TooltipContent class="max-w-64">{t("Saves a timeline file with the clips' media, to keep editing in another app.")}</TooltipContent>
       </Tooltip>
     </div>
   );

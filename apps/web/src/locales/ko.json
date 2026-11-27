@@ -3890,5 +3890,13 @@
   "{count, plural, =1 {Getting a file from Google Drive…} other {Getting # files from Google Drive…}}": "{count, plural, =1 {Google Drive에서 파일을 가져오는 중…} other {Google Drive에서 파일 #개를 가져오는 중…}}",
   "{count, plural, =1 {Couldn't get a file from Google Drive} other {Couldn't get # files from Google Drive}}": "{count, plural, =1 {Google Drive에서 파일을 가져오지 못했습니다} other {Google Drive에서 파일 #개를 가져오지 못했습니다}}",
   "Optional. MP4, MOV, JPG or PNG.": "선택 사항이에요. MP4, MOV, JPG, PNG.",
-  "Import from Google Drive": "Google Drive에서 가져오기"
+  "Import from Google Drive": "Google Drive에서 가져오기",
+  "Open in Premiere Pro or Resolve": "Premiere Pro 또는 Resolve에서 열기",
+  "Saves a timeline file with the clips' media, to keep editing in another app.": "클립의 미디어와 함께 타임라인 파일을 저장해 다른 앱에서 계속 편집할 수 있어요.",
+  "No clips to hand over": "넘길 클립이 없어요",
+  "Only video, audio and picture clips go into the timeline.": "타임라인에는 동영상, 오디오, 이미지 클립만 들어가요.",
+  "Saving the timeline and its media…": "타임라인과 미디어를 저장하는 중…",
+  "Timeline saved in {folder}": "타임라인을 {folder}에 저장했어요",
+  "Import {file} in Premiere Pro or DaVinci Resolve. Text, captions and effects stay in plan.video.": "Premiere Pro 또는 DaVinci Resolve에서 {file} 파일을 가져오세요. 텍스트, 자막, 효과는 plan.video에 남아요.",
+  "Import {file} in Premiere Pro or DaVinci Resolve.": "Premiere Pro 또는 DaVinci Resolve에서 {file} 파일을 가져오세요."
 }

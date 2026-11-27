@@ -3890,5 +3890,13 @@
   "{count, plural, =1 {Getting a file from Google Drive…} other {Getting # files from Google Drive…}}": "{count, plural, =1 {Pobieranie pliku z Google Drive…} one {Pobieranie # pliku z Google Drive…} few {Pobieranie # plików z Google Drive…} many {Pobieranie # plików z Google Drive…} other {Pobieranie # pliku z Google Drive…}}",
   "{count, plural, =1 {Couldn't get a file from Google Drive} other {Couldn't get # files from Google Drive}}": "{count, plural, =1 {Nie udało się pobrać pliku z Google Drive} one {Nie udało się pobrać # pliku z Google Drive} few {Nie udało się pobrać # plików z Google Drive} many {Nie udało się pobrać # plików z Google Drive} other {Nie udało się pobrać # pliku z Google Drive}}",
   "Optional. MP4, MOV, JPG or PNG.": "Opcjonalnie. MP4, MOV, JPG lub PNG.",
-  "Import from Google Drive": "Importuj z Google Drive"
+  "Import from Google Drive": "Importuj z Google Drive",
+  "Open in Premiere Pro or Resolve": "Otwórz w Premiere Pro lub Resolve",
+  "Saves a timeline file with the clips' media, to keep editing in another app.": "Zapisuje plik osi czasu z multimediami klipów, żebyś mógł dalej montować w innej aplikacji.",
+  "No clips to hand over": "Brak klipów do przekazania",
+  "Only video, audio and picture clips go into the timeline.": "Na oś czasu trafiają tylko klipy wideo, audio i obrazy.",
+  "Saving the timeline and its media…": "Zapisywanie osi czasu i multimediów…",
+  "Timeline saved in {folder}": "Oś czasu zapisana w {folder}",
+  "Import {file} in Premiere Pro or DaVinci Resolve. Text, captions and effects stay in plan.video.": "Zaimportuj {file} w Premiere Pro lub DaVinci Resolve. Tekst, napisy i efekty zostają w plan.video.",
+  "Import {file} in Premiere Pro or DaVinci Resolve.": "Zaimportuj {file} w Premiere Pro lub DaVinci Resolve."
 }

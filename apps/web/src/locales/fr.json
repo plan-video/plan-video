@@ -3890,5 +3890,13 @@
   "{count, plural, =1 {Getting a file from Google Drive…} other {Getting # files from Google Drive…}}": "{count, plural, =1 {Récupération d'un fichier depuis Google Drive…} other {Récupération de # fichiers depuis Google Drive…}}",
   "{count, plural, =1 {Couldn't get a file from Google Drive} other {Couldn't get # files from Google Drive}}": "{count, plural, =1 {Impossible de récupérer un fichier depuis Google Drive} other {Impossible de récupérer # fichiers depuis Google Drive}}",
   "Optional. MP4, MOV, JPG or PNG.": "Facultatif. MP4, MOV, JPG ou PNG.",
-  "Import from Google Drive": "Importer depuis Google Drive"
+  "Import from Google Drive": "Importer depuis Google Drive",
+  "Open in Premiere Pro or Resolve": "Ouvrir dans Premiere Pro ou Resolve",
+  "Saves a timeline file with the clips' media, to keep editing in another app.": "Enregistre un fichier de timeline avec les médias des clips, pour continuer le montage dans une autre app.",
+  "No clips to hand over": "Aucun clip à transmettre",
+  "Only video, audio and picture clips go into the timeline.": "Seuls les clips vidéo, audio et image vont dans la timeline.",
+  "Saving the timeline and its media…": "Enregistrement de la timeline et de ses médias…",
+  "Timeline saved in {folder}": "Timeline enregistrée dans {folder}",
+  "Import {file} in Premiere Pro or DaVinci Resolve. Text, captions and effects stay in plan.video.": "Importez {file} dans Premiere Pro ou DaVinci Resolve. Le texte, les sous-titres et les effets restent dans plan.video.",
+  "Import {file} in Premiere Pro or DaVinci Resolve.": "Importez {file} dans Premiere Pro ou DaVinci Resolve."
 }
