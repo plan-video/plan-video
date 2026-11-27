@@ -6,7 +6,7 @@ import { ALL_FORMATS, BlobSource, CanvasSink, Input, type InputVideoTrack } from
 
 import { killfeedUi, KILLFEED_AGENTS, KILLFEED_WEAPONS } from '@/lib/killfeed-assets';
 import {
-	BADGE, nameStrip, pickNames, placeKills, prepareArt, ROW, scanLength, watchFeed, WEAPON, whoAmI,
+	BADGE, nameStrip, pickNames, placeKills, placeLength, prepareArt, ROW, scanLength, watchFeed, WEAPON, whoAmI,
 	type FoundKill, type FrameSource, type PreparedArt, type Rgba, type Sighting, type Watched,
 } from '@/lib/kill-read';
 import { createNameReader } from '@/lib/name-ocr';
@@ -121,7 +121,7 @@ async function openReader(file: Blob): Promise<Reader | null> {
 const NAMES_TIMEOUT = 60_000;
 
 /** The players' names, read off each entry; a kill whose names can't be read keeps the agents'. */
-async function readNames(kills: SceneKill[]): Promise<SceneKill[]> {
+async function readNames(kills: SceneKill[], onKill?: (done: number) => void): Promise<SceneKill[]> {
 	if (!kills.length) return kills;
 	// Tesseract can fail to start without ever saying so; the kills shouldn't wait on it.
 	const reader = await Promise.race([
@@ -139,6 +139,7 @@ async function readNames(kills: SceneKill[]): Promise<SceneKill[]> {
 				killer: await reader.read(nameStrip(kill.picture, kill.names.killer, 'killer')),
 				victim: await reader.read(nameStrip(kill.picture, kill.names.victim, 'victim')),
 			});
+			onKill?.(read.length / kills.length);
 		}
 		const names = pickNames(kills, read);
 		return kills.map((kill, index) => ({ ...kill, killerName: names[index]!.killer, victimName: names[index]!.victim }));
@@ -147,8 +148,9 @@ async function readNames(kills: SceneKill[]): Promise<SceneKill[]> {
 	}
 }
 
-/** Reading the frames is most of the work; the names come after. */
-const FRAMES_SHARE = 0.9;
+/** Of the progress bar: watching the feed is most of the work, then timing each kill to its frame, then the names. */
+const WATCH_SHARE = 0.75;
+const PLACE_SHARE = 0.2;
 
 /** Your kills and deaths in the scene's videos, by reading Valorant's killfeed in the top right. */
 export async function findKills(world: World, scene: Entity, onProgress?: (done: number) => void): Promise<SceneKill[] | null> {
@@ -168,22 +170,26 @@ export async function findKills(world: World, scene: Entity, onProgress?: (done:
 		const watched: (Watched | null)[] = [];
 		for (const [index, clip] of clips.entries()) {
 			const reader = readers[index];
-			watched.push(reader && (await watchFeed(reader, clip.trimStart, clip.trimEnd, prepared, () => onProgress?.((++done / total) * FRAMES_SHARE))));
+			watched.push(reader && (await watchFeed(reader, clip.trimStart, clip.trimEnd, prepared, () => onProgress?.((++done / total) * WATCH_SHARE))));
 		}
 
 		// Clips cut from one video show one player, who a short clip on its own may show too few entries to tell.
 		const sightings = new Map<string, Sighting[]>();
 		clips.forEach((clip, index) => sightings.set(clip.asset, [...(sightings.get(clip.asset) ?? []), ...(watched[index]?.sightings ?? [])]));
 
+		const me = clips.map((clip) => whoAmI(sightings.get(clip.asset)!));
+		const placing = clips.reduce((sum, _, index) => sum + (readers[index] && watched[index] ? placeLength(readers[index], watched[index], me[index]) : 0), 0);
+		let placed = 0;
 		const kills: SceneKill[] = [];
 		for (const [index, clip] of clips.entries()) {
 			const reader = readers[index];
 			const seen = watched[index];
 			if (!reader || !seen) continue;
 			const scene = (media: number) => (clip.at ? clip.at(media) : clip.origin + media / (clip.rate || 1));
-			for (const kill of await placeKills(reader, seen, whoAmI(sightings.get(clip.asset)!))) kills.push({ ...kill, at: scene(kill.time) });
+			const found = await placeKills(reader, seen, me[index], () => onProgress?.(WATCH_SHARE + (++placed / placing) * PLACE_SHARE));
+			for (const kill of found) kills.push({ ...kill, at: scene(kill.time) });
 		}
-		const named = await readNames(kills.sort((a, b) => a.at - b.at));
+		const named = await readNames(kills.sort((a, b) => a.at - b.at), (done) => onProgress?.(WATCH_SHARE + PLACE_SHARE + done * (1 - WATCH_SHARE - PLACE_SHARE)));
 		onProgress?.(1);
 		return named;
 	} finally {

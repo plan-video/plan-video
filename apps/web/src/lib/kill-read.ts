@@ -696,8 +696,10 @@ export function gatherKills(read: Sighting[], me = whoAmI(read)): FoundKill[] {
     });
 }
 
+export type SlotLook = "empty" | "flash" | Float32Array;
+
 /** What fills the slot an entry came into: nothing, the blank flash of colour an entry arrives as, or an entry's look. */
-function slot(frame: Rgba, row: FeedRow): "empty" | "flash" | Float32Array {
+export function slot(frame: Rgba, row: FeedRow): SlotLook {
   const tall = row.bottom - row.top;
   const y0 = Math.max(0, Math.round(row.top + 0.2 * tall));
   const y1 = Math.min(frame.height, Math.round(row.bottom - 0.2 * tall));
@@ -721,13 +723,12 @@ function slot(frame: Rgba, row: FeedRow): "empty" | "flash" | Float32Array {
  * The frame `row` came in on. From the first frame at or after `seen` that shows it, back while each frame
  * before shows the same entry or its flash: the stack moving up can put another entry in the slot just before.
  */
-export function arrival(frames: { time: number; frame: Rgba }[], row: FeedRow, seen: number): number | null {
-  const looks = frames.map(({ frame }) => slot(frame, row));
-  let at = frames.findIndex(({ time }, index) => time >= seen - 1e-6 && typeof looks[index] !== "string");
+export function arrival(frames: { time: number; look: SlotLook }[], seen: number): number | null {
+  let at = frames.findIndex(({ time, look }) => time >= seen - 1e-6 && typeof look !== "string");
   if (at === -1) return null;
-  const own = looks[at] as Float32Array;
-  const same = (look: (typeof looks)[number]) => look === "flash" || (look instanceof Float32Array && correlation(look, own) >= 0.7);
-  while (at > 0 && same(looks[at - 1]!)) at--;
+  const own = frames[at]!.look as Float32Array;
+  const same = (look: SlotLook) => look === "flash" || (look instanceof Float32Array && correlation(look, own) >= 0.7);
+  while (at > 0 && same(frames[at - 1]!.look)) at--;
   return frames[at]!.time;
 }
 
@@ -878,28 +879,50 @@ export async function watchFeed(source: FrameSource, start: number, end: number,
   return { start, end, from, to, sightings };
 }
 
+/** The kills `placeKills` times, and the frames it reads to time them: every frame from just before each was caught. */
+function toPlace(source: FrameSource, watched: Watched, me?: string) {
+  const { start, end, from, to } = watched;
+  const rate = source.frameRate;
+  const step = 1 / rate;
+  const kills = gatherKills(watched.sightings, me ?? whoAmI(watched.sightings)).filter((kill) => kill.time >= start - step && kill.time <= end + LOOKBACK);
+  const spans = kills.map((kill): [number, number] => [Math.max(from, kill.time - LOOKBACK), Math.min(to, kill.time + SETTLE)]);
+  // One grid for all, so kills close together share their frames.
+  const frames = new Set<number>();
+  for (const [lo, hi] of spans) for (let index = Math.ceil(lo * rate - 1e-6); index <= Math.floor(hi * rate + 1e-6); index++) frames.add(index);
+  const times = [...frames].sort((a, b) => a - b).map((index) => index / rate);
+  return { kills, spans, times, step };
+}
+
+/** How many frames `placeKills` reads, for progress. */
+export function placeLength(source: FrameSource, watched: Watched, me?: string): number {
+  return toPlace(source, watched, me).times.length;
+}
+
 /**
  * The kills and deaths that come in while the clip shows: one up before it started belongs to what came before,
  * and is read either side of the start so a flash hiding it for a moment doesn't make it look new. `me` can come
  * from more of the video than this clip, which may show too few entries to tell you apart.
  */
-export async function placeKills(source: FrameSource, watched: Watched, me?: string): Promise<FoundKill[]> {
-  const { start, end, from, to } = watched;
+export async function placeKills(source: FrameSource, watched: Watched, me?: string, onFrame?: () => void): Promise<FoundKill[]> {
+  const { start, end } = watched;
+  const { kills, spans, times, step } = toPlace(source, watched, me);
   // A frame is timed when it starts showing, and is the clip's if it shows at its start; one showing at its
   // end is the next clip's start. So two clips cut from one video share none.
-  const step = 1 / source.frameRate;
   const shows = (time: number) => time >= start - step + 1e-6 && time < end - step + 1e-6;
-  const kills: FoundKill[] = [];
-  for (const kill of gatherKills(watched.sightings, me ?? whoAmI(watched.sightings))) {
-    // Caught a tenth of a second apart, and yours can be told only once its yellow draws in; the entry came in
-    // before that, on one frame, flashing its colour first.
-    if (kill.time < start - step || kill.time > end + LOOKBACK) continue;
-    const frames: { time: number; frame: Rgba }[] = [];
-    for await (const read of source.frames(sampleTimes(Math.max(from, kill.time - LOOKBACK), Math.min(to, kill.time + SETTLE), step))) {
-      if (read) frames.push(read);
-    }
-    const time = arrival(frames, kill.row, kill.time) ?? kill.time;
-    if (shows(time)) kills.push({ ...kill, time: Math.max(start, time) });
+  // Caught a tenth of a second apart, and yours can be told only once its yellow draws in; the entry came in
+  // before that, on one frame, flashing its colour first. Read in one pass: each seek redecodes from a keyframe.
+  const looks = kills.map((): { time: number; look: SlotLook }[] => []);
+  let index = 0;
+  for await (const read of source.frames(times)) {
+    const asked = times[index++]!;
+    onFrame?.();
+    if (!read) continue;
+    kills.forEach((kill, at) => {
+      if (asked >= spans[at]![0] - 1e-6 && asked <= spans[at]![1] + 1e-6) looks[at]!.push({ time: read.time, look: slot(read.frame, kill.row) });
+    });
   }
-  return kills;
+  return kills.flatMap((kill, at) => {
+    const time = arrival(looks[at]!, kill.time) ?? kill.time;
+    return shows(time) ? [{ ...kill, time: Math.max(start, time) }] : [];
+  });
 }

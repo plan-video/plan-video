@@ -5,7 +5,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  arrival, createTracker, gatherKills, measureColumn, nameStrip, pickNames, placeKills, readRows, ROW, type FeedRow, type FrameSource, type Reading, type Rgba,
+  arrival, createTracker, gatherKills, measureColumn, nameStrip, pickNames, placeKills, readRows, ROW, slot as slotLook, type FeedRow, type FrameSource, type Reading, type Rgba,
 } from "./kill-read";
 
 const TEAL = [87, 222, 196] as const;
@@ -245,7 +245,7 @@ describe("arrival", () => {
     return frame;
   };
   const at = (looks: Parameters<typeof slot>[0][], seen: number) =>
-    arrival(looks.map((look, index) => ({ time: index, frame: slot(look) })), row, seen);
+    arrival(looks.map((look, index) => ({ time: index, look: slotLook(slot(look), row) })), seen);
 
   it("lands on the frame the entry flashed in on", () => {
     expect(at(["empty", "empty", "flash", "kill", "kill"], 3)).toBe(2);
@@ -290,6 +290,15 @@ describe("placeKills", () => {
 
   it("leaves out an entry still up from before the clip, though a flash made it look new", async () => {
     expect(await place(5, 7, 4, 5.2)).toEqual([]);
+  });
+
+  it("times kills caught close together from the frames they share", async () => {
+    const sightings = [
+      { time: 5.2, death: false, seen: 9, row, picture, kill: reading("Jett", "Sova") },
+      { time: 5.6, death: false, seen: 9, row, picture, kill: reading("Jett", "Omen") },
+    ];
+    const kills = await placeKills(video(5), { start: 3, end: 8, from: 2, to: 9.5, sightings });
+    expect(kills.map((kill) => Math.round(kill.time * 100) / 100)).toEqual([5, 5]);
   });
 
   it("keeps a kill that came in before the clip ended, though it was told yours only after", async () => {

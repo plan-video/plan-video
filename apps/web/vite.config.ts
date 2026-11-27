@@ -261,6 +261,7 @@ export default defineConfig(async ({ mode, command }): Promise<UserConfig> => {
             'typegpu',
             // Imported on first use: left out, Vite optimizes them mid-session and full-reloads the page.
             'mediabunny',
+            'tesseract.js',
             '@plan.video/encoder/aac',
             '@mediabunny/aac-encoder',
             'client-zip',
