@@ -24,6 +24,20 @@ const ENV_PATH = process.env.MCP_ENV || "/etc/plan-video/mcp.env";
 const MCP_PATH = "/mcp";
 const TAB_PATH = "/api/mcp/tab";
 const METADATA_PATHS = new Set(["/.well-known/oauth-protected-resource", `/.well-known/oauth-protected-resource${MCP_PATH}`]);
+/** What directories read when their scan stops at the sign-in. */
+const SERVER_CARD_PATH = "/.well-known/mcp/server-card.json";
+
+// Any site may call /mcp from a browser: it only takes a bearer token, never a cookie.
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Expose-Headers": "WWW-Authenticate, Mcp-Session-Id, Mcp-Protocol-Version",
+};
+const PREFLIGHT = {
+  ...CORS,
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Authorization, Content-Type, Accept, Mcp-Protocol-Version, Mcp-Session-Id, Last-Event-ID",
+  "Access-Control-Max-Age": "86400",
+};
 
 const KiB = 1024;
 const MiB = 1024 * KiB;
@@ -77,6 +91,19 @@ const catalog = JSON.parse(readFileSync(new URL("./catalog.json", import.meta.ur
 // A copy hosted elsewhere sends the agent's user to its own site.
 catalog.instructions = catalog.instructions.replaceAll("https://plan.video", PUBLIC_URL);
 const TOOL_NAMES = new Set(catalog.tools.map((tool) => tool.name));
+const SERVER_INFO = { name: "plan-video", title: "plan.video", version };
+const SERVER_CARD = JSON.stringify({
+  serverInfo: SERVER_INFO,
+  description: "Plan, schedule and publish posts to YouTube, TikTok, Instagram, X, LinkedIn and more.",
+  websiteUrl: PUBLIC_URL,
+  transport: { type: "streamable-http", url: `${PUBLIC_URL}${MCP_PATH}` },
+  authentication: { required: true, schemes: ["oauth2"] },
+  capabilities: { tools: {} },
+  instructions: catalog.instructions,
+  tools: catalog.tools,
+  resources: [],
+  prompts: [],
+});
 
 const auth = createAuth({ supabaseUrl: env.SUPABASE_URL, supabaseAnonKey: env.SUPABASE_ANON_KEY });
 const relay = new Relay({ site: PUBLIC_URL });
@@ -159,7 +186,7 @@ function toContent(output) {
 
 function mcpServer(userId) {
   const server = new Server(
-    { name: "plan-video", title: "plan.video", version },
+    SERVER_INFO,
     { capabilities: { tools: {} }, instructions: catalog.instructions },
   );
   server.setRequestHandler(ListToolsRequestSchema, () => ({ tools: catalog.tools }));
@@ -181,7 +208,7 @@ function mcpServer(userId) {
 async function handleMcp(req, res) {
   if (req.method !== "POST") {
     // Stateless: no stream to resume with GET and no session to DELETE.
-    json(res, 405, { jsonrpc: "2.0", error: { code: -32000, message: "Method not allowed." }, id: null }, { Allow: "POST" });
+    json(res, 405, { jsonrpc: "2.0", error: { code: -32000, message: "Method not allowed." }, id: null }, { Allow: "POST, OPTIONS" });
     return;
   }
 
@@ -345,7 +372,19 @@ const server = createServer((req, res) => {
     return;
   }
 
+  if (path === SERVER_CARD_PATH && req.method === "GET") {
+    res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "public, max-age=3600", "Access-Control-Allow-Origin": "*" });
+    res.end(SERVER_CARD);
+    return;
+  }
+
   if (path === MCP_PATH) {
+    if (req.method === "OPTIONS") {
+      res.writeHead(204, PREFLIGHT);
+      res.end();
+      return;
+    }
+    for (const [name, value] of Object.entries(CORS)) res.setHeader(name, value);
     handleMcp(req, res).catch((error) => {
       console.error("[mcp] request failed:", error);
       if (!res.headersSent) json(res, 500, { jsonrpc: "2.0", error: { code: -32603, message: "Internal error." }, id: null });

@@ -7,7 +7,7 @@ const UNIQUE = {
   post_replies: ["delivery_id", "step"],
 };
 
-export function fakeDb({ posts = [], users = [], recipients = {}, accounts = {} } = {}) {
+export function fakeDb({ posts = [], users = [], recipients = {}, accounts = {}, rules = [] } = {}) {
   const tables = { post_deliveries: [], social_tokens: [], bluesky_sessions: [], publisher_waiting: [], publisher_uploads: [], publisher_notices: [], post_replies: [], user_data: users, account_state: [], agent_chats: [] };
   let serial = 0;
   const matches = (row, filter) => Object.entries(filter).every(([key, value]) => (Array.isArray(value) ? value.includes(row[key]) : row[key] === value));
@@ -255,6 +255,7 @@ export function fakeDb({ posts = [], users = [], recipients = {}, accounts = {} 
           .filter((item) => item.user_id === args.owner && item.post.id === args.post && (args.workspace == null || item.workspace_id === args.workspace))
           .map(copy);
       }
+      if (name === "members_need_approval") return rules.includes(`${args.owner}|${args.workspace}`);
       if (name === "publisher_recipient") return recipients[args.person] ?? null;
       if (name === "publisher_account") return accounts[`${args.owner}:${args.connection}`] ?? null;
       if (name === "publisher_plugs") return posts.find((item) => item.user_id === args.owner)?.plugs ?? [];

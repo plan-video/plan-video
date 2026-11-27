@@ -77,7 +77,9 @@ import {
   shiftDay,
 } from "@/components/calendar/utils";
 import { takeHandOff, takeHandedFiles } from "@/components/publish/handoff";
+import { fileNameCaptions } from "@/lib/file-name-captions";
 import { MediaPicker } from "@/components/publish/media-picker";
+import { GoogleDriveLogo } from "@/components/publish/google-drive-logo";
 import { PictureEditor } from "@/components/publish/picture-editor";
 import { VideoEditor } from "@/components/publish/video-editor";
 import { PUBLISHING_PLATFORMS, sendPost } from "@/components/publish/publisher";
@@ -85,6 +87,7 @@ import { RepeatEndField, RepeatField } from "@/components/publish/repeat-field";
 import { PlatformSettingsFields, platformsWithSettings, tiktokLimitIssues } from "@/components/publish/platform-settings";
 import { WhenOptions } from "@/components/publish/when-fields";
 import { useAuth } from "@/context/auth";
+import { driveAvailable, pickFromDrive } from "@/lib/google-drive";
 import { askForAccount } from "@/lib/guest";
 import { droppedFiles, pickFiles } from "@/engine/asset-actions";
 import { projectRoute, useReturnHere } from "@/hooks/use-project-route";
@@ -93,9 +96,14 @@ import { cx } from "@/lib/cva";
 import { localized, msg, t } from "@/lib/i18n";
 import { warnBeforeLeaving } from "@/lib/leave-guard";
 import { paidToolsLocked } from "@/lib/paid-tools";
+import { awaitingApproval, canApprove, mustAskForApproval } from "@/lib/approval-state";
+import { askForApproval } from "@/lib/approvals";
+import { previewOf } from "@/lib/post-previews";
+import { copyApprovalLink, personName } from "@/components/calendar/approval-card";
 import {
   captionLength,
   checkPost,
+  settingsIssues,
   defaultPlatformSettings,
   instagramPostSettings,
   pinterestPostSettings,
@@ -154,10 +162,12 @@ import {
   POSTABLE_IMAGES,
   POSTABLE_VIDEOS,
   baseName,
+  fileTitle,
   formatBytes,
   imageFileProblem,
   mediaKind,
   mediaProblems,
+  postableTooLarge,
   readMedia,
   releaseMedia,
   summarizeMedia,
@@ -354,6 +364,33 @@ async function attachProject(project: ProjectInfo & { cover?: Blob | null }, han
   const linked = await linkProject(project);
   if (post.kind === "text" || post.kind === "image") setKind("video");
   setPost("project", linked);
+}
+
+/** The media whose file name fills the caption, while that caption is left as it was filled. */
+let named: { file: File; name: string } | null = null;
+
+/** YouTube and Pinterest get the name as a title, so their caption stays empty. */
+const captionWantsName = () => !post.platforms.length || post.platforms.some((id) => !socialPlatform(id).title);
+
+/** The file's name goes in the titles and caption, never over words the person wrote. */
+function nameAfterMedia(before: PostMedia | undefined, after: PostMedia | undefined) {
+  if (!fileNameCaptions() || post.kind === "story" || before?.file === after?.file) return;
+  const was = before ? fileTitle(before.file.name) : "";
+  const name = after ? fileTitle(after.file.name) : "";
+  named = after && name ? { file: after.file, name } : null;
+  const title = (text: string) => [...text].slice(0, 100).join("");
+  const untouched = (value: string, previous: string) => !value.trim() || value === previous;
+  batch(() => {
+    if (untouched(post.caption, was)) setPost("caption", captionWantsName() ? name : "");
+    if (untouched(post.settings.youtube.title, title(was))) setPost("settings", "youtube", "title", title(name));
+    if (untouched(post.settings.pinterest.title, title(was))) setPost("settings", "pinterest", "title", title(name));
+  });
+}
+
+function captionFollowsAccounts(wants: boolean) {
+  if (!named || !fileNameCaptions() || post.kind === "story" || post.media[0]?.file !== named.file) return;
+  if (wants && !post.caption.trim()) setPost("caption", named.name);
+  else if (!wants && post.caption === named.name) setPost("caption", "");
 }
 
 function withCredits(caption: string, credits: readonly string[]): string {
@@ -556,6 +593,7 @@ async function putFiles(files: File[]) {
   const chosen = kind === "story" ? files : kind === "video" ? videos.slice(0, 1) : files.slice(0, MAX_IMAGES);
   const media = await Promise.all(chosen.map(readMedia));
   const replaced = allMedia();
+  const first = post.media[0];
   const platforms = post.platforms.filter((id) => platformsFor(kind).includes(id));
   batch(() => {
     setPost("kind", kind);
@@ -565,6 +603,7 @@ async function putFiles(files: File[]) {
     setPost("ownMedia", reconcile({}));
     setPost("cover", null);
     setPost("project", null);
+    nameAfterMedia(first, media[0]);
   });
   for (const item of replaced) releaseMedia(item);
 }
@@ -666,9 +705,7 @@ const DROP_TITLES: Record<PostKind, string> = {
 
 /** `{count}` is how many pictures a post takes. */
 const DROP_HINTS: Record<PostKind, string> = {
-  text: msg(
-    "{count, plural, one {An MP4 or MOV, up to # JPG or PNG picture, or a project. Leave it empty for a text post.} other {An MP4 or MOV, up to # JPG or PNG pictures, or a project. Leave it empty for a text post.}}",
-  ),
+  text: msg("Optional. MP4, MOV, JPG or PNG."),
   image: msg("{count, plural, one {Up to # JPG or PNG picture, 8 MB each} other {Up to # JPG or PNG pictures, 8 MB each}}"),
   video: msg("An MP4 or MOV up to 5 minutes, or a project of yours"),
   story: msg("One JPG or PNG, or an MP4 or MOV up to a minute"),
@@ -756,7 +793,7 @@ const SUBMIT_LABELS: Record<When, string> = { now: msg("Post now"), queue: msg("
 export function DashboardNewPostView() {
   const auth = useAuth();
   const [params, setParams] = useSearchParams();
-  const [busy, setBusy] = createSignal<"draft" | "post" | null>(null);
+  const [busy, setBusy] = createSignal<"draft" | "post" | "approval" | null>(null);
   const handed = takeHandOff();
   if (handed) {
     void loadPost(handed.post, handed.replace).catch((error) =>
@@ -774,6 +811,7 @@ export function DashboardNewPostView() {
     applyTemplate(template);
   }
   if (post.when === "now") setPost("when", "schedule");
+  createEffect(on(createMemo(captionWantsName), captionFollowsAccounts, { defer: true }));
   createEffect(() => {
     const kind = kindFromMedia();
     if (kind !== post.kind) setPost("kind", kind);
@@ -1117,6 +1155,41 @@ export function DashboardNewPostView() {
     }
   };
 
+  /** Posts here wait for an owner or admin, as does a member's change to one already waiting. */
+  const mustAsk = () => !toInbox() && (mustAskForApproval(auth.user()?.id) || (!canApprove() && !!replacing() && awaitingApproval(replacing()!)));
+  const canAsk = () => !toInbox() && (mustAsk() || !paidToolsLocked() || !!(post.replaces && previewOf(post.replaces)));
+
+  const askApproval = async () => {
+    if (!canSubmit() || busy()) return;
+    if (auth.isGuest()) {
+      askForAccount({ reason: "approval" });
+      return;
+    }
+    setBusy("approval");
+    try {
+      if (exportRun && (!(await projectExportDone()) || errors().length || mediaErrors().length)) return;
+      if (projectVideoMissing()) {
+        toast.error(t("Attach a video"), { description: t("The project's video didn't export. Retry it on the post, or attach a video.") });
+        return;
+      }
+      const saved = await save("draft");
+      if (!saved) return;
+      const asked = await askForApproval(saved.id, personName(auth.user()));
+      track("post_approval_asked", { platforms: post.platforms.length, kind: post.kind });
+      reset();
+      if ("error" in asked) {
+        toast.error(t("Saved as a draft"), { description: t(asked.error), action: { label: t("Open calendar"), onClick: () => openCalendar(saved.when) } });
+        return;
+      }
+      toast.success(t("Sent for approval"), {
+        description: t("It goes out {when} once it's approved. Send the link to whoever approves it.", { when: formatWhen(saved.when) }),
+        action: { label: t("Copy link"), onClick: () => void copyApprovalLink(asked.previewId) },
+      });
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const [nowFrom, setNowFrom] = createSignal<Exclude<When, "now"> | null>(null);
   const laterWhen = () => nowFrom() ?? (post.when === "now" ? "schedule" : post.when);
   const postNow = async () => {
@@ -1141,7 +1214,7 @@ export function DashboardNewPostView() {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Enter" || !(event.metaKey || event.ctrlKey)) return;
       event.preventDefault();
-      void submit();
+      void (mustAsk() ? askApproval() : submit());
     };
     window.addEventListener("keydown", onKeyDown);
     onCleanup(() => window.removeEventListener("keydown", onKeyDown));
@@ -1204,10 +1277,11 @@ export function DashboardNewPostView() {
               <MediaSection />
             </div>
             <Show when={post.kind !== "story"}>
+              <TitleSection />
               <CaptionSection />
               <ThreadSection />
             </Show>
-            <PlatformSettingsSection issues={issues()} />
+            <PlatformSettingsSection />
             <Show when={mirror().length}>
               <IssueList issues={mirror()} names={post.platforms.length > 1} class="@3xl:hidden" />
             </Show>
@@ -1223,6 +1297,14 @@ export function DashboardNewPostView() {
             <Button variant="ghost" class="text-muted-foreground" disabled={!!busy() || (!hasContent() && !post.platforms.length)} onClick={() => void saveDraft()}>
               {t("Save draft")}
             </Button>
+            <Show when={canAsk() && !mustAsk()}>
+              <Button variant="ghost" class="gap-1.5 text-muted-foreground" disabled={!canSubmit()} onClick={() => void askApproval()}>
+                <Show when={busy() === "approval"}>
+                  <Icon name="spinner-loader" class="-ml-1 size-5 animate-spin" />
+                </Show>
+                {t("Ask for approval")}
+              </Button>
+            </Show>
             <span
               class="inline-flex items-center gap-2"
               title={
@@ -1235,7 +1317,7 @@ export function DashboardNewPostView() {
                   : undefined
               }
             >
-              <Show when={!toInbox()}>
+              <Show when={!toInbox() && !mustAsk()}>
                 <Button
                   variant="secondary"
                   class="gap-1.5 px-3"
@@ -1250,13 +1332,13 @@ export function DashboardNewPostView() {
                 </Button>
               </Show>
               <Tooltip>
-                <TooltipTrigger as={Button} class="button-type gap-1.5 px-3" disabled={!canSubmit()} onClick={() => void submit()}>
-                  <Show when={busy() === "post" && !nowFrom()}>
+                <TooltipTrigger as={Button} class="button-type gap-1.5 px-3" disabled={!canSubmit()} onClick={() => void (mustAsk() ? askApproval() : submit())}>
+                  <Show when={(busy() === "post" && !nowFrom()) || (mustAsk() && busy() === "approval")}>
                     <Icon name="spinner-loader" class="-ml-1 size-5 animate-spin" />
                   </Show>
-                  {toInbox() ? t("Send to inbox") : t(SUBMIT_LABELS[laterWhen()])}
+                  {mustAsk() ? t("Ask for approval") : toInbox() ? t("Send to inbox") : t(SUBMIT_LABELS[laterWhen()])}
                 </TooltipTrigger>
-                <TooltipContent shortcut="⌘↵">{toInbox() ? t("Send to inbox") : t(SUBMIT_LABELS[laterWhen()])}</TooltipContent>
+                <TooltipContent shortcut="⌘↵">{mustAsk() ? t("Ask for approval") : toInbox() ? t("Send to inbox") : t(SUBMIT_LABELS[laterWhen()])}</TooltipContent>
               </Tooltip>
             </span>
           </div>
@@ -1602,6 +1684,7 @@ function MediaEditor(props: { slot: MediaSlot }) {
         batch(() => {
           slot.setItems([read]);
           slot.setCover(null);
+          if (!slot.platform) nameAfterMedia(replaced[0], read);
         });
         releaseUnused(replaced);
         void keepInLibrary([read]);
@@ -1640,6 +1723,7 @@ function MediaEditor(props: { slot: MediaSlot }) {
       batch(() => {
         slot.setItems([...keep, ...read]);
         slot.setCover(null);
+        if (!slot.platform) nameAfterMedia(before[0], items()[0]);
       });
       if (keep !== before) releaseUnused(before);
       void keepInLibrary(read);
@@ -1650,16 +1734,17 @@ function MediaEditor(props: { slot: MediaSlot }) {
     }
   };
 
-  const pick = async () =>
-    void addFiles(
-      await pickFiles({ accept: post.kind === "image" ? POSTABLE_IMAGES : post.kind === "video" ? POSTABLE_VIDEOS : POSTABLE_FILES }),
-    );
+  const accept = () => (post.kind === "image" ? POSTABLE_IMAGES : post.kind === "video" ? POSTABLE_VIDEOS : POSTABLE_FILES);
+  const pick = async () => void addFiles(await pickFiles({ accept: accept() }));
+  const pickDrive = async () => void addFiles(await pickFromDrive({ accept: accept(), multiple: post.kind !== "video", tooLarge: postableTooLarge }));
 
   const remove = (id: string) => {
-    const gone = items().filter((entry) => entry.id === id);
+    const before = items();
+    const gone = before.filter((entry) => entry.id === id);
     batch(() => {
-      slot.setItems(items().filter((entry) => entry.id !== id));
+      slot.setItems(before.filter((entry) => entry.id !== id));
       if (!items().some((entry) => entry.kind === "video")) slot.setCover(null);
+      if (!slot.platform) nameAfterMedia(before[0], items()[0]);
     });
     releaseUnused(gone);
   };
@@ -1706,6 +1791,7 @@ function MediaEditor(props: { slot: MediaSlot }) {
             title={reading() ? t("Reading…") : t(DROP_TITLES[post.kind])}
             hint={slot.platform ? ownDropHint(slot.platform) : t(DROP_HINTS[post.kind], { count: MEDIA_LIMITS.maxImages })}
             pickLabel={post.kind === "image" ? t("Choose pictures") : post.kind === "video" ? t("Choose a video") : t("Choose a file")}
+            pickIcon="upload"
             dragging={dragging()}
             onPick={() => void pick()}
             handlers={handlers}
@@ -1715,6 +1801,12 @@ function MediaEditor(props: { slot: MediaSlot }) {
                   <Icon name="all-media-types" class="-ml-1.5 size-5" />
                   {t("From library")}
                 </MediaPicker>
+                <Show when={driveAvailable()}>
+                  <button type="button" class={cx(dropZoneAction, "gap-1.5")} onClick={() => void pickDrive()}>
+                    <GoogleDriveLogo class="-ml-0.5 size-4" />
+                    Google Drive
+                  </button>
+                </Show>
                 <Show when={post.kind !== "image" && !slot.platform}>
                   <ProjectPicker class={cx(dropZoneAction, "max-md:hidden")} onPick={(project) => void attachProject(project)}>
                     <Icon name="navigation.folder" class="-ml-1.5 size-5" />
@@ -2423,6 +2515,40 @@ function listItems(parts: readonly string[]): string {
   return ITEM_LIST().format(parts);
 }
 
+function TitleSection() {
+  const titled = () =>
+    post.platforms.filter((id) => socialPlatform(id).title && (post.kind === "text" || socialPlatform(id).kinds.includes(post.kind)));
+  return (
+    <Show when={titled().length}>
+      <FormSection title={t("Title")} hint={listNames(titled())}>
+        <For each={titled()}>
+          {(id) => {
+            const value = () => platformTitle(post.settings, id);
+            return (
+              <div class="flex h-11 items-center gap-2.5 rounded-xl border border-(--border-input) px-3.5 transition-colors focus-within:border-primary">
+                <Show when={titled().length > 1}>
+                  <PlatformLogo id={id} class="size-4 shrink-0" />
+                </Show>
+                <input
+                  class="min-w-0 flex-1 bg-transparent text-[15px] text-foreground outline-none placeholder:text-muted-foreground"
+                  aria-label={titled().length > 1 ? `${t("Title")} · ${socialPlatform(id).name}` : t("Title")}
+                  placeholder={id === "youtube" ? t("What's the video called?") : t("Give the pin a title")}
+                  value={value()}
+                  onInput={(event) => setPost("settings", id as "youtube" | "pinterest", "title", event.currentTarget.value)}
+                  onKeyDown={(event) => event.stopPropagation()}
+                />
+                <Show when={value()}>
+                  <CharCount count={captionLength(value())} limit={socialPlatform(id).title!.limit} />
+                </Show>
+              </div>
+            );
+          }}
+        </For>
+      </FormSection>
+    </Show>
+  );
+}
+
 function CaptionSection() {
   const auth = useAuth();
 
@@ -2468,6 +2594,9 @@ function CaptionSection() {
 
   const signed = () => appendSignature(value(), signatureText());
   const tags = () => hashtagCount(signed());
+  const isDescription = () => active() === "youtube" || (active() === "all" && post.platforms.length === 1 && post.platforms[0] === "youtube");
+  const alsoDescription = () =>
+    active() === "all" && post.platforms.length > 1 && post.platforms.includes("youtube") && post.overrides.youtube === undefined;
 
   const saveToVault = () => {
     const made = createVaultItem({ kind: "caption", title: "", body: value() });
@@ -2479,8 +2608,14 @@ function CaptionSection() {
 
   return (
     <FormSection
-      title={t("Caption")}
-      hint={active() === "all" ? undefined : t("Only for {platform}", { platform: socialPlatform(active() as PlatformId).name })}
+      title={isDescription() ? t("Description") : t("Caption")}
+      hint={
+        active() !== "all"
+          ? t("Only for {platform}", { platform: socialPlatform(active() as PlatformId).name })
+          : alsoDescription()
+            ? t("Also the description on YouTube")
+            : undefined
+      }
       action={
         <span class="-mr-1 flex items-center gap-2">
           <Show when={active() !== "all" && post.overrides[active() as PlatformId] !== undefined}>
@@ -2505,7 +2640,13 @@ function CaptionSection() {
         <textarea
           ref={field}
           class="field-sizing-content max-h-[32rem] min-h-40 w-full resize-y bg-transparent px-3.5 pt-3 pb-1 text-[15px] leading-relaxed text-foreground outline-none placeholder:text-muted-foreground supports-[field-sizing:content]:resize-none"
-          placeholder={active() === "all" ? t("Write a caption. Add #hashtags and @mentions.") : t("Write a caption just for this platform.")}
+          placeholder={
+            isDescription()
+              ? t("What's the video about?")
+              : active() === "all"
+                ? t("Write a caption. Add #hashtags and @mentions.")
+                : t("Write a caption just for this platform.")
+          }
           value={value()}
           onInput={(event) => write(event.currentTarget.value)}
           onKeyDown={(event) => {
@@ -2865,11 +3006,15 @@ function PlatformTab(props: { selected: boolean; onClick(): void; children: JSX.
   );
 }
 
-function PlatformSettingsSection(props: { issues: PostIssue[] }) {
+function PlatformSettingsSection() {
   const settings = (...args: unknown[]) => (setPost as (...path: unknown[]) => void)("settings", ...args);
   const shown = () => platformsWithSettings(post.kind, post.platforms);
   const current = () => (shown().includes(previewing()) ? previewing() : shown()[0]!);
-  const blocked = (id: PlatformId) => props.issues.some((issue) => issue.platform === id && issue.level === "error");
+  const blocked = (id: PlatformId) => {
+    let found = false;
+    if (post.kind !== "story") settingsIssues(id, post.settings, (level) => (found ||= level === "error"));
+    return found;
+  };
   const [open, setOpen] = createSignal(false);
   return (
     <Show when={shown().length}>
@@ -2912,18 +3057,7 @@ function PlatformSettingsSection(props: { issues: PostIssue[] }) {
           onChange={settings as SetStoreFunction<PlatformSettings>}
           tiktokAccount={() => accountsFor("tiktok", post.accounts).find((account) => account.tiktok)}
           youtubeChannels={() => accountsFor("youtube", post.accounts)}
-          youtubeDescription={{
-            value: () => captionFor("youtube"),
-            onInput: (text) => setPost("overrides", "youtube", text),
-            own: () => post.overrides.youtube !== undefined,
-            reset: () =>
-              setPost(
-                "overrides",
-                produce((overrides) => {
-                  delete overrides.youtube;
-                }),
-              ),
-          }}
+          noTitles
         />
         </div>
         </Show>

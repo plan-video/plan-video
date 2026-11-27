@@ -16,7 +16,7 @@ import { signedInUserId } from '@/lib/guest';
 import { dashboardTheme, setThemeSurface } from "@/lib/dashboard-theme";
 import { AnalyticsConsent } from '@/components/analytics-consent';
 import { ScreenTooSmall, UnlessTooSmall } from '@/components/screen-too-small';
-import { UnsupportedBrowser } from '@/components/unsupported-browser';
+import { UnlessUnsupported, UnsupportedBrowser } from '@/components/unsupported-browser';
 import { OAuthConsentPage, ResumeConsent, rememberConsent, takeConsent } from '@/pages/oauth-consent';
 import { rememberReturn, takeReturn } from '@/lib/return-after-sign-in';
 import { DASHBOARD_PATH, TRY_PATH, dashboardRoute, isEditorPath, isSitePath, useProjectRef } from '@/hooks/use-project-route';
@@ -305,9 +305,11 @@ function TryProjectRoute() {
   return (
     <GuestGate account={`/projects/${encodeURIComponent(ref())}`}>
       <GuestFrame>
-        <UnlessTooSmall>
-          <ProjectPage />
-        </UnlessTooSmall>
+        <UnlessUnsupported>
+          <UnlessTooSmall>
+            <ProjectPage />
+          </UnlessTooSmall>
+        </UnlessUnsupported>
       </GuestFrame>
     </GuestGate>
   );
@@ -379,7 +381,7 @@ function App() {
       <Route path="/connect/:link" component={ConnectLinkPage} />
       <Route path="/dashboard" component={DashboardRoute} />
       <Route path="/" component={!site ? DashboardRoute : HomeRoute} />
-      <Route path="/projects/*ref" component={() => <AuthGate><UnlessTooSmall><ProjectPage /></UnlessTooSmall></AuthGate>} />
+      <Route path="/projects/*ref" component={() => <AuthGate><UnlessUnsupported><UnlessTooSmall><ProjectPage /></UnlessTooSmall></UnlessUnsupported></AuthGate>} />
       <Route path={TRY_PATH} component={TryRoute} />
       <Route path={`${TRY_PATH}/projects/*ref`} component={TryProjectRoute} />
       <Route path="*404" component={NotFoundPage} />

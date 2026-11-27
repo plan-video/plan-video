@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import type { Approval, ApprovalState } from "@/lib/approval-state";
 import type { AccountChoices } from "@/lib/social-connections";
 import type { InstagramPostSettings, PinterestPostSettings, TikTokPostSettings, XPostSettings, YouTubePostSettings } from "@/lib/social";
 import type { ThreadReply } from "@/lib/thread";
@@ -10,7 +11,7 @@ export type CalendarView = "month" | "week" | "list";
 export type CalendarColor = string;
 
 export type PostStatus = "draft" | "scheduled" | "posted";
-export type PostStatusFilter = "all" | PostStatus | "failed";
+export type PostStatusFilter = "all" | PostStatus | "failed" | "approval";
 
 /** How a post repeats: `""` for never, `weekday`, or `every:N:unit` from its first day. */
 export type RepeatOption = string;
@@ -79,6 +80,8 @@ export type StoredEvent = {
   sendFrom?: string;
   start: string;
   status: PostStatus;
+  /** Absent when nobody asked. Waiting or sent back, it's a draft. */
+  approval?: Approval;
   /** Kept only where they differ from the shared caption, so a change to that reaches every other network. */
   captions?: Partial<Record<string, string>>;
   deliveries?: Partial<Record<string, Delivery>>;
@@ -110,6 +113,7 @@ export type CalendarEvent = {
   sourceId: string;
   start: string;
   status: PostStatus;
+  approval?: ApprovalState;
   delivery?: "sending" | "failed" | null;
   waiting?: string;
   title: string;

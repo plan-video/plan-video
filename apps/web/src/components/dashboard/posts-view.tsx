@@ -47,6 +47,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Icon } from "@/components/dashboard/dashboard-icon";
+import { APPROVAL_LABELS, approvalOf, awaitingApproval } from "@/lib/approval-state";
 import { cx } from "@/lib/cva";
 import { localized, msg, t } from "@/lib/i18n";
 import { accountLabel, accountsFor } from "@/lib/social-connections";
@@ -90,6 +91,14 @@ const TABS: Tab[] = [
     hint: msg("Save a post as a draft to finish it later."),
   },
   {
+    id: "approval",
+    label: msg("Needs approval"),
+    view: "approvals",
+    icon: "clock",
+    empty: msg("Nothing needs approval"),
+    hint: msg("Posts you ask a client or your team to approve wait here until they're approved."),
+  },
+  {
     id: "posted",
     label: msg("Posted"),
     view: "posted",
@@ -110,6 +119,7 @@ const TABS: Tab[] = [
 function inTab(post: StoredEvent, tab: PostsTab) {
   if (tab === "all") return true;
   if (tab === "failed") return hasFailed(post) && !isGoingOut(post);
+  if (tab === "approval") return awaitingApproval(post);
   return post.status === tab;
 }
 
@@ -295,6 +305,7 @@ function passesFilter(post: StoredEvent) {
   if (!goesOutFromPicked(post)) return false;
   const status = statusFilter();
   if (status === "failed") return hasFailed(post) && !isGoingOut(post);
+  if (status === "approval") return awaitingApproval(post);
   return status === "all" || post.status === status;
 }
 
@@ -359,8 +370,10 @@ export function CalendarPostList(props: {
   const sections = createMemo(() => {
     const searching = !!query().trim();
     const day = props.picked;
+    // What waits for approval is a to-do list: all of it, whatever month it's in.
+    const everyMonth = statusFilter() === "approval";
     const posts = visible().filter((post) =>
-      searching ? matches(post, query()) : day ? post.day === day : inMonth(post, month()),
+      searching ? matches(post, query()) : day ? post.day === day : everyMonth || inMonth(post, month()),
     );
     return toSections(groupPosts(posts, statusFilter() === "posted" ? "posted" : "all", now()));
   });
@@ -424,6 +437,7 @@ export function CalendarPostList(props: {
     if (statusFilter() === "draft") return t("No drafts");
     if (statusFilter() === "scheduled") return t("Nothing is scheduled");
     if (statusFilter() === "failed") return t("Nothing failed");
+    if (statusFilter() === "approval") return t("Nothing needs approval");
     return t("No posts");
   };
 
@@ -545,7 +559,7 @@ export function DashboardPostsView(props: { tab: PostsTab }) {
     const posts = allPosts();
     return Object.fromEntries(TABS.map((tab) => [tab.id, posts.filter((post) => inTab(post, tab.id)).length])) as Record<PostsTab, number>;
   });
-  const tabs = () => TABS.filter((tab) => tab.id !== "failed" || counts().failed > 0 || props.tab === "failed");
+  const tabs = () => TABS.filter((tab) => (tab.id !== "failed" && tab.id !== "approval") || counts()[tab.id] > 0 || props.tab === tab.id);
   const ofTab = () => allPosts().filter((post) => inTab(post, props.tab));
   const shown = createMemo(() => ofTab().filter((post) => matches(post, query()) && (!day() || post.day === day())));
   const groups = createMemo(() => groupPosts(shown(), props.tab, now()));
@@ -769,7 +783,7 @@ export function SectionHeader(props: { id: string; label: string; note?: string;
   );
 }
 
-type StatusTone = "sending" | "failed" | "late" | "posted" | "scheduled" | "draft";
+type StatusTone = "sending" | "failed" | "late" | "posted" | "scheduled" | "draft" | "approved";
 
 const STATUS_TONE: Record<StatusTone, string> = {
   sending: "text-primary",
@@ -778,6 +792,7 @@ const STATUS_TONE: Record<StatusTone, string> = {
   posted: "text-foreground",
   scheduled: "text-foreground",
   draft: "text-muted-foreground",
+  approved: "text-foreground",
 };
 
 const STATUS_DOT: Record<StatusTone, string> = {
@@ -787,6 +802,7 @@ const STATUS_DOT: Record<StatusTone, string> = {
   posted: "bg-meter-green",
   scheduled: "bg-primary",
   draft: "bg-muted-foreground/60",
+  approved: "bg-meter-green",
 };
 
 function PostAccounts(props: { post: StoredEvent; platforms: PlatformId[] }) {
@@ -861,15 +877,52 @@ function PostRow(props: {
     sending() || !hasFailed(props.post) ? undefined : deliveriesOf(props.post).find(({ delivery }) => delivery.state === "failed")?.delivery;
   const sent = () => deliveriesOf(props.post).some(({ delivery }) => delivery.state === "sent");
   const inInbox = () => !!props.post.tiktok?.inbox && sent() && props.post.status !== "posted" && !sending() && !failure();
-  const sendable = () => canPublish(props.post) && !props.post.recurrence && props.post.status !== "posted" && !sent() && !sending();
+  const sendable = () => canPublish(props.post) && !props.post.recurrence && props.post.status !== "posted" && !sent() && !sending() && !awaitingApproval(props.post);
   const copies = () => props.post.status === "posted";
   const held = () => (sending() || failure() ? null : heldBack(props.post));
+  // Approved and scheduled reads as scheduled; approved and still a draft, its time passed while it waited.
+  const approval = () => {
+    const found = sending() || failure() || held() ? undefined : approvalOf(props.post);
+    return found && (found.state !== "approved" || props.post.status === "draft") ? found : undefined;
+  };
   watchThread(() => props.post);
   const thread = () => (sending() || failure() ? null : threadStatus(props.post));
   const status = () =>
-    waiting() ? t("Waiting") : sending() ? t("Sending") : failure() ? t("Failed") : held() ? t(held()!.label) : inInbox() ? t("In inbox") : props.pastDue ? t("Past due") : statusLabel(props.post.status);
+    waiting()
+      ? t("Waiting")
+      : sending()
+        ? t("Sending")
+        : failure()
+          ? t("Failed")
+          : held()
+            ? t(held()!.label)
+            : approval()
+              ? t(APPROVAL_LABELS[approval()!.state])
+              : inInbox()
+                ? t("In inbox")
+                : props.pastDue
+                  ? t("Past due")
+                  : statusLabel(props.post.status);
   const tone = (): StatusTone =>
-    waiting() ? "late" : sending() ? "sending" : failure() ? "failed" : held() ? "late" : inInbox() ? "scheduled" : props.pastDue ? "late" : props.post.status === "posted" ? "posted" : props.post.status === "scheduled" ? "scheduled" : "draft";
+    waiting()
+      ? "late"
+      : sending()
+        ? "sending"
+        : failure()
+          ? "failed"
+          : held()
+            ? "late"
+            : approval()
+              ? ({ pending: "late", changes: "failed", approved: "approved" } as const)[approval()!.state]
+              : inInbox()
+                ? "scheduled"
+                : props.pastDue
+                  ? "late"
+                  : props.post.status === "posted"
+                    ? "posted"
+                    : props.post.status === "scheduled"
+                      ? "scheduled"
+                      : "draft";
 
   return (
     <div class={`group relative flex h-14 items-center gap-3 rounded-md px-3 transition-colors hover:bg-accent max-sm:gap-2 max-sm:px-2 ${ROW_COLUMNS} lg:items-center`}>
@@ -918,6 +971,12 @@ function PostRow(props: {
               </Match>
               <Match when={held()}>
                 {(state) => <span class="truncate text-meter-yellow">{t(state().detail)}</span>}
+              </Match>
+              <Match when={approval()?.state === "changes" && approval()}>
+                {(found) => <span class="truncate text-destructive">{found().note || t("Change the post, then ask for approval again.")}</span>}
+              </Match>
+              <Match when={approval()?.state === "approved" && approval()}>
+                <span class="truncate">{t("Its time passed while it waited. Give it a new time.")}</span>
               </Match>
               <Match when={thread()?.state === "failed" && thread()}>
                 {(status) => (
@@ -987,7 +1046,7 @@ function PostRow(props: {
               <DropdownMenuItem tone="neutral" onSelect={() => props.onStatus("posted")}>
                 {t("Mark as posted")}
               </DropdownMenuItem>
-              <Show when={props.post.status !== "scheduled"}>
+              <Show when={props.post.status !== "scheduled" && !awaitingApproval(props.post)}>
                 <DropdownMenuItem tone="neutral" onSelect={() => props.onStatus("scheduled")}>
                   {t("Mark as scheduled")}
                 </DropdownMenuItem>

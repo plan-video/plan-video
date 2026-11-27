@@ -17,6 +17,8 @@ import { ExportProgress, ExportSaved, type ExportConfig } from "@/components/sid
 import { renderScene, renderOverlay, cancelRender } from "@/context/render";
 import { postableExport } from "@/lib/social-media";
 import { sceneCredits, sceneWords } from "@/projects/post-export";
+import { collectTimeline } from "@/engine/timeline-export";
+import { buildPremiereXml } from "@/lib/timeline-xml";
 import {
   MIME_TYPES,
   getDefaultExportTemplate,
@@ -28,6 +30,7 @@ import type { JSX, Accessor } from "solid-js";
 type ExportContextValue = {
   exportScene: (scene: Entity, config: ExportConfig) => Promise<void>;
   exportCurrentFrame: () => Promise<void>;
+  exportTimeline: (scene: Entity) => Promise<void>;
   exporting: Accessor<boolean>;
 };
 
@@ -141,6 +144,51 @@ export function ExportProvider(props: { children: JSX.Element }) {
     await downloadObject(blob, `${projectName}-frame.png`);
   };
 
+  const exportTimeline: ExportContextValue["exportTimeline"] = async (scene) => {
+    if (!scene?.isAlive()) return;
+    const title = project.name().replace(/[\\/:*?"<>|]+/g, "-").trim() || "video";
+    const { timeline, files, leftOut } = collectTimeline(world, scene, title);
+    if (timeline.clips.length === 0) {
+      toast(t("No clips to hand over"), { description: t("Only video, audio and picture clips go into the timeline.") });
+      return;
+    }
+
+    let parent: FileSystemDirectoryHandle;
+    try {
+      parent = await window.showDirectoryPicker({ id: "timeline-export", mode: "readwrite", startIn: "documents" });
+    } catch (e) {
+      if ((e as Error).name === "AbortError") return;
+      toast.error(t("Failed to start export"), { description: (e as Error).message });
+      return;
+    }
+
+    const id = toast.loading(t("Saving the timeline and its media…"));
+    try {
+      let folderName = title;
+      for (let n = 2; await parent.getDirectoryHandle(folderName).then(() => true, () => false); n++) folderName = `${title} ${n}`;
+      const folder = await parent.getDirectoryHandle(folderName, { create: true });
+      const media = await folder.getDirectoryHandle("media", { create: true });
+      for (const { name, asset } of files) {
+        const source = await asset.handle.getFile();
+        const writable = await (await media.getFileHandle(name, { create: true })).createWritable();
+        await source.stream().pipeTo(writable);
+      }
+      const xmlName = `${title}.xml`;
+      const writable = await (await folder.getFileHandle(xmlName, { create: true })).createWritable();
+      await writable.write(buildPremiereXml(timeline));
+      await writable.close();
+      toast.success(t("Timeline saved in {folder}", { folder: folderName }), {
+        id,
+        description: leftOut
+          ? t("Import {file} in Premiere Pro or DaVinci Resolve. Text, captions and effects stay in plan.video.", { file: xmlName })
+          : t("Import {file} in Premiere Pro or DaVinci Resolve.", { file: xmlName }),
+      });
+    } catch (e) {
+      console.error("Timeline export failed:", e);
+      toast.error(t("Export failed"), { id, description: (e as Error).message });
+    }
+  };
+
   const exportActiveScene = () => {
     const scene = getActiveEntity(world);
     if (scene === null) {
@@ -163,7 +211,7 @@ export function ExportProvider(props: { children: JSX.Element }) {
   onCleanup(() => window.removeEventListener("keydown", handleShortcut));
 
   return (
-    <ExportContext.Provider value={{ exportScene, exportCurrentFrame, exporting }}>
+    <ExportContext.Provider value={{ exportScene, exportCurrentFrame, exportTimeline, exporting }}>
       {props.children}
       <ExportProgress
         open={!!renderOverlay()}

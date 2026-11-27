@@ -1,4 +1,4 @@
-Keep each client in their own [workspace](/docs/workspaces). Two links let them take part without a plan.video account.
+Keep each client in their own [workspace](/docs/workspaces). Links let them take part without a plan.video account: they can see a post and comment, approve it before it goes out, and connect their own accounts.
 
 ## Preview links
 
@@ -17,6 +17,32 @@ Show a client a post before it goes out, and let them comment. Making a preview 
 </Steps>
 
 **Stop sharing** ends the link, and removes its comments.
+
+## Approvals
+
+Have a client, or someone on your team, approve a post before it goes out. Asking for approval is on paid plans.
+
+<Steps>
+  <Step title="Ask for approval">
+    In **New post**, pick the post's time and click **Ask for approval**. For a post already on your calendar, click it and choose **Ask for approval** from the **…** menu, or from **Share**.
+  </Step>
+  <Step title="Send the link">
+    Click **Copy link** and send it. Whoever has it sees the post as it will go out, and clicks **Approve** or **Request changes** with a note. They give their name, and need no account.
+  </Step>
+  <Step title="It goes out">
+    Once it's approved, the post is scheduled for its time and goes out on its own.
+  </Step>
+</Steps>
+
+While it waits, the post stays on your calendar as **Needs approval**, but nothing goes out, not even with **Post now**. **Needs approval** in the sidebar lists every post waiting, and your notifications say when one is approved or sent back.
+
+- The workspace's owner and admins can also approve a post themselves: click it and choose **Approve** or **Request changes**. Scheduling it from **New post** approves it too. Members can ask for approval, but not approve.
+- **Changes requested** shows the note on the post. Change it, then click **Ask again**.
+- If a post's time passes while it waits, approving it doesn't send it late. It stays an approved draft until you give it a new time.
+- Every request and decision is kept with the post's comments, with who made it and when.
+- **Stop asking for approval** in the **…** menu makes it a plain draft again.
+
+To have every post a member makes approved first, turn on **Members need approval** under **Members** on the workspace's **General** page. Members then see **Ask for approval** instead of **Schedule** and **Post now**, and a change they make to a scheduled post waits for approval again. The owner and admins schedule as before.
 
 ## Client link
 

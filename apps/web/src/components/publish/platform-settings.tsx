@@ -378,11 +378,9 @@ export function PlatformSettingsFields(props: {
   mixed?: boolean;
   tiktokAccount?: () => SocialConnection | undefined;
   only?: PlatformId;
-  /** Each post is titled elsewhere, as in Bulk tools. */
+  /** The title field sits elsewhere: the composer has its own, Bulk tools a column. */
   noTitles?: boolean;
   youtubeChannels?: () => SocialConnection[];
-  /** Shown with its title and privacy status, as YouTube's rules ask. */
-  youtubeDescription?: { value: () => string; onInput: (text: string) => void; own: () => boolean; reset: () => void };
 }) {
   const auth = useAuth();
   const creator = useTikTokCreator(() => (props.platforms.includes("tiktok") ? props.tiktokAccount?.() : undefined));
@@ -408,28 +406,6 @@ export function PlatformSettingsFields(props: {
               onKeyDown={(event) => event.stopPropagation()}
             />
           </Field>
-        </Show>
-        <Show when={props.youtubeDescription}>
-          {(description) => (
-            <Field
-              label={t("Description")}
-              trailing={
-                <Show when={description().own()} fallback={<span>{t("Same as the caption")}</span>}>
-                  <button type="button" class="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline" onClick={() => description().reset()}>
-                    {t("Use the shared caption")}
-                  </button>
-                </Show>
-              }
-            >
-              <textarea
-                class={cx(fieldControl, "h-auto min-h-20 resize-y py-1.5 leading-relaxed")}
-                placeholder={t("What's the video about?")}
-                value={description().value()}
-                onInput={(event) => description().onInput(event.currentTarget.value)}
-                onKeyDown={(event) => event.stopPropagation()}
-              />
-            </Field>
-          )}
         </Show>
         <FieldGroup label={t("Privacy status")}>
           <Segmented options={YOUTUBE_PRIVACY} value={props.settings.youtube.privacy} onChange={(privacy) => set("youtube", "privacy", privacy)} />

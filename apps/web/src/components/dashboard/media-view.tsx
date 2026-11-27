@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { useSearchParams } from "@solidjs/router";
-import { For, Show, createEffect, createMemo, createResource, createSignal, on, onCleanup, onMount, type JSX } from "solid-js";
+import { For, Show, createEffect, createMemo, createResource, createSignal, on, onCleanup, onMount } from "solid-js";
 import { Portal } from "solid-js/web";
 import { toast } from "somoto";
 
@@ -13,6 +13,7 @@ import { createProjectMarquee } from "@/components/dashboard/project-marquee";
 import { PlaneButton } from "@/components/dashboard/plane-button";
 import { PlaneIcon } from "@/components/dashboard/plane-icons";
 import { PlatformLogo, createDropHandlers } from "@/components/publish/controls";
+import { GoogleDriveLogo } from "@/components/publish/google-drive-logo";
 import { PictureEditor } from "@/components/publish/picture-editor";
 import { handOffFiles } from "@/components/publish/handoff";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Icon } from "@/components/dashboard/dashboard-icon";
 import { cloudEnabled, cloudUsage } from "@/lib/cloud-storage";
+import { driveAvailable, pickFromDrive } from "@/lib/google-drive";
 import { cx } from "@/lib/cva";
 import { intlLocale, msg, t } from "@/lib/i18n";
 import { droppedFiles, pickFiles } from "@/engine/asset-actions";
@@ -45,7 +47,7 @@ import {
   type MediaItem,
 } from "@/lib/media-library";
 import { SOCIAL_PLATFORMS, formatDuration, isAspect, type PlatformId } from "@/lib/social";
-import { MEDIA_LIMITS, POSTABLE_FILES, formatBytes, videoProblems } from "@/lib/social-media";
+import { MEDIA_LIMITS, POSTABLE_FILES, formatBytes, postableTooLarge, videoProblems } from "@/lib/social-media";
 
 type Filter = MediaItem["kind"] | "all";
 type Sort = "newest" | "oldest" | "name" | "largest" | "longest" | "most-used";
@@ -247,6 +249,7 @@ export function DashboardMediaView() {
   };
 
   const pick = async () => void upload(await pickFiles({ accept: POSTABLE_FILES }));
+  const pickDrive = async () => void upload(await pickFromDrive({ accept: POSTABLE_FILES, tooLarge: postableTooLarge }));
 
   const useInPost = async (chosen: readonly MediaItem[]) => {
     const problem = postProblem(chosen);
@@ -432,6 +435,12 @@ export function DashboardMediaView() {
             <LayoutButton label={t("Grid")} icon="view.grid" pressed={layout() === "grid"} onClick={() => setLayout("grid")} />
             <LayoutButton label={t("List")} icon="list" pressed={layout() === "list"} onClick={() => setLayout("list")} />
           </div>
+          <Show when={driveAvailable()}>
+            <PlaneButton variant="ghost" size="lg" class="gap-1.5 pl-1.5" aria-label="Google Drive" onClick={() => void pickDrive()}>
+              <GoogleDriveLogo class="size-3.5" />
+              <span class="max-md:hidden">Google Drive</span>
+            </PlaneButton>
+          </Show>
           <PlaneButton variant="primary" size="lg" class="gap-1 pl-1.5" onClick={() => void pick()}>
             <PlaneIcon name="plus" class="size-3.5" />
             {t("Upload")}
@@ -445,7 +454,7 @@ export function DashboardMediaView() {
             <div class="flex w-full flex-col gap-3 px-6 pt-6 pb-24 max-md:px-4">
               <Show when={!mediaLoadError()} fallback={<p class="py-16 text-center text-xs text-destructive">{t(mediaLoadError() ?? "")}</p>}>
                 <Show when={mediaLoaded()} fallback={<Skeleton />}>
-                  <Show when={mediaItems().length || progress()} fallback={<EmptyLibrary dragging={dragging()} onUpload={() => void pick()} />}>
+                  <Show when={mediaItems().length || progress()} fallback={<EmptyLibrary dragging={dragging()} onUpload={() => void pick()} onDrive={() => void pickDrive()} />}>
                     <Show when={progress() || usage()}>
                       <div class="flex h-6 items-center justify-end gap-3 text-xs text-muted-foreground">
                         <Show when={!progress() && usage()}>
@@ -1225,45 +1234,29 @@ function Skeleton() {
   );
 }
 
-const FEATURES: { icon: string; title: string; hint: string }[] = [
-  { icon: "document", title: msg("Start a post from any file"), hint: msg("Pick one, or a set of pictures, and it opens in New post.") },
-  { icon: "circle-check", title: msg("See where each one fits"), hint: msg("Length and shape are checked against every platform.") },
-  { icon: "all-media-types", title: msg("Reuse what you attach"), hint: msg("Files you add to a post are kept here too.") },
-];
-
-function EmptyLibrary(props: { dragging: boolean; onUpload(): void }) {
+function EmptyLibrary(props: { dragging: boolean; onUpload(): void; onDrive(): void }) {
   return (
-    <div class="mx-auto flex w-full max-w-3xl flex-col items-center gap-6 pt-8 text-center">
-      <div
-        class="flex w-full flex-col items-center gap-4 rounded-xl border border-dashed px-6 pt-8 pb-12 transition-colors"
-        classList={{ "border-primary bg-primary/5": props.dragging, "border-(--border-input)": !props.dragging }}
-      >
-        <MediaArt />
-        <div class="flex flex-col gap-1">
-          <h2 class="text-sm font-medium text-foreground">{props.dragging ? t("Drop to add to your library") : t("Keep your videos and pictures in one place")}</h2>
-          <p class="text-xs text-muted-foreground">{t("Upload them, or drop them anywhere on this page. Then post any of them in a click.")}</p>
-        </div>
-        <Button class="gap-0.5 pl-1 pr-2.5" onClick={() => props.onUpload()}>
-          <Icon name="plus-add-small" class="size-5" />
+    <div
+      class="flex flex-col items-center gap-4 rounded-xl border border-dashed px-6 pt-8 pb-16 text-center transition-colors"
+      classList={{ "border-primary bg-primary/5": props.dragging, "border-transparent": !props.dragging }}
+    >
+      <MediaArt />
+      <div class="flex flex-col gap-1">
+        <h2 class="text-sm font-medium text-foreground">{props.dragging ? t("Drop to add to your library") : t("Keep your videos and pictures in one place")}</h2>
+        <p class="max-w-lg text-xs text-balance text-muted-foreground">{t("Upload them, or drop them anywhere on this page. Then post any of them in a click.")}</p>
+      </div>
+      <div class="flex flex-wrap justify-center gap-2">
+        <Button class="px-3" onClick={() => props.onUpload()}>
           {t("Upload files")}
         </Button>
-        <p class="text-xs text-muted-foreground">{t(ACCEPTED)}</p>
+        <Show when={driveAvailable()}>
+          <Button variant="secondary" class="gap-1.5 px-3" onClick={() => props.onDrive()}>
+            <GoogleDriveLogo class="size-4" />
+            Google Drive
+          </Button>
+        </Show>
       </div>
-      <div class="grid w-full grid-cols-1 gap-2 text-left sm:grid-cols-3">
-        <For each={FEATURES}>{(feature) => <Feature {...feature} />}</For>
-      </div>
-    </div>
-  );
-}
-
-function Feature(props: { icon: string; title: string; hint: string }): JSX.Element {
-  return (
-    <div class="depth-panel flex flex-col items-start gap-1.5 rounded-xl border border-border-strong bg-accent/30 p-3">
-      <span class="flex items-center gap-1.5 text-xs font-medium text-foreground">
-        <Icon name={props.icon} class="-ml-0.5 size-4 text-muted-foreground" />
-        {t(props.title)}
-      </span>
-      <span class="text-xs leading-4 text-muted-foreground">{t(props.hint)}</span>
+      <p class="text-xs text-muted-foreground">{t(ACCEPTED)}</p>
     </div>
   );
 }

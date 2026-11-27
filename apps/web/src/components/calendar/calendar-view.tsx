@@ -27,6 +27,7 @@ import { PlatformLogo } from "@/components/publish/controls";
 import { atLocal, nextSlot, timeOf } from "@/components/publish/save";
 import { CalendarPostList, listQuery, setListQuery } from "@/components/dashboard/posts-view";
 import { hasFailed, isGoingOut } from "@/components/publish/publisher";
+import { awaitingApproval } from "@/lib/approval-state";
 import { msg, t } from "@/lib/i18n";
 import { groupSelection } from "@/lib/account-groups";
 import { sortPlatforms, type PlatformId } from "@/lib/social";
@@ -35,12 +36,11 @@ import { EventPopover } from "./event-popover";
 import { MiniMonth } from "./mini-month";
 import { MonthBoard } from "./month-board";
 import { useCalendarNavigation, type CalendarNavigation } from "./navigation";
-import { SquirrelAsleep } from "@/components/brand/mascot";
-import { accountFilter, allPosts, groupFilter, hydrateCalendar, isEventVisible, loadError, loaded, monthRange, saving, setAccountFilter, setStatusFilter, statusFilter, weekRange } from "./store";
+import { accountFilter, allPosts, groupFilter, hydrateCalendar, loadError, loaded, saving, setAccountFilter, setStatusFilter, statusFilter } from "./store";
 import { STATUS_FILTERS, cn, formatMonth, localDateKey, shiftPeriod } from "./utils";
 import { CalendarViewToggle } from "./view-toggle";
 import { WeekBoard } from "./week-board";
-import type { PostStatusFilter, SelectedEvent, CalendarView } from "./types";
+import type { PostStatusFilter, SelectedEvent } from "./types";
 
 function slotTime(day: string) {
   const morning = atLocal(day, "09:00");
@@ -92,9 +92,6 @@ export function DashboardCalendarView() {
             <CalendarPostList date={nav.date()} picked={nav.picked()} onShowMonth={() => nav.go(nav.date())} />
           </Match>
         </Switch>
-        <Show when={loaded() && !loadError() && nav.view() !== "list" && periodIsEmpty(nav)}>
-          <EmptyPeriod view={nav.view()} />
-        </Show>
       </main>
 
       <Show when={selected()} keyed>
@@ -105,39 +102,14 @@ export function DashboardCalendarView() {
   );
 }
 
-function periodIsEmpty(nav: CalendarNavigation) {
-  const range = nav.view() === "week" ? weekRange(nav.date()) : monthRange(nav.date());
-  return !range.events.some(isEventVisible);
-}
-
-const EMPTY_PERIOD: Record<PostStatusFilter, string> = {
-  all: msg("Nothing is scheduled"),
-  scheduled: msg("Nothing is scheduled"),
-  draft: msg("No drafts"),
-  posted: msg("Nothing has been posted"),
-  failed: msg("Nothing failed"),
-};
-
-/**
- * Lets clicks through to the slots underneath. The month is always six rows,
- * so its middle is a row's edge: the squirrel moves up half a row to sit in one day.
- */
-function EmptyPeriod(props: { view: CalendarView }) {
-  return (
-    <div
-      class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-3 pt-10 text-(--plane-text-tertiary)"
-      style={{ translate: props.view === "month" ? "0 calc(-100% / 12 + 5px)" : undefined }}
-    >
-      <SquirrelAsleep width={92} class="opacity-70" />
-      <span class="text-sm">{t(EMPTY_PERIOD[statusFilter()] ?? EMPTY_PERIOD.all)}</span>
-    </div>
-  );
-}
-
 function StatusFilter() {
   const failedCount = () => allPosts().filter((post) => hasFailed(post) && !isGoingOut(post)).length;
-  const options = () =>
-    failedCount() || statusFilter() === "failed" ? [...STATUS_FILTERS, { label: msg("Failed"), value: "failed" as const }] : STATUS_FILTERS;
+  const approvalCount = () => allPosts().filter(awaitingApproval).length;
+  const options = () => [
+    ...STATUS_FILTERS,
+    ...(approvalCount() || statusFilter() === "approval" ? [{ label: msg("Needs approval"), value: "approval" as const }] : []),
+    ...(failedCount() || statusFilter() === "failed" ? [{ label: msg("Failed"), value: "failed" as const }] : []),
+  ];
   const label = () => (statusFilter() === "all" ? t("All posts") : t(options().find((option) => option.value === statusFilter())?.label ?? "All posts"));
 
   return (

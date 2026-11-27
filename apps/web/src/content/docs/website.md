@@ -55,7 +55,7 @@ your-domain.com {
 		}
 	}
 	# Agents, and the WebSocket each open tab keeps to the MCP server.
-	@mcp path /mcp /api/mcp/tab /.well-known/oauth-protected-resource*
+	@mcp path /mcp /api/mcp/tab /.well-known/oauth-protected-resource* /.well-known/mcp/*
 	handle @mcp {
 		reverse_proxy 127.0.0.1:8791
 	}
@@ -64,10 +64,13 @@ your-domain.com {
 	handle {
 		root * /var/www/plan.video
 		encode zstd gzip
-		header {
-			# The editor needs these to use SharedArrayBuffer.
+		# The editor needs these to use SharedArrayBuffer. Google Drive's picker page can't have them.
+		@isolated not path /google-drive.html
+		header @isolated {
 			Cross-Origin-Opener-Policy same-origin
 			Cross-Origin-Embedder-Policy credentialless
+		}
+		header {
 			# No other site may show these pages in a frame.
 			Content-Security-Policy "frame-ancestors 'none'"
 			X-Frame-Options DENY

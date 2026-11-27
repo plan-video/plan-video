@@ -18,7 +18,9 @@ People see only the workspaces they're invited to, under **Shared with you** in 
 | --- | --- |
 | Owner | Everything, and the only one who renames or deletes the workspace. Its plan applies |
 | Admin | Everything in the workspace: posts, connected accounts, settings, and who's in it |
-| Member | Write, schedule and post from the workspace's accounts. Can't connect or remove accounts, or invite people |
+| Member | Write, schedule and post from the workspace's accounts. Can't connect or remove accounts, invite people or approve posts |
+
+To review members' posts before they go out, turn on **Members need approval** under **Members**. See [Approvals](/docs/clients#approvals).
 
 Change someone's role from the menu beside their name, or take them out with ×. The posts they made stay. To leave a workspace someone shared with you, open its **General** page and choose **Leave**.
 

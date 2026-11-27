@@ -66,6 +66,13 @@ export function imageFileProblem(file: File): string | null {
   return null;
 }
 
+/** Before a file is fetched from somewhere else, as only its size is known yet. */
+export function postableTooLarge(file: { name: string; size: number; mimeType: string }): string | null {
+  const size = formatBytes(file.size);
+  if (file.mimeType.startsWith("image/")) return file.size > MEDIA_LIMITS.imageMaxBytes ? t("{name} is {size}. Pictures can be up to 8 MB.", { name: file.name, size }) : null;
+  return file.size > MEDIA_LIMITS.videoMaxBytes ? t("It's {size}. Videos can be up to 500 MB.", { size }) : null;
+}
+
 /** en-GB's has no comma before "or". */
 const SHAPE_LIST = localized((locale) => new Intl.ListFormat(locale, { type: "disjunction" }), "en-GB");
 
@@ -121,6 +128,17 @@ export function formatBytes(bytes: number): string {
 
 export function baseName(file: File): string {
   return file.name.replace(/\.[^.]+$/, "");
+}
+
+const MADE_UP_NAME = /^(img|vid|dsc[fn]?|dcim|pxl|mvimg|mvi|gopr|g[hx]\d+|dji|mov|screenshot|screen ?shot|screen recording|recording|capture|whatsapp (image|video)|signal|video|image|photo|untitled)\b/i;
+
+/** A file's name as a person would write it, or "" when a camera or app made it up (IMG_4821, Screenshot 2026-11-27 at 10.02). */
+export function fileTitle(name: string): string {
+  const stem = name.replace(/\.[^.\s]+$/, "").replace(/_+/g, " ");
+  const words = (stem.includes(" ") ? stem : stem.replace(/-+/g, " ")).replace(/\s+/g, " ").trim();
+  const rest = words.replace(MADE_UP_NAME, "").replace(/\b(at|copy|edited|final)\b/gi, "");
+  if (!/\p{L}/u.test(rest) || /^[\da-f-]{16,}$/i.test(stem)) return "";
+  return words;
 }
 
 const POSTER_HEIGHT = 320;

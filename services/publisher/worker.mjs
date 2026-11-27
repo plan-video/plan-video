@@ -16,6 +16,8 @@ import { dayAt, dueAtOf, nextRunAfter, runsBetween, zoneOrUtc } from "./schedule
 export const GRACE_MS = 24 * 60 * 60_000;
 const LIMIT_SLACK_MS = 60 * 60_000;
 export const LATE = "This post's time passed over a day ago while plan.video couldn't send it, so it didn't go out. Post it now, or give it a new time.";
+export const AWAITING_APPROVAL = "This post is waiting for approval. Once it's approved it goes out at its time.";
+export const NEEDS_APPROVAL = "Posts in this workspace need approval before they go out. Ask for approval instead.";
 /** Slack for a post saved as due "now" whose time was given a few moments after its minute. */
 const TIMED_SLACK_MS = 5 * 60_000;
 const BACKOFF_MS = [2 * 60_000, 10 * 60_000, 30 * 60_000];
@@ -54,6 +56,9 @@ const MAX_PAGES = 100_000;
 const ID = /^[A-Za-z0-9_-]{1,100}$/;
 
 // Anyone can write their own account state, so malformed posts are skipped rather than read.
+/** Asked for approval and not approved yet: it never goes out, not even by Post now. */
+export const awaitingApproval = (post) => post?.approval?.state === "pending" || post?.approval?.state === "changes";
+
 const isPost = (post) => typeof post?.id === "string" && ID.test(post.id) && (post.platforms === undefined || Array.isArray(post.platforms));
 
 /** Postgres orders uuids by their bytes, which is the order of their hex. Null past the last uuid or for non-uuids. */
@@ -235,7 +240,7 @@ export function createWorker({
   // An hour's slack, so a post due just before midnight and picked up just after still gets its one wait.
   const limitOutlasted = (error, dueAt) => error instanceof PublishError && !!error.until && !error.retry && Math.max(now(), error.until - LIMIT_SLACK_MS) - Date.parse(dueAt) > GRACE_MS;
 
-  const sendable = (post) => post.status === "scheduled" && !post.paused && (post.platforms ?? []).some((platform) => networks[platform]);
+  const sendable = (post) => post.status === "scheduled" && !post.paused && !awaitingApproval(post) && (post.platforms ?? []).some((platform) => networks[platform]);
 
   // A run due before its post was given its time (moved into the past, passed while paused) is sent
   // only by Post now. A run older than GRACE_MS without a row (publisher down) gets a failed row, so
@@ -413,13 +418,26 @@ export function createWorker({
     return rows.some((row) => row.occurrence === latest && row.state === "failed") ? latest : null;
   }
 
-  // `workspace`, for a team member, is the one workspace of the owner's they may post from.
+  // A database without workspace rules has none.
+  async function membersNeedApproval(owner, workspace) {
+    try {
+      return (await db.rpc("members_need_approval", { owner, workspace })) === true;
+    } catch (error) {
+      if (/PGRST202/.test(String(error?.message))) return false;
+      throw error;
+    }
+  }
+
+  // `workspace`, for a team member, is the one workspace of the owner's they may post from, and `role` theirs there.
   // A repeating post whose latest run failed sends that run again rather than using up today's.
-  async function request(userId, postId, workspace) {
+  async function request(userId, postId, workspace, role) {
     const [found] = await postIn(userId, postId, workspace);
     if (!found?.post || (workspace !== undefined && found.workspace_id !== workspace)) throw new PublishError("This post isn't saved yet. Wait a moment and try again.");
     const post = found.post;
     if (post.status === "posted") throw new PublishError("This post has already gone out.");
+    if (awaitingApproval(post)) throw new PublishError(AWAITING_APPROVAL);
+    // Only a post an approver scheduled: a member can't schedule one where members need approval.
+    if (role === "member" && post.status !== "scheduled" && (await membersNeedApproval(userId, found.workspace_id))) throw new PublishError(NEEDS_APPROVAL);
     const zone = zoneOrUtc(post.timeZone ?? found.time_zone);
     const occurrence = post.recurrence ? ((await failedRun(userId, postId)) ?? dayAt(now(), zone)) : "once";
     const rows = rowsFor(userId, found.workspace_id, found.connections ?? [], post, [{ occurrence, dueAt: now() }], { requested: true });
@@ -465,6 +483,7 @@ export function createWorker({
   function stillWanted(row, post, zone) {
     if (!post) return "The post was deleted before it went out.";
     if (post.paused) return "The post was paused before it went out.";
+    if (awaitingApproval(post)) return "The post was sent for approval before it went out.";
     if (!post.platforms?.includes(row.platform)) return `${NAMES[row.platform]} was taken off the post before it went out.`;
     if (row.requested) return null;
     if (post.status !== "scheduled") return "The post was moved to drafts before it went out.";

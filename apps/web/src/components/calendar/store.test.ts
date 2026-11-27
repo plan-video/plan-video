@@ -16,11 +16,18 @@ vi.mock("somoto", () => ({ toast: {} }));
 vi.mock("@/lib/account-sync-bus", () => ({ queueAccountSync: () => {}, waitForAccountSync: async () => {} }));
 vi.mock("@/lib/cloud-storage", () => ({ cloudEnabled: () => false, cloudHoldUps: () => [] }));
 vi.mock("@/lib/guest", () => ({ inGuestMode: () => false, ownerOf: (id?: string) => id }));
+const person = { approves: true, mustAsk: false };
+vi.mock("@/lib/approval-state", async (actual) => ({
+  ...(await actual<typeof import("@/lib/approval-state")>()),
+  canApprove: () => person.approves,
+  mustAskForApproval: () => person.mustAsk,
+}));
 
 const { reloadAccountGroups } = await import("@/lib/account-groups");
 const { loadSocialConnections } = await import("@/lib/social-connections");
 const { workspaceKey } = await import("@/lib/workspaces");
-const { accountFilter, goesOutFromPicked, groupFilter, setAccountFilter, setGroupFilter } = await import("./store");
+const { accountFilter, goesOutFromPicked, groupFilter, setAccountFilter, setGroupFilter, withApprovalRules } = await import("./store");
+type StoredEvent = import("./types").StoredEvent;
 
 const USER = "user-1";
 const X_IN_GROUP = { id: "x-in-group", platform: "x", handle: "brand" };
@@ -76,5 +83,68 @@ describe("the picked group", () => {
     connect([X_IN_GROUP, X_OUTSIDE, YOUTUBE_IN_GROUP], []);
     expect(groupFilter()).toBeNull();
     expect(goesOutFromPicked({ platforms: ["x"], accounts: { x: [X_OUTSIDE.id] } })).toBe(true);
+  });
+});
+
+describe("scheduling a post that needs approval", () => {
+  const AT = "2026-11-26T12:00:00.000Z";
+  const post = (overrides: Partial<StoredEvent> = {}): StoredEvent => ({
+    allDay: false,
+    calendarId: "posts",
+    createdAt: AT,
+    day: "2026-11-30",
+    description: "Hello",
+    duration: 30,
+    id: "p1",
+    link: null,
+    platforms: ["x"],
+    recurrence: null,
+    recurrenceExceptions: [],
+    start: "09:00",
+    status: "scheduled",
+    title: "Hello",
+    ...overrides,
+  });
+  const pending = { state: "pending" as const, at: AT, by: "Sam" };
+
+  beforeEach(() => {
+    person.approves = true;
+    person.mustAsk = false;
+  });
+
+  it("approves it when an owner or admin schedules it, so it doesn't sit waiting past its time", () => {
+    const next = withApprovalRules(post({ status: "draft", approval: pending }), post({ approval: pending }), AT);
+    expect(next.status).toBe("scheduled");
+    expect(next.approval).toEqual({ state: "approved", via: "team", at: AT });
+  });
+
+  it("keeps a member's post waiting when they schedule one that waits", () => {
+    person.approves = false;
+    const next = withApprovalRules(post({ status: "draft", approval: pending }), post({ approval: pending }), AT);
+    expect(next.status).toBe("draft");
+    expect(next.approval).toEqual(pending);
+  });
+
+  it("holds a member's new or changed post for approval where members need it", () => {
+    person.approves = false;
+    person.mustAsk = true;
+    const made = withApprovalRules(undefined, post(), AT);
+    expect(made).toMatchObject({ status: "draft", approval: { state: "pending", at: AT }, sendFrom: AT });
+
+    const changed = withApprovalRules(post(), post({ description: "Changed" }), AT);
+    expect(changed).toMatchObject({ status: "draft", approval: { state: "pending" } });
+  });
+
+  it("leaves a member's scheduled post alone when only its sends changed", () => {
+    person.approves = false;
+    person.mustAsk = true;
+    const going = post({ deliveries: { x: { state: "sending", attempts: 1, at: AT } }, sendFrom: AT, timeZone: "Europe/Amsterdam" });
+    expect(withApprovalRules(post(), going, AT)).toBe(going);
+  });
+
+  it("lets members schedule as before where members don't need approval", () => {
+    person.approves = false;
+    const next = post();
+    expect(withApprovalRules(undefined, next, AT)).toBe(next);
   });
 });

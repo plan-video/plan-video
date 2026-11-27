@@ -13,6 +13,7 @@ import { atLocal } from "@/components/publish/save";
 import { showUpgradeDialog } from "@/components/upgrade-dialog";
 import { useAuth } from "@/context/auth";
 import { accountSyncProblem, retryAccountSync } from "@/lib/account-sync";
+import { APPROVAL_LABELS, approvalOf, canApprove } from "@/lib/approval-state";
 import { postSyncProblem, retryPostSync, unsyncedPosts } from "@/lib/post-sync";
 import { retryTeamSync, teamSyncProblem } from "@/lib/team-sync";
 import { showInvite, teamInvites } from "@/lib/team";
@@ -186,6 +187,44 @@ export function createNotifications(open: (view: DashboardView) => void) {
       const subject = post.title || t("Untitled post");
       const due = momentOf(post);
       const reopen = { label: t("Edit post"), run: () => edit(post, post.status !== "posted") };
+
+      const approval = post.status === "posted" ? undefined : approvalOf(post);
+      const decidedAt = approval ? Date.parse(approval.at) : NaN;
+      if (approval?.state === "pending" && canApprove()) {
+        list.push({
+          id: `post-approval:${post.id}:${approval.at}`,
+          tone: "warning",
+          icon: "clock",
+          title: t("A post needs your approval"),
+          subject,
+          body: approval.by ? t("{name} asked you to approve it.", { name: approval.by }) : t("It goes out once it's approved."),
+          at: decidedAt,
+          actions: [{ label: t("Review"), run: () => open("approvals") }, reopen],
+        });
+      } else if (approval?.state === "changes") {
+        list.push({
+          id: `post-changes:${post.id}:${approval.at}`,
+          tone: "warning",
+          icon: "alert-warning",
+          title: approval.by ? t("{name} asked for changes", { name: approval.by }) : t(APPROVAL_LABELS.changes),
+          subject,
+          body: approval.note || t("Change the post, then ask for approval again."),
+          at: decidedAt,
+          actions: [reopen],
+        });
+      } else if (approval?.state === "approved" && time - decidedAt < SENT_KEPT_MS) {
+        const late = post.status === "draft" && !post.recurrence && due <= time;
+        list.push({
+          id: `post-approved:${post.id}:${approval.at}`,
+          tone: late ? "warning" : "success",
+          icon: "circle-check",
+          title: approval.by ? t("Approved by {name}", { name: approval.by }) : t(APPROVAL_LABELS.approved),
+          subject,
+          body: late ? t("Its time passed while it waited. Give it a new time.") : post.status === "scheduled" ? t("It goes out {when}.", { when: whenOf(post) }) : t("It's approved."),
+          at: decidedAt,
+          actions: late ? [{ label: t("Pick a time"), run: () => edit(post, true) }] : [{ label: t("Show on calendar"), run: () => openCalendar(post) }],
+        });
+      }
 
       for (const { platform, delivery } of deliveriesOf(post)) {
         const at = Date.parse(delivery.at);

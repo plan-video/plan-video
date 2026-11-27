@@ -17,6 +17,7 @@ The website takes its settings when it's built. Each service reads its files fro
 | `VITE_PUBLISHER_URL` | | Where the dev server sends `/api/publisher`. Default `VITE_APP_URL`, else `https://plan.video`. Only the dev server reads it. |
 | `VITE_AGENT_CHAT_URL` | | An agent chat host for the editor. Without it, the editor's agent chat stays off. |
 | `VITE_CONNECTOR_DEV` | | `true` turns the agent connector on in the dev server too, through `/api/mcp`. Builds always have it. |
+| `VITE_GOOGLE_CLIENT_ID`, `VITE_GOOGLE_API_KEY` | | Adds files from Google Drive. Off unless both are set. See [Google Drive](#google-drive). |
 
 Keys with the `VITE_` prefix are built into the browser bundle, so `apps/web/.env` holds nothing else: the dev server and the build stop if it does.
 
@@ -25,6 +26,32 @@ The secrets the dev server needs to stand in for the services go in `apps/web/se
 <Warning>
 Set `VITE_APP_URL` for every build you put up. Without it, the website takes itself for plan.video: connecting TikTok, YouTube, LinkedIn, X, Instagram, Facebook or Threads asks people to open plan.video, and "Sign in with Bluesky" is off.
 </Warning>
+
+## Google Drive
+
+With these two keys, **Google Drive** buttons sit next to Upload in Media, in New post and in the editor's Assets panel. Google's file picker opens in a window of its own, and the files people choose are copied in then, so a post never depends on the file staying in Drive. Guest mode never shows them.
+
+<Steps>
+  <Step title="Use a Google Cloud project">
+    The one from [YouTube app](/docs/youtube-app) works. Enable the **Google Drive API** and the **Google Picker API**.
+  </Step>
+  <Step title="Add the scope">
+    On the consent screen, add `drive.file`. It only opens the files a person picks, so it's not a restricted scope.
+  </Step>
+  <Step title="Set up an OAuth client">
+    A client of type **Web application**: the YouTube one works too. Under **Authorized redirect URIs**, add `https://your-domain.com/google-drive.html`, plus `http://localhost:5173/google-drive.html` for the dev server.
+  </Step>
+  <Step title="Make an API key">
+    Under **Credentials**, create an API key. Limit it to the Google Picker API and to your site's address.
+  </Step>
+</Steps>
+
+```bash apps/web/.env
+VITE_GOOGLE_CLIENT_ID=123456789012-abc.apps.googleusercontent.com
+VITE_GOOGLE_API_KEY=your-api-key
+```
+
+Both are safe in a browser. Build again, and serve `/google-drive.html` without the cross-origin headers the rest of the site sends, as the [Caddy file](/docs/website) does: with them, the browser refuses Google's picker.
 
 ## Shared: r2.env
 

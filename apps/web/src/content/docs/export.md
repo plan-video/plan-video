@@ -30,3 +30,11 @@ Networks take MP4 or MOV with H.264 video and AAC sound, so presets like **Full 
 </Tip>
 
 The **Schedule post** button beside **Export**, or attaching the project to a new post, makes the video at Full HD.
+
+## Keep editing in another app
+
+To finish an edit in Premiere Pro or DaVinci Resolve, click **Export**, then **Open in Premiere Pro or Resolve**, and pick a folder. plan.video saves a new folder there with a timeline file (`.xml`) and a `media` folder holding every clip it uses.
+
+In Premiere Pro, choose **File** → **Import** and pick the `.xml`. In DaVinci Resolve, choose **File** → **Import** → **Timeline**. The sequence opens at your scene's size and frame rate, with each clip cut, placed, sized and cropped as in plan.video, at its speed and volume. If the app asks where a clip is, point it at the `media` folder once and it finds the rest.
+
+Only video, sound and picture clips go over. Text, captions, shapes, effects, colour grades, transitions and keyframes stay in plan.video, and clips are placed where they are at the playhead.

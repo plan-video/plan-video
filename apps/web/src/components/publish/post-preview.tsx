@@ -136,7 +136,7 @@ function MediaFill(props: {
         >
           {(cover) => (
             <div class={cx("relative overflow-hidden bg-black", props.class)} style={style()}>
-              <img src={cover()} alt="" class="size-full object-cover" />
+              <img src={cover()} alt="" class={cx("size-full", props.fit === "contain" ? "object-contain" : "object-cover")} />
             </div>
           )}
         </Show>
@@ -279,7 +279,7 @@ function VerticalPreview(props: PreviewProps) {
   const id = () => props.platform;
   return (
     <Phone>
-      <MediaFill media={props.media} cover={props.cover} class="absolute inset-0" countClass="right-2 top-16" />
+      <MediaFill media={props.media} cover={props.cover} fit="contain" class="absolute inset-0" countClass="right-2 top-16" />
       <div class="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(0,0,0,0.35)_0%,transparent_18%,transparent_55%,rgba(0,0,0,0.65)_100%)]" />
       <div class="pointer-events-none relative z-10 flex h-full flex-col">
         <StatusBar />
@@ -523,7 +523,7 @@ function YouTubeVideoPreview(props: PreviewProps) {
         <YouTubeIcon label />
       </div>
       <div class="relative">
-        <MediaFill media={props.media} cover={props.cover} still class="aspect-video w-full" />
+        <MediaFill media={props.media} cover={props.cover} still fit="contain" class="aspect-video w-full" />
         <Show when={first()?.kind === "video"}>
           <span class="absolute bottom-1.5 right-1.5 rounded-[3px] bg-black/80 px-1 text-[9px] font-semibold text-white">
             {formatDuration(first()!.duration)}
@@ -544,6 +544,13 @@ function YouTubeVideoPreview(props: PreviewProps) {
   );
 }
 
+// Pinterest shows a pin in its own shape and cuts off only pins taller than 1:2.1.
+function pinAspect(media: readonly PostMedia[]) {
+  const first = media[0];
+  if (!first || !first.width || !first.height) return 2 / 3;
+  return Math.max(1 / 2.1, first.width / first.height);
+}
+
 function PinterestPreview(props: PreviewProps) {
   const account = useAccount();
   return (
@@ -551,7 +558,7 @@ function PinterestPreview(props: PreviewProps) {
       <StatusBar light />
       <div class="grid min-h-0 flex-1 grid-cols-2 gap-1.5 overflow-hidden px-2 pt-2">
         <div class="flex flex-col gap-1">
-          <MediaFill media={props.media} cover={props.cover} still class="aspect-[2/3] w-full rounded-xl" />
+          <MediaFill media={props.media} cover={props.cover} still aspect={pinAspect(props.media)} class="w-full rounded-xl" />
           <Show when={props.title.trim()}>
             <p class="line-clamp-2 px-0.5 text-[10px] font-semibold leading-tight text-black">{props.title}</p>
           </Show>

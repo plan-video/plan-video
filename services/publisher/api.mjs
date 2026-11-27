@@ -522,7 +522,7 @@ export function createApi({ env, vault, worker, users, kick, bluesky, limits, pl
       const postId = typeof body.postId === "string" && ID.test(body.postId) ? body.postId : "";
       if (!postId) throw new Refused(400, "That isn't a post.");
       limit(`send:${user.id}`, 60, 600);
-      const rows = await worker.request(scope.actor, postId, scope.workspace);
+      const rows = await worker.request(scope.actor, postId, scope.workspace, scope.role);
       kick();
       const FIELDS = ["id", "post_id", "occurrence", "platform", "connection_id", "state", "error", "publish_id", "url", "attempts", "due_at", "updated_at"];
       json(res, 200, { deliveries: rows.map((row) => Object.fromEntries(FIELDS.map((key) => [key, row[key] ?? null]))) });

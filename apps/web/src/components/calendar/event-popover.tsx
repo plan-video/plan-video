@@ -22,6 +22,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal
 import { useAuth } from "@/context/auth";
 import { projectRoute, useReturnHere } from "@/hooks/use-project-route";
 import { t } from "@/lib/i18n";
+import { approvalOf, awaitingApproval } from "@/lib/approval-state";
+import { askForApproval, withdrawApproval } from "@/lib/approvals";
+import { askForAccount } from "@/lib/guest";
 import { previewOf } from "@/lib/post-previews";
 import { PUBLISHING_PLATFORMS, type PlatformId } from "@/lib/social";
 import { accountLabel, accountsFor, loadSocialConnections, readChoices, type SocialConnection } from "@/lib/social-connections";
@@ -30,6 +33,7 @@ import { REPLY_DELAYS } from "@/lib/thread";
 import { EventFields } from "./event-fields";
 import { STATUS_DOT, statusOf } from "./post-hover-card";
 import { CalendarPopup, fieldControlBase, fieldLabel, popupFooter, popupHeader } from "./popup";
+import { ApprovalCard, copyApprovalLink, personName } from "./approval-card";
 import { SharePanel } from "./share-panel";
 import {
   allPosts,
@@ -49,7 +53,13 @@ import type { CalendarEvent, EventDraft, PostStatus, SelectedEvent, StoredEvent 
 
 type Mode = "details" | "edit" | "delete" | "end" | "share";
 
-const STATUS_TEXT: Record<string, string> = { failed: "text-destructive", held: "text-meter-yellow", paused: "text-meter-yellow" };
+const STATUS_TEXT: Record<string, string> = {
+  failed: "text-destructive",
+  held: "text-meter-yellow",
+  paused: "text-meter-yellow",
+  pending: "text-meter-yellow",
+  changes: "text-destructive",
+};
 
 export function EventPopover(props: { onClose(): void; selected: SelectedEvent }) {
   const event = () => props.selected.event;
@@ -146,8 +156,32 @@ export function EventPopover(props: { onClose(): void; selected: SelectedEvent }
 
   const sendable = () => {
     const post = stored();
-    if (!post || post.recurrence || post.status === "posted" || failure() || isGoingOut(post)) return false;
+    if (!post || post.recurrence || post.status === "posted" || failure() || isGoingOut(post) || awaitingApproval(post)) return false;
     return canPublish(post) && !sentAnywhere();
+  };
+
+  const auth = useAuth();
+  const ask = async () => {
+    const post = stored();
+    if (!post) return;
+    if (auth.isGuest()) return askForAccount({ reason: "approval" });
+    const asked = await askForApproval(post.id, personName(auth.user()));
+    if ("error" in asked) {
+      toast.error(t(asked.error));
+      return;
+    }
+    toast.success(t("Sent for approval"), {
+      description: t("It stays off the schedule until it's approved. Send the link to whoever approves it."),
+      action: { label: t("Copy link"), onClick: () => void copyApprovalLink(asked.previewId) },
+    });
+  };
+
+  const withdraw = () => {
+    const post = stored();
+    if (!post) return;
+    const failed = withdrawApproval(post.id);
+    if (failed) toast.error(t(failed));
+    else toast(t("No longer waiting for approval"), { description: t("It's a draft again. Schedule it when it's ready.") });
   };
 
   const send = () => {
@@ -246,10 +280,32 @@ export function EventPopover(props: { onClose(): void; selected: SelectedEvent }
                         {t("Mark as posted")}
                       </DropdownMenuItem>
                     </Show>
-                    <Show when={event().status === "draft"}>
+                    <Show when={event().status === "draft" && !awaitingApproval(post())}>
                       <DropdownMenuItem tone="neutral" onSelect={() => changeStatus("scheduled")}>
                         {t("Mark as scheduled")}
                       </DropdownMenuItem>
+                    </Show>
+                    <Show when={!posted()}>
+                      <DropdownMenuSeparator />
+                      <Show
+                        when={awaitingApproval(post())}
+                        fallback={
+                          <DropdownMenuItem tone="neutral" onSelect={() => void ask()}>
+                            {approvalOf(post()) ? t("Ask for approval again") : t("Ask for approval")}
+                          </DropdownMenuItem>
+                        }
+                      >
+                        <Show when={previewOf(post().id)}>
+                          {(preview) => (
+                            <DropdownMenuItem tone="neutral" onSelect={() => void copyApprovalLink(preview().id)}>
+                              {t("Copy approval link")}
+                            </DropdownMenuItem>
+                          )}
+                        </Show>
+                        <DropdownMenuItem tone="neutral" onSelect={withdraw}>
+                          {t("Stop asking for approval")}
+                        </DropdownMenuItem>
+                      </Show>
                     </Show>
                     {/* A post that went out stays as the record of it; one only marked as posted can go back. */}
                     <Show when={event().status === "scheduled" || (posted() && !sentAnywhere())}>
@@ -269,7 +325,7 @@ export function EventPopover(props: { onClose(): void; selected: SelectedEvent }
       </div>
       <Switch>
         <Match when={mode() === "details"}>
-          <EventDetails event={event()} post={stored()} onTogglePause={togglePause} onEnd={() => setMode("end")} />
+          <EventDetails event={event()} post={stored()} onTogglePause={togglePause} onEnd={() => setMode("end")} onEdit={edit} />
           <div class={popupFooter}>
             <Button
               variant="ghost"
@@ -379,7 +435,7 @@ function DetailRow(props: ParentProps<{ icon?: string; leading?: JSX.Element }>)
 const seriesAction =
   "flex h-6 items-center gap-0.5 rounded-md border border-(--border-input) pl-0.5 pr-2 text-xs text-muted-foreground press hover:bg-accent hover:text-foreground focus-ring";
 
-function EventDetails(props: { event: CalendarEvent; post?: StoredEvent; onTogglePause(): void; onEnd(): void }) {
+function EventDetails(props: { event: CalendarEvent; post?: StoredEvent; onTogglePause(): void; onEnd(): void; onEdit(): void }) {
   const auth = useAuth();
   createEffect(() => loadSocialConnections(auth.user()?.id));
   const held = () => (props.event.delivery ? null : heldBack({ id: props.event.sourceId, status: props.event.status }));
@@ -401,6 +457,9 @@ function EventDetails(props: { event: CalendarEvent; post?: StoredEvent; onToggl
   return (
     <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
       <div class="flex flex-col gap-3 p-3.5">
+        <Show when={props.post && props.post.status !== "posted" && approvalOf(props.post) ? props.post : undefined}>
+          {(post) => <ApprovalCard post={post()} onEdit={props.onEdit} />}
+        </Show>
         <Show when={props.post}>{(post) => <PostMedia post={post()} />}</Show>
         <Show when={props.event.delivery === "sending" && props.event.waiting}>
           {(waiting) => <p class="text-xs leading-4 text-meter-yellow">{t("{label}. {detail}", { label: t("Waiting"), detail: t(waiting()) })}</p>}

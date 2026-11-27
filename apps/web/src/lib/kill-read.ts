@@ -182,14 +182,18 @@ export function readRows(frame: Rgba, unit: number): FeedRow[] {
     // Yours has a yellow bar at your end, and yellow lines along its edges that draw in over a second.
     // Yellow in an agent's picture (Neon, Sova's hair) never fills a column top to bottom.
     const edge = Math.max(2, Math.round(3 * unit));
+    // The lines are a pixel or two thick; yellow light showing through the gap between entries is thicker.
+    const yellowAt = (x: number, y: number) => y >= 0 && y < height && kinds[y * width + x] === YELLOW;
     const lined = (from: number, to: number, y0: number) => {
       let count = 0;
       for (let x = Math.max(0, from); x < Math.min(width, to); x++) {
         for (let y = Math.max(0, y0 - edge); y <= Math.min(height - 1, y0 + edge); y++) {
-          if (kinds[y * width + x] === YELLOW) {
-            count++;
-            break;
-          }
+          if (!yellowAt(x, y)) continue;
+          let run = 1;
+          while (yellowAt(x, y + run)) run++;
+          for (let up = y - 1; yellowAt(x, up); up--) run++;
+          if (run <= edge) count++;
+          break;
         }
       }
       return count;
@@ -207,7 +211,9 @@ export function readRows(frame: Rgba, unit: number): FeedRow[] {
     const from = Math.round(notch - 8 * tall);
     const to = Math.round(notch - tall);
     const killerLined = Math.min(lined(from, notch, top), lined(from, notch, bottom - 1)) >= 1.5 * tall;
-    const mine = killerLined || barred(from, to) ? "killer" : barred(right - Math.round(0.6 * tall), right + Math.round(0.6 * tall)) ? "victim" : null;
+    // You are always on your team's colour: your kills are teal on the killer's side, your deaths red.
+    const mine = !enemyKill && (killerLined || barred(from, to)) ? "killer"
+      : enemyKill && barred(right - Math.round(0.6 * tall), right + Math.round(0.6 * tall)) ? "victim" : null;
 
     rows.push({ top, bottom, notch, right, enemyKill, mine, print: printOf(frame, notch, top, bottom) });
   }
@@ -618,6 +624,8 @@ export type FoundKill = ReadKill & {
 
 /** Long enough for the stack to shuffle, shorter than a round. */
 const SAME_KILL = 20;
+/** Sightings of an entry, half a second of them, for it to have been read standing still. */
+const STEADY = 5;
 
 /** One per kill or death, in order: a track that lost its entry for a moment reads the same twice. */
 /** Below this the victim's picture wasn't really found: the entry was cut mid-move or mid-fade. */
@@ -634,14 +642,19 @@ export type Sighting = {
   kill: Reading;
 };
 
-export function gatherKills(read: Sighting[]): FoundKill[] {
-  const sorted = read.filter((entry) => entry.kill.scores.victim >= SURE).sort((a, b) => a.time - b.time);
-  // You are the same picture in each entry, so the agent that fits your side best over all of them is you.
+const sure = (read: Sighting[]) => read.filter((entry) => entry.kill.scores.victim >= SURE);
+
+/** You are the same picture in each entry, so the agent that fits your side best over all of them is you. */
+export function whoAmI(read: Sighting[]): string | undefined {
   const fit = new Map<string, number>();
-  for (const { death, kill } of sorted) {
+  for (const { death, kill } of sure(read)) {
     for (const [name, score] of Object.entries(death ? kill.fits.victim : kill.fits.killer)) fit.set(name, (fit.get(name) ?? 0) + score);
   }
-  const me = [...fit].sort((a, b) => b[1] - a[1])[0]?.[0];
+  return [...fit].sort((a, b) => b[1] - a[1])[0]?.[0];
+}
+
+export function gatherKills(read: Sighting[], me = whoAmI(read)): FoundKill[] {
+  const sorted = sure(read).sort((a, b) => a.time - b.time);
 
   const groups: { key: string; last: number; members: typeof sorted }[] = [];
   for (const entry of sorted) {
@@ -657,8 +670,11 @@ export function gatherKills(read: Sighting[]): FoundKill[] {
   let streak = 0;
   return groups
     .map(({ members }) => {
-      // The longest seen was read settled, not mid-fade or while the stack moved.
-      const best = members.reduce((a, b) => (b.seen > a.seen ? b : a));
+      // One seen briefly was read mid-slide or mid-fade; of the rest, glare through the panel can wash out the
+      // white of the gun and skull, so the surest reading wins.
+      const steady = members.filter((entry) => entry.seen >= STEADY);
+      const sureness = (entry: Sighting) => entry.kill.scores.victim + entry.kill.scores.weapon;
+      const best = (steady.length ? steady : members).reduce((a, b) => (sureness(b) > sureness(a) || (sureness(b) === sureness(a) && b.seen > a.seen) ? b : a));
       const first = members[0]!;
       return {
         time: first.time,
@@ -800,4 +816,90 @@ export function pickNames(
     killer: kill.death ? clear(read[index]!.killer) : me,
     victim: kill.death ? me : clear(read[index]!.victim),
   }));
+}
+
+/** A video's frames as the feed's corner, read at `unit` (its height over 1080). */
+export type FrameSource = {
+  unit: number;
+  frameRate: number;
+  /** In seconds. */
+  duration: number;
+  /** In seconds, oldest first; null where the file has none. */
+  frames: (times: number[]) => AsyncIterable<{ time: number; frame: Rgba } | null>;
+};
+
+/** Often enough to catch every entry, which stays up for seconds. */
+const STEP = 0.1;
+/** How far before an entry was first caught to look for the frame it came in on. */
+const LOOKBACK = 1;
+/** And after: it was caught mid-arrival, and is followed back from where it looks settled. */
+const SETTLE = 0.3;
+/** Read before a clip starts, to tell an entry that came in on its first frame from one still up from before it. */
+const LEAD = 1;
+/** And after it ends, so an entry that comes in on its last frames is still seen settled. */
+const TAIL = 1.5;
+
+/** The part of the video read for a clip that shows `start` to `end` of it, on a grid that lands on `start`. */
+function scanWindow(source: FrameSource, start: number, end: number): { from: number; to: number } {
+  return { from: start - Math.floor(Math.min(LEAD, start) / STEP + 1e-6) * STEP, to: Math.min(source.duration, end + TAIL) };
+}
+
+function sampleTimes(from: number, to: number, step: number): number[] {
+  const times: number[] = [];
+  for (let index = 0; from + index * step <= to + 1e-6; index++) times.push(from + index * step);
+  return times;
+}
+
+/** How many frames `watchFeed` reads, for progress. */
+export function scanLength(source: FrameSource, start: number, end: number): number {
+  const { from, to } = scanWindow(source, start, end);
+  return sampleTimes(from, to, STEP).length;
+}
+
+export type Watched = { start: number; end: number; from: number; to: number; sightings: Sighting[] };
+
+/** Every entry the clip showing `start` to `end` of the video could have, read once each. */
+export async function watchFeed(source: FrameSource, start: number, end: number, prepared: PreparedArt, onFrame?: () => void): Promise<Watched> {
+  const { from, to } = scanWindow(source, start, end);
+  const tracker = createTracker();
+  const seen: FeedRow[] = [];
+  for await (const read of source.frames(sampleTimes(from, to, STEP))) {
+    onFrame?.();
+    if (!read) continue;
+    const rows = readRows(read.frame, source.unit);
+    seen.push(...rows);
+    const column = measureColumn(seen);
+    if (column) tracker.see(read.time, read.frame, rows, column, source.unit);
+  }
+  const sightings = tracker.kills().flatMap((track) => {
+    const kill = track.picture && readKill(track.picture, prepared);
+    return kill ? [{ time: track.first, death: track.mine === "victim", seen: track.seen, row: track.arrived, picture: track.picture!, kill }] : [];
+  });
+  return { start, end, from, to, sightings };
+}
+
+/**
+ * The kills and deaths that come in while the clip shows: one up before it started belongs to what came before,
+ * and is read either side of the start so a flash hiding it for a moment doesn't make it look new. `me` can come
+ * from more of the video than this clip, which may show too few entries to tell you apart.
+ */
+export async function placeKills(source: FrameSource, watched: Watched, me?: string): Promise<FoundKill[]> {
+  const { start, end, from, to } = watched;
+  // A frame is timed when it starts showing, and is the clip's if it shows at its start; one showing at its
+  // end is the next clip's start. So two clips cut from one video share none.
+  const step = 1 / source.frameRate;
+  const shows = (time: number) => time >= start - step + 1e-6 && time < end - step + 1e-6;
+  const kills: FoundKill[] = [];
+  for (const kill of gatherKills(watched.sightings, me ?? whoAmI(watched.sightings))) {
+    // Caught a tenth of a second apart, and yours can be told only once its yellow draws in; the entry came in
+    // before that, on one frame, flashing its colour first.
+    if (kill.time < start - step || kill.time > end + LOOKBACK) continue;
+    const frames: { time: number; frame: Rgba }[] = [];
+    for await (const read of source.frames(sampleTimes(Math.max(from, kill.time - LOOKBACK), Math.min(to, kill.time + SETTLE), step))) {
+      if (read) frames.push(read);
+    }
+    const time = arrival(frames, kill.row, kill.time) ?? kill.time;
+    if (shows(time)) kills.push({ ...kill, time: Math.max(start, time) });
+  }
+  return kills;
 }

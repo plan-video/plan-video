@@ -8,7 +8,7 @@ import { analyticsTool, DapiError, isDapiError, listMediaTool, toolByName, type 
 import type { User } from "@supabase/supabase-js";
 
 import { readAnalytics } from "@/lib/agent-analytics";
-import { copyPost, deletePost, listPosts, publishPost, schedulePost, socialAccounts, socialSchema, tiktokCreator, updatePost } from "@/dapi/handlers/posts";
+import { askForApproval, copyPost, deletePost, listPosts, publishPost, schedulePost, socialAccounts, socialSchema, tiktokCreator, updatePost } from "@/dapi/handlers/posts";
 import { msg } from "@/lib/i18n";
 import { loadMediaLibrary, markMediaUsed, mediaFile, mediaItems } from "@/lib/media-library";
 import { loadWorkspaces } from "@/lib/workspaces";
@@ -26,6 +26,7 @@ const HANDLERS = {
   copy_post: copyPost,
   list_posts: listPosts,
   update_post: updatePost,
+  ask_for_approval: askForApproval,
   delete_post: deletePost,
   publish_post: publishPost,
   list_media: listMedia,
@@ -41,7 +42,7 @@ export type AgentToolName = keyof typeof HANDLERS;
 export const isAgentTool = (name: string): name is AgentToolName => Object.hasOwn(HANDLERS, name);
 
 /** A turn that ran one isn't run again. */
-export const CHANGING_TOOLS: ReadonlySet<string> = new Set(["schedule_post", "copy_post", "update_post", "delete_post", "publish_post"]);
+export const CHANGING_TOOLS: ReadonlySet<string> = new Set(["schedule_post", "copy_post", "update_post", "ask_for_approval", "delete_post", "publish_post"]);
 
 /** Always wait for the person's yes; the rest wait as lib/agent-confirm decides. */
 export const CONFIRM_TOOLS: ReadonlySet<string> = new Set(["publish_post", "delete_post"]);
@@ -58,6 +59,7 @@ const LABELS: Record<AgentToolName, { running: string; done: string; failed: str
   list_posts: { running: msg("Reading your calendar"), done: msg("Read your calendar"), failed: msg("Couldn't read your calendar") },
   list_media: { running: msg("Reading your media"), done: msg("Read your media"), failed: msg("Couldn't read your media") },
   update_post: { running: msg("Changing a post"), done: msg("Changed a post"), failed: msg("Didn't change a post") },
+  ask_for_approval: { running: msg("Asking for approval"), done: msg("Asked for approval"), failed: msg("Didn't ask for approval") },
   delete_post: { running: msg("Deleting a post"), done: msg("Deleted a post"), failed: msg("Didn't delete a post") },
   publish_post: { running: msg("Publishing a post"), done: msg("Published a post"), failed: msg("Didn't publish a post") },
 };
