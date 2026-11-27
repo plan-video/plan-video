@@ -30,6 +30,8 @@ const TILE_STEPS = [
 /** Never narrower than 4:3, or an upright video would need a decode every few pixels. */
 const NARROWEST_TILE = 4 / 3;
 const WIDEST_TILE = 16 / 9;
+/** A picture repeats whole, so a wide one like a killfeed entry is never cut down to its middle. */
+const WIDEST_STILL_TILE = 24;
 
 /** A video with sound shows it along its lower edge, on a band the pictures still show through. */
 const MIN_HEIGHT_WITH_WAVEFORM = 30;
@@ -51,7 +53,7 @@ export function renderStillThumbnails(
 	// createImageBitmap does not take SVGs on every browser, so they get no strip.
 	if (asset.mimeType === 'image/svg+xml') return false;
 
-	const tile = tileFor(body.height, 'width' in asset ? asset.width / asset.height : WIDEST_TILE);
+	const tile = tileFor(body.height, 'width' in asset ? asset.width / asset.height : WIDEST_TILE, WIDEST_STILL_TILE);
 	const still = resolveStill(asset, tile.width);
 	if (!still) return false;
 
@@ -62,13 +64,15 @@ export function renderStillThumbnails(
 	const clipLeft = framesToPixels(computed.start[eid] ?? 0, resolution);
 	const clipWidth = framesToPixels(computed.end[eid] ?? 0, resolution) - clipLeft;
 
+	// Sized to the row, not the tile, so the whole picture shows instead of a crop of it.
+	const step = Math.max(1, Math.round((body.height * tile.width) / tile.height));
 	const [viewportLeft, viewportRight] = getViewport(world, scene, surface.layout.width);
-	const tiles = Math.ceil(clipWidth / tile.width);
-	const first = Math.max(0, Math.floor((viewportLeft - clipLeft) / tile.width));
-	const last = Math.min(tiles - 1, Math.floor((viewportRight - clipLeft) / tile.width));
+	const tiles = Math.ceil(clipWidth / step);
+	const first = Math.max(0, Math.floor((viewportLeft - clipLeft) / step));
+	const last = Math.min(tiles - 1, Math.floor((viewportRight - clipLeft) / step));
 
 	for (let i = first; i <= last; i++) {
-		drawCover(ctx, still.canvas, clipLeft + i * tile.width, body.top, tile.width, body.height);
+		drawCover(ctx, still.canvas, clipLeft + i * step, body.top, step, body.height);
 	}
 
 	return true;
@@ -181,9 +185,9 @@ export function renderVideoThumbnails(
 	renderWaveform(world, scene, surface, entity, { asset, color: style.waveform, top, height: band, centred: false });
 }
 
-function tileFor(stripHeight: number, aspect: number): { width: number; height: number } {
+function tileFor(stripHeight: number, aspect: number, widest = WIDEST_TILE): { width: number; height: number } {
 	const { height } = TILE_STEPS.find((step) => stripHeight <= step.upTo)!;
-	const ratio = Math.min(WIDEST_TILE, Math.max(NARROWEST_TILE, aspect > 0 ? aspect : WIDEST_TILE));
+	const ratio = Math.min(widest, Math.max(NARROWEST_TILE, aspect > 0 ? aspect : WIDEST_TILE));
 
 	return { width: Math.round(height * ratio), height };
 }
