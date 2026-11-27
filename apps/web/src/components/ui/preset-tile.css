@@ -8,9 +8,3 @@
   animation-delay: var(--still, 0s) !important;
   animation-play-state: paused !important;
 }
-
-@media (prefers-reduced-motion: reduce) {
-  .preset-preview * {
-    animation-play-state: paused !important;
-  }
-}

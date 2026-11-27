@@ -29,7 +29,6 @@ const reducedMotion = () =>
 /** One clock for every tile, so they play in step; only while the tab is open. */
 function useLoopClock(loop: () => number, still: () => number) {
   const [time, setTime] = createSignal(still());
-  if (reducedMotion()) return () => still();
   let begun = 0;
   let frame = requestAnimationFrame(function tick(now) {
     if (!begun) begun = now;
@@ -76,10 +75,11 @@ export function CaptionsPanel() {
   const selected = () => (caption() ? worn() : picked());
 
   const words = createMemo(() => t("Pick a style").split(/\s+/).filter(Boolean));
-  const time = useLoopClock(
-    () => captionLoopSeconds(words().length),
-    () => captionStillSeconds(words().length),
-  );
+  const loop = () => captionLoopSeconds(words().length);
+  const still = () => captionStillSeconds(words().length);
+  // Reduced motion: nothing plays by itself, but a pointed-at tile plays on a clock of its own.
+  const reduced = reducedMotion();
+  const time = reduced ? still : useLoopClock(loop, still);
 
   const choose = (template: CaptionTemplate) => {
     setPicked(template);
@@ -122,7 +122,11 @@ export function CaptionsPanel() {
                     selected={selected() === template}
                     onClick={() => choose(template)}
                   >
-                    {() => look}
+                    {(playing) => {
+                      if (!reduced) return look;
+                      const clock = playing ? useLoopClock(loop, still) : still;
+                      return <CaptionTemplateLook template={template} words={words()} time={clock} />;
+                    }}
                   </PresetTile>
                 );
               }}

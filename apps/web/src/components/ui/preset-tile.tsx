@@ -22,13 +22,11 @@ export type PresetTileProps = {
   children: (playing: boolean) => JSX.Element;
 };
 
-const reducedMotion = () =>
-  typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
-
 export function PresetTile(props: PresetTileProps) {
   const [hovered, setHovered] = createSignal(false);
   const [focused, setFocused] = createSignal(false);
-  const playing = createMemo(() => (hovered() || focused()) && !reducedMotion());
+  // Plays under reduced motion too: it only moves while the person points at it.
+  const playing = createMemo(() => hovered() || focused());
 
   const preview = createMemo(() => {
     const play = playing();
