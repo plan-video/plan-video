@@ -29,7 +29,7 @@ In the **Valorant** killfeed, **Find kills in the video** reads the killfeed in 
 Select something, and the inspector shows what it can do:
 
 - **Position, size, speed and volume**, with a keyframe control on the rows that can change over time.
-- **Add animation**, **Add effect**, **Add mask** and **Add transition**.
+- **Add animation**, **Add effect**, **Add mask** and **Add transition**. The animations under **Loop**, like **Float** and **Pulse**, repeat from the clip's start to its end.
 - **Add color grade**, with **Looks**, **Adjust** and **Wheels**, and **Save grade** to use it again.
 - **Captions**, with their own tools. See [Captions](/docs/captions) and [Cut the transcript](/docs/cut-the-transcript).
 
@@ -49,5 +49,8 @@ You can keep editing while it's on. Choose **Turn off preview** to hide it. Noth
 - **Export** lets you choose the quality, then **Save to computer** or **Schedule post** with it. See [Export](/docs/export).
 
 ## Find your way around
+
+A scene's name shows over the canvas while you point at the scene. To keep the names up, open the menu at the top of the rail and choose **View** → **Always show scene names**. For a quieter timeline, open **Timeline options** in the timeline's bar and turn on **Simple clips**: each clip becomes a plain coloured bar with its name, without pictures or waveforms.
+
 
 Press <kbd>⌘</kbd> <kbd>Z</kbd> to undo, <kbd>⇧</kbd> <kbd>⌘</kbd> <kbd>Z</kbd> to redo, and <kbd>⌘</kbd> <kbd>B</kbd> to split at the playhead. The menu at the top of the rail lists every shortcut under **Keybinds**, and **Help** → **Take the tour** walks you through the editor. To move and resize the editor's sections, see [Editor layout](/docs/preferences#editor-layout).
