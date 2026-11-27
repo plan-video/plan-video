@@ -260,7 +260,7 @@ export function createX({ limits, log = console }) {
         const words = text.trim();
         if (!words || [...words].length > REPLY_LIMIT) throw new PublishError(`A plug's reply on X can be ${REPLY_LIMIT} characters.`);
         await makeWithin(row.user_id, session, words, [], post.id).catch((error) => {
-          if (!(error instanceof PublishError && /didn't confirm|didn't say where|already has this post/.test(error.message))) throw error;
+          if (!(error instanceof PublishError && /didn't confirm|didn't say where/.test(error.message))) throw error;
         });
       },
     },
