@@ -945,7 +945,6 @@
   "Drop pictures": "Zet afbeeldingen neer",
   "Drop a video": "Zet een video neer",
   "Drop a picture or a video": "Zet een afbeelding of video neer",
-  "{count, plural, one {An MP4 or MOV, up to # JPG or PNG picture, or a project. Leave it empty for a text post.} other {An MP4 or MOV, up to # JPG or PNG pictures, or a project. Leave it empty for a text post.}}": "{count, plural, one {Een MP4 of MOV, maximaal # JPG- of PNG-afbeelding, of een project. Laat het leeg voor een tekstpost.} other {Een MP4 of MOV, maximaal # JPG- of PNG-afbeeldingen, of een project. Laat het leeg voor een tekstpost.}}",
   "{count, plural, one {Up to # JPG or PNG picture, 8 MB each} other {Up to # JPG or PNG pictures, 8 MB each}}": "{count, plural, one {Maximaal # JPG- of PNG-afbeelding, 8 MB per stuk} other {Maximaal # JPG- of PNG-afbeeldingen, 8 MB per stuk}}",
   "An MP4 or MOV up to 5 minutes, or a project of yours": "Een MP4 of MOV tot 5 minuten, of een van je projecten",
   "One JPG or PNG, or an MP4 or MOV up to a minute": "Eén JPG of PNG, of een MP4 of MOV tot een minuut",
@@ -3890,5 +3889,6 @@
   "Couldn't open Google Drive": "Kon Google Drive niet openen",
   "Allow pop-ups for this site, then try again.": "Sta pop-ups toe voor deze site en probeer het opnieuw.",
   "{count, plural, =1 {Getting a file from Google Drive…} other {Getting # files from Google Drive…}}": "{count, plural, =1 {Een bestand ophalen uit Google Drive…} other {# bestanden ophalen uit Google Drive…}}",
-  "{count, plural, =1 {Couldn't get a file from Google Drive} other {Couldn't get # files from Google Drive}}": "{count, plural, =1 {Kon een bestand niet ophalen uit Google Drive} other {Kon # bestanden niet ophalen uit Google Drive}}"
+  "{count, plural, =1 {Couldn't get a file from Google Drive} other {Couldn't get # files from Google Drive}}": "{count, plural, =1 {Kon een bestand niet ophalen uit Google Drive} other {Kon # bestanden niet ophalen uit Google Drive}}",
+  "Optional. MP4, MOV, JPG or PNG.": "Optioneel. MP4, MOV, JPG of PNG."
 }

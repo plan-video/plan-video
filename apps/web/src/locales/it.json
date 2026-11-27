@@ -945,7 +945,6 @@
   "Drop pictures": "Trascina delle immagini",
   "Drop a video": "Trascina un video",
   "Drop a picture or a video": "Trascina un'immagine o un video",
-  "{count, plural, one {An MP4 or MOV, up to # JPG or PNG picture, or a project. Leave it empty for a text post.} other {An MP4 or MOV, up to # JPG or PNG pictures, or a project. Leave it empty for a text post.}}": "{count, plural, one {Un MP4 o MOV, fino a # immagine JPG o PNG o un progetto. Lascia vuoto per un post di testo.} many {Un MP4 o MOV, fino a # immagini JPG o PNG o un progetto. Lascia vuoto per un post di testo.} other {Un MP4 o MOV, fino a # immagini JPG o PNG o un progetto. Lascia vuoto per un post di testo.}}",
   "{count, plural, one {Up to # JPG or PNG picture, 8 MB each} other {Up to # JPG or PNG pictures, 8 MB each}}": "{count, plural, one {Fino a # immagine JPG o PNG, max 8 MB} many {Fino a # immagini JPG o PNG, 8 MB ciascuna} other {Fino a # immagini JPG o PNG, 8 MB ciascuna}}",
   "An MP4 or MOV up to 5 minutes, or a project of yours": "Un MP4 o MOV fino a 5 minuti o un tuo progetto",
   "One JPG or PNG, or an MP4 or MOV up to a minute": "Un JPG o PNG, oppure un MP4 o MOV fino a un minuto",
@@ -3890,5 +3889,6 @@
   "Couldn't open Google Drive": "Impossibile aprire Google Drive",
   "Allow pop-ups for this site, then try again.": "Consenti i pop-up per questo sito, poi riprova.",
   "{count, plural, =1 {Getting a file from Google Drive…} other {Getting # files from Google Drive…}}": "{count, plural, =1 {Recupero di un file da Google Drive…} other {Recupero di # file da Google Drive…}}",
-  "{count, plural, =1 {Couldn't get a file from Google Drive} other {Couldn't get # files from Google Drive}}": "{count, plural, =1 {Impossibile recuperare un file da Google Drive} other {Impossibile recuperare # file da Google Drive}}"
+  "{count, plural, =1 {Couldn't get a file from Google Drive} other {Couldn't get # files from Google Drive}}": "{count, plural, =1 {Impossibile recuperare un file da Google Drive} other {Impossibile recuperare # file da Google Drive}}",
+  "Optional. MP4, MOV, JPG or PNG.": "Facoltativo. MP4, MOV, JPG o PNG."
 }

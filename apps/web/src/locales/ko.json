@@ -945,7 +945,6 @@
   "Drop pictures": "사진을 놓으세요",
   "Drop a video": "동영상을 놓으세요",
   "Drop a picture or a video": "사진이나 동영상을 놓으세요",
-  "{count, plural, one {An MP4 or MOV, up to # JPG or PNG picture, or a project. Leave it empty for a text post.} other {An MP4 or MOV, up to # JPG or PNG pictures, or a project. Leave it empty for a text post.}}": "{count, plural, other {MP4나 MOV, JPG나 PNG 사진 최대 #장, 또는 프로젝트를 넣을 수 있어요. 텍스트 게시물이라면 비워 두세요.}}",
   "{count, plural, one {Up to # JPG or PNG picture, 8 MB each} other {Up to # JPG or PNG pictures, 8 MB each}}": "{count, plural, other {JPG나 PNG 사진 최대 #장, 장당 8 MB}}",
   "An MP4 or MOV up to 5 minutes, or a project of yours": "최대 5분 길이의 MP4나 MOV, 또는 내 프로젝트",
   "One JPG or PNG, or an MP4 or MOV up to a minute": "JPG나 PNG 한 장, 또는 최대 1분 길이의 MP4나 MOV",
@@ -3890,5 +3889,6 @@
   "Couldn't open Google Drive": "Google Drive를 열 수 없습니다",
   "Allow pop-ups for this site, then try again.": "이 사이트의 팝업을 허용한 다음 다시 시도하세요.",
   "{count, plural, =1 {Getting a file from Google Drive…} other {Getting # files from Google Drive…}}": "{count, plural, =1 {Google Drive에서 파일을 가져오는 중…} other {Google Drive에서 파일 #개를 가져오는 중…}}",
-  "{count, plural, =1 {Couldn't get a file from Google Drive} other {Couldn't get # files from Google Drive}}": "{count, plural, =1 {Google Drive에서 파일을 가져오지 못했습니다} other {Google Drive에서 파일 #개를 가져오지 못했습니다}}"
+  "{count, plural, =1 {Couldn't get a file from Google Drive} other {Couldn't get # files from Google Drive}}": "{count, plural, =1 {Google Drive에서 파일을 가져오지 못했습니다} other {Google Drive에서 파일 #개를 가져오지 못했습니다}}",
+  "Optional. MP4, MOV, JPG or PNG.": "선택 사항이에요. MP4, MOV, JPG, PNG."
 }

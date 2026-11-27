@@ -666,9 +666,7 @@ const DROP_TITLES: Record<PostKind, string> = {
 
 /** `{count}` is how many pictures a post takes. */
 const DROP_HINTS: Record<PostKind, string> = {
-  text: msg(
-    "{count, plural, one {An MP4 or MOV, up to # JPG or PNG picture, or a project. Leave it empty for a text post.} other {An MP4 or MOV, up to # JPG or PNG pictures, or a project. Leave it empty for a text post.}}",
-  ),
+  text: msg("Optional. MP4, MOV, JPG or PNG."),
   image: msg("{count, plural, one {Up to # JPG or PNG picture, 8 MB each} other {Up to # JPG or PNG pictures, 8 MB each}}"),
   video: msg("An MP4 or MOV up to 5 minutes, or a project of yours"),
   story: msg("One JPG or PNG, or an MP4 or MOV up to a minute"),
@@ -1706,6 +1704,7 @@ function MediaEditor(props: { slot: MediaSlot }) {
             title={reading() ? t("Reading…") : t(DROP_TITLES[post.kind])}
             hint={slot.platform ? ownDropHint(slot.platform) : t(DROP_HINTS[post.kind], { count: MEDIA_LIMITS.maxImages })}
             pickLabel={post.kind === "image" ? t("Choose pictures") : post.kind === "video" ? t("Choose a video") : t("Choose a file")}
+            pickIcon="upload"
             dragging={dragging()}
             onPick={() => void pick()}
             handlers={handlers}

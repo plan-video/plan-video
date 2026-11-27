@@ -945,7 +945,6 @@
   "Drop pictures": "拖入图片",
   "Drop a video": "拖入视频",
   "Drop a picture or a video": "拖入图片或视频",
-  "{count, plural, one {An MP4 or MOV, up to # JPG or PNG picture, or a project. Leave it empty for a text post.} other {An MP4 or MOV, up to # JPG or PNG pictures, or a project. Leave it empty for a text post.}}": "{count, plural, other {MP4 或 MOV 视频、最多 # 张 JPG 或 PNG 图片，或一个项目。留空则为纯文字帖子。}}",
   "{count, plural, one {Up to # JPG or PNG picture, 8 MB each} other {Up to # JPG or PNG pictures, 8 MB each}}": "{count, plural, other {最多 # 张 JPG 或 PNG 图片，每张不超过 8 MB}}",
   "An MP4 or MOV up to 5 minutes, or a project of yours": "5 分钟以内的 MP4 或 MOV，或你的一个项目",
   "One JPG or PNG, or an MP4 or MOV up to a minute": "一张 JPG 或 PNG，或 1 分钟以内的 MP4 或 MOV",
@@ -3890,5 +3889,6 @@
   "Couldn't open Google Drive": "无法打开 Google 云端硬盘",
   "Allow pop-ups for this site, then try again.": "请允许此网站弹出窗口，然后重试。",
   "{count, plural, =1 {Getting a file from Google Drive…} other {Getting # files from Google Drive…}}": "{count, plural, =1 {正在从 Google 云端硬盘获取文件…} other {正在从 Google 云端硬盘获取 # 个文件…}}",
-  "{count, plural, =1 {Couldn't get a file from Google Drive} other {Couldn't get # files from Google Drive}}": "{count, plural, =1 {无法从 Google 云端硬盘获取文件} other {无法从 Google 云端硬盘获取 # 个文件}}"
+  "{count, plural, =1 {Couldn't get a file from Google Drive} other {Couldn't get # files from Google Drive}}": "{count, plural, =1 {无法从 Google 云端硬盘获取文件} other {无法从 Google 云端硬盘获取 # 个文件}}",
+  "Optional. MP4, MOV, JPG or PNG.": "可选。MP4、MOV、JPG 或 PNG。"
 }

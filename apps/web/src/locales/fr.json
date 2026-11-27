@@ -945,7 +945,6 @@
   "Drop pictures": "Déposez des images",
   "Drop a video": "Déposez une vidéo",
   "Drop a picture or a video": "Déposez une image ou une vidéo",
-  "{count, plural, one {An MP4 or MOV, up to # JPG or PNG picture, or a project. Leave it empty for a text post.} other {An MP4 or MOV, up to # JPG or PNG pictures, or a project. Leave it empty for a text post.}}": "{count, plural, one {Un MP4 ou MOV, jusqu’à # image JPG ou PNG, ou un projet. Laissez vide pour une publication texte.} many {Un MP4 ou MOV, jusqu’à # d’images JPG ou PNG, ou un projet. Laissez vide pour une publication texte.} other {Un MP4 ou MOV, jusqu’à # images JPG ou PNG, ou un projet. Laissez vide pour une publication texte.}}",
   "{count, plural, one {Up to # JPG or PNG picture, 8 MB each} other {Up to # JPG or PNG pictures, 8 MB each}}": "{count, plural, one {Jusqu’à # image JPG ou PNG, 8 Mo chacune} many {Jusqu’à # d’images JPG ou PNG, 8 Mo chacune} other {Jusqu’à # images JPG ou PNG, 8 Mo chacune}}",
   "An MP4 or MOV up to 5 minutes, or a project of yours": "Un MP4 ou MOV de 5 minutes maximum, ou l’un de vos projets",
   "One JPG or PNG, or an MP4 or MOV up to a minute": "Un JPG ou PNG, ou un MP4 ou MOV d’une minute maximum",
@@ -3890,5 +3889,6 @@
   "Couldn't open Google Drive": "Impossible d'ouvrir Google Drive",
   "Allow pop-ups for this site, then try again.": "Autorisez les fenêtres pop-up pour ce site, puis réessayez.",
   "{count, plural, =1 {Getting a file from Google Drive…} other {Getting # files from Google Drive…}}": "{count, plural, =1 {Récupération d'un fichier depuis Google Drive…} other {Récupération de # fichiers depuis Google Drive…}}",
-  "{count, plural, =1 {Couldn't get a file from Google Drive} other {Couldn't get # files from Google Drive}}": "{count, plural, =1 {Impossible de récupérer un fichier depuis Google Drive} other {Impossible de récupérer # fichiers depuis Google Drive}}"
+  "{count, plural, =1 {Couldn't get a file from Google Drive} other {Couldn't get # files from Google Drive}}": "{count, plural, =1 {Impossible de récupérer un fichier depuis Google Drive} other {Impossible de récupérer # fichiers depuis Google Drive}}",
+  "Optional. MP4, MOV, JPG or PNG.": "Facultatif. MP4, MOV, JPG ou PNG."
 }

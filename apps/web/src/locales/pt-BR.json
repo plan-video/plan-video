@@ -945,7 +945,6 @@
   "Drop pictures": "Solte imagens",
   "Drop a video": "Solte um vídeo",
   "Drop a picture or a video": "Solte uma imagem ou um vídeo",
-  "{count, plural, one {An MP4 or MOV, up to # JPG or PNG picture, or a project. Leave it empty for a text post.} other {An MP4 or MOV, up to # JPG or PNG pictures, or a project. Leave it empty for a text post.}}": "{count, plural, one {Um MP4 ou MOV, até # imagem JPG ou PNG, ou um projeto. Deixe vazio para um post de texto.} many {Um MP4 ou MOV, até # imagens JPG ou PNG, ou um projeto. Deixe vazio para um post de texto.} other {Um MP4 ou MOV, até # imagens JPG ou PNG, ou um projeto. Deixe vazio para um post de texto.}}",
   "{count, plural, one {Up to # JPG or PNG picture, 8 MB each} other {Up to # JPG or PNG pictures, 8 MB each}}": "{count, plural, one {Até # imagem JPG ou PNG, com até 8 MB cada} many {Até # imagens JPG ou PNG, com até 8 MB cada} other {Até # imagens JPG ou PNG, com até 8 MB cada}}",
   "An MP4 or MOV up to 5 minutes, or a project of yours": "Um MP4 ou MOV de até 5 minutos, ou um projeto seu",
   "One JPG or PNG, or an MP4 or MOV up to a minute": "Um JPG ou PNG, ou um MP4 ou MOV de até um minuto",
@@ -3890,5 +3889,6 @@
   "Couldn't open Google Drive": "Não foi possível abrir o Google Drive",
   "Allow pop-ups for this site, then try again.": "Permita pop-ups para este site e tente de novo.",
   "{count, plural, =1 {Getting a file from Google Drive…} other {Getting # files from Google Drive…}}": "{count, plural, =1 {Buscando um arquivo no Google Drive…} other {Buscando # arquivos no Google Drive…}}",
-  "{count, plural, =1 {Couldn't get a file from Google Drive} other {Couldn't get # files from Google Drive}}": "{count, plural, =1 {Não foi possível buscar um arquivo no Google Drive} other {Não foi possível buscar # arquivos no Google Drive}}"
+  "{count, plural, =1 {Couldn't get a file from Google Drive} other {Couldn't get # files from Google Drive}}": "{count, plural, =1 {Não foi possível buscar um arquivo no Google Drive} other {Não foi possível buscar # arquivos no Google Drive}}",
+  "Optional. MP4, MOV, JPG or PNG.": "Opcional. MP4, MOV, JPG ou PNG."
 }

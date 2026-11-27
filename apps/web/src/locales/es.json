@@ -945,7 +945,6 @@
   "Drop pictures": "Suelta imágenes",
   "Drop a video": "Suelta un video",
   "Drop a picture or a video": "Suelta una imagen o un video",
-  "{count, plural, one {An MP4 or MOV, up to # JPG or PNG picture, or a project. Leave it empty for a text post.} other {An MP4 or MOV, up to # JPG or PNG pictures, or a project. Leave it empty for a text post.}}": "{count, plural, one {Un MP4 o MOV, hasta # imagen JPG o PNG, o un proyecto. Déjalo vacío para una publicación de texto.} many {Un MP4 o MOV, hasta # imágenes JPG o PNG, o un proyecto. Déjalo vacío para una publicación de texto.} other {Un MP4 o MOV, hasta # imágenes JPG o PNG, o un proyecto. Déjalo vacío para una publicación de texto.}}",
   "{count, plural, one {Up to # JPG or PNG picture, 8 MB each} other {Up to # JPG or PNG pictures, 8 MB each}}": "{count, plural, one {Hasta # imagen JPG o PNG, de 8 MB como máximo} many {Hasta # imágenes JPG o PNG, de 8 MB cada una como máximo} other {Hasta # imágenes JPG o PNG, de 8 MB cada una como máximo}}",
   "An MP4 or MOV up to 5 minutes, or a project of yours": "Un MP4 o MOV de hasta 5 minutos, o uno de tus proyectos",
   "One JPG or PNG, or an MP4 or MOV up to a minute": "Un JPG o PNG, o un MP4 o MOV de hasta un minuto",
@@ -3890,5 +3889,6 @@
   "Couldn't open Google Drive": "No se pudo abrir Google Drive",
   "Allow pop-ups for this site, then try again.": "Permite las ventanas emergentes en este sitio y vuelve a intentarlo.",
   "{count, plural, =1 {Getting a file from Google Drive…} other {Getting # files from Google Drive…}}": "{count, plural, =1 {Trayendo un archivo de Google Drive…} other {Trayendo # archivos de Google Drive…}}",
-  "{count, plural, =1 {Couldn't get a file from Google Drive} other {Couldn't get # files from Google Drive}}": "{count, plural, =1 {No se pudo traer un archivo de Google Drive} other {No se pudieron traer # archivos de Google Drive}}"
+  "{count, plural, =1 {Couldn't get a file from Google Drive} other {Couldn't get # files from Google Drive}}": "{count, plural, =1 {No se pudo traer un archivo de Google Drive} other {No se pudieron traer # archivos de Google Drive}}",
+  "Optional. MP4, MOV, JPG or PNG.": "Opcional. MP4, MOV, JPG o PNG."
 }

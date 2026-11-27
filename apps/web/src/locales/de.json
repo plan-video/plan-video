@@ -945,7 +945,6 @@
   "Drop pictures": "Bilder hier ablegen",
   "Drop a video": "Video hier ablegen",
   "Drop a picture or a video": "Bild oder Video hier ablegen",
-  "{count, plural, one {An MP4 or MOV, up to # JPG or PNG picture, or a project. Leave it empty for a text post.} other {An MP4 or MOV, up to # JPG or PNG pictures, or a project. Leave it empty for a text post.}}": "{count, plural, one {MP4 oder MOV, bis zu # JPG- oder PNG-Bild oder ein Projekt. Leer lassen für einen Text-Post.} other {MP4 oder MOV, bis zu # JPG- oder PNG-Bilder oder ein Projekt. Leer lassen für einen Text-Post.}}",
   "{count, plural, one {Up to # JPG or PNG picture, 8 MB each} other {Up to # JPG or PNG pictures, 8 MB each}}": "{count, plural, one {Bis zu # JPG- oder PNG-Bild, je 8 MB} other {Bis zu # JPG- oder PNG-Bilder, je 8 MB}}",
   "An MP4 or MOV up to 5 minutes, or a project of yours": "MP4 oder MOV bis 5 Minuten oder eines deiner Projekte",
   "One JPG or PNG, or an MP4 or MOV up to a minute": "Ein JPG oder PNG oder ein MP4 oder MOV bis zu einer Minute",
@@ -3890,5 +3889,6 @@
   "Couldn't open Google Drive": "Google Drive konnte nicht geöffnet werden",
   "Allow pop-ups for this site, then try again.": "Erlaube Pop-ups für diese Seite und versuch es dann noch einmal.",
   "{count, plural, =1 {Getting a file from Google Drive…} other {Getting # files from Google Drive…}}": "{count, plural, =1 {Datei wird aus Google Drive geholt…} other {# Dateien werden aus Google Drive geholt…}}",
-  "{count, plural, =1 {Couldn't get a file from Google Drive} other {Couldn't get # files from Google Drive}}": "{count, plural, =1 {Eine Datei konnte nicht aus Google Drive geholt werden} other {# Dateien konnten nicht aus Google Drive geholt werden}}"
+  "{count, plural, =1 {Couldn't get a file from Google Drive} other {Couldn't get # files from Google Drive}}": "{count, plural, =1 {Eine Datei konnte nicht aus Google Drive geholt werden} other {# Dateien konnten nicht aus Google Drive geholt werden}}",
+  "Optional. MP4, MOV, JPG or PNG.": "Optional. MP4, MOV, JPG oder PNG."
 }
