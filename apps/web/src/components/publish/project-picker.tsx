@@ -13,7 +13,7 @@ import { Popover, PopoverContent, PopoverPortal, PopoverTrigger } from "@/compon
 import { SearchInput } from "@/components/ui/search-input";
 import { cx } from "@/lib/cva";
 import { t } from "@/lib/i18n";
-import { listProjects, loadProjectCover, projectKey, projectsRevision, type ProjectInfo, type ProjectRecord } from "@/projects";
+import { getProject, listProjects, loadProjectCover, projectKey, projectsRevision, type ProjectInfo, type ProjectRecord } from "@/projects";
 
 export type LinkedProject = {
   key: string;
@@ -29,7 +29,11 @@ export async function linkProject(project: ProjectInfo & { cover?: Blob | null }
 
 export async function findProject(key: string): Promise<ProjectRecord | null> {
   const projects = await listProjects();
-  return projects.find((project) => projectKey(project) === key) ?? null;
+  const found = projects.find((project) => projectKey(project) === key);
+  if (!found) return null;
+  // The list's record keeps the time it was last refreshed, not the last saved edit.
+  const current = await getProject(found.dir);
+  return current ? { ...found, modifiedAt: current.modifiedAt } : found;
 }
 
 /** A signal rather than a resource: the picker sits under the page's Suspense, and a pending read there blanks the page. */

@@ -8,6 +8,7 @@ import { setBundleReader } from "@plan.video/reconciler";
 
 import { t } from "@/lib/i18n";
 import {
+  COMPOSITION_FILE,
   compositionBundle,
   compositionProject,
   readBrowserComposition,
@@ -125,7 +126,9 @@ async function describe(dir: string): Promise<ProjectInfo | null> {
   const pkg = await readPackage(dir);
   if (!pkg?.projectId) return null;
   const entry = pkg.main || "index.tsx";
-  const stat = await statPath(`${dir}/${entry}`);
+  // Edits are saved to the composition and the manifest; the entry is only written when the project is made.
+  const stats = await Promise.all([entry, COMPOSITION_FILE, "assets.yml"].map((file) => statPath(`${dir}/${file}`)));
+  const mtime = Math.max(...stats.map((stat) => stat?.mtime ?? 0));
   const now = new Date().toISOString();
   return {
     id: pkg.projectId,
@@ -133,7 +136,7 @@ async function describe(dir: string): Promise<ProjectInfo | null> {
     displayName: pkg.displayName || baseName(dir),
     dir,
     entry,
-    modifiedAt: stat ? new Date(stat.mtime).toISOString() : now,
+    modifiedAt: mtime ? new Date(mtime).toISOString() : now,
     createdAt: now,
   };
 }

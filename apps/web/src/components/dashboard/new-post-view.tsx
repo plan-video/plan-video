@@ -364,7 +364,26 @@ async function attachProject(project: ProjectInfo & { cover?: Blob | null }, han
   linkedVideo = handed;
   const linked = await linkProject(project);
   if (post.kind === "text" || post.kind === "image") setKind("video");
-  setPost("project", linked);
+  batch(() => {
+    setPost("project", linked);
+    dropProjectVideo();
+  });
+}
+
+/** The video the linked project's export put on the post, and the save it was exported from. */
+let projectVideo: { key: string; modifiedAt: string; media: PostMedia } | null = null;
+
+/** Takes the project's earlier export off the post, so the project is exported again as it is now. */
+function dropProjectVideo() {
+  const made = projectVideo;
+  if (!made || post.media.length !== 1 || post.media[0].id !== made.media.id) return;
+  projectVideo = null;
+  if (post.cover && post.project?.key === made.key) pendingCover = { key: made.key, time: post.cover.time };
+  batch(() => {
+    setPost("media", []);
+    setPost("cover", null);
+  });
+  releaseUnused([made.media]);
 }
 
 /** The media whose file name fills the caption, while that caption is left as it was filled. */
@@ -462,6 +481,7 @@ function exportLinkedProject(key: string) {
         setPost("cover", cover);
         addCredits(credits);
       });
+      projectVideo = { key, modifiedAt: project.modifiedAt, media: read };
       setProjectWords({ key, words });
       track("post_project_exported");
       return true;
@@ -851,6 +871,13 @@ export function DashboardNewPostView() {
       },
     ),
   );
+  onMount(() => {
+    const made = projectVideo;
+    if (!made) return;
+    void findProject(made.key).then((project) => {
+      if (project && project.modifiedAt !== made.modifiedAt && projectVideo === made) void attachProject(project);
+    });
+  });
 
   const scheduledAt = () => (post.when === "schedule" ? atLocal(post.day, post.time) : null);
   useQueueSlots();
