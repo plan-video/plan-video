@@ -1409,6 +1409,8 @@
   "Auto-schedule view": "Widok automatycznego harmonogramu",
   "Navigation": "Nawigacja",
   "Icons only in the side rail": "Same ikony na pasku bocznym",
+  "Use the file name as the title and caption": "Używaj nazwy pliku jako tytułu i opisu",
+  "Adding a video or pictures fills in an empty title and caption with the file's name. Saved on this device.": "Po dodaniu filmu lub zdjęć pusty tytuł i opis wypełniają się nazwą pliku. Zapisane na tym urządzeniu.",
   "Hides the names under Schedule, Projects and the rest. Hover an icon to see its name.": "Ukrywa nazwy pod ikonami „Harmonogram”, „Projekty” i pozostałymi. Najedź na ikonę, żeby zobaczyć jej nazwę.",
   "Show plan.video in": "Język plan.video",
   "Saved on this device, for the dashboard, the editor and the website.": "Zapisywane na tym urządzeniu – dotyczy panelu, edytora i strony.",

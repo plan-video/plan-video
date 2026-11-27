@@ -1409,6 +1409,8 @@
   "Auto-schedule view": "Vue du planning automatique",
   "Navigation": "Navigation",
   "Icons only in the side rail": "Icônes seules dans la barre latérale",
+  "Use the file name as the title and caption": "Utiliser le nom du fichier comme titre et légende",
+  "Adding a video or pictures fills in an empty title and caption with the file's name. Saved on this device.": "Quand vous ajoutez une vidéo ou des images, un titre et une légende vides reprennent le nom du fichier. Enregistré sur cet appareil.",
   "Hides the names under Schedule, Projects and the rest. Hover an icon to see its name.": "Masque les noms sous Planning, Projets et les autres. Survolez une icône pour voir son nom.",
   "Show plan.video in": "Afficher plan.video en",
   "Saved on this device, for the dashboard, the editor and the website.": "Enregistré sur cet appareil, pour le tableau de bord, l’éditeur et le site.",

@@ -1409,6 +1409,8 @@
   "Auto-schedule view": "自动排期视图",
   "Navigation": "导航",
   "Icons only in the side rail": "侧边栏仅显示图标",
+  "Use the file name as the title and caption": "用文件名作为标题和文案",
+  "Adding a video or pictures fills in an empty title and caption with the file's name. Saved on this device.": "添加视频或图片时，空的标题和文案会填入文件名。保存在此设备上。",
   "Hides the names under Schedule, Projects and the rest. Hover an icon to see its name.": "隐藏“排期”“项目”等图标下方的名称。将鼠标悬停在图标上即可查看名称。",
   "Show plan.video in": "plan.video 显示语言",
   "Saved on this device, for the dashboard, the editor and the website.": "保存在此设备上，适用于工作台、编辑器和网站。",

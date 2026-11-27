@@ -77,6 +77,7 @@ import {
   shiftDay,
 } from "@/components/calendar/utils";
 import { takeHandOff, takeHandedFiles } from "@/components/publish/handoff";
+import { fileNameCaptions } from "@/lib/file-name-captions";
 import { MediaPicker } from "@/components/publish/media-picker";
 import { GoogleDriveLogo } from "@/components/publish/google-drive-logo";
 import { PictureEditor } from "@/components/publish/picture-editor";
@@ -157,6 +158,7 @@ import {
   POSTABLE_IMAGES,
   POSTABLE_VIDEOS,
   baseName,
+  fileTitle,
   formatBytes,
   imageFileProblem,
   mediaKind,
@@ -360,6 +362,33 @@ async function attachProject(project: ProjectInfo & { cover?: Blob | null }, han
   setPost("project", linked);
 }
 
+/** The media whose file name fills the caption, while that caption is left as it was filled. */
+let named: { file: File; name: string } | null = null;
+
+/** YouTube and Pinterest get the name as a title, so their caption stays empty. */
+const captionWantsName = () => !post.platforms.length || post.platforms.some((id) => !socialPlatform(id).title);
+
+/** The file's name goes in the titles and caption, never over words the person wrote. */
+function nameAfterMedia(before: PostMedia | undefined, after: PostMedia | undefined) {
+  if (!fileNameCaptions() || post.kind === "story" || before?.file === after?.file) return;
+  const was = before ? fileTitle(before.file.name) : "";
+  const name = after ? fileTitle(after.file.name) : "";
+  named = after && name ? { file: after.file, name } : null;
+  const title = (text: string) => [...text].slice(0, 100).join("");
+  const untouched = (value: string, previous: string) => !value.trim() || value === previous;
+  batch(() => {
+    if (untouched(post.caption, was)) setPost("caption", captionWantsName() ? name : "");
+    if (untouched(post.settings.youtube.title, title(was))) setPost("settings", "youtube", "title", title(name));
+    if (untouched(post.settings.pinterest.title, title(was))) setPost("settings", "pinterest", "title", title(name));
+  });
+}
+
+function captionFollowsAccounts(wants: boolean) {
+  if (!named || !fileNameCaptions() || post.kind === "story" || post.media[0]?.file !== named.file) return;
+  if (wants && !post.caption.trim()) setPost("caption", named.name);
+  else if (!wants && post.caption === named.name) setPost("caption", "");
+}
+
 function withCredits(caption: string, credits: readonly string[]): string {
   const missing = credits.filter((credit) => !caption.includes(credit));
   if (!missing.length) return caption;
@@ -560,6 +589,7 @@ async function putFiles(files: File[]) {
   const chosen = kind === "story" ? files : kind === "video" ? videos.slice(0, 1) : files.slice(0, MAX_IMAGES);
   const media = await Promise.all(chosen.map(readMedia));
   const replaced = allMedia();
+  const first = post.media[0];
   const platforms = post.platforms.filter((id) => platformsFor(kind).includes(id));
   batch(() => {
     setPost("kind", kind);
@@ -569,6 +599,7 @@ async function putFiles(files: File[]) {
     setPost("ownMedia", reconcile({}));
     setPost("cover", null);
     setPost("project", null);
+    nameAfterMedia(first, media[0]);
   });
   for (const item of replaced) releaseMedia(item);
 }
@@ -776,6 +807,7 @@ export function DashboardNewPostView() {
     applyTemplate(template);
   }
   if (post.when === "now") setPost("when", "schedule");
+  createEffect(on(createMemo(captionWantsName), captionFollowsAccounts, { defer: true }));
   createEffect(() => {
     const kind = kindFromMedia();
     if (kind !== post.kind) setPost("kind", kind);
@@ -1605,6 +1637,7 @@ function MediaEditor(props: { slot: MediaSlot }) {
         batch(() => {
           slot.setItems([read]);
           slot.setCover(null);
+          if (!slot.platform) nameAfterMedia(replaced[0], read);
         });
         releaseUnused(replaced);
         void keepInLibrary([read]);
@@ -1643,6 +1676,7 @@ function MediaEditor(props: { slot: MediaSlot }) {
       batch(() => {
         slot.setItems([...keep, ...read]);
         slot.setCover(null);
+        if (!slot.platform) nameAfterMedia(before[0], items()[0]);
       });
       if (keep !== before) releaseUnused(before);
       void keepInLibrary(read);
@@ -1658,10 +1692,12 @@ function MediaEditor(props: { slot: MediaSlot }) {
   const pickDrive = async () => void addFiles(await pickFromDrive({ accept: accept(), multiple: post.kind !== "video", tooLarge: postableTooLarge }));
 
   const remove = (id: string) => {
-    const gone = items().filter((entry) => entry.id === id);
+    const before = items();
+    const gone = before.filter((entry) => entry.id === id);
     batch(() => {
-      slot.setItems(items().filter((entry) => entry.id !== id));
+      slot.setItems(before.filter((entry) => entry.id !== id));
       if (!items().some((entry) => entry.kind === "video")) slot.setCover(null);
+      if (!slot.platform) nameAfterMedia(before[0], items()[0]);
     });
     releaseUnused(gone);
   };

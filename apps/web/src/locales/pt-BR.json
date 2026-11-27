@@ -1409,6 +1409,8 @@
   "Auto-schedule view": "Visualização da Agenda automática",
   "Navigation": "Navegação",
   "Icons only in the side rail": "Só ícones na barra lateral",
+  "Use the file name as the title and caption": "Usar o nome do arquivo como título e legenda",
+  "Adding a video or pictures fills in an empty title and caption with the file's name. Saved on this device.": "Ao adicionar um vídeo ou imagens, o título e a legenda vazios recebem o nome do arquivo. Salvo neste dispositivo.",
   "Hides the names under Schedule, Projects and the rest. Hover an icon to see its name.": "Oculta os nomes de Agenda, Projetos e dos demais. Passe o mouse sobre um ícone para ver o nome.",
   "Show plan.video in": "Mostrar o plan.video em",
   "Saved on this device, for the dashboard, the editor and the website.": "Salvo neste dispositivo, para o painel, o editor e o site.",

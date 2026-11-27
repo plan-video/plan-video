@@ -1409,6 +1409,8 @@
   "Auto-schedule view": "자동 일정 보기",
   "Navigation": "탐색",
   "Icons only in the side rail": "사이드 레일에 아이콘만 표시",
+  "Use the file name as the title and caption": "파일 이름을 제목과 캡션으로 사용",
+  "Adding a video or pictures fills in an empty title and caption with the file's name. Saved on this device.": "동영상이나 사진을 추가하면 비어 있는 제목과 캡션에 파일 이름이 들어갑니다. 이 기기에 저장됩니다.",
   "Hides the names under Schedule, Projects and the rest. Hover an icon to see its name.": "일정, 프로젝트 등의 이름을 숨겨요. 아이콘에 마우스를 올리면 이름이 보여요.",
   "Show plan.video in": "plan.video 표시 언어",
   "Saved on this device, for the dashboard, the editor and the website.": "이 기기에 저장되며 대시보드, 편집기, 웹사이트에 적용돼요.",

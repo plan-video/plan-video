@@ -7,7 +7,7 @@ Every post starts in **New post** in the dashboard.
     Choose the accounts to post to, or an account group.
   </Step>
   <Step title="Add media">
-    Add a video or up to 35 pictures from your computer or your [media library](/docs/media-library). You can also attach a project from the editor; its export is added for you. Click a picture to crop, rotate or flip it. Click **Quick edit** on a video to trim, crop or mute it without opening the editor.
+    Add a video or up to 35 pictures from your computer or your [media library](/docs/media-library). You can also attach a project from the editor; its export is added for you. Click a picture to crop, rotate or flip it. Click **Quick edit** on a video to trim, crop or mute it without opening the editor. The file's name fills in an empty title and caption, so `My trip to Lisbon.mp4` starts as "My trip to Lisbon". Names a phone or app made up, like `IMG_4821`, are left out. Turn this off under [Preferences](/docs/preferences#new-post).
   </Step>
   <Step title="Write the caption">
     One caption goes to every network. On YouTube it's the video's description, and a **Title** field shows above it. Open a network's tab to give it its own caption, media or options instead.

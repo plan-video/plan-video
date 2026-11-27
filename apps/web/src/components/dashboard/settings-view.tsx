@@ -11,6 +11,7 @@ import { Icon } from "@/components/dashboard/dashboard-icon";
 import { Switch as Toggle, SwitchControl, SwitchInput, SwitchLabel, SwitchThumb } from "@/components/ui/switch";
 import { t } from "@/lib/i18n";
 import { dashboardRailLabels, setDashboardRailLabels } from "@/lib/dashboard-theme";
+import { fileNameCaptions, setFileNameCaptions } from "@/lib/file-name-captions";
 import { chosenZone, timeZone, zonedFormat } from "@/lib/time-zone";
 import { usePermissionState, type PermissionState } from "@/hooks/use-permission";
 
@@ -106,6 +107,23 @@ function DashboardCalendarSection() {
         description={t("Saved on this device. On the calendar, W, M and L still switch views.")}
         action={<DefaultCalendarViewToggle />}
       />
+    </DashboardSurfaceSection>
+  );
+}
+
+function DashboardNewPostSection() {
+  return (
+    <DashboardSurfaceSection title={t("New post")}>
+      <Toggle checked={fileNameCaptions()} onChange={setFileNameCaptions} class="flex items-center gap-4">
+        <SwitchLabel class="min-w-0 flex-1 cursor-pointer pr-4 text-xs font-normal">
+          <span class="block text-foreground">{t("Use the file name as the title and caption")}</span>
+          <span class="mt-1 block text-muted-foreground">{t("Adding a video or pictures fills in an empty title and caption with the file's name. Saved on this device.")}</span>
+        </SwitchLabel>
+        <SwitchInput aria-label={t("Use the file name as the title and caption")} />
+        <SwitchControl variant="compact">
+          <SwitchThumb variant="compact" />
+        </SwitchControl>
+      </Toggle>
     </DashboardSurfaceSection>
   );
 }
@@ -226,6 +244,7 @@ export function DashboardSettingsView() {
       <DashboardEditorKeysSection />
       <DashboardTimeZoneSection />
       <DashboardCalendarSection />
+      <DashboardNewPostSection />
       <DashboardPermissionsSection />
     </DashboardScrollView>
   );

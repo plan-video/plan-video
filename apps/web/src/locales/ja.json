@@ -1409,6 +1409,8 @@
   "Auto-schedule view": "自動予約の表示",
   "Navigation": "ナビゲーション",
   "Icons only in the side rail": "サイドバーをアイコンのみにする",
+  "Use the file name as the title and caption": "ファイル名をタイトルとキャプションに使う",
+  "Adding a video or pictures fills in an empty title and caption with the file's name. Saved on this device.": "動画や画像を追加すると、空のタイトルとキャプションにファイル名が入ります。このデバイスに保存されます。",
   "Hides the names under Schedule, Projects and the rest. Hover an icon to see its name.": "「予約投稿」「プロジェクト」などの名前を非表示にします。アイコンにカーソルを合わせると名前が表示されます。",
   "Show plan.video in": "plan.videoの表示言語",
   "Saved on this device, for the dashboard, the editor and the website.": "このデバイスに保存され、ダッシュボード、エディター、Webサイトに適用されます。",
