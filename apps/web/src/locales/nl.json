@@ -1273,6 +1273,8 @@
   "Everything in {plan}, plus:": "Alles uit {plan}, plus:",
   "Includes:": "Inclusief:",
   "{count, plural, other {# on}}": "{count, plural, one {# aan} other {# aan}}",
+  "Plugs come with a paid plan": "Plugs horen bij een betaald abonnement",
+  "Repost a post, or reply under it with a plug, once it reaches a number of likes.": "Repost een post, of reageer eronder met een plug, zodra hij een ingesteld aantal likes haalt.",
   "None of your channels has plugs": "Geen van je kanalen heeft plugs",
   "Plugs work on {networks}. Add an account there to set them up.": "Plugs werken op {networks}. Voeg daar een account toe om ze in te stellen.",
   "Each post is checked every {hours, plural, one {# hour} other {# hours}}, {checks, plural, one {# time} other {# times}} after it goes out": "Elke post wordt na plaatsing {checks, plural, one {# keer} other {# keer}} gecontroleerd, {hours, plural, one {elk uur} other {om de # uur}}",

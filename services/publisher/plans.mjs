@@ -241,6 +241,11 @@ export function createPlanLimits({ db, now = () => Date.now(), log = console, yo
     await db.insert("publisher_uploads", [{ user_id: userId, platform, at: new Date(now()).toISOString() }]);
   }
 
+  /** Plugs are on paid plans. A workspace's posts are its owner's, so they follow the owner's plan. */
+  async function plugsAllowed(userId) {
+    return (await levels([userId])).get(userId) > 1;
+  }
+
   async function postNowAllowed(userId) {
     if ((await levels([userId])).get(userId) > 1) return;
     const used = await db.postNowSince(userId, new Date(now() - DAY_MS).toISOString(), FREE_POST_NOW_PER_DAY);
@@ -314,5 +319,5 @@ export function createPlanLimits({ db, now = () => Date.now(), log = console, yo
     await db.pruneUploads(new Date(now() - MONTH_MS - DAY_MS).toISOString(), ["x", "xlink"]);
   }
 
-  return { review, upgraded, over, uploadWait, countUpload, xAllowed, countX, postNowAllowed, prune, usage };
+  return { review, upgraded, over, uploadWait, countUpload, xAllowed, countX, postNowAllowed, plugsAllowed, prune, usage };
 }

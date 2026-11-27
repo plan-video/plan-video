@@ -744,7 +744,7 @@ export function createWorker({
     try {
       const settings = (await db.rpc("publisher_plugs", { owner: row.user_id, workspace: row.workspace_id })) ?? [];
       const wanted = plugs.forAccount(settings, row.connection_id, row.platform, sentAt).filter((plug) => !row.plugs_done.includes(plug.kind));
-      if (!wanted.length) return finish({ plug_checks: PLUG_CHECKS });
+      if (!wanted.length || (planLimits && !(await planLimits.plugsAllowed(row.user_id)))) return finish({ plug_checks: PLUG_CHECKS });
       let done = [...row.plugs_done];
       const keep = (kinds) => {
         done = kinds;

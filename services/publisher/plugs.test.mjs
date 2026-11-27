@@ -49,6 +49,7 @@ function setup(t, { plugs, likes = () => 0, answer = () => undefined, level = 2 
     media: { postFile: async () => null },
     networks: { x },
     plugs: createPlugs({ x }),
+    planLimits: limits,
     now: () => clock,
     log,
   });
@@ -145,6 +146,16 @@ test("a plug's reply X made is never sent again when keeping it fails", async (t
   });
   await w.checks(3);
   assert.equal(w.replies().length, 1);
+});
+
+test("plugs stop once the owner moves to Free, without reading X", async (t) => {
+  const w = setup(t, { plugs: [repostPlug, replyPlug], likes: () => 50 });
+  await w.send();
+  w.db.tables.user_data[0].access_level = 1;
+  await w.checks(1);
+  assert.equal(w.reads().length, 0);
+  assert.equal(w.reposts().length + w.replies().length, 0);
+  assert.equal(w.row().plug_checks, 3);
 });
 
 test("a plug past the plan's X posts never reaches X", async (t) => {

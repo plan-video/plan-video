@@ -1273,6 +1273,8 @@
   "Everything in {plan}, plus:": "Wszystko z planu {plan}, a do tego:",
   "Includes:": "Zawiera:",
   "{count, plural, other {# on}}": "{count, plural, one {# włączony} few {# włączone} many {# włączonych} other {# włączonego}}",
+  "Plugs come with a paid plan": "Dopiski są dostępne w płatnym planie",
+  "Repost a post, or reply under it with a plug, once it reaches a number of likes.": "Zrób repost albo odpowiedz pod postem dopiskiem, gdy zdobędzie ustaloną liczbę polubień.",
   "None of your channels has plugs": "Żaden z twoich kanałów nie obsługuje dopisków",
   "Plugs work on {networks}. Add an account there to set them up.": "Dopiski działają na: {networks}. Dodaj tam konto, żeby je skonfigurować.",
   "Each post is checked every {hours, plural, one {# hour} other {# hours}}, {checks, plural, one {# time} other {# times}} after it goes out": "Każdy post jest sprawdzany co {hours, plural, one {godzinę} few {# godziny} many {# godzin} other {# godziny}}, {checks, plural, one {# raz} few {# razy} many {# razy} other {# raza}} po publikacji",

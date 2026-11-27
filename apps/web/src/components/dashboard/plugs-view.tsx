@@ -14,6 +14,7 @@ import { allPosts } from "@/components/calendar/store";
 import type { StoredEvent } from "@/components/calendar/types";
 import { Icon } from "@/components/dashboard/dashboard-icon";
 import { PlugsArt } from "@/components/dashboard/empty-art";
+import { SeePlansButton } from "@/components/dashboard/paid-lock";
 import { PostThumbnail } from "@/components/dashboard/posts-view";
 import { dashboardNavItemClass } from "@/components/dashboard/sidebar";
 import { AccountAvatar } from "@/components/publish/account-avatar";
@@ -25,6 +26,7 @@ import { useAuth } from "@/context/auth";
 import { AvatarPhoto } from "@/hooks/use-avatar";
 import { cx } from "@/lib/cva";
 import { intlLocale, t } from "@/lib/i18n";
+import { paidToolsLocked } from "@/lib/paid-tools";
 import {
   PLUGS,
   PLUGS_BY_PLATFORM,
@@ -112,22 +114,36 @@ export function DashboardPlugsView() {
   return (
     <div class="min-h-0 flex-1 overflow-y-auto">
       <Show
-        when={channel()?.id}
-        keyed
+        when={!paidToolsLocked()}
         fallback={
           <div class="flex flex-col items-center gap-4 px-6 pt-12 text-center">
             <PlugsArt />
             <div class="flex flex-col gap-1">
-              <h2 class="text-sm font-medium text-foreground">{t("None of your channels has plugs")}</h2>
-              <p class="text-xs text-muted-foreground">{t("Plugs work on {networks}. Add an account there to set them up.", { networks: plugNetworks() })}</p>
+              <h2 class="text-sm font-medium text-foreground">{t("Plugs come with a paid plan")}</h2>
+              <p class="text-xs text-muted-foreground">{t("Repost a post, or reply under it with a plug, once it reaches a number of likes.")}</p>
             </div>
-            <Button class="px-3" onClick={() => setParams({ dashboard: "connections", channel: undefined })}>
-              {t("Open Connections")}
-            </Button>
+            <SeePlansButton />
           </div>
         }
       >
-        <ChannelPlugs account={channel()!} />
+        <Show
+          when={channel()?.id}
+          keyed
+          fallback={
+            <div class="flex flex-col items-center gap-4 px-6 pt-12 text-center">
+              <PlugsArt />
+              <div class="flex flex-col gap-1">
+                <h2 class="text-sm font-medium text-foreground">{t("None of your channels has plugs")}</h2>
+                <p class="text-xs text-muted-foreground">{t("Plugs work on {networks}. Add an account there to set them up.", { networks: plugNetworks() })}</p>
+              </div>
+              <Button class="px-3" onClick={() => setParams({ dashboard: "connections", channel: undefined })}>
+                {t("Open Connections")}
+              </Button>
+            </div>
+          }
+        >
+          <ChannelPlugs account={channel()!} />
+        </Show>
       </Show>
     </div>
   );

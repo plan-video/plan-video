@@ -1273,6 +1273,8 @@
   "Everything in {plan}, plus:": "Todo lo del plan {plan}, y además:",
   "Includes:": "Incluye:",
   "{count, plural, other {# on}}": "{count, plural, one {# activa} many {# activas} other {# activas}}",
+  "Plugs come with a paid plan": "Las promos vienen con un plan de pago",
+  "Repost a post, or reply under it with a plug, once it reaches a number of likes.": "Republica una publicación o responde debajo con una promo cuando llegue a cierto número de me gusta.",
   "None of your channels has plugs": "Ninguno de tus canales tiene promos",
   "Plugs work on {networks}. Add an account there to set them up.": "Las promos funcionan en {networks}. Añade una cuenta allí para configurarlas.",
   "Each post is checked every {hours, plural, one {# hour} other {# hours}}, {checks, plural, one {# time} other {# times}} after it goes out": "Cada publicación se revisa cada {hours, plural, one {# hora} many {# horas} other {# horas}}, {checks, plural, one {# vez} many {# veces} other {# veces}} después de publicarse",

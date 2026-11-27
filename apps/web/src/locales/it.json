@@ -1273,6 +1273,8 @@
   "Everything in {plan}, plus:": "Tutto quello che c'è in {plan}, più:",
   "Includes:": "Include:",
   "{count, plural, other {# on}}": "{count, plural, one {# attiva} many {# attive} other {# attive}}",
+  "Plugs come with a paid plan": "Le automazioni sono incluse nei piani a pagamento",
+  "Repost a post, or reply under it with a plug, once it reaches a number of likes.": "Ripubblica un post, o rispondi sotto con un commento promo, quando raggiunge un certo numero di Mi piace.",
   "None of your channels has plugs": "Nessuno dei tuoi canali supporta le automazioni",
   "Plugs work on {networks}. Add an account there to set them up.": "Le automazioni funzionano su {networks}. Aggiungi un account lì per configurarle.",
   "Each post is checked every {hours, plural, one {# hour} other {# hours}}, {checks, plural, one {# time} other {# times}} after it goes out": "Ogni post viene controllato ogni {hours, plural, one {ora} many {# ore} other {# ore}}, {checks, plural, one {# volta} many {# volte} other {# volte}} dopo l'uscita",

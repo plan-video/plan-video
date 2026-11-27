@@ -1273,6 +1273,8 @@
   "Everything in {plan}, plus:": "{plan} planındaki her şey, ek olarak:",
   "Includes:": "İçerir:",
   "{count, plural, other {# on}}": "{count, plural, other {# açık}}",
+  "Plugs come with a paid plan": "Tanıtımlar ücretli planlarla gelir",
+  "Repost a post, or reply under it with a plug, once it reaches a number of likes.": "Bir gönderi belirlenen beğeni sayısına ulaştığında onu yeniden paylaş ya da altına bir tanıtım yanıtı yaz.",
   "None of your channels has plugs": "Kanallarının hiçbiri tanıtımları desteklemiyor",
   "Plugs work on {networks}. Add an account there to set them up.": "Tanıtımlar şu ağlarda çalışır: {networks}. Ayarlamak için bu ağlardan birine hesap ekle.",
   "Each post is checked every {hours, plural, one {# hour} other {# hours}}, {checks, plural, one {# time} other {# times}} after it goes out": "Her gönderi yayınlandıktan sonra {hours, plural, other {# saatte bir}} kontrol edilir, toplam {checks, plural, other {# kez}}",
