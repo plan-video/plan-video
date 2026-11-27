@@ -3892,5 +3892,9 @@
   "Update social accounts": "Sosyal hesapları güncelle",
   "Switched to {plan}": "{plan} planına geçildi",
   "You move to {plan} with {count} social accounts now, at {price}/mo. You're charged today, less what's left of {current}.": "{count} sosyal hesapla şimdi {plan} planına geçiyorsun, {price}/ay. Bugün ücretlendirilir; {current} planından kalan süre düşülür.",
-  "You move to {plan} with {count} social accounts now, at {price}/mo, billed yearly. You're charged today, less what's left of {current}.": "{count} sosyal hesapla şimdi {plan} planına geçiyorsun, yıllık faturalandırmayla {price}/ay. Bugün ücretlendirilir; {current} planından kalan süre düşülür."
+  "You move to {plan} with {count} social accounts now, at {price}/mo, billed yearly. You're charged today, less what's left of {current}.": "{count} sosyal hesapla şimdi {plan} planına geçiyorsun, yıllık faturalandırmayla {price}/ay. Bugün ücretlendirilir; {current} planından kalan süre düşülür.",
+  "Couldn't open Google Drive": "Google Drive açılamadı",
+  "Allow pop-ups for this site, then try again.": "Bu site için açılır pencerelere izin ver, sonra tekrar dene.",
+  "{count, plural, =1 {Getting a file from Google Drive…} other {Getting # files from Google Drive…}}": "{count, plural, =1 {Google Drive'dan bir dosya alınıyor…} other {Google Drive'dan # dosya alınıyor…}}",
+  "{count, plural, =1 {Couldn't get a file from Google Drive} other {Couldn't get # files from Google Drive}}": "{count, plural, =1 {Google Drive'dan bir dosya alınamadı} other {Google Drive'dan # dosya alınamadı}}"
 }

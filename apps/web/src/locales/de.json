@@ -3892,5 +3892,9 @@
   "Update social accounts": "Social-Media-Konten ändern",
   "Switched to {plan}": "Zu {plan} gewechselt",
   "You move to {plan} with {count} social accounts now, at {price}/mo. You're charged today, less what's left of {current}.": "Du wechselst jetzt zu {plan} mit {count} Social-Media-Konten für {price}/Monat. Das wird dir heute berechnet, abzüglich des Rests von {current}.",
-  "You move to {plan} with {count} social accounts now, at {price}/mo, billed yearly. You're charged today, less what's left of {current}.": "Du wechselst jetzt zu {plan} mit {count} Social-Media-Konten für {price}/Monat bei jährlicher Abrechnung. Das wird dir heute berechnet, abzüglich des Rests von {current}."
+  "You move to {plan} with {count} social accounts now, at {price}/mo, billed yearly. You're charged today, less what's left of {current}.": "Du wechselst jetzt zu {plan} mit {count} Social-Media-Konten für {price}/Monat bei jährlicher Abrechnung. Das wird dir heute berechnet, abzüglich des Rests von {current}.",
+  "Couldn't open Google Drive": "Google Drive konnte nicht geöffnet werden",
+  "Allow pop-ups for this site, then try again.": "Erlaube Pop-ups für diese Seite und versuch es dann noch einmal.",
+  "{count, plural, =1 {Getting a file from Google Drive…} other {Getting # files from Google Drive…}}": "{count, plural, =1 {Datei wird aus Google Drive geholt…} other {# Dateien werden aus Google Drive geholt…}}",
+  "{count, plural, =1 {Couldn't get a file from Google Drive} other {Couldn't get # files from Google Drive}}": "{count, plural, =1 {Eine Datei konnte nicht aus Google Drive geholt werden} other {# Dateien konnten nicht aus Google Drive geholt werden}}"
 }

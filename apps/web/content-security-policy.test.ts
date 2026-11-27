@@ -14,6 +14,13 @@ describe("the page's security policy", () => {
     expect(directive(text, "frame-src")).toBe("frame-src https://challenges.cloudflare.com");
   });
 
+  it("lets Google's Picker script and frame in only once Google Drive is set up", () => {
+    const text = policy([], { VITE_GOOGLE_CLIENT_ID: "1-x.apps.googleusercontent.com", VITE_GOOGLE_API_KEY: "key" });
+    expect(directive(text, "script-src")).toContain("https://apis.google.com");
+    expect(directive(text, "frame-src")).toBe("frame-src https://docs.google.com");
+    expect(policy([], { VITE_GOOGLE_CLIENT_ID: "1-x.apps.googleusercontent.com" })).not.toContain("google.com");
+  });
+
   it("allows no frames and no Turnstile without a key", () => {
     const text = policy([], {});
     expect(text).not.toContain("challenges.cloudflare.com");

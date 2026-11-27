@@ -3892,5 +3892,9 @@
   "Update social accounts": "Modifica account social",
   "Switched to {plan}": "Passato a {plan}",
   "You move to {plan} with {count} social accounts now, at {price}/mo. You're charged today, less what's left of {current}.": "Passi ora a {plan} con {count} account social, a {price}/mese. Oggi ti viene addebitato, meno quanto resta di {current}.",
-  "You move to {plan} with {count} social accounts now, at {price}/mo, billed yearly. You're charged today, less what's left of {current}.": "Passi ora a {plan} con {count} account social, a {price}/mese, con fatturazione annuale. Oggi ti viene addebitato, meno quanto resta di {current}."
+  "You move to {plan} with {count} social accounts now, at {price}/mo, billed yearly. You're charged today, less what's left of {current}.": "Passi ora a {plan} con {count} account social, a {price}/mese, con fatturazione annuale. Oggi ti viene addebitato, meno quanto resta di {current}.",
+  "Couldn't open Google Drive": "Impossibile aprire Google Drive",
+  "Allow pop-ups for this site, then try again.": "Consenti i pop-up per questo sito, poi riprova.",
+  "{count, plural, =1 {Getting a file from Google Drive…} other {Getting # files from Google Drive…}}": "{count, plural, =1 {Recupero di un file da Google Drive…} other {Recupero di # file da Google Drive…}}",
+  "{count, plural, =1 {Couldn't get a file from Google Drive} other {Couldn't get # files from Google Drive}}": "{count, plural, =1 {Impossibile recuperare un file da Google Drive} other {Impossibile recuperare # file da Google Drive}}"
 }

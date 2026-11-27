@@ -3892,5 +3892,9 @@
   "Update social accounts": "Accounts aanpassen",
   "Switched to {plan}": "Overgestapt naar {plan}",
   "You move to {plan} with {count} social accounts now, at {price}/mo. You're charged today, less what's left of {current}.": "Je stapt nu over naar {plan} met {count} accounts, voor {price}/mnd. Dit wordt vandaag in rekening gebracht, min wat er van {current} over is.",
-  "You move to {plan} with {count} social accounts now, at {price}/mo, billed yearly. You're charged today, less what's left of {current}.": "Je stapt nu over naar {plan} met {count} accounts, voor {price}/mnd, jaarlijks gefactureerd. Dit wordt vandaag in rekening gebracht, min wat er van {current} over is."
+  "You move to {plan} with {count} social accounts now, at {price}/mo, billed yearly. You're charged today, less what's left of {current}.": "Je stapt nu over naar {plan} met {count} accounts, voor {price}/mnd, jaarlijks gefactureerd. Dit wordt vandaag in rekening gebracht, min wat er van {current} over is.",
+  "Couldn't open Google Drive": "Kon Google Drive niet openen",
+  "Allow pop-ups for this site, then try again.": "Sta pop-ups toe voor deze site en probeer het opnieuw.",
+  "{count, plural, =1 {Getting a file from Google Drive…} other {Getting # files from Google Drive…}}": "{count, plural, =1 {Een bestand ophalen uit Google Drive…} other {# bestanden ophalen uit Google Drive…}}",
+  "{count, plural, =1 {Couldn't get a file from Google Drive} other {Couldn't get # files from Google Drive}}": "{count, plural, =1 {Kon een bestand niet ophalen uit Google Drive} other {Kon # bestanden niet ophalen uit Google Drive}}"
 }

@@ -3892,5 +3892,9 @@
   "Update social accounts": "更改社交账号数量",
   "Switched to {plan}": "已切换到 {plan}",
   "You move to {plan} with {count} social accounts now, at {price}/mo. You're charged today, less what's left of {current}.": "你将立即切换到 {plan}，含 {count} 个社交账号，{price}/月。今天收费，并扣除 {current} 剩余的部分。",
-  "You move to {plan} with {count} social accounts now, at {price}/mo, billed yearly. You're charged today, less what's left of {current}.": "你将立即切换到 {plan}，含 {count} 个社交账号，按年付费，{price}/月。今天收费，并扣除 {current} 剩余的部分。"
+  "You move to {plan} with {count} social accounts now, at {price}/mo, billed yearly. You're charged today, less what's left of {current}.": "你将立即切换到 {plan}，含 {count} 个社交账号，按年付费，{price}/月。今天收费，并扣除 {current} 剩余的部分。",
+  "Couldn't open Google Drive": "无法打开 Google 云端硬盘",
+  "Allow pop-ups for this site, then try again.": "请允许此网站弹出窗口，然后重试。",
+  "{count, plural, =1 {Getting a file from Google Drive…} other {Getting # files from Google Drive…}}": "{count, plural, =1 {正在从 Google 云端硬盘获取文件…} other {正在从 Google 云端硬盘获取 # 个文件…}}",
+  "{count, plural, =1 {Couldn't get a file from Google Drive} other {Couldn't get # files from Google Drive}}": "{count, plural, =1 {无法从 Google 云端硬盘获取文件} other {无法从 Google 云端硬盘获取 # 个文件}}"
 }
