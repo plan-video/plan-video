@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { A } from "@solidjs/router";
-import { Show } from "solid-js";
+import { Show, type JSX } from "solid-js";
 import { isServer } from "solid-js/web";
 import { Icon } from "@/components/ui/icon";
 import { appRoute } from "@/hooks/use-project-route";
@@ -13,6 +13,11 @@ function isChromium() {
   if (isServer) return true;
   const uaData = (navigator as { userAgentData?: { brands: { brand: string }[] } }).userAgentData;
   return uaData?.brands?.some((b) => b.brand === "Chromium") ?? false;
+}
+
+/** Holds the editor back where it can't run, so nothing behind the notice (like the tour) starts. */
+export function UnlessUnsupported(props: { children: JSX.Element }) {
+  return <Show when={isChromium()}>{props.children}</Show>;
 }
 
 export function UnsupportedBrowser() {
