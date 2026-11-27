@@ -757,10 +757,12 @@ export function DashboardPage() {
                   </DashboardSidebarSection>
                   <DashboardSidebarSection>
                     <PageLink view="help" />
-                    <Show when={admin()}>
-                      <PageLink view="admin" />
-                    </Show>
                   </DashboardSidebarSection>
+                  <Show when={admin()}>
+                    <DashboardSidebarSection title={t("Staff")}>
+                      <PageLink view="admin" />
+                    </DashboardSidebarSection>
+                  </Show>
                 </Show>
               </DashboardSidebarNav>
               <Show when={auth.isGuest() || !auth.isPro()}>
