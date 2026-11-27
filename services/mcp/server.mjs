@@ -25,6 +25,18 @@ const MCP_PATH = "/mcp";
 const TAB_PATH = "/api/mcp/tab";
 const METADATA_PATHS = new Set(["/.well-known/oauth-protected-resource", `/.well-known/oauth-protected-resource${MCP_PATH}`]);
 
+// Any site may call /mcp from a browser: it only takes a bearer token, never a cookie.
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Expose-Headers": "WWW-Authenticate, Mcp-Session-Id, Mcp-Protocol-Version",
+};
+const PREFLIGHT = {
+  ...CORS,
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Authorization, Content-Type, Accept, Mcp-Protocol-Version, Mcp-Session-Id, Last-Event-ID",
+  "Access-Control-Max-Age": "86400",
+};
+
 const KiB = 1024;
 const MiB = 1024 * KiB;
 const BODY_MAX = 512 * KiB;
@@ -181,7 +193,7 @@ function mcpServer(userId) {
 async function handleMcp(req, res) {
   if (req.method !== "POST") {
     // Stateless: no stream to resume with GET and no session to DELETE.
-    json(res, 405, { jsonrpc: "2.0", error: { code: -32000, message: "Method not allowed." }, id: null }, { Allow: "POST" });
+    json(res, 405, { jsonrpc: "2.0", error: { code: -32000, message: "Method not allowed." }, id: null }, { Allow: "POST, OPTIONS" });
     return;
   }
 
@@ -346,6 +358,12 @@ const server = createServer((req, res) => {
   }
 
   if (path === MCP_PATH) {
+    if (req.method === "OPTIONS") {
+      res.writeHead(204, PREFLIGHT);
+      res.end();
+      return;
+    }
+    for (const [name, value] of Object.entries(CORS)) res.setHeader(name, value);
     handleMcp(req, res).catch((error) => {
       console.error("[mcp] request failed:", error);
       if (!res.headersSent) json(res, 500, { jsonrpc: "2.0", error: { code: -32603, message: "Internal error." }, id: null });

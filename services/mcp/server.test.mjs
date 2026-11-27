@@ -417,3 +417,18 @@ test("an agent with no token is told to sign in", async () => {
   assert.equal(res.status, 401);
   assert.match(res.headers.get("www-authenticate"), /resource_metadata=/);
 });
+
+test("a browser on another site can reach /mcp and read why it was refused", async () => {
+  const preflight = await fetch(`http://127.0.0.1:${port}/mcp`, {
+    method: "OPTIONS",
+    headers: { Origin: "https://inspector.example", "Access-Control-Request-Method": "POST", "Access-Control-Request-Headers": "authorization,content-type,mcp-protocol-version" },
+  });
+  assert.equal(preflight.status, 204);
+  assert.equal(preflight.headers.get("access-control-allow-origin"), "*");
+  for (const header of ["authorization", "content-type", "mcp-protocol-version"]) assert.match(preflight.headers.get("access-control-allow-headers"), new RegExp(header, "i"));
+
+  const refused = await fetch(`http://127.0.0.1:${port}/mcp`, { method: "POST", headers: { Origin: "https://inspector.example" }, body: "{}" });
+  assert.equal(refused.status, 401);
+  assert.equal(refused.headers.get("access-control-allow-origin"), "*");
+  assert.match(refused.headers.get("access-control-expose-headers"), /WWW-Authenticate/i);
+});
