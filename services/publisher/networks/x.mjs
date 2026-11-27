@@ -8,6 +8,8 @@ import { captionOf } from "./text.mjs";
 const MEDIA_URL = "https://api.x.com/2/media/upload";
 const POSTS_URL = "https://api.x.com/2/tweets";
 const TEXT_LIMIT = 25_000;
+/** What an account without X Premium can post; the dashboard holds a plug's reply to it too. */
+const REPLY_LIMIT = 280;
 const MAX_VIDEO_BYTES = 1024 * 1024 * 1024;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_PICTURES = 4;
@@ -36,13 +38,15 @@ export function explain(status, payload) {
   return "X refused the request.";
 }
 
-async function call(url, accessToken, init = {}) {
+/** `gone`: a 404 answers null, for a look at something that may have been deleted. */
+async function call(url, accessToken, { gone = false, ...init } = {}) {
   const response = await fetch(url, {
     ...init,
     headers: { Authorization: `Bearer ${accessToken}`, ...(typeof init.body === "string" ? { "Content-Type": "application/json" } : {}), ...init.headers },
     signal: AbortSignal.timeout(init.timeout ?? 30_000),
   }).catch(() => null);
   if (!response) throw new PublishError("Couldn't reach X. Trying again soon.", { retry: true });
+  if (gone && response.status === 404) return null;
   const payload = await response.json().catch(() => null);
   if (!response.ok) {
     throw new PublishError(explain(response.status, payload), { retry: response.status >= 500 || response.status === 429 || response.status === 402, expired: response.status === 401 });
@@ -139,13 +143,12 @@ export function createX({ limits, log = console }) {
   const turns = new Map();
 
   /** Waits for the owner's plan to have room, then counts the post; one X may have made without saying so counts too. */
-  function makeWithin(userId, session, text, mediaIds, replyTo = null, audience = {}) {
-    const link = hasLink(text);
+  function within(userId, link, make) {
     const run = async () => {
       await limits.xAllowed(userId, link);
       const count = () => limits.countX(userId, link).catch((error) => log.error("[publisher] couldn't count an X post", error instanceof Error ? error.message : error));
       try {
-        const result = await makePost(session, text, mediaIds, replyTo, audience);
+        const result = await make();
         await count();
         return result;
       } catch (error) {
@@ -159,6 +162,8 @@ export function createX({ limits, log = console }) {
     void settled.then(() => turns.get(userId) === settled && turns.delete(userId));
     return turn;
   }
+
+  const makeWithin = (userId, session, text, mediaIds, replyTo = null, audience = {}) => within(userId, hasLink(text), () => makePost(session, text, mediaIds, replyTo, audience));
 
   return {
     needsFile: false,
@@ -229,6 +234,35 @@ export function createX({ limits, log = console }) {
       const ids = uploaded.map((item) => item.mediaId);
       if (uploaded.every((item) => item.ready)) return makeWithin(delivery.user_id, session, words, ids, parent);
       return { state: "processing", publishId: `media:${Date.now()}:${ids.join(",")}` };
+    },
+
+    /** For plugs.mjs. Reposts and replies count as posts in the plan's X limits. */
+    plug: {
+      /** Every look is a read X bills, so plugs.mjs asks only while a plug waits on the post. */
+      async find(row, session) {
+        if (!/^\d{1,30}$/.test(row.publish_id ?? "")) return null;
+        const payload = await call(`${POSTS_URL}/${row.publish_id}?tweet.fields=public_metrics`, session.accessToken, { gone: true });
+        if (typeof payload?.data?.id !== "string") return null;
+        const likes = payload.data.public_metrics?.like_count;
+        return { id: payload.data.id, likes: typeof likes === "number" ? likes : 0 };
+      },
+
+      async repost(session, post, row) {
+        await within(row.user_id, false, () =>
+          call(`https://api.x.com/2/users/${encodeURIComponent(session.xUserId)}/retweets`, session.accessToken, { method: "POST", body: JSON.stringify({ tweet_id: post.id }) }),
+        ).catch((error) => {
+          if (!(error instanceof PublishError && /already/i.test(error.message))) throw error;
+        });
+      },
+
+      /** A reply X may have made counts as made, so a plug never replies twice. */
+      async reply(session, post, text, row) {
+        const words = text.trim();
+        if (!words || [...words].length > REPLY_LIMIT) throw new PublishError(`A plug's reply on X can be ${REPLY_LIMIT} characters.`);
+        await makeWithin(row.user_id, session, words, [], post.id).catch((error) => {
+          if (!(error instanceof PublishError && /didn't confirm|didn't say where/.test(error.message))) throw error;
+        });
+      },
     },
   };
 }

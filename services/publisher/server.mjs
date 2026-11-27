@@ -33,7 +33,7 @@ import { createMetaLogins } from "./meta-logins.mjs";
 import { createPhotoMaker } from "./photo-maker.mjs";
 import { PHOTO_PATH, VIDEO_PATH, createPhotos } from "./photos.mjs";
 import { X_LINK_POSTS_BY_LEVEL, X_POSTS_BY_LEVEL, byLevel, createPlanLimits, uploadsPerDay } from "./plans.mjs";
-import { plugs } from "./plugs.mjs";
+import { createPlugs } from "./plugs.mjs";
 import { startLoops } from "./loops.mjs";
 import { SUPPORT_PATH, createSupport } from "./support.mjs";
 import { createVault } from "./vault.mjs";
@@ -125,12 +125,13 @@ const xCaps = { posts: byLevel(own.X_POSTS_PER_MONTH, X_POSTS_BY_LEVEL), links: 
 const planLimits = createPlanLimits({ db, youtube: youtubeShares, x: xCaps });
 // Meta's networks join once their apps are set up in meta.env.
 const metaNetworks = { instagram: createInstagram({ photos }), facebook: createFacebook({ photos }), threads: createThreads({ photos }) };
+const x = networkEnv.x.clientId ? createX({ limits: planLimits }) : null;
 const networks = {
   youtube,
   tiktok: createTikTok({ photos }),
   linkedin,
   bluesky: createBluesky({ maker }),
-  ...(networkEnv.x.clientId ? { x: createX({ limits: planLimits }) } : {}),
+  ...(x ? { x } : {}),
   ...Object.fromEntries(META_NETWORKS.filter((network) => configured(network, networkEnv)).map((network) => [network, metaNetworks[network]])),
 };
 // Failed posts and LinkedIn logins running out are emailed through Resend, once its key is set.
@@ -148,7 +149,7 @@ const support = createSupport({
   json,
 });
 if (!own.SUPPORT_TO) console.warn("[publisher] SUPPORT_TO isn't set, so the support form asks people to email instead");
-const worker = createWorker({ db, vault, media, networks, plugs, accountLimits, planLimits, notices, sendFrom });
+const worker = createWorker({ db, vault, media, networks, plugs: createPlugs({ x }), accountLimits, planLimits, notices, sendFrom });
 
 const health = createHealth({ db, key: own.TOKEN_KEY });
 const passes = createPassWatch();

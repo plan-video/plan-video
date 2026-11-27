@@ -1,4 +1,4 @@
-Every plan includes the calendar and the built-in video editor. Paid plans add unlimited posts, X, more accounts and storage, tools for posting in bulk and 4K export.
+Every plan includes the calendar and the built-in video editor. Paid plans add unlimited posts, X, plugs, more accounts and storage, tools for posting in bulk and 4K export.
 
 ## Plans
 
@@ -26,6 +26,7 @@ On every plan, an account and its workspaces can keep up to 100,000 posts. A new
 - Templates and saved captions
 - Client preview links, which anyone can open and comment on without an account
 - Client connect links, so a client can connect their own accounts to a workspace
+- [Plugs](/docs/bluesky#plugs), which repost a post or reply under it once it takes off
 
 In a workspace someone shared with you, these follow the owner's plan.
 
@@ -49,7 +50,7 @@ Agency includes 100 social accounts, and each one more is €1 a month. Set how 
 - **Cancel:** choose **Downgrade to Free**. You keep your plan until the end of the period you paid for.
 - **Card and invoices:** update your card from **Billing**, and find past invoices under **Invoices**.
 
-If you move to Free, nothing you made goes away. Your templates and Vault items stay and still work, and preview links you've shared keep opening. You just can't add new ones, use Bulk tools or export above 1080p until you upgrade again.
+If you move to Free, nothing you made goes away. Your templates and Vault items stay and still work, and preview links you've shared keep opening. You just can't add new ones, use Bulk tools or plugs, or export above 1080p until you upgrade again.
 
 <Info>
 Questions about a charge? Email [hello@plan.video](mailto:hello@plan.video).

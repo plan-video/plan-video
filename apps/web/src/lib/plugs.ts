@@ -10,6 +10,8 @@ import { queueAccountSync } from "@/lib/account-sync-bus";
 import { BLUESKY_TEXT_LIMIT, blueskyLength } from "@/lib/bluesky";
 import { ownerOf } from "@/lib/guest";
 import { msg, t } from "@/lib/i18n";
+import { captionLength } from "@/lib/social";
+import { replyLimit } from "@/lib/thread";
 import { workspaceKey } from "@/lib/workspaces";
 
 export type PlugKind = "auto-repost" | "auto-plug";
@@ -42,10 +44,12 @@ export const PLUGS: Record<PlugKind, PlugDefinition> = {
  */
 export const PLUGS_BY_PLATFORM: Partial<Record<string, readonly PlugKind[]>> = {
   bluesky: ["auto-repost", "auto-plug"],
+  x: ["auto-repost", "auto-plug"],
 };
 
 const REPLY_LIMITS: Partial<Record<string, { max: number; length(text: string): number }>> = {
   bluesky: { max: BLUESKY_TEXT_LIMIT, length: blueskyLength },
+  x: { max: replyLimit("x"), length: captionLength },
 };
 
 export const PLUG_PLATFORMS = Object.keys(PLUGS_BY_PLATFORM);

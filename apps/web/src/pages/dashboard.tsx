@@ -87,6 +87,7 @@ import { cx } from "@/lib/cva";
 import { isAdmin } from "@/lib/admin";
 import { awaitingApproval, canApprove, loadWorkspaceRules } from "@/lib/approval-state";
 import { intlLocale, msg, t } from "@/lib/i18n";
+import { paidToolsLocked } from "@/lib/paid-tools";
 import { isPhone } from "@/lib/phone";
 import { planOfLevel } from "@/lib/plans";
 
@@ -731,7 +732,7 @@ export function DashboardPage() {
                     <DashboardAssistantChats />
                   </Suspense>
                 </Show>
-                <Show when={rail() === "plugs"}>
+                <Show when={rail() === "plugs" && !paidToolsLocked()}>
                   <DashboardSidebarSection title={t("Channels")}>
                     <Suspense>
                       <DashboardPlugChannels />
