@@ -15,8 +15,6 @@ export type FeedRow = {
   right: number;
   enemyKill: boolean;
   mine: "killer" | "victim" | null;
-  /** The white around the notch, small, to tell entries apart. */
-  print: Float32Array;
 };
 
 /** One entry cut out of the frame, scaled to `ROW` tall. `notch` is in its pixels. */
@@ -125,9 +123,38 @@ function printOf(frame: Rgba, notch: number, top: number, bottom: number): Float
   return print(frame, Math.max(0, notch - 3 * tall), Math.min(frame.width, notch + 3 * tall), top + 0.2 * tall, bottom - 0.2 * tall);
 }
 
+/**
+ * Text over the panel, such as the game's own FPS graph, breaks an entry's colours into short runs and can cover
+ * the notch: short light gaps are filled with the colours either side, meeting halfway.
+ */
+function bridgeText(frame: Rgba, kinds: Uint8Array, unit: number) {
+  const { data, width, height } = frame;
+  const most = Math.round(10 * unit);
+  const light = (index: number) => Math.min(data[index * 4]!, data[index * 4 + 1]!, data[index * 4 + 2]!) >= 100;
+  for (let y = 0; y < height; y++) {
+    const row = y * width;
+    let last = -1;
+    for (let x = 0; x < width; x++) {
+      const at = kinds[row + x]!;
+      if (at !== TEAL && at !== RED) continue;
+      if (last >= 0 && x - last - 1 > 0 && x - last - 1 <= most) {
+        let open = true;
+        for (let between = row + last + 1; between < row + x && open; between++) open = kinds[between] === 0 && light(between);
+        const half = row + Math.ceil((last + x) / 2);
+        if (open) {
+          kinds.fill(kinds[row + last]!, row + last + 1, half);
+          kinds.fill(at, half, row + x);
+        }
+      }
+      last = x;
+    }
+  }
+}
+
 /** The entries in a crop of a frame's top right. `unit` is the frame's height over 1080. */
 export function readRows(frame: Rgba, unit: number): FeedRow[] {
   const kinds = classify(frame);
+  bridgeText(frame, kinds, unit);
   const { width, height } = frame;
   const lines: Meeting[] = [];
   for (let y = 0; y < height; y++) lines.push(...meetings(kinds, width, y, unit));
@@ -215,7 +242,7 @@ export function readRows(frame: Rgba, unit: number): FeedRow[] {
     const mine = !enemyKill && (killerLined || barred(from, to)) ? "killer"
       : enemyKill && barred(right - Math.round(0.6 * tall), right + Math.round(0.6 * tall)) ? "victim" : null;
 
-    rows.push({ top, bottom, notch, right, enemyKill, mine, print: printOf(frame, notch, top, bottom) });
+    rows.push({ top, bottom, notch, right, enemyKill, mine });
   }
   return rows.sort((a, b) => a.top - b.top);
 }
@@ -245,6 +272,8 @@ export type Track = {
   row: FeedRow;
   /** Where it came in. */
   arrived: FeedRow;
+  /** The white around the notch, small, to tell entries apart. */
+  print: Float32Array;
   /** Yours as killer or victim; the yellow that shows it can fade in after the entry. */
   mine: FeedRow["mine"];
   /** Cut once it has settled, a few frames in. */
@@ -278,9 +307,11 @@ export function createTracker() {
     see(time: number, frame: Rgba, rows: FeedRow[], column: Column, unit: number) {
       if (!rows.length) return;
       if (time - beforeTime > NEXT + 1e-6) before = [];
+      // Over a whole entry's height from its top: text over one can cut its bottom short, differently each frame.
+      const prints = new Map(rows.map((row) => [row, printOf(frame, row.notch, row.top, row.top + column.tall)]));
       const fit = (track: Track, row: FeedRow) => {
         if (track.row.enemyKill !== row.enemyKill || Math.abs(track.row.notch - row.notch) > 6 * unit) return -1;
-        const alike = correlation(track.row.print, row.print);
+        const alike = correlation(track.print, prints.get(row)!);
         return alike >= LIKE ? 1 + alike : -1;
       };
 
@@ -322,11 +353,12 @@ export function createTracker() {
       for (const row of rows) {
         let track = pairs.get(row);
         if (!track) {
-          track = { first: time, last: time, seen: 0, row, arrived: row, mine: null, cutFrom: 0 };
+          track = { first: time, last: time, seen: 0, row, arrived: row, print: prints.get(row)!, mine: null, cutFrom: 0 };
           tracks.push(track);
         }
         now.push(track);
         track.row = row;
+        track.print = prints.get(row)!;
         track.last = time;
         track.mine = row.mine ?? track.mine;
         track.seen++;

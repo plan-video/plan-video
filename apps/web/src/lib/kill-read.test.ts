@@ -100,9 +100,21 @@ describe("readRows", () => {
     expect(readRows(frame, 1).map(({ mine }) => mine)).toEqual([null, null]);
   });
 
+  it("finds an entry under text, such as the game's FPS graph, that covers its notch", () => {
+    const frame = blank();
+    entry(frame, 96, 900, { mine: "killer" });
+    // White letters across the entry: one over the notch, more on either side of it.
+    for (const [x, wide] of [[872, 3], [880, 3], [888, 3], [897, 6], [908, 3], [914, 3]] as const) fill(frame, x, 100, x + wide, 126, WHITE);
+
+    expect(readRows(frame, 1).map(({ top, bottom, notch }) => [top, bottom, Math.abs(notch - 900) <= 3])).toEqual([[96, 130, true]]);
+  });
+
   it("finds nothing in a frame without a feed", () => {
     const frame = blank();
     fill(frame, 300, 100, 700, 300, RED);
+    // Scenery in the feed's colours, apart.
+    fill(frame, 300, 320, 500, 380, TEAL);
+    fill(frame, 506, 320, 700, 380, RED);
     expect(readRows(frame, 1)).toEqual([]);
   });
 });
@@ -156,6 +168,19 @@ describe("createTracker", () => {
     ]);
   });
 
+  it("keeps an entry whose bottom something in front cuts short by a different amount each frame", () => {
+    const tracker = createTracker();
+    for (const [index, cut] of [0, 12, 4, 10, 2, 12].entries()) {
+      const frame = blank();
+      entry(frame, 96, 900, { mine: "killer", name: 3, headshot: true });
+      // A moving graph over its lower part.
+      fill(frame, 700, 130 - cut, RIGHT, 130, GROUND);
+      const rows = readRows(frame, 1);
+      tracker.see(index / 10, frame, rows, { right: RIGHT, tall: TALL }, 1);
+    }
+    expect(tracker.kills().map((kill) => [kill.first, kill.seen])).toEqual([[0, 6]]);
+  });
+
   it("moves the whole stack up together when one leaves the top as a look-alike joins the bottom", () => {
     const S = { notch: 960, name: 6 };
     expect(see([
@@ -183,7 +208,7 @@ const reading = (killer: string, victim: string, headshot = false, fits: Reading
   names: { killer: [0, 0], victim: [0, 0] },
 });
 
-const row = { top: 96, bottom: 130, notch: 900, right: RIGHT, enemyKill: false, mine: "killer", print: new Float32Array() } satisfies FeedRow;
+const row = { top: 96, bottom: 130, notch: 900, right: RIGHT, enemyKill: false, mine: "killer" } satisfies FeedRow;
 
 const picture = { data: new Uint8ClampedArray(4), width: 1, height: 1, notch: 0 };
 
