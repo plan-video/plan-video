@@ -6,13 +6,12 @@ import { ALL_FORMATS, BlobSource, CanvasSink, Input, type InputVideoTrack } from
 
 import { killfeedUi, KILLFEED_AGENTS, KILLFEED_WEAPONS } from '@/lib/killfeed-assets';
 import {
-	arrival, BADGE, createTracker, gatherKills, measureColumn, nameStrip, pickNames, prepareArt, readKill, readRows, ROW, WEAPON,
-	type FeedRow, type FoundKill, type PreparedArt, type Rgba,
+	BADGE, nameStrip, pickNames, placeKills, prepareArt, ROW, scanLength, watchFeed, WEAPON, whoAmI,
+	type FoundKill, type FrameSource, type PreparedArt, type Rgba, type Sighting, type Watched,
 } from '@/lib/kill-read';
 import { createNameReader } from '@/lib/name-ocr';
 import { pictureClips } from '@/lib/scene-audio';
 
-import type { SpeechClip } from '@/lib/scene-audio';
 import type { Entity, World } from 'koota';
 
 export type SceneKill = FoundKill & {
@@ -23,12 +22,6 @@ export type SceneKill = FoundKill & {
 	victimName?: string;
 };
 
-/** Often enough to catch every entry, which stays up for seconds. */
-const STEP = 0.1;
-/** How far before an entry was first caught to look for the frame it came in on. */
-const LOOKBACK = 1;
-/** And after: it was caught mid-arrival, and is followed back from where it looks settled. */
-const SETTLE = 0.3;
 /** The killfeed is in the frame's top right: a square across, under half way down. */
 const FEED_HEIGHT = 0.45;
 /** Valorant's interface is laid out for a 1080 tall screen. */
@@ -75,13 +68,7 @@ function loadArt(): Promise<PreparedArt> {
 	return art;
 }
 
-type Reader = {
-	unit: number;
-	/** In seconds, the clip's frames, oldest first; null where the file has none. */
-	frames: (times: number[]) => AsyncGenerator<{ time: number; frame: Rgba } | null>;
-	frameRate: number;
-	dispose: () => void;
-};
+type Reader = FrameSource & { dispose: () => void };
 
 async function openReader(file: Blob): Promise<Reader | null> {
 	const input = new Input({ formats: ALL_FORMATS, source: new BlobSource(file) });
@@ -109,11 +96,12 @@ async function openReader(file: Blob): Promise<Reader | null> {
 		fit: 'fill',
 		poolSize: 2,
 	});
-	const stats = await track.computePacketStats(100).catch(() => null);
+	const [stats, duration] = await Promise.all([track.computePacketStats(100).catch(() => null), track.computeDuration()]);
 
 	return {
 		unit: (height * scale) / BASE_HEIGHT,
 		frameRate: stats?.averagePacketRate || 60,
+		duration,
 		dispose: () => input.dispose(),
 		async *frames(times) {
 			for await (const wrapped of sink.canvasesAtTimestamps(times)) {
@@ -127,52 +115,6 @@ async function openReader(file: Blob): Promise<Reader | null> {
 			}
 		},
 	};
-}
-
-function sampleTimes(from: number, to: number, step: number): number[] {
-	const times: number[] = [];
-	for (let time = from; time <= to; time += step) times.push(time);
-	return times;
-}
-
-async function scanClip(clip: SpeechClip, prepared: PreparedArt, onFrame: () => void): Promise<SceneKill[]> {
-	const reader = await openReader(clip.file);
-	if (!reader) return [];
-	try {
-		const tracker = createTracker();
-		const seen: FeedRow[] = [];
-		for await (const read of reader.frames(sampleTimes(clip.trimStart, clip.trimEnd, STEP))) {
-			onFrame();
-			if (!read) continue;
-			const rows = readRows(read.frame, reader.unit);
-			seen.push(...rows);
-			const column = measureColumn(seen);
-			if (column) tracker.see(read.time, read.frame, rows, column, reader.unit);
-		}
-
-		const found = gatherKills(
-			tracker.kills().flatMap((track) => {
-				const kill = track.picture && readKill(track.picture, prepared);
-				return kill ? [{ time: track.first, death: track.mine === 'victim', seen: track.seen, row: track.arrived, picture: track.picture!, kill }] : [];
-			}),
-		);
-
-		// Caught a tenth of a second apart; the entry came in on one frame, flashing its colour first.
-		const step = 1 / reader.frameRate;
-		const scene = (media: number) => (clip.at ? clip.at(media) : clip.origin + media / (clip.rate || 1));
-		const kills: SceneKill[] = [];
-		for (const kill of found) {
-			const frames: { time: number; frame: Rgba }[] = [];
-			for await (const read of reader.frames(sampleTimes(Math.max(clip.trimStart, kill.time - LOOKBACK), Math.min(clip.trimEnd, kill.time + SETTLE), step))) {
-				if (read) frames.push(read);
-			}
-			const time = arrival(frames, kill.row, kill.time) ?? kill.time;
-			kills.push({ ...kill, time, at: scene(time) });
-		}
-		return kills;
-	} finally {
-		reader.dispose();
-	}
 }
 
 /** Long enough to fetch the text model on a slow connection. */
@@ -213,13 +155,38 @@ export async function findKills(world: World, scene: Entity, onProgress?: (done:
 	const clips = await pictureClips(world, scene);
 	if (!clips.length) return null;
 	const prepared = await loadArt();
-	const total = clips.reduce((sum, clip) => sum + sampleTimes(clip.trimStart, clip.trimEnd, STEP).length, 0);
-	let done = 0;
-	const kills: SceneKill[] = [];
-	for (const clip of clips) {
-		kills.push(...(await scanClip(clip, prepared, () => onProgress?.((++done / total) * FRAMES_SHARE))));
+	const opened = await Promise.allSettled(clips.map((clip) => openReader(clip.file)));
+	const readers = opened.map((result) => (result.status === 'fulfilled' ? result.value : null));
+	const failed = opened.find((result) => result.status === 'rejected');
+	if (failed) {
+		for (const reader of readers) reader?.dispose();
+		throw failed.reason;
 	}
-	const named = await readNames(kills.sort((a, b) => a.at - b.at));
-	onProgress?.(1);
-	return named;
+	try {
+		const total = clips.reduce((sum, clip, index) => sum + (readers[index] ? scanLength(readers[index], clip.trimStart, clip.trimEnd) : 0), 0);
+		let done = 0;
+		const watched: (Watched | null)[] = [];
+		for (const [index, clip] of clips.entries()) {
+			const reader = readers[index];
+			watched.push(reader && (await watchFeed(reader, clip.trimStart, clip.trimEnd, prepared, () => onProgress?.((++done / total) * FRAMES_SHARE))));
+		}
+
+		// Clips cut from one video show one player, who a short clip on its own may show too few entries to tell.
+		const sightings = new Map<string, Sighting[]>();
+		clips.forEach((clip, index) => sightings.set(clip.asset, [...(sightings.get(clip.asset) ?? []), ...(watched[index]?.sightings ?? [])]));
+
+		const kills: SceneKill[] = [];
+		for (const [index, clip] of clips.entries()) {
+			const reader = readers[index];
+			const seen = watched[index];
+			if (!reader || !seen) continue;
+			const scene = (media: number) => (clip.at ? clip.at(media) : clip.origin + media / (clip.rate || 1));
+			for (const kill of await placeKills(reader, seen, whoAmI(sightings.get(clip.asset)!))) kills.push({ ...kill, at: scene(kill.time) });
+		}
+		const named = await readNames(kills.sort((a, b) => a.at - b.at));
+		onProgress?.(1);
+		return named;
+	} finally {
+		for (const reader of readers) reader?.dispose();
+	}
 }

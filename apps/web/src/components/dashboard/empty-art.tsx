@@ -17,6 +17,8 @@ import TrashLucide from "lucide-solid/icons/trash";
 
 import { cx } from "@/lib/cva";
 
+import { PlaneIcon } from "./plane-icons";
+
 type Glyph = typeof ClapperboardLucide;
 
 const RINGS = [0, 1, 2].map((step) => ({ size: 63 + step * 36, radius: 16 + step * 8 }));
@@ -61,4 +63,7 @@ export const PlugsArt = (props: { class?: string }) => <Art icon={PlugLucide} cl
 export const PostsArt = (props: { class?: string }) => <Art icon={CalendarDaysLucide} class={props.class} />;
 export const InboxArt = (props: { class?: string }) => <Art icon={BellCheckLucide} class={props.class} />;
 export const TrashArt = (props: { class?: string }) => <Art icon={TrashLucide} class={props.class} />;
+const LayersGlyph = ((props: { class?: string }) => <PlaneIcon name="layers" class={props.class} />) as Glyph;
+
+export const BulkArt = (props: { class?: string }) => <Art icon={LayersGlyph} class={props.class} />;
 export const AnalyticsArt = (props: { class?: string }) => <Art icon={ChartLineLucide} class={props.class} />;

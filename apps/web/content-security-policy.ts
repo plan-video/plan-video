@@ -22,6 +22,7 @@ const origin = (url: string | undefined) => {
 // Images, media and requests go wide: posts, avatars and Bluesky's servers live on hosts nobody can list.
 export function policy(hashes: string[], env: Record<string, string>): string {
   const turnstile = env.VITE_TURNSTILE_SITE_KEY ? "https://challenges.cloudflare.com" : null;
+  const drive = env.VITE_GOOGLE_CLIENT_ID && env.VITE_GOOGLE_API_KEY;
   const directives: Record<string, (string | null)[]> = {
     "default-src": ["'self'"],
     // wasm for ONNX Runtime (background removal), blob: for the editor's audio worklets.
@@ -33,6 +34,7 @@ export function policy(hashes: string[], env: Record<string, string>): string {
       "https://eu-assets.i.posthog.com",
       origin(env.VITE_UMAMI_SCRIPT_URL),
       turnstile,
+      drive ? "https://apis.google.com" : null,
       ...hashes.map((hash) => `'sha256-${hash}'`),
     ],
     "style-src": ["'self'", "'unsafe-inline'"],
@@ -42,7 +44,8 @@ export function policy(hashes: string[], env: Record<string, string>): string {
     // Older Safari doesn't count the site's own wss address as 'self'.
     "connect-src": ["'self'", "https:", "wss:", "data:", "blob:"],
     "worker-src": ["'self'", "blob:"],
-    "frame-src": [turnstile ?? "'none'"],
+    // Google's Picker, on the Drive page.
+    "frame-src": turnstile || drive ? [turnstile, drive ? "https://docs.google.com" : null] : ["'none'"],
     "manifest-src": ["'self'"],
     "object-src": ["'none'"],
     "base-uri": ["'self'"],

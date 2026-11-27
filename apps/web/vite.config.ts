@@ -106,6 +106,22 @@ function workspaceRestartPlugin(): Plugin {
   }
 }
 
+// Without server.headers' COOP/COEP, which would keep Google's Picker frame out. The production web server does the same.
+function googleDrivePagePlugin(): Plugin {
+  const page = resolve(__dirname, 'public/google-drive.html')
+  return {
+    name: 'plan-video-google-drive-page',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/google-drive.html', (_req, res) => {
+        res.setHeader('Content-Type', 'text/html; charset=utf-8')
+        res.setHeader('Cache-Control', 'no-store')
+        res.end(readFileSync(page))
+      })
+    },
+  }
+}
+
 function patchedFiles(): string[] {
   const root = resolve(__dirname, '../..')
   const dir = resolve(root, 'patches')
@@ -161,6 +177,7 @@ export default defineConfig(async ({ mode, command }): Promise<UserConfig> => {
   return {
     plugins: [
       workspaceRestartPlugin(),
+      googleDrivePagePlugin(),
       transcribeDevPlugin(__dirname, mode),
       agentDevPlugin(__dirname, mode),
       tiktokDevPlugin(__dirname, mode),

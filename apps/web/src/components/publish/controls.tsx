@@ -760,6 +760,7 @@ export function DropZone(props: {
   dragging: boolean;
   onPick(): void;
   pickLabel: string;
+  pickIcon?: string;
   actions?: JSX.Element;
   class?: string;
   handlers?: {
@@ -790,6 +791,7 @@ export function DropZone(props: {
       </div>
       <div class="flex flex-wrap items-center justify-center gap-1.5">
         <button type="button" class={dropZoneAction} onClick={() => props.onPick()}>
+          <Show when={props.pickIcon}>{(icon) => <Icon name={icon()} class="-ml-1.5 size-5" />}</Show>
           <span class="cap-centered">{props.pickLabel}</span>
         </button>
         {props.actions}

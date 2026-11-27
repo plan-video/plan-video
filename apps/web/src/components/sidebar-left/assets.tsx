@@ -32,8 +32,10 @@ import { useLibrary } from "@/engine/library";
 import { useAssetSelection } from "@/engine/hooks";
 import { droppedFiles, importFiles, pickAndImport } from "@/engine/asset-actions";
 import { Icon as DashboardIcon } from "@/components/dashboard/dashboard-icon";
+import { GoogleDriveLogo } from "@/components/publish/google-drive-logo";
 import { MediaPicker } from "@/components/publish/media-picker";
 import { cx } from "@/lib/cva";
+import { driveAvailable, pickFromDrive } from "@/lib/google-drive";
 import { msg, t } from "@/lib/i18n";
 import { isInputTarget } from "@/utils";
 
@@ -140,6 +142,11 @@ export function Assets() {
   };
 
   const handleImportAssets = () => withLibrary((lib) => pickAndImport(lib, currentFolder()).then(() => {}));
+  const importFromDrive = () =>
+    withLibrary(async (lib) => {
+      const folder = currentFolder();
+      await importFiles(lib, await pickFromDrive({ accept: "video/*,image/*,audio/*" }), folder);
+    });
   const importFromLibrary = (files: File[]) => withLibrary((lib) => importFiles(lib, files, currentFolder()).then(() => {}));
   const LIBRARY_LIMIT = 20;
 
@@ -423,11 +430,16 @@ export function Assets() {
               <TooltipContent shortcut="⌘I">{t("Import assets")}</TooltipContent>
             </Tooltip>
             <DropdownMenuPortal>
-              <DropdownMenuContent class="w-40">
+              <DropdownMenuContent class={driveAvailable() ? "w-56" : "w-40"}>
                 <DropdownMenuItem tone="neutral" onSelect={handleImportAssets}>
                   {t("Import assets")}
                   <DropdownMenuShortcut>⌘I</DropdownMenuShortcut>
                 </DropdownMenuItem>
+                <Show when={driveAvailable()}>
+                  <DropdownMenuItem tone="neutral" onSelect={() => void importFromDrive()}>
+                    {t("Import from Google Drive")}
+                  </DropdownMenuItem>
+                </Show>
                 <DropdownMenuItem tone="neutral" onSelect={handleCreateFolder}>
                   {t("Create folder")}
                   <DropdownMenuShortcut>⇧⌘N</DropdownMenuShortcut>
@@ -548,6 +560,12 @@ export function Assets() {
                 >
                   {t("From library")}
                 </MediaPicker>
+                <Show when={driveAvailable()}>
+                  <Button variant="secondary" class="w-full gap-1.5" onClick={() => void importFromDrive()}>
+                    <GoogleDriveLogo class="size-4" />
+                    Google Drive
+                  </Button>
+                </Show>
               </div>
             </div>
           </Show>

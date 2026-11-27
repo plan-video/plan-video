@@ -338,13 +338,14 @@ export function Stepper(props: { value: number; min: number; max: number; onChan
   );
 }
 
-export function WeaponTile(props: { label: string; url: string; selected: boolean; flip?: boolean; onClick: () => void }) {
+/** `picture` for full-colour icons; white silhouettes turn dark on the light theme. */
+export function WeaponTile(props: { label: string; url: string; selected: boolean; flip?: boolean; picture?: boolean; onClick: () => void }) {
   return (
     <button
       type="button"
       title={props.label}
       aria-pressed={props.selected}
-      class="flex min-w-0 flex-col items-stretch gap-1 overflow-hidden rounded-md border bg-[#0D1014] px-1 pb-1 pt-2 focus-ring"
+      class="flex min-w-0 flex-col items-stretch gap-1 overflow-hidden rounded-md border bg-transparent px-1 pb-1 pt-2 focus-ring"
       classList={{
         "border-primary": props.selected,
         "border-border hover:border-border-strong": !props.selected,
@@ -357,12 +358,12 @@ export function WeaponTile(props: { label: string; url: string; selected: boolea
         draggable={false}
         loading="lazy"
         class="pointer-events-none h-6 w-full object-contain"
-        classList={{ "-scale-x-100": props.flip }}
+        classList={{ "-scale-x-100": props.flip, "invert dark:invert-0": !props.picture }}
       />
       <span class="flex h-[22px] items-center justify-center">
         <span
           class="line-clamp-2 break-words text-center text-xxs leading-[11px]"
-          classList={{ "text-white/95": props.selected, "text-white/60": !props.selected }}
+          classList={{ "text-foreground": props.selected, "text-muted-foreground": !props.selected }}
         >
           {props.label}
         </span>

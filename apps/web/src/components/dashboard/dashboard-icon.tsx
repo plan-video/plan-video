@@ -53,6 +53,7 @@ import ShuffleLucide from "lucide-solid/icons/shuffle";
 import StarLucide from "lucide-solid/icons/star";
 import TriangleAlertLucide from "lucide-solid/icons/triangle-exclamation-point";
 import TypeLucide from "lucide-solid/icons/type";
+import UploadLucide from "lucide-solid/icons/upload";
 import VideoLucide from "lucide-solid/icons/video";
 import Volume2Lucide from "lucide-solid/icons/volume-2";
 import VolumeXLucide from "lucide-solid/icons/volume-x";
@@ -139,6 +140,7 @@ const LUCIDE: Record<string, Glyph> = {
   signature: SignatureLucide,
   "spinner-loader": LoaderCircleLucide,
   text: TypeLucide,
+  upload: UploadLucide,
   video: VideoLucide,
   "view.grid": LayoutGridLucide,
   volume: Volume2Lucide,

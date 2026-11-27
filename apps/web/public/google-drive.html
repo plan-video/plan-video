@@ -1,0 +1,123 @@
+<!doctype html>
+<!-- This Source Code Form is subject to the terms of the Mozilla Public
+   - License, v. 2.0. If a copy of the MPL was not distributed with this
+   - file, You can obtain one at http://mozilla.org/MPL/2.0/. -->
+<!-- Google's Picker, opened by src/lib/google-drive.ts. The web server must send this page without the
+     app's COOP/COEP headers, or the Picker's frame is refused. -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Google Drive</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #ffffff;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0e0f11;
+        }
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: var(--bg);
+      }
+    </style>
+  </head>
+  <body>
+    <script>
+      (() => {
+        const STORE = "plan.video.drive";
+        const hash = new URLSearchParams(location.hash.slice(1));
+        history.replaceState(null, "", location.pathname);
+        let request = null;
+        try {
+          request = JSON.parse(sessionStorage.getItem(STORE) || "null");
+        } catch {}
+        let answered = false;
+        const answer = (message) => {
+          if (answered) return;
+          answered = true;
+          sessionStorage.removeItem(STORE);
+          if (request) {
+            const channel = new BroadcastChannel("plan.video.drive." + request.channel);
+            channel.postMessage(message);
+            channel.close();
+          }
+          window.close();
+        };
+
+        if (hash.has("channel")) {
+          request = {
+            channel: hash.get("channel"),
+            client: hash.get("client"),
+            key: hash.get("key"),
+            mimes: hash.get("mimes"),
+            multiple: hash.get("multiple") === "1",
+            locale: hash.get("locale"),
+          };
+          sessionStorage.setItem(STORE, JSON.stringify(request));
+          const auth = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+          auth.search = new URLSearchParams({
+            client_id: request.client,
+            redirect_uri: location.origin + location.pathname,
+            response_type: "token",
+            scope: "https://www.googleapis.com/auth/drive.file",
+            include_granted_scopes: "true",
+            state: request.channel,
+          }).toString();
+          location.replace(auth.href);
+          return;
+        }
+
+        if (!request) return window.close();
+        // The state is the channel the app made up: a token that comes back without it isn't from our sign-in.
+        if (hash.get("state") !== request.channel) return answer({ type: "error" });
+        const token = hash.get("access_token");
+        if (!token) return answer({ type: hash.get("error") === "access_denied" ? "cancel" : "error" });
+
+        addEventListener("pagehide", () => answer({ type: "cancel" }));
+        const script = document.createElement("script");
+        script.src = "https://apis.google.com/js/api.js";
+        script.onerror = () => answer({ type: "error" });
+        script.onload = () => window.gapi.load("picker", { callback: show, onerror: () => answer({ type: "error" }) });
+        document.head.append(script);
+
+        function show() {
+          const picker = window.google.picker;
+          const view = (drives) =>
+            new picker.DocsView(picker.ViewId.DOCS).setMimeTypes(request.mimes).setIncludeFolders(true).setSelectFolderEnabled(false).setEnableDrives(drives);
+          const builder = new picker.PickerBuilder()
+            .addView(view(false))
+            .addView(view(true))
+            .setOAuthToken(token)
+            .setDeveloperKey(request.key)
+            // The project number, which starts every OAuth client ID: picked files are opened to that project.
+            .setAppId(request.client.split("-")[0])
+            .setOrigin(location.origin)
+            .setLocale(request.locale || "en")
+            .enableFeature(picker.Feature.SUPPORT_DRIVES)
+            .setCallback((data) => {
+              const action = data[picker.Response.ACTION];
+              if (action === picker.Action.CANCEL) return answer({ type: "cancel" });
+              if (action !== picker.Action.PICKED) return;
+              const files = data[picker.Response.DOCUMENTS].map((doc) => ({
+                id: doc[picker.Document.ID],
+                name: doc[picker.Document.NAME],
+                mimeType: doc[picker.Document.MIME_TYPE],
+                size: Number(doc.sizeBytes) || 0,
+                modified: Number(doc[picker.Document.LAST_EDITED_UTC]) || 0,
+              }));
+              answer({ type: "picked", token, files });
+            });
+          if (request.multiple) builder.enableFeature(picker.Feature.MULTISELECT_ENABLED);
+          builder.build().setVisible(true);
+        }
+      })();
+    </script>
+  </body>
+</html>

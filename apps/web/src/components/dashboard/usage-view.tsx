@@ -102,7 +102,7 @@ function UpgradeRow(props: { text: string }) {
 function AccountName(props: { account: SocialConnection }) {
   return (
     <span class="flex min-w-0 items-center gap-2 text-foreground">
-      <AccountAvatar account={props.account} class="size-4" />
+      <AccountAvatar account={props.account} class="size-4" bare />
       <span class="min-w-0 truncate">{accountLabel(props.account) || props.account.platform}</span>
     </span>
   );

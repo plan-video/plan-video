@@ -52,7 +52,7 @@ import type { StoredEvent } from "@/components/calendar/types";
 import type { AccountChoices, SocialConnection } from "@/lib/social-connections";
 import type { MediaSummary, PlatformId, PostKind, SocialPlatform, TikTokPostSettings, YouTubePostSettings } from "@/lib/social";
 
-const SIGN_IN = "Sign in to Plan Video before scheduling posts.";
+const SIGN_IN = "Sign in to plan.video before scheduling posts.";
 
 const CAPTION_NOTE =
   "One caption is stored for every platform on a post. If it is over a platform's limit, shorten it or leave that platform off.";
@@ -140,7 +140,7 @@ function clock(value: string): string {
 /** One already on a post can stay, as a person can take it off in their own time. */
 function refuseSoon(platforms: readonly PlatformId[], existing: readonly string[] = []) {
   const soon = platforms.filter((id) => !PUBLISHES.has(id) && !existing.includes(id)).map((id) => socialPlatform(id).name);
-  if (soon.length) throw new DapiError("unsupported", `${soon.join(", ")} ${soon.length === 1 ? "is" : "are"} coming soon, so Plan Video can't post there yet. Leave ${soon.length === 1 ? "it" : "them"} off the post.`);
+  if (soon.length) throw new DapiError("unsupported", `${soon.join(", ")} ${soon.length === 1 ? "is" : "are"} coming soon, so plan.video can't post there yet. Leave ${soon.length === 1 ? "it" : "them"} off the post.`);
 }
 
 function accountsForPost(platforms: readonly PlatformId[], requested: readonly string[] | undefined): AccountChoices {
@@ -532,11 +532,11 @@ function platformNotes(platform: SocialPlatform): string {
   const parts = [
     PUBLISHES.has(platform.id)
       ? platform.id === "youtube"
-        ? "Plan Video can upload a video here."
+        ? "plan.video can upload a video here."
         : platform.id === "tiktok"
-          ? `Plan Video can post here: a video, or up to ${pictures} pictures as a photo post.`
-          : `Plan Video can post here: the words, with the post's video or up to ${pictures} of its pictures.`
-      : "Kept on the calendar. Plan Video doesn't send to this platform yet.",
+          ? `plan.video can post here: a video, or up to ${pictures} pictures as a photo post.`
+          : `plan.video can post here: the words, with the post's video or up to ${pictures} of its pictures.`
+      : "Kept on the calendar. plan.video doesn't send to this platform yet.",
   ];
   if (platform.title?.required) parts.push("A title is required.");
   if (!platform.kinds.includes("text")) parts.push("Needs a picture or a video.");
@@ -594,7 +594,7 @@ export const tiktokCreator: ToolHandler<"tiktok_creator"> = async ({ account: re
   const choices = accountsForPost(["tiktok"], requested ? [requested] : undefined);
   const account = accountsFor("tiktok", choices)[0];
   if (!account) throw new DapiError("invalid-input", "Connect TikTok in Connections first.");
-  if (!account.tiktok) throw new DapiError("invalid-input", `Connect ${account.handle} in Connections again: Plan Video has its name but no TikTok login.`);
+  if (!account.tiktok) throw new DapiError("invalid-input", `Connect ${account.handle} in Connections again: plan.video has its name but no TikTok login.`);
   const creator = await creatorOf({ ...account, tiktok: account.tiktok });
   return {
     accountId: account.id,
@@ -954,7 +954,7 @@ export const publishPost: ToolHandler<"publish_post"> = async ({ id, agreed }, c
     const names = foreign.map((platform) => (isPlatform(platform) ? socialPlatform(platform).name : platform));
     throw new DapiError(
       "unsupported",
-      `Plan Video sends ${inEnglish(() => listNames(PUBLISHING_PLATFORMS as PlatformId[]))} only. ${names.join(", ")} ${names.length === 1 ? "is" : "are"} not sent. Take ${names.length === 1 ? "it" : "them"} off the post, or leave this post on the calendar.`,
+      `plan.video sends ${inEnglish(() => listNames(PUBLISHING_PLATFORMS as PlatformId[]))} only. ${names.join(", ")} ${names.length === 1 ? "is" : "are"} not sent. Take ${names.length === 1 ? "it" : "them"} off the post, or leave this post on the calendar.`,
     );
   }
   if (post.platforms.length === 0) throw new DapiError("invalid-input", "This post has no platform to send to.");

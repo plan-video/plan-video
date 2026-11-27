@@ -1,0 +1,21 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "video.plan/plan-video",
+  "title": "plan.video",
+  "description": "Plan, schedule and publish posts to YouTube, TikTok, Instagram, X, LinkedIn and more.",
+  "version": "0.1.0",
+  "websiteUrl": "https://plan.video/docs/agents",
+  "repository": {
+    "url": "https://github.com/plan-video/plan-video",
+    "source": "github",
+    "id": "1440011530",
+    "subfolder": "services/mcp"
+  },
+  "icons": [
+    { "src": "https://plan.video/mark.svg", "mimeType": "image/svg+xml", "sizes": ["any"] },
+    { "src": "https://plan.video/apple-touch-icon.png", "mimeType": "image/png", "sizes": ["180x180"] }
+  ],
+  "remotes": [
+    { "type": "streamable-http", "url": "https://plan.video/mcp" }
+  ]
+}

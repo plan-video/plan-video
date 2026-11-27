@@ -356,7 +356,7 @@ if (command === "check" || command === "sync") {
 } else if (command === "unwrapped") {
   const roots = rest.length ? rest.map((path) => resolve(SRC, path)) : HAS_SITE ? [SRC, SITE_SRC] : [SRC];
   const SHOWN = new Set(["title", "aria-label", "placeholder", "alt", "label", "description", "aria-description", "aria-valuetext", "aria-roledescription", "hint", "heading", "text", "tooltip", "subtitle", "caption", "message", "emptyText", "pendingLabel", "unavailableLabel", "confirmLabel", "cancelLabel", "actionLabel"]);
-  const BRANDS = /^(plan\.video|plan|video|TikTok|YouTube|Instagram|X|LinkedIn|Bluesky|Threads|Facebook|Pinterest|Discord|Claude|Claude Code|Claude Desktop|Codex|Cursor|Gemini|Gemini CLI|ChatGPT|OpenAI|Anthropic|MCP|VS Code|Copilot|Windsurf|Zed|Valorant|CS2|Supabase|Stripe|Google|GitHub|Apple|Windows|macOS|Chrome|Safari|Firefox|MP4|WebM|MOV|GIF|PNG|JPG|JPEG|SVG|WAV|MP3|4K|HD|FPS|fps|px|ms|AI|API|URL|ID|OK|hello@plan\.video)$/;
+  const BRANDS = /^(plan\.video|plan|video|TikTok|YouTube|Instagram|X|LinkedIn|Bluesky|Threads|Facebook|Pinterest|Discord|Claude|Claude Code|Claude Desktop|Codex|Cursor|Gemini|Gemini CLI|ChatGPT|OpenAI|Anthropic|MCP|VS Code|Copilot|Windsurf|Zed|Valorant|CS2|Supabase|Stripe|Google|Google Drive|GitHub|Apple|Windows|macOS|Chrome|Safari|Firefox|MP4|WebM|MOV|GIF|PNG|JPG|JPEG|SVG|WAV|MP3|4K|HD|FPS|fps|px|ms|AI|API|URL|ID|OK|hello@plan\.video)$/;
   const looksLikeWords = (text) => {
     const trimmed = text.replace(/\s+/g, " ").trim();
     if (!/\p{L}{2}/u.test(trimmed) || BRANDS.test(trimmed)) return false;

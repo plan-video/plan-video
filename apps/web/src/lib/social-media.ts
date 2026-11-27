@@ -66,6 +66,13 @@ export function imageFileProblem(file: File): string | null {
   return null;
 }
 
+/** Before a file is fetched from somewhere else, as only its size is known yet. */
+export function postableTooLarge(file: { name: string; size: number; mimeType: string }): string | null {
+  const size = formatBytes(file.size);
+  if (file.mimeType.startsWith("image/")) return file.size > MEDIA_LIMITS.imageMaxBytes ? t("{name} is {size}. Pictures can be up to 8 MB.", { name: file.name, size }) : null;
+  return file.size > MEDIA_LIMITS.videoMaxBytes ? t("It's {size}. Videos can be up to 500 MB.", { size }) : null;
+}
+
 /** en-GB's has no comma before "or". */
 const SHAPE_LIST = localized((locale) => new Intl.ListFormat(locale, { type: "disjunction" }), "en-GB");
 

@@ -40,6 +40,8 @@ export type BarGame = {
   stackName: string;
   style: BarStyle;
   weapons: BarWeapon[];
+  /** The weapon icons are full-colour pictures rather than white silhouettes. */
+  pictures?: boolean;
   groups: { id: string; label: string }[];
   extras: BarExtra[];
   defaultWeapon: string;
@@ -298,6 +300,7 @@ export const BAR_GAMES: BarGame[] = [
     stackName: "CoD Killfeed",
     style: codStyle,
     weapons: weaponsOf(codFiles, codLabel, codGroup, COD_GROUPS.map((group) => group.id)),
+    pictures: true,
     groups: COD_GROUPS,
     extras: extrasOf(codExtras, [{ id: "Headshot", label: msg("Headshot") }]),
     defaultWeapon: "AK-47_HUD_icon_MW3",

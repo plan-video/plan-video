@@ -36,12 +36,11 @@ import { EventPopover } from "./event-popover";
 import { MiniMonth } from "./mini-month";
 import { MonthBoard } from "./month-board";
 import { useCalendarNavigation, type CalendarNavigation } from "./navigation";
-import { SquirrelAsleep } from "@/components/brand/mascot";
-import { accountFilter, allPosts, groupFilter, hydrateCalendar, isEventVisible, loadError, loaded, monthRange, saving, setAccountFilter, setStatusFilter, statusFilter, weekRange } from "./store";
+import { accountFilter, allPosts, groupFilter, hydrateCalendar, loadError, loaded, saving, setAccountFilter, setStatusFilter, statusFilter } from "./store";
 import { STATUS_FILTERS, cn, formatMonth, localDateKey, shiftPeriod } from "./utils";
 import { CalendarViewToggle } from "./view-toggle";
 import { WeekBoard } from "./week-board";
-import type { PostStatusFilter, SelectedEvent, CalendarView } from "./types";
+import type { PostStatusFilter, SelectedEvent } from "./types";
 
 function slotTime(day: string) {
   const morning = atLocal(day, "09:00");
@@ -93,45 +92,12 @@ export function DashboardCalendarView() {
             <CalendarPostList date={nav.date()} picked={nav.picked()} onShowMonth={() => nav.go(nav.date())} />
           </Match>
         </Switch>
-        <Show when={loaded() && !loadError() && nav.view() !== "list" && periodIsEmpty(nav)}>
-          <EmptyPeriod view={nav.view()} />
-        </Show>
       </main>
 
       <Show when={selected()} keyed>
         {(current) => <EventPopover selected={current} onClose={() => setSelected(null)} />}
       </Show>
       <PostHoverCard hover={hover} />
-    </div>
-  );
-}
-
-function periodIsEmpty(nav: CalendarNavigation) {
-  const range = nav.view() === "week" ? weekRange(nav.date()) : monthRange(nav.date());
-  return !range.events.some(isEventVisible);
-}
-
-const EMPTY_PERIOD: Record<PostStatusFilter, string> = {
-  all: msg("Nothing is scheduled"),
-  scheduled: msg("Nothing is scheduled"),
-  draft: msg("No drafts"),
-  posted: msg("Nothing has been posted"),
-  failed: msg("Nothing failed"),
-  approval: msg("Nothing needs approval"),
-};
-
-/**
- * Lets clicks through to the slots underneath. The month is always six rows,
- * so its middle is a row's edge: the squirrel moves up half a row to sit in one day.
- */
-function EmptyPeriod(props: { view: CalendarView }) {
-  return (
-    <div
-      class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-3 pt-10 text-(--plane-text-tertiary)"
-      style={{ translate: props.view === "month" ? "0 calc(-100% / 12 + 5px)" : undefined }}
-    >
-      <SquirrelAsleep width={92} class="opacity-70" />
-      <span class="text-sm">{t(EMPTY_PERIOD[statusFilter()] ?? EMPTY_PERIOD.all)}</span>
     </div>
   );
 }
