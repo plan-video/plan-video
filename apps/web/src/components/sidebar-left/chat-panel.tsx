@@ -15,6 +15,7 @@ import { createFeed, MAX_FEED_ENTRIES, plain } from "@/lib/killfeed-feed";
 import {
   badgeUrl,
   CHAT_BADGES,
+  chatBadge,
   CHAT_COLORS,
   DEFAULT_CHAT,
   renderChatMessage,
@@ -183,7 +184,7 @@ function createChatExtension(platform: ChatPlatform): { Panel: Component; Cover:
         <div
           draggable={true}
           onDragStart={handleDragStart}
-          class="group relative flex max-h-44 min-h-20 cursor-grab flex-col justify-end gap-1 overflow-hidden rounded-md border border-border p-3 active:cursor-grabbing"
+          class="group relative flex max-h-44 min-h-14 cursor-grab flex-col justify-end gap-1 overflow-hidden rounded-md border border-border p-3 active:cursor-grabbing"
           style={{ background: STAGE_BACKGROUND[platform] }}
         >
           <For each={feed.entries()}>
@@ -413,7 +414,22 @@ function createChatExtension(platform: ChatPlatform): { Panel: Component; Cover:
                   }}
                   onClick={() => toggleBadge(id)}
                 >
-                  <img src={badgeUrl(platform, id)} alt="" draggable={false} class="pointer-events-none h-[18px] max-w-full object-contain" />
+                  <Show
+                    when={chatBadge(platform, id)?.pill}
+                    fallback={<img src={badgeUrl(platform, id)} alt="" draggable={false} class="pointer-events-none h-[18px] max-w-full object-contain" />}
+                  >
+                    {(pill) => (
+                      <span
+                        class="pointer-events-none flex h-3.5 items-center rounded-[4px] px-[3px] text-[10px] font-semibold leading-[11px] text-white"
+                        style={{ background: pill().color, "font-family": '"TikTok Sans", Inter, sans-serif' }}
+                      >
+                        <img src={badgeUrl(platform, id)} alt="" draggable={false} class="size-3" />
+                        <Show when={pill().text}>
+                          <span class="mr-1">{pill().text}</span>
+                        </Show>
+                      </span>
+                    )}
+                  </Show>
                 </button>
                 <Show when={own}>
                   <button

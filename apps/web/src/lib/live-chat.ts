@@ -20,7 +20,10 @@ export type ChatMessage = {
 
 export type ChatBackground = "bubble" | "none";
 
-export type ChatBadge = { id: string; label: string; params?: Record<string, number>; url: string; width: number; height: number };
+/** TikTok sets each badge on a coloured pill, with a number on level badges. */
+export type BadgePill = { color: string; text?: string };
+
+export type ChatBadge = { id: string; label: string; params?: Record<string, number>; url: string; width: number; height: number; pill?: BadgePill };
 
 /** Twitch's own name colours, in the order its colour picker shows them. */
 export const TWITCH_COLORS = [
@@ -46,7 +49,7 @@ export const svgUrl = (svg: string) => `data:image/svg+xml;charset=utf-8,${encod
 
 const badgeFiles = import.meta.glob<string>("../assets/images/chat-badges/*.png", { eager: true, query: "?url", import: "default" });
 
-/** The platforms' own badge pictures, saved at 4x the size chat shows them. */
+/** The platforms' own badge pictures, larger than chat shows them. TikTok's are the icon only, without the pill. */
 const file = (name: string) => badgeFiles[`../assets/images/chat-badges/${name}.png`]!;
 
 const twitch = (id: string, label: string): ChatBadge => ({ id, label, url: file(`twitch-${id}`), width: 18, height: 18 });
@@ -65,22 +68,31 @@ export const TWITCH_BADGES: ChatBadge[] = [
   twitch("admin", msg("Admin")),
 ];
 
-// Level pills are TikTok's gem on the colour TikTok sends for that level's tier.
-const level = (n: number): ChatBadge => ({ id: `level-${n}`, label: msg("Level {n}"), params: { n }, url: file(`tiktok-level-${n}`), width: 32, height: 16 });
+// The pill colours are the ones TikTok sends for each badge; a level's colour follows its tier (8 is in the lv5 tier).
+const tiktok = (id: string, label: string, color: string, extra?: Partial<ChatBadge>): ChatBadge => ({
+  id,
+  label,
+  url: file(`tiktok-${id}`),
+  width: 12,
+  height: 12,
+  pill: { color },
+  ...extra,
+});
+const level = (n: number, color: string) => tiktok(`level-${n}`, msg("Level {n}"), color, { params: { n }, pill: { color, text: String(n) } });
 
 export const TIKTOK_BADGES: ChatBadge[] = [
-  level(8),
-  level(12),
-  level(24),
-  level(30),
-  { id: "moderator", label: msg("Moderator"), url: file("tiktok-moderator"), width: 16, height: 16 },
-  { id: "fan-club", label: msg("Fan club"), url: file("tiktok-fan-club"), width: 22, height: 16 },
-  { id: "gifter", label: msg("Gifter"), url: file("tiktok-gifter"), width: 16, height: 16 },
+  level(8, "rgba(95, 144, 239, 0.6)"),
+  level(12, "rgba(63, 125, 246, 0.6)"),
+  level(24, "rgba(71, 90, 255, 0.7)"),
+  level(30, "rgba(42, 25, 238, 0.75)"),
+  tiktok("moderator", msg("Moderator"), "rgba(63, 63, 63, 0.5)"),
+  tiktok("fan-club", msg("Fan club"), "rgba(255, 94, 58, 0.5)"),
+  tiktok("gifter", msg("Gifter"), "rgba(63, 63, 63, 0.5)"),
   {
     id: "verified",
     label: msg("Verified"),
-    width: 16,
-    height: 16,
+    width: 14,
+    height: 14,
     url: svgUrl(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><circle cx="8" cy="8" r="8" fill="#20D5EC"/><path d="m4.6 8.2 2.3 2.3 4.5-4.6" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`),
   },
 ];
@@ -109,12 +121,15 @@ type Look = {
   maxWidth: number;
 };
 
+/** TikTok's badge pill, as its LIVE chat draws it: a 12px icon padded 1px by 3px, then any number in 10px semibold. */
+const PILL = { height: 14, icon: 12, padX: 3, radius: 4, textSize: 10, textGap: 4 };
+
 const LOOKS: Record<ChatPlatform, Look> = {
-  // Twitch's chat: Roobert 13/20 on #18181B, 18px badges 3px apart. Inter stands in for Roobert.
+  // Twitch's chat: Inter 14/22 on #18181B, 18px badges 3px apart.
   twitch: {
     font: "Inter",
-    size: 13,
-    line: 20,
+    size: 14,
+    line: 22,
     nameWeight: 700,
     textWeight: 400,
     textColor: "#EFEFF1",
@@ -132,13 +147,13 @@ const LOOKS: Record<ChatPlatform, Look> = {
   // TikTok LIVE's comments: TikTok Sans, a round picture, the name in grey and the words in white.
   tiktok: {
     font: "TikTok Sans",
-    size: 13,
+    size: 14,
     line: 18,
     nameWeight: 600,
     textWeight: 500,
     textColor: "#FFFFFF",
     separator: " ",
-    badge: 16,
+    badge: 14,
     badgeGap: 4,
     avatar: 24,
     avatarGap: 8,
@@ -203,7 +218,7 @@ const EMPTY_AVATAR = svgUrl(
 );
 
 export type ChatToken =
-  | { kind: "badge"; width: number; height: number; image: HTMLImageElement }
+  | { kind: "badge"; width: number; height: number; image: HTMLImageElement; pill?: BadgePill }
   | { kind: "text"; text: string; width: number; font: string; color: string; space?: boolean };
 
 export type PlacedToken = ChatToken & { x: number; line: number };
@@ -275,10 +290,17 @@ export async function renderChatMessage(platform: ChatPlatform, message: ChatMes
   };
 
   const tokens: ChatToken[] = [];
+  const pillFont = `600 ${PILL.textSize * s}px "${look.font}", Inter, sans-serif`;
   for (const [index, image] of badgeImages.entries()) {
     if (!image) continue;
     const known = chatBadge(platform, badgeIds[index]!);
-    const height = look.badge * s;
+    if (known?.pill) {
+      const text = known.pill.text ? measure(known.pill.text, pillFont) + PILL.textGap * s : 0;
+      const width = (PILL.padX * 2 + PILL.icon) * s + text;
+      tokens.push({ kind: "badge", width: width + look.badgeGap * s, height: PILL.height * s, image, pill: known.pill });
+      continue;
+    }
+    const height = (known?.height ?? look.badge) * s;
     const width = known ? (known.width / known.height) * height : (image.naturalWidth / Math.max(1, image.naturalHeight)) * height;
     tokens.push({ kind: "badge", width: width + look.badgeGap * s, height, image });
   }
@@ -332,7 +354,23 @@ export async function renderChatMessage(platform: ChatPlatform, message: ChatMes
   ctx.textBaseline = "middle";
   for (const token of placed) {
     const middle = textTop + token.line * line + line / 2;
-    if (token.kind === "badge") {
+    if (token.kind === "badge" && token.pill) {
+      const x = left + token.x;
+      const icon = PILL.icon * s;
+      ctx.save();
+      ctx.shadowColor = "transparent";
+      ctx.beginPath();
+      ctx.roundRect(x, middle - token.height / 2, token.width - look.badgeGap * s, token.height, PILL.radius * s);
+      ctx.fillStyle = token.pill.color;
+      ctx.fill();
+      ctx.drawImage(token.image, x + PILL.padX * s, middle - icon / 2, icon, icon);
+      if (token.pill.text) {
+        ctx.font = pillFont;
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillText(token.pill.text, x + (PILL.padX + PILL.icon) * s, middle + PILL.textSize * s * 0.04);
+      }
+      ctx.restore();
+    } else if (token.kind === "badge") {
       ctx.drawImage(token.image, left + token.x, middle - token.height / 2, token.width - look.badgeGap * s, token.height);
     } else {
       ctx.font = token.font;
