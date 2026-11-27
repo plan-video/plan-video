@@ -4,7 +4,9 @@
 
 import { describe, expect, it } from "vitest";
 
-import { arrival, createTracker, gatherKills, measureColumn, nameStrip, pickNames, readRows, ROW, type FeedRow, type Reading, type Rgba } from "./kill-read";
+import {
+  arrival, createTracker, gatherKills, measureColumn, nameStrip, pickNames, placeKills, readRows, ROW, type FeedRow, type FrameSource, type Reading, type Rgba,
+} from "./kill-read";
 
 const TEAL = [87, 222, 196] as const;
 const RED = [240, 91, 88] as const;
@@ -79,6 +81,23 @@ describe("readRows", () => {
       [96, 130],
       [136, 170],
     ]);
+  });
+
+  it("doesn't take yellow light showing around an entry for the lines on yours", () => {
+    const frame = blank();
+    entry(frame, 96, 900);
+    fill(frame, 900 - 6 * TALL, 90, 900 - 3 * TALL, 96, YELLOW);
+    fill(frame, 900 - 6 * TALL, 130, 900 - 3 * TALL, 135, YELLOW);
+
+    expect(readRows(frame, 1).map(({ mine }) => mine)).toEqual([null]);
+  });
+
+  it("never makes an enemy's kill yours, nor a teammate's death", () => {
+    const frame = blank();
+    entry(frame, 96, 900, { enemyKill: true, mine: "killer" });
+    entry(frame, 136, 930, { mine: "victim" });
+
+    expect(readRows(frame, 1).map(({ mine }) => mine)).toEqual([null, null]);
   });
 
   it("finds nothing in a frame without a feed", () => {
@@ -161,6 +180,15 @@ describe("gatherKills", () => {
     expect(kills.map(({ time, victim, headshot }) => ({ time, victim, headshot }))).toEqual([{ time: 2, victim: "Sova", headshot: false }]);
   });
 
+  it("reads an entry seen twice from the surer reading, not the one glare washed out", () => {
+    const washed = { ...reading("Cypher", "Clove"), weapon: "weapons/Operator.png", scores: { killer: 0.9, victim: 0.86, weapon: 0.55, headshot: 0.37 } };
+    const kills = gatherKills([
+      { time: 5.1, death: false, seen: 18, row, picture, kill: { ...reading("Cypher", "Clove", true), scores: { killer: 0.9, victim: 0.86, weapon: 0.92, headshot: 0.61 } } },
+      { time: 7.9, death: false, seen: 21, row, picture, kill: washed },
+    ]);
+    expect(kills.map(({ time, weapon, headshot }) => ({ time, weapon, headshot }))).toEqual([{ time: 5.1, weapon: "weapons/Vandal.png", headshot: true }]);
+  });
+
   it("names you by the agent that fits your side best across all your entries", () => {
     // Skye wins two entries by a hair; Hush fits every one about as well.
     const close = { killer: { Skye: 0.63, Hush: 0.62 }, victim: {} };
@@ -230,6 +258,42 @@ describe("arrival", () => {
   it("follows back from the first frame that shows it, not the last", () => {
     // Caught at 2, then the stack moved it up and out of the slot.
     expect(at(["empty", "flash", "kill", "kill", "empty"], 2)).toBe(1);
+  });
+});
+
+describe("placeKills", () => {
+  /** An entry that flashes in at `arrives` and stays up. */
+  const video = (arrives: number): FrameSource => ({
+    unit: 1,
+    frameRate: 10,
+    duration: 20,
+    async *frames(times) {
+      for (const time of times) {
+        const frame = blank();
+        if (time >= arrives + 0.1 - 1e-6) entry(frame, 96, 900, { mine: "killer", name: 2 });
+        else if (time >= arrives - 1e-6) fill(frame, 700, 96, RIGHT, 130, TEAL);
+        yield { time, frame };
+      }
+    },
+  });
+  /** A clip showing `start` to `end` of the video, whose scan caught the entry at `caught`. */
+  const place = async (start: number, end: number, arrives: number, caught: number) => {
+    const sightings = [{ time: caught, death: false, seen: 9, row, picture, kill: reading("Jett", "Sova") }];
+    const kills = await placeKills(video(arrives), { start, end, from: start - 1, to: end + 1.5, sightings });
+    return kills.map((kill) => Math.round(kill.time * 100) / 100);
+  };
+
+  it("gives a kill on a cut to one clip, when a video is cut in pieces", async () => {
+    expect(await place(3, 5, 5, 5.2)).toEqual([]);
+    expect(await place(5, 7, 5, 5.2)).toEqual([5]);
+  });
+
+  it("leaves out an entry still up from before the clip, though a flash made it look new", async () => {
+    expect(await place(5, 7, 4, 5.2)).toEqual([]);
+  });
+
+  it("keeps a kill that came in before the clip ended, though it was told yours only after", async () => {
+    expect(await place(10, 12, 11.7, 12.3)).toEqual([11.7]);
   });
 });
 
