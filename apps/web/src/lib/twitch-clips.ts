@@ -8,9 +8,21 @@ import { askForAccount, inGuestMode } from "@/lib/guest";
 import { t } from "@/lib/i18n";
 import { supabase } from "@/lib/supabase";
 
-export type TwitchVideo = { id: string; title: string; seconds: number; channel: string; login: string; game: string };
+/** Twitch's seek-bar frames: sheets of `cols` × `rows` frames, one every `interval` seconds. */
+export type Storyboard = { images: string[]; width: number; height: number; cols: number; rows: number; interval: number; count: number };
 
-/** A stretch of the broadcast worth a clip. Words are timed from `start`. */
+export type TwitchVideo = {
+  id: string;
+  title: string;
+  seconds: number;
+  channel: string;
+  login: string;
+  game: string;
+  createdAt?: string | null;
+  storyboard?: Storyboard | null;
+};
+
+/** A stretch of the broadcast worth a clip. Times are the broadcast's; `words` are all heard in `window`. */
 export type TwitchMoment = {
   start: number;
   end: number;
@@ -18,6 +30,7 @@ export type TwitchMoment = {
   title: string;
   caption: string;
   reason: string;
+  window?: { start: number; end: number };
   words: TranscriptWord[];
 };
 
@@ -32,11 +45,6 @@ type Line =
   | { type: "error"; status: number; error: string };
 
 export class ClipsRefused extends Error {}
-
-const LINK = /twitch\.tv\/|^\d{6,12}$/i;
-
-/** Whether pasted text looks like a Twitch link, so a paste can start a scan by itself. */
-export const looksLikeTwitchLink = (text: string) => LINK.test(text.trim());
 
 async function token(): Promise<string> {
   const session = supabase ? (await supabase.auth.getSession()).data.session : null;
@@ -55,14 +63,19 @@ async function refusal(response: Response): Promise<ClipsRefused> {
 /** Reads the broadcast on the server and calls `onVideo` and `onStep` as it goes. */
 export async function scanTwitch(
   link: string,
-  { onVideo, onStep, signal }: { onVideo?: (video: TwitchVideo) => void; onStep?: (step: ScanStep) => void; signal?: AbortSignal } = {},
+  {
+    onVideo,
+    onStep,
+    signal,
+    again = false,
+  }: { onVideo?: (video: TwitchVideo) => void; onStep?: (step: ScanStep) => void; signal?: AbortSignal; again?: boolean } = {},
 ): Promise<ScanResult> {
   let response: Response;
   try {
     response = await fetch("/api/clips/scan", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${await token()}` },
-      body: JSON.stringify({ link }),
+      body: JSON.stringify({ link, ...(again ? { again: true } : {}) }),
       signal,
     });
   } catch (error) {
@@ -93,15 +106,16 @@ export async function scanTwitch(
 }
 
 /**
- * The moment's stretch as an MP4 and where in it the moment starts: the file is cut on Twitch's pieces.
- * `preview` gets a small picture, for watching before choosing.
+ * [start, end) of the broadcast as an MP4, and where in it `start` falls: the file is cut on Twitch's pieces.
+ * `preview` gets a small picture, for watching and editing before the clip is made.
  */
-export async function fetchMomentVideo(
+export async function fetchStretch(
   video: TwitchVideo,
-  moment: TwitchMoment,
+  start: number,
+  end: number,
   { signal, preview = false }: { signal?: AbortSignal; preview?: boolean } = {},
 ): Promise<{ file: File; offset: number }> {
-  const query = new URLSearchParams({ vod: video.id, start: String(moment.start), end: String(moment.end), ...(preview ? { quality: "preview" } : {}) });
+  const query = new URLSearchParams({ vod: video.id, start: String(start), end: String(end), ...(preview ? { quality: "preview" } : {}) });
   let response: Response;
   try {
     response = await fetch(`/api/clips/video?${query}`, { headers: { Authorization: `Bearer ${await token()}` }, signal });
@@ -111,6 +125,6 @@ export async function fetchMomentVideo(
   }
   if (!response.ok) throw await refusal(response);
   const offset = Number(response.headers.get("X-Clip-Offset")) || 0;
-  const name = `${video.login || "twitch"}-${Math.round(moment.start)}.mp4`;
+  const name = `${video.login || "twitch"}-${Math.round(start)}.mp4`;
   return { file: new File([await response.blob()], name, { type: "video/mp4" }), offset };
 }

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { parsePieces, parseTwitchLink, pickVideo, readChat } from "./twitch.mjs";
+import { parsePieces, parseStoryboard, parseTwitchLink, pickVideo, readChat } from "./twitch.mjs";
 
 test("links to a broadcast or a channel are read, anything else isn't", () => {
   assert.deepEqual(parseTwitchLink("https://www.twitch.tv/videos/2940471411?t=1h2m3s"), { vod: "2940471411" });
@@ -22,6 +22,20 @@ test("pieces keep their place in the broadcast, and muted ones are marked", () =
   assert.deepEqual(pieces.map((piece) => [piece.start, piece.muted]), [[0, false], [10, true], [20, false], [30, false]]);
   assert.equal(pieces[1].url, "https://cdn.test/abc/audio_only/1-muted.mp4");
   assert.equal(seconds, 34.5);
+});
+
+test("the storyboard is the sharper set, with its sheets' full addresses", () => {
+  const info = "https://cdn.test/abc/storyboards/1-info.json";
+  const board = parseStoryboard(
+    [
+      { quality: "low", width: 160, height: 90, cols: 5, rows: 40, interval: 16, count: 200, images: ["1-low-0.jpg"] },
+      { quality: "high", width: 220, height: 124, cols: 5, rows: 10, interval: 16, count: 200, images: ["1-high-0.jpg", "1-high-1.jpg"] },
+    ],
+    info,
+  );
+  assert.deepEqual(board, { images: ["https://cdn.test/abc/storyboards/1-high-0.jpg", "https://cdn.test/abc/storyboards/1-high-1.jpg"], width: 220, height: 124, cols: 5, rows: 10, interval: 16, count: 200 });
+  assert.equal(parseStoryboard([{ quality: "high", images: [] }], info), null);
+  assert.equal(parseStoryboard(null, info), null);
 });
 
 test("the picture is the sharpest up to 1080 lines", () => {

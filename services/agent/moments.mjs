@@ -19,7 +19,7 @@ const MAX_WINDOW_SECONDS = 180;
 const MAX_WORDS = 15000;
 const MIN_CLIP = 8;
 const MAX_CLIP = 90;
-const MAX_MOMENTS = 10;
+const MAX_MOMENTS = 30;
 /** Kept before the first word and after the last, so a clip doesn't start mid-breath or cut off the laugh. */
 const LEAD = 0.2;
 const TAIL = 0.6;

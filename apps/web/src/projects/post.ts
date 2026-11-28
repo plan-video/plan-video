@@ -7,7 +7,7 @@ import { AssetLibrary } from "@plan.video/assets";
 import { importFiles } from "@/engine/asset-actions";
 import { generateProjectName } from "@/lib/db";
 import { t } from "@/lib/i18n";
-import { POST_CAMERA, buildPost, type PostClip, type PostNode } from "@/lib/post-builder";
+import { POST_CAMERA, buildPost, type PostCaptions, type PostClip, type PostHook, type PostNode } from "@/lib/post-builder";
 import type { Crops } from "@/lib/stream-layouts";
 
 import { writeBrowserComposition, type SavedNode } from "./composition";
@@ -15,15 +15,15 @@ import { createBrowserProjectFS } from "./browser";
 import { createProject, ensureProjectsRoot } from "./host";
 
 import type { Transcript } from "@plan.video/assets";
-import type { CaptionPreset, TextLookName } from "@plan.video/jsx";
 import type { ProjectInfo } from "./types";
 
 export type PostOptions = {
+  /** The project's name; one is made up when left out. */
+  name?: string;
   layoutId: string;
-  captions: CaptionPreset | null;
-  captionsLook?: TextLookName;
+  captions: PostCaptions | null;
   /** A line shown big over the first seconds. */
-  hook?: string;
+  hook?: PostHook | null;
   /** Per file: the stretch of it to use, in seconds. */
   trims?: ({ start: number; duration: number } | undefined)[];
   /** What's said, timed on the finished post, so the captions need no transcribing. */
@@ -49,7 +49,7 @@ function toSaved(entry: PostNode, next: () => string): SavedNode {
 export async function createPostProject(files: ReadonlyArray<File>, options: PostOptions): Promise<ProjectInfo | null> {
   if (!(await ensureProjectsRoot())) return null;
 
-  const name = generateProjectName();
+  const name = options.name?.trim() || generateProjectName();
   const project = await createProject(name);
 
   const library = new AssetLibrary(createBrowserProjectFS(project.dir));
@@ -75,7 +75,7 @@ export async function createPostProject(files: ReadonlyArray<File>, options: Pos
   }
   if (!clips.length) throw new Error(t("None of the files could be read as video."));
 
-  const scene = buildPost({ name, clips, layoutId: options.layoutId, captions: options.captions, captionsLook: options.captionsLook, captionsSrc, crops: options.crops, hook: options.hook });
+  const scene = buildPost({ name, clips, layoutId: options.layoutId, captions: options.captions, captionsSrc, crops: options.crops, hook: options.hook });
 
   let stamp = 0;
   await writeBrowserComposition(project.dir, {

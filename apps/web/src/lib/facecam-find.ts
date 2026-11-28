@@ -102,13 +102,13 @@ async function detect() {
   }
 }
 
-/** Looks at frames between `from` and `to` seconds of `file` and says how to lay out the clip, and its frame rate. */
+/** Looks at frames between `from` and `to` seconds of `file` and says how to lay out the clip. */
 export async function findStreamLook(
   file: Blob,
   from: number,
   to: number,
   { category = "", signal }: { category?: string; signal?: AbortSignal } = {},
-): Promise<StreamLook & { frameRate?: number }> {
+): Promise<StreamLook> {
   const [{ ALL_FORMATS, BlobSource, CanvasSink, Input }, { RawImage }] = await Promise.all([import("mediabunny"), import("@huggingface/transformers")]);
   const run = await detect();
   const input = new Input({ formats: ALL_FORMATS, source: new BlobSource(file) });
@@ -116,7 +116,6 @@ export async function findStreamLook(
     const track = await input.getPrimaryVideoTrack();
     if (!track || !(await track.canDecode())) return { layout: "blurred", crops: {} };
     const width = Math.min(640, track.displayWidth);
-    const frameRate = (await track.computePacketStats(120).catch(() => null))?.averagePacketRate;
     const sink = new CanvasSink(track, { width, height: Math.round((width * track.displayHeight) / track.displayWidth), fit: "fill", poolSize: 1 });
     const times = Array.from({ length: FRAMES }, (_, i) => from + ((to - from) * (i + 0.5)) / FRAMES);
     const frames: FoundPerson[][] = [];
@@ -128,7 +127,21 @@ export async function findStreamLook(
       const found = await run(await RawImage.fromBlob(blob), { threshold: MIN_SCORE, percentage: true });
       frames.push(found.filter((entry) => entry.label === "person").map(({ score, box }) => ({ score, x: box.xmin, y: box.ymin, width: box.xmax - box.xmin, height: box.ymax - box.ymin })));
     }
-    return { ...lookOf(frames, { cameraOnly: cameraIsTheStream(category) }), frameRate };
+    return lookOf(frames, { cameraOnly: cameraIsTheStream(category) });
+  } finally {
+    input.dispose();
+  }
+}
+
+/** Frames a second of `file`'s picture, or null when it can't be read. */
+export async function frameRateOf(file: Blob): Promise<number | null> {
+  const { ALL_FORMATS, BlobSource, Input } = await import("mediabunny");
+  const input = new Input({ formats: ALL_FORMATS, source: new BlobSource(file) });
+  try {
+    const track = await input.getPrimaryVideoTrack();
+    return (await track?.computePacketStats(120))?.averagePacketRate ?? null;
+  } catch {
+    return null;
   } finally {
     input.dispose();
   }

@@ -6,6 +6,7 @@ import type { PostStatusFilter } from "@/components/calendar/types";
 
 export type DashboardView =
   | "projects"
+  | "clips"
   | "trash"
   | "templates"
   | "billing"

@@ -55,7 +55,7 @@ async function gql(body, fetchImpl) {
   return payload;
 }
 
-const VIDEO_FIELDS = "id title lengthSeconds status broadcastType createdAt owner { login displayName } game { name }";
+const VIDEO_FIELDS = "id title lengthSeconds status broadcastType createdAt seekPreviewsURL owner { login displayName } game { name }";
 
 function toVideo(video) {
   if (!video?.id) return null;
@@ -68,7 +68,33 @@ function toVideo(video) {
     game: video.game?.name || "",
     createdAt: video.createdAt || null,
     recording: video.status === "RECORDING",
+    previews: typeof video.seekPreviewsURL === "string" ? video.seekPreviewsURL : null,
   };
+}
+
+/**
+ * Twitch's seek-bar storyboard: sheets of small frames, one every `interval` seconds. The sharper set is
+ * picked; null when the broadcast has none.
+ */
+export function parseStoryboard(list, infoUrl) {
+  const sets = Array.isArray(list) ? list : [];
+  const set = sets.find((entry) => entry?.quality === "high") ?? sets[0];
+  if (!set || !Array.isArray(set.images) || !set.images.length) return null;
+  const numbers = ["width", "height", "cols", "rows", "interval", "count"].map((key) => Number(set[key]));
+  if (numbers.some((value) => !(value > 0))) return null;
+  const [width, height, cols, rows, interval, count] = numbers;
+  const base = infoUrl.slice(0, infoUrl.lastIndexOf("/") + 1);
+  return { images: set.images.map((name) => new URL(String(name), base).href), width, height, cols, rows, interval, count };
+}
+
+export async function readStoryboard(infoUrl, fetchImpl = fetch) {
+  if (!infoUrl) return null;
+  try {
+    const res = await fetchImpl(infoUrl, { signal: AbortSignal.timeout(TIMEOUT_MS) });
+    return res.ok ? parseStoryboard(await res.json(), infoUrl) : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function findVideo(link, fetchImpl = fetch) {

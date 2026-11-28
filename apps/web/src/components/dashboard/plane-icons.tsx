@@ -21,6 +21,7 @@ import LogOutLucide from "lucide-solid/icons/log-out";
 import MapLucide from "lucide-solid/icons/map";
 import MoonLucide from "lucide-solid/icons/moon";
 import PlugLucide from "lucide-solid/icons/plug";
+import ScissorsLucide from "lucide-solid/icons/scissors";
 import RocketLucide from "lucide-solid/icons/rocket";
 import SettingsLucide from "lucide-solid/icons/settings";
 import SparklesLucide from "lucide-solid/icons/sparkles";
@@ -78,6 +79,7 @@ const LUCIDE_ICONS = {
   sun: SunLucide,
   template: LayoutTemplateLucide,
   plug: PlugLucide,
+  clips: ScissorsLucide,
   agent: SparklesLucide,
   "log-out": LogOutLucide,
   help: CircleHelpLucide,

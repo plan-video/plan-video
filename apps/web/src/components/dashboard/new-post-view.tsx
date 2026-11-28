@@ -76,11 +76,10 @@ import {
   resolveRepeatEnd,
   shiftDay,
 } from "@/components/calendar/utils";
-import { takeHandOff, takeHandedFiles } from "@/components/publish/handoff";
+import { takeHandOff, takeHandedFiles, takeHandedWords } from "@/components/publish/handoff";
 import { fileNameCaptions } from "@/lib/file-name-captions";
 import { MediaPicker } from "@/components/publish/media-picker";
 import { GoogleDriveLogo } from "@/components/publish/google-drive-logo";
-import { TwitchClipsDialog, TwitchLogo } from "@/components/publish/twitch-clips";
 import { PictureEditor } from "@/components/publish/picture-editor";
 import { VideoEditor } from "@/components/publish/video-editor";
 import { PUBLISHING_PLATFORMS, sendPost } from "@/components/publish/publisher";
@@ -179,10 +178,6 @@ import {
 } from "@/lib/social-media";
 import { projectKey, type ProjectInfo } from "@/projects";
 import { createPostProject } from "@/projects/post";
-import { getDefaultExportTemplate } from "@/components/sidebar-right/inspector/export-templates";
-import { findStreamLook } from "@/lib/facecam-find";
-import { segmentWords } from "@/lib/transcribe";
-import { fetchMomentVideo, type TwitchMoment, type TwitchVideo } from "@/lib/twitch-clips";
 import { exportProjectVideo, takePostVideo, type PostVideo } from "@/projects/post-export";
 
 const MAX_IMAGES = MEDIA_LIMITS.maxImages;
@@ -869,9 +864,12 @@ export function DashboardNewPostView() {
         if (typeof key !== "string" || !key) return;
         setParams({ project: undefined }, { replace: true });
         const handed = takePostVideo(key);
+        const words = takeHandedWords(key);
         const project = await findProject(key);
         if (project) {
           await attachProject(project, handed);
+          if (words && !post.caption.trim()) setPost("caption", words.caption);
+          if (words && !post.settings.youtube.title.trim()) setPost("settings", "youtube", "title", words.title);
         } else toast.error(t("That project is no longer on your list"));
       },
     ),
@@ -1663,34 +1661,6 @@ function MediaEditor(props: { slot: MediaSlot }) {
   const [, setParams] = useSearchParams();
   const [dragging, setDragging] = createSignal(false);
   const [reading, setReading] = createSignal(false);
-  const [twitchOpen, setTwitchOpen] = createSignal(false);
-
-  /** Cuts the moment, lays it out for its stream and captions it with the words already heard. */
-  const useTwitchMoment = async (video: TwitchVideo, moment: TwitchMoment) => {
-    const { file, offset } = await fetchMomentVideo(video, moment);
-    const duration = moment.end - moment.start;
-    const look = await findStreamLook(file, offset, offset + duration, { category: video.game }).catch((error: unknown) => {
-      console.warn("[new-post] facecam not found", error);
-      return { layout: "blurred" as const, crops: {} };
-    });
-    const project = await createPostProject([file], {
-      layoutId: look.layout,
-      captions: "pop",
-      captionsLook: "hook",
-      hook: moment.title,
-      trims: [{ start: offset, duration }],
-      transcript: segmentWords(moment.words),
-      crops: look.crops,
-    });
-    if (!project) throw new Error(t("Your projects folder couldn't be opened."));
-    // Gameplay moves fast: a 60 fps stream keeps its 60 frames a second.
-    const standard = getDefaultExportTemplate();
-    const smooth = "frameRate" in look && (look.frameRate ?? 0) > 45;
-    await attachProject(project, smooth ? { key: projectKey(project), settings: { ...standard, video: { ...standard.video, fps: 60 } } } : null);
-    if (!post.caption.trim()) setPost("caption", moment.caption);
-    if (!post.settings.youtube.title.trim()) setPost("settings", "youtube", "title", moment.title);
-    track("post_twitch_clip_used", { layout: look.layout });
-  };
   const [opening, setOpening] = createSignal(false);
 
   const offerKind = (kind: PostKind, files: File[]) =>
@@ -1869,12 +1839,6 @@ function MediaEditor(props: { slot: MediaSlot }) {
                   </button>
                 </Show>
                 <Show when={post.kind !== "image" && !slot.platform}>
-                  <button type="button" class={cx(dropZoneAction, "gap-1.5")} onClick={() => setTwitchOpen(true)}>
-                    <TwitchLogo class="-ml-0.5 size-4" />
-                    {t("From Twitch")}
-                  </button>
-                </Show>
-                <Show when={post.kind !== "image" && !slot.platform}>
                   <ProjectPicker class={cx(dropZoneAction, "max-md:hidden")} onPick={(project) => void attachProject(project)}>
                     <Icon name="navigation.folder" class="-ml-1.5 size-5" />
                     {t("Use a project")}
@@ -2018,9 +1982,7 @@ function MediaEditor(props: { slot: MediaSlot }) {
           </div>
         </Match>
       </Switch>
-      <Show when={twitchOpen()}>
-        <TwitchClipsDialog onUse={useTwitchMoment} onClose={() => setTwitchOpen(false)} />
-      </Show>
+
     </>
   );
 }

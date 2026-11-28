@@ -11,6 +11,7 @@ import { DashboardSectionView } from "@/components/dashboard/section-view";
 const DashboardCalendarView = lazy(() => import("@/components/calendar/calendar-view").then((module) => ({ default: module.DashboardCalendarView })));
 const DashboardConnectionsView = lazy(() => import("@/components/dashboard/connections-view").then((module) => ({ default: module.DashboardConnectionsView })));
 const DashboardAnalyticsView = lazy(() => import("@/components/dashboard/analytics-view").then((module) => ({ default: module.DashboardAnalyticsView })));
+const DashboardClipsView = lazy(() => import("@/components/clips/clips-view").then((module) => ({ default: module.DashboardClipsView })));
 const DashboardVaultView = lazy(() => import("@/components/dashboard/vault-view").then((module) => ({ default: module.DashboardVaultView })));
 const DashboardTemplatesView = lazy(() => import("@/components/dashboard/templates-view").then((module) => ({ default: module.DashboardTemplatesView })));
 const DashboardPlugsView = lazy(() => import("@/components/dashboard/plugs-view").then((module) => ({ default: module.DashboardPlugsView })));
@@ -95,6 +96,7 @@ import type { DashboardView, PostsTab } from "@/components/dashboard/types";
 
 const DASHBOARD_VIEWS: readonly DashboardView[] = [
   "projects",
+  "clips",
   "trash",
   "templates",
   "billing",
@@ -206,6 +208,7 @@ const PAGES: Partial<Record<DashboardView, { label: string; icon: PlaneIconName 
   queue: { label: msg("Auto-schedule"), icon: "queue" },
   agent: { label: msg("Assistant"), icon: "agent" },
   projects: { label: msg("All projects"), icon: "project" },
+  clips: { label: msg("Twitch clips"), icon: "clips" },
   trash: { label: msg("Trash"), icon: "trash" },
   media: { label: msg("Media"), icon: "video-file" },
   templates: { label: msg("Templates"), icon: "template" },
@@ -246,6 +249,7 @@ const OWN_HEADER = new Set<DashboardView>([
   "bulk-tools",
   "queue",
   "projects",
+  "clips",
   "trash",
   "media",
   "templates",
@@ -280,7 +284,7 @@ function ProjectMark(props: { name: string; dir: string; cover: Blob | null }) {
 function railFor(view: DashboardView): DashboardRail {
   if (isSettingsView(view)) return "settings";
   if (view === "agent") return "agent";
-  if (view === "projects" || view === "trash") return "projects";
+  if (view === "projects" || view === "clips" || view === "trash") return "projects";
   if (view === "media" || view === "templates" || view === "vault") return "library";
   if (analyticsSectionOf(view)) return "analytics";
   if (view === "plugs") return "plugs";
@@ -692,6 +696,7 @@ export function DashboardPage() {
                 <Show when={rail() === "projects"}>
                   <DashboardSidebarSection>
                     <PageLink view="projects" />
+                    <PageLink view="clips" />
                     <PageLink view="trash" />
                   </DashboardSidebarSection>
                   <DashboardSidebarFolders
@@ -838,6 +843,9 @@ export function DashboardPage() {
                       </Match>
                       <Match when={view() === "trash"}>
                         <DashboardTrashView />
+                      </Match>
+                      <Match when={view() === "clips"}>
+                        <DashboardClipsView />
                       </Match>
                       <Match when={view() === "billing"}>
                         <DashboardBillingView />

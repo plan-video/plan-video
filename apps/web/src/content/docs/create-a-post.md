@@ -19,12 +19,20 @@ Every post starts in **New post** in the dashboard.
 
 ## Clips from a Twitch stream
 
-Under **Add media**, click **From Twitch** and paste the link to a past broadcast, or a channel's link for its latest one. plan.video reads the broadcast's chat, how loud it gets, and the clips viewers made, writes down what was said in the parts that stand out, and picks up to 8 moments that work on their own. A 2-hour stream takes a minute or two.
+Open **Projects → Twitch clips** and paste the link to a past broadcast, or a channel's link for its latest one. plan.video reads the broadcast's chat, how loud it gets and the clips viewers made, writes down what was said in the parts that stand out, and picks up to 30 moments that work on their own. A 2-hour stream takes about a minute; keep the page open while it works.
 
-Click **Use** on a moment and it becomes the post's video: cut to the moment, laid out 9:16 with your facecam above the game when there is one, and captioned with what you said. Its title and caption fill in an empty title and caption. The list stays there while the page is open, so you can come back and use another moment for your next post. To change the layout or the captions, click **Open project**.
+Each clip opens in its own editor, with a 9:16 preview that plays as the post will look:
+
+- **Trim:** drag the ends of the bar under the preview, or press `[` and `]` to start or end at the playhead. A clip can grow past the moment that was picked.
+- **Layout:** pick a layout, then drag the boxes over the stream to choose what shows where. plan.video finds the facecam for you.
+- **Captions:** choose a style, size, colour, position and how many words show at once, and fix any word that was heard wrong.
+- **Hook:** the big line over the first seconds: its words, size, position and how long it stays.
+- **Post:** the title and caption the post starts with, and exact start and end times.
+
+When a clip is ready, **Schedule** opens it in New post, **Download** saves the video, and **Open in editor** makes it a project you can change in every way the editor allows. **Add a clip** picks any other stretch of the stream by hand. Your clips and changes are kept on this device.
 
 - The stream has to be public: a broadcast for subscribers only can't be read.
-- Finding the moments uses about 25 minutes of your monthly [captions](/docs/captions), however long the stream. When fewer are left, plan.video checks the best parts it has room for.
+- Finding the moments uses about 35 minutes of your monthly [captions](/docs/captions), however long the stream. When fewer are left, plan.video checks the best parts it has room for.
 - Parts Twitch muted for music are skipped.
 
 ## Captions for each network

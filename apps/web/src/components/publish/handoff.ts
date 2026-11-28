@@ -30,3 +30,19 @@ export function takeHandedFiles(): File[] | null {
   waitingFiles = null;
   return handed;
 }
+
+/** A post's words handed over with its project, such as a clip's caption and title. */
+type HandedWords = { key: string; caption: string; title: string };
+
+let waitingWords: HandedWords | null = null;
+
+export function handOffWords(words: HandedWords) {
+  waitingWords = words;
+}
+
+/** The words handed with project `key`, once. */
+export function takeHandedWords(key: string): HandedWords | null {
+  const handed = waitingWords?.key === key ? waitingWords : null;
+  waitingWords = null;
+  return handed;
+}

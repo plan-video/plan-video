@@ -18,6 +18,11 @@ import { t } from "./i18n";
 
 import type { CaptionPreset, TextLookName } from "@plan.video/jsx";
 
+export const HOOK_SECONDS = 3.2;
+export const HOOK_SIZE = 88;
+/** Under the feed's own buttons at the top. */
+export const HOOK_Y = 340 / 1920;
+
 export type PostClip = {
   /** What `src` names. */
   src: string;
@@ -29,20 +34,43 @@ export type PostClip = {
   sourceIn?: number;
 };
 
+export type PostCaptions = {
+  preset: CaptionPreset;
+  /** The face, colour and outlines, over the preset's motion. */
+  look?: TextLookName;
+  /** The preset's colour slots, such as a highlight. */
+  colors?: string[];
+  /** Px on the 1080-wide frame, in place of the preset's own. */
+  fontSize?: number;
+  /** The words' colour, in place of the look's. */
+  fill?: string;
+  /** Most words on screen at once. */
+  words?: number;
+  /** The captions' middle as a share of the frame's height; the layout's own place when left out. */
+  y?: number;
+};
+
+export type PostHook = {
+  text: string;
+  seconds: number;
+  /** Px on the 1080-wide frame. */
+  size?: number;
+  /** The hook's middle as a share of the frame's height. */
+  y?: number;
+};
+
 export type PostSpec = {
   name: string;
   clips: PostClip[];
   layoutId: string;
   /** Null for no captions. */
-  captions: CaptionPreset | null;
-  /** The captions' face, colour and outlines, over the preset's motion. */
-  captionsLook?: TextLookName;
+  captions: PostCaptions | null;
   /** A transcript file for the captions, so nothing is transcribed again. Its times are the scene's. */
   captionsSrc?: string;
   /** Crops found for the source, as fractions of it, in place of the layout's own. */
   crops?: Crops;
   /** A line shown big over the first seconds, to stop the scroll. */
-  hook?: string;
+  hook?: PostHook | null;
 };
 
 export type PostNode = {
@@ -113,7 +141,12 @@ function clearOfFacecam(gameplay: Box, facecam: Box): Box {
   return { ...gameplay, x };
 }
 
-function layoutFor(layoutId: string, clip: PostClip, found: Crops = {}): { slots: Slot[]; crops: Crops } {
+/** A clip's slots and crops in source pixels, as the post draws them. */
+export function postLayout(layoutId: string, clip: { width: number; height: number }, found: Crops = {}): { slots: Slot[]; crops: Crops } {
+  return layoutFor(layoutId, clip, found);
+}
+
+function layoutFor(layoutId: string, clip: { width: number; height: number }, found: Crops = {}): { slots: Slot[]; crops: Crops } {
   const layout = getStreamLayout(layoutId);
   const fractions: Crops = {};
   for (const spec of layout.crops) fractions[spec.id] = found[spec.id] ?? defaultCrop(spec, clip.width / clip.height);
@@ -149,18 +182,24 @@ export function buildPost(spec: PostSpec): PostNode {
 
   const children = [...tracks];
   const length = spec.clips.reduce((sum, clip) => sum + clip.duration, 0);
-  const placed = perClip[0] ? captionsAt(perClip[0].slots) : null;
-  if (spec.captions) {
+  const captions = spec.captions;
+  if (captions) {
+    const placed = captions.y !== undefined ? captions.y * LAYOUT_HEIGHT : perClip[0] ? captionsAt(perClip[0].slots) : null;
     children.push(
       node("captions", {
-        preset: spec.captions,
-        ...(spec.captionsLook ? { look: spec.captionsLook } : {}),
+        preset: captions.preset,
+        ...(captions.look ? { look: captions.look } : {}),
+        ...(captions.colors?.length ? { colors: captions.colors } : {}),
+        ...(captions.fontSize ? { fontSize: Math.round(captions.fontSize) } : {}),
+        ...(captions.fill ? { fill: captions.fill } : {}),
+        ...(captions.words ? { words: Math.round(captions.words) } : {}),
         ...(spec.captionsSrc ? { src: spec.captionsSrc } : {}),
         ...(placed !== null ? { verticalAlign: "center", offsetY: Math.round(placed - LAYOUT_HEIGHT / 2) } : {}),
       }),
     );
   }
-  if (spec.hook?.trim() && length > HOOK_SECONDS + 1) children.push(hookText(spec.hook.trim()));
+  const hook = spec.hook;
+  if (hook?.text.trim() && length > 1) children.push(hookText({ ...hook, text: hook.text.trim(), seconds: Math.min(hook.seconds, length) }));
 
   return node(
     "scene",
@@ -169,7 +208,10 @@ export function buildPost(spec: PostSpec): PostNode {
   );
 }
 
-const HOOK_SECONDS = 3.2;
+/** Where the captions' middle goes on a layout, as a share of the frame's height. */
+export function captionsPlace(slots: Slot[]): number {
+  return (captionsAt(slots) ?? LAYOUT_HEIGHT / 2) / LAYOUT_HEIGHT;
+}
 
 /** Where the captions' middle goes: on the seam under a facecam band, just under a game band, or low on a full frame. */
 function captionsAt(slots: Slot[]): number | null {
@@ -183,19 +225,21 @@ function captionsAt(slots: Slot[]): number | null {
   return under < LAYOUT_HEIGHT - 300 ? under : Math.round(LAYOUT_HEIGHT * 0.72);
 }
 
-/** The hook in the captions' gaming face, near the top where the feed's own buttons don't reach. */
-function hookText(words: string): PostNode {
-  const size = words.length > 48 ? 72 : 88;
+/** The hook in the captions' gaming face, its box wide enough for two lines. */
+function hookText(hook: PostHook): PostNode {
+  const size = Math.round(hook.size ?? HOOK_SIZE);
+  const height = Math.round(size * 3.9);
+  const middle = (hook.y ?? HOOK_Y) * LAYOUT_HEIGHT;
   return {
     tag: "text",
     props: {
       name: t("Hook"),
       x: 70,
-      y: 170,
+      y: Math.round(middle - height / 2),
       width: LAYOUT_WIDTH - 140,
-      height: 340,
+      height,
       start: 0,
-      end: HOOK_SECONDS,
+      end: Math.round(hook.seconds * 1000) / 1000,
       fontFamily: "Luckiest Guy",
       fontWeight: 400,
       fontSize: size,
@@ -205,7 +249,7 @@ function hookText(words: string): PostNode {
       leading: 1.05,
       color: "#FFFFFF",
     },
-    text: words,
+    text: hook.text,
     children: [
       node("stroke", { color: "#000000", width: Math.round(size * 0.18), join: "round" }),
       node("shadow", { color: "#000000", opacity: 0.8, blur: Math.round(size * 0.3) }),

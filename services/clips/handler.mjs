@@ -10,13 +10,13 @@ import { join } from "node:path";
 
 import { measureLoudness, pieceBytes, speechWav } from "./audio.mjs";
 import { chatSummary, heat, pickWindows } from "./signals.mjs";
-import { findPlaylists, findVideo, findViewerClips, parseTwitchLink, pickVideo, piecesBetween, readChat, readPieces, TwitchError } from "./twitch.mjs";
+import { findPlaylists, findVideo, findViewerClips, parseTwitchLink, pickVideo, piecesBetween, readChat, readPieces, readStoryboard, TwitchError } from "./twitch.mjs";
 
 const MIN_SECONDS = 60;
 const MAX_SECONDS = 14 * 3600;
-const WINDOWS = 25;
+const WINDOWS = 36;
 const TRANSCRIBE_AT_ONCE = 3;
-const MOMENTS = 8;
+const MOMENTS = 30;
 const MAX_CLIP_SECONDS = 120;
 /** A preview only has to be watched in a small player, at about a tenth of the full picture's size. */
 const PREVIEW_LINES = 480;
@@ -132,16 +132,15 @@ async function playlistsFor(vod, fetchImpl) {
   return lists;
 }
 
-/** Words of `words` inside [from, to), timed from `from`. */
-const wordsBetween = (words, from, to) =>
-  words.filter((word) => word.start >= from - 0.05 && word.end <= to + 0.05).map((word) => ({ text: word.text, start: Math.max(0, +(word.start - from).toFixed(3)), end: +(word.end - from).toFixed(3) }));
+/** The window's words on the broadcast's timeline. */
+const onTimeline = (words, from) => words.map((word) => ({ text: word.text, start: +(from + word.start).toFixed(3), end: +(from + word.end).toFixed(3) }));
 
 /**
  * The scan itself. `say` sends one progress line. Returns the broadcast and its moments, best first:
  * each with its stretch of the broadcast, a score, a title, a caption and the words said in it.
  */
 export async function scan(link, { req, user, env, say, fetchImpl = fetch, signal, sound = { measureLoudness, speechWav } }) {
-  const video = await findVideo(link, fetchImpl);
+  const { previews, ...video } = await findVideo(link, fetchImpl);
   if (video.seconds < MIN_SECONDS) throw new Refused(422, "That broadcast is too short to clip.");
   if (video.seconds > MAX_SECONDS) throw new Refused(422, "That broadcast is longer than 14 hours. Pick a shorter one.");
   say({ type: "video", video });
@@ -152,10 +151,11 @@ export async function scan(link, { req, user, env, say, fetchImpl = fetch, signa
   const seconds = Math.min(video.seconds, Math.floor(audio.seconds));
 
   say({ type: "step", step: "listening" });
-  const [clips, messages, loud] = await Promise.all([
+  const [clips, messages, loud, storyboard] = await Promise.all([
     findViewerClips(video.id, fetchImpl).catch(() => []),
     readChat(video.id, seconds, { fetchImpl }).catch(() => []),
     sound.measureLoudness(audio, { fetchImpl, ffmpeg: env.ffmpeg, signal }),
+    readStoryboard(previews, fetchImpl),
   ]);
 
   const muted = new Uint8Array(seconds);
@@ -218,6 +218,7 @@ export async function scan(link, { req, user, env, say, fetchImpl = fetch, signa
     if (!entry) return [];
     const start = entry.window.start + moment.start;
     const end = entry.window.start + moment.end;
+    // The whole stretch that was heard comes along, so the clip can be made longer or shorter and keep its captions.
     return [{
       start: +start.toFixed(2),
       end: +end.toFixed(2),
@@ -225,10 +226,11 @@ export async function scan(link, { req, user, env, say, fetchImpl = fetch, signa
       title: moment.title,
       caption: moment.caption,
       reason: moment.reason,
-      words: wordsBetween(entry.words, moment.start, moment.end),
+      window: { start: entry.window.start, end: entry.window.end },
+      words: onTimeline(entry.words, entry.window.start),
     }];
   });
-  return { video, moments, ...(spent ? { note: spent } : {}) };
+  return { video: { ...video, storyboard }, moments, ...(spent ? { note: spent } : {}) };
 }
 
 function ndjson(res) {

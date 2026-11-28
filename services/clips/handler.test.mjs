@@ -51,7 +51,7 @@ function fakes({ allowance = Infinity } = {}) {
   return { calls, fetchImpl, sound };
 }
 
-test("a moment comes back on the broadcast's timeline, with its words timed from its start", async () => {
+test("a moment comes back on the broadcast's timeline, with every word heard in its stretch", async () => {
   const { calls, fetchImpl, sound } = fakes();
   const lines = [];
   const result = await scan({ vod: VOD }, { req, user, env, say: (line) => lines.push(line), fetchImpl, sound });
@@ -61,7 +61,10 @@ test("a moment comes back on the broadcast's timeline, with its words timed from
   const [moment] = result.moments;
   assert.ok(moment.start >= 640 && moment.start < 700, `starts at ${moment.start}`);
   assert.equal(moment.end - moment.start, 25);
-  assert.deepEqual(moment.words, [{ text: "no", start: 5, end: 5.4 }, { text: "way!", start: 5.5, end: 6 }]);
+  // Every word heard in the stretch, on the broadcast's timeline, so the clip can be lengthened with its captions.
+  const from = moment.window.start;
+  assert.equal(moment.window.end - from, 60);
+  assert.deepEqual(moment.words, [{ text: "no", start: from + 10, end: from + 10.4 }, { text: "way!", start: from + 10.5, end: from + 11 }, { text: "later", start: from + 50, end: from + 51 }]);
   assert.equal(calls.headers[0].Authorization, "Bearer t");
   assert.equal(calls.headers[0]["X-Forwarded-For"], "203.0.113.9");
   assert.equal(lines.at(-1).step, "picking");
