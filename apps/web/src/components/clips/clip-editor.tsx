@@ -281,7 +281,28 @@ export function ClipEditor(props: ClipEditorProps) {
 
         <div class="relative grid min-h-0 flex-1 place-items-center overflow-hidden bg-(--plane-surface-2) p-4">
           <div class="relative aspect-[9/16] h-full max-h-full max-w-full overflow-hidden rounded-lg bg-black shadow-sm">
-            <canvas ref={canvas} class="size-full" role="img" aria-label={t("Preview of the clip")} onClick={toggle} />
+            <video
+              ref={player}
+              src={media()?.url}
+              class="pointer-events-none absolute inset-0 size-full object-contain"
+              muted={muted()}
+              playsinline
+              preload="auto"
+              onLoadedData={() => {
+                setReady(true);
+                seek(time());
+              }}
+              onSeeked={() => {
+                setFrame((value) => value + 1);
+                draw();
+              }}
+              onPlay={() => {
+                setPlaying(true);
+                tick();
+              }}
+              onPause={() => setPlaying(false)}
+            />
+            <canvas ref={canvas} class="relative size-full" role="img" aria-label={t("Preview of the clip")} onClick={toggle} />
             <Show when={!media() || media.loading}>
               <span class="pointer-events-none absolute inset-0 grid place-items-center">
                 <Show when={!media.error} fallback={<span class="px-4 text-center text-xs text-white/70">{(media.error as Error)?.message || t("The video couldn't be loaded.")}</span>}>
@@ -299,27 +320,6 @@ export function ClipEditor(props: ClipEditorProps) {
               </span>
             </Show>
           </div>
-          <video
-            ref={player}
-            src={media()?.url}
-            class="pointer-events-none absolute size-px opacity-0"
-            muted={muted()}
-            playsinline
-            preload="auto"
-            onLoadedData={() => {
-              setReady(true);
-              seek(time());
-            }}
-            onSeeked={() => {
-              setFrame((value) => value + 1);
-              draw();
-            }}
-            onPlay={() => {
-              setPlaying(true);
-              tick();
-            }}
-            onPause={() => setPlaying(false)}
-          />
         </div>
 
         <div class="flex shrink-0 flex-col gap-3 border-t border-(--plane-border-subtle) px-4 pt-3 pb-4">

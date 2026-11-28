@@ -29,7 +29,7 @@ let proxied: Promise<void> | undefined;
  * On the CPU, ONNX Runtime freezes the page for seconds. Its proxy worker fixes that, but only for WebAssembly
  * and only if set before the first session.
  */
-export function prepareTransformers(): Promise<void> {
+function keepOffMainThread(): Promise<void> {
   proxied ??= import("@huggingface/transformers").then(({ env }) => {
     let webGpuFailed = false;
     try {
@@ -65,7 +65,7 @@ export function removeImageBackground(
 ): Promise<Cutout> {
   const { signal, onProgress } = options;
   const run = queue.then(async () => {
-    await prepareTransformers();
+    await keepOffMainThread();
     const { BackgroundRemovalError, removeBackground } = await import("@bg0/browser");
     if (signal?.aborted) throw new BackgroundRemovalError("cancelled", t("Processing was cancelled."));
     const result = await removeBackground(typed(image), {

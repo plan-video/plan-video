@@ -45,8 +45,13 @@ export function CropEditor(props: CropEditorProps) {
     if (!ctx) return;
     const width = canvas.clientWidth || 300;
     const ratio = window.devicePixelRatio || 1;
-    canvas.width = Math.round(width * ratio);
-    canvas.height = Math.round((width / aspect()) * ratio);
+    const across = Math.round(width * ratio);
+    const down = Math.round((width / aspect()) * ratio);
+    // Setting a size clears and reallocates the canvas, so only when it changed.
+    if (canvas.width !== across || canvas.height !== down) {
+      canvas.width = across;
+      canvas.height = down;
+    }
     if (source && source.readyState >= 2) ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
     else {
       ctx.fillStyle = "#000000";

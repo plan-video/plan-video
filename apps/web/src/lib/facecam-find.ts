@@ -6,6 +6,7 @@
 // across a stream's frames: a third-person game keeps its character in the middle, and people in a game move.
 
 import type { Box, Crops } from "@/lib/stream-layouts";
+import type { FacecamAnswer, FacecamFrame, FacecamRequest } from "./facecam-worker";
 
 /** As fractions of the frame. */
 export type FoundPerson = Box & { score: number };
@@ -85,21 +86,33 @@ export function lookOf(frames: FoundPerson[][], { cameraOnly = false } = {}): St
   };
 }
 
-let detector: Promise<(image: unknown, options: object) => Promise<{ score: number; label: string; box: { xmin: number; ymin: number; xmax: number; ymax: number } }[]>> | null = null;
+let worker: Worker | null = null;
+let asked = 0;
+const waiting = new Map<number, { resolve(people: FoundPerson[][]): void; reject(error: Error): void }>();
 
-async function detect() {
-  detector ??= (async () => {
-    const { prepareTransformers } = await import("@/lib/background-removal");
-    await prepareTransformers();
-    const { pipeline } = await import("@huggingface/transformers");
-    return (await pipeline("object-detection", "Xenova/yolos-tiny", { dtype: "q8" })) as never;
-  })();
-  try {
-    return await detector;
-  } catch (error) {
-    detector = null;
-    throw error;
+/** The people in each frame, found in a worker so the page keeps moving. */
+function detect(frames: FacecamFrame[]): Promise<FoundPerson[][]> {
+  if (!worker) {
+    worker = new Worker(new URL("./facecam-worker.ts", import.meta.url), { type: "module" });
+    worker.onmessage = (event: MessageEvent<FacecamAnswer>) => {
+      const pending = waiting.get(event.data.id);
+      waiting.delete(event.data.id);
+      if (!pending) return;
+      if (event.data.error || !event.data.people) pending.reject(new Error(event.data.error ?? "The facecam couldn't be looked for."));
+      else pending.resolve(event.data.people);
+    };
+    worker.onerror = (event) => {
+      for (const pending of waiting.values()) pending.reject(new Error(event.message || "The facecam couldn't be looked for."));
+      waiting.clear();
+      worker?.terminate();
+      worker = null;
+    };
   }
+  const id = ++asked;
+  return new Promise((resolve, reject) => {
+    waiting.set(id, { resolve, reject });
+    worker!.postMessage({ id, frames } satisfies FacecamRequest, frames.map((frame) => frame.data.buffer));
+  });
 }
 
 /** Looks at frames between `from` and `to` seconds of `file` and says how to lay out the clip. */
@@ -109,28 +122,28 @@ export async function findStreamLook(
   to: number,
   { category = "", signal }: { category?: string; signal?: AbortSignal } = {},
 ): Promise<StreamLook> {
-  const [{ ALL_FORMATS, BlobSource, CanvasSink, Input }, { RawImage }] = await Promise.all([import("mediabunny"), import("@huggingface/transformers")]);
-  const run = await detect();
+  const { ALL_FORMATS, BlobSource, CanvasSink, Input } = await import("mediabunny");
   const input = new Input({ formats: ALL_FORMATS, source: new BlobSource(file) });
+  const frames: FacecamFrame[] = [];
   try {
     const track = await input.getPrimaryVideoTrack();
     if (!track || !(await track.canDecode())) return { layout: "blurred", crops: {} };
     const width = Math.min(640, track.displayWidth);
     const sink = new CanvasSink(track, { width, height: Math.round((width * track.displayHeight) / track.displayWidth), fit: "fill", poolSize: 1 });
     const times = Array.from({ length: FRAMES }, (_, i) => from + ((to - from) * (i + 0.5)) / FRAMES);
-    const frames: FoundPerson[][] = [];
     for await (const wrapped of sink.canvasesAtTimestamps(times)) {
       signal?.throwIfAborted();
       if (!wrapped) continue;
       const canvas = wrapped.canvas as HTMLCanvasElement | OffscreenCanvas;
-      const blob = canvas instanceof OffscreenCanvas ? await canvas.convertToBlob() : await new Promise<Blob>((done) => canvas.toBlob((b) => done(b!)));
-      const found = await run(await RawImage.fromBlob(blob), { threshold: MIN_SCORE, percentage: true });
-      frames.push(found.filter((entry) => entry.label === "person").map(({ score, box }) => ({ score, x: box.xmin, y: box.ymin, width: box.xmax - box.xmin, height: box.ymax - box.ymin })));
+      const ctx = canvas.getContext("2d") as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
+      const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      frames.push({ data: image.data, width: image.width, height: image.height });
     }
-    return lookOf(frames, { cameraOnly: cameraIsTheStream(category) });
   } finally {
     input.dispose();
   }
+  if (!frames.length) return { layout: "blurred", crops: {} };
+  return lookOf(await detect(frames), { cameraOnly: cameraIsTheStream(category) });
 }
 
 /** Frames a second of `file`'s picture, or null when it can't be read. */
