@@ -13,7 +13,7 @@ import { toast } from "somoto";
 import { appRoute, projectRoute, useReturnHere } from "@/hooks/use-project-route";
 import { track } from "@/lib/analytics";
 import { clipWords, clock, trimmed, type ClipEdit } from "@/lib/clip-studio";
-import { findStreamLook } from "@/lib/facecam-find";
+import { findStreamLook, type StreamLook } from "@/lib/facecam-find";
 import { t } from "@/lib/i18n";
 import { handPostVideo } from "@/projects/post-export";
 import { isInputTarget } from "@/utils";
@@ -30,8 +30,13 @@ type ClipEditorProps = {
   video: StreamVideo;
   clip: ClipEdit;
   update(change: (clip: ClipEdit) => void): void;
+  /** A look found for the whole stream, for every clip not looked at yet. */
+  onStreamLook(look: StreamLook): void;
   onBack(): void;
 };
+
+/** A streamer's camera stays put all stream, so it's looked for once per stream. */
+const streamLooks = new Map<string, Promise<StreamLook>>();
 
 type Busy = { kind: "schedule" | "download" | "open"; progress: number | null };
 
@@ -138,15 +143,27 @@ export function ClipEditor(props: ClipEditorProps) {
   createEffect(
     on(media, (loaded) => {
       if (!loaded || props.clip.looked) return;
-      void findFacecam(loaded);
+      void findFacecam(loaded, true);
     }),
   );
 
-  async function findFacecam(loaded = media()) {
+  async function findFacecam(loaded = media(), wholeStream = false) {
     if (!loaded) return;
     setFinding(true);
     try {
-      const look = await findStreamLook(loaded.file, loaded.at(props.clip.start), loaded.at(props.clip.end), { category: props.video.game });
+      const find = () => findStreamLook(loaded.file, loaded.at(props.clip.start), loaded.at(props.clip.end), { category: props.video.game });
+      let look: StreamLook;
+      if (wholeStream) {
+        const id = props.video.id;
+        let pending = streamLooks.get(id);
+        if (!pending) {
+          pending = find();
+          pending.catch(() => streamLooks.delete(id));
+          streamLooks.set(id, pending);
+        }
+        look = await pending;
+        props.onStreamLook(look);
+      } else look = await find();
       props.update((clip) => {
         clip.layout = look.layout;
         clip.crops = look.crops;

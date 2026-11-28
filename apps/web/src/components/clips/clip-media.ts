@@ -46,6 +46,18 @@ export function clipMedia(video: StreamVideo, clip: ClipEdit): Promise<ClipMedia
   return pending;
 }
 
+let aheadRun = 0;
+
+/** Fetches `next` one by one once `shown` has arrived, so moving on to them is instant; a newer call stops it. */
+export async function fetchAhead(video: StreamVideo, shown: ClipEdit, next: ClipEdit[]): Promise<void> {
+  const run = ++aheadRun;
+  await clipMedia(video, shown).catch(() => {});
+  for (const clip of next.slice(0, KEEP - 1)) {
+    if (run !== aheadRun) return;
+    await clipMedia(video, clip).catch(() => {});
+  }
+}
+
 /** The file's loudness in `buckets` peaks, for the trim bar's waveform. */
 export function clipPeaks(video: StreamVideo, clip: ClipEdit, buckets = 900): Promise<ClipPeaks> {
   const key = keyOf(video, clip);

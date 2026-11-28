@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { For, Show, createMemo, createSignal } from "solid-js";
+import { For, Show, createEffect, createMemo, createSignal } from "solid-js";
 
 import { Icon } from "@/components/dashboard/dashboard-icon";
 import { PlaneIcon } from "@/components/dashboard/plane-icons";
@@ -43,7 +43,12 @@ type ClipListProps = {
   onOpen(id: string): void;
   onDuplicate(id: string): void;
   onDelete(id: string): void;
+  /** The open clip and the ones after it, in the order shown. */
+  onUpNext?(open: ClipEdit, next: ClipEdit[]): void;
 };
+
+/** How many clips after the open one are fetched ahead. */
+const UP_NEXT = 2;
 
 export function ClipList(props: ClipListProps) {
   const [order, setOrder] = createSignal<ClipOrder>("best");
@@ -51,6 +56,19 @@ export function ClipList(props: ClipListProps) {
     const clips = [...props.clips];
     if (order() === "time") return clips.sort((a, b) => a.start - b.start);
     return clips.sort((a, b) => (b.score ?? -1) - (a.score ?? -1) || a.start - b.start);
+  });
+  const upNext = createMemo(
+    () => {
+      const list = sorted();
+      const at = list.findIndex((clip) => clip.id === props.active);
+      return at < 0 ? null : { open: list[at]!, next: list.slice(at + 1, at + 1 + UP_NEXT) };
+    },
+    null,
+    { equals: (a, b) => a?.open === b?.open && a?.next.length === b?.next.length && !!a?.next.every((clip, i) => clip === b?.next[i]) },
+  );
+  createEffect(() => {
+    const now = upNext();
+    if (now) props.onUpNext?.(now.open, now.next);
   });
 
   return (
