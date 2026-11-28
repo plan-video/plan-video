@@ -6,7 +6,7 @@ import { describe, expect, test } from "vitest";
 
 import { nextRunAfter } from "../../../../../services/publisher/schedule.mjs";
 
-import { createPostingTools, type AgentContext, type FileCopy, type PostData, type PostFilter, type PostingStore, type PostRow } from "./posts";
+import { createPostingTools, type AgentContext, type DeliveryRow, type FileCopy, type PostData, type PostFilter, type PostingStore, type PostRow } from "./posts";
 
 const NOW = Date.parse("2026-11-27T12:00:00Z");
 
@@ -17,12 +17,13 @@ function context(overrides: Partial<AgentContext> = {}): AgentContext {
     name: "Personal",
     role: "owner",
     level: 2,
+    membersNeedApproval: false,
     timeZone: "Europe/Amsterdam",
     calendarId: "posts",
     connections: [
-      { id: "bsky", platform: "bluesky", handle: "me.bsky.social", ready: true },
-      { id: "tt", platform: "tiktok", handle: "@me", ready: true },
-      { id: "yt", platform: "youtube", handle: "Me", ready: true },
+      { id: "bsky", platform: "bluesky", handle: "me.bsky.social", ready: true, scope: "", page: false },
+      { id: "tt", platform: "tiktok", handle: "@me", ready: true, scope: "video.publish,video.list", page: false },
+      { id: "yt", platform: "youtube", handle: "Me", ready: true, scope: "", page: false },
     ],
     library: [
       { id: "clip", name: "clip.mp4", kind: "video", type: "video/mp4", size: 100, width: 1080, height: 1920, duration: 30, lastModified: 1, createdAt: "2026-11-01T00:00:00Z", uses: 0 },
@@ -32,10 +33,18 @@ function context(overrides: Partial<AgentContext> = {}): AgentContext {
   };
 }
 
-/** Versions as the posts table keeps them: a write over an older one is a conflict. */
-function memoryStore(scope = context()) {
+const CREATOR = { creator_nickname: "Me", creator_username: "me", privacy_level_options: ["PUBLIC_TO_EVERYONE", "SELF_ONLY"], comment_disabled: false, duet_disabled: false, stitch_disabled: false, max_video_post_duration_sec: 600 };
+
+/**
+ * Versions as the posts table keeps them: a write over an older one is a conflict. A send hands each network to the
+ * publisher, which settles it (`settle`) by the time the tool first waits.
+ */
+function memoryStore(scope = context(), { settle = (_platform: string) => ({ state: "sent" }) as { state: string; error?: string }, reads = {} as Record<string, unknown> } = {}) {
   const rows = new Map<string, PostRow>();
   const copies: FileCopy[] = [];
+  const sent: string[] = [];
+  const asked: { route: string; body: object }[] = [];
+  const approvals: { id: string; base: number; snapshot: Record<string, unknown> }[] = [];
   const store: PostingStore = {
     context: async () => scope,
     async posts(_scope, filter: PostFilter) {
@@ -57,15 +66,55 @@ function memoryStore(scope = context()) {
     async copyFiles(_scope, list) {
       copies.push(...list);
     },
+    async remove(_scope, id, base) {
+      if (rows.get(id)?.version !== base) return { conflict: true as const };
+      rows.delete(id);
+      return { deleted: true as const };
+    },
+    async askApproval(_scope, id, base, snapshot) {
+      const row = rows.get(id)!;
+      if (row.version !== base) return { conflict: true as const };
+      approvals.push({ id, base, snapshot: snapshot as Record<string, unknown> });
+      row.data = { ...row.data, status: "draft", approval: { state: "pending", at: new Date(NOW).toISOString() } };
+      row.version += 1;
+      return { version: row.version, preview: "preview-1" };
+    },
+    async send(id) {
+      const row = rows.get(id)!;
+      sent.push(id);
+      row.deliveries = Object.fromEntries(row.data.platforms.map((platform) => [platform, { state: "queued" }]));
+      return row.data.platforms.map((platform): DeliveryRow => ({ platform, connection_id: "c", state: "queued", error: null }));
+    },
+    async network<T>(route: string, body: object) {
+      asked.push({ route, body });
+      if (!(route in reads)) throw new Error(`no ${route} here`);
+      const answer = reads[route];
+      if (answer instanceof Error) throw answer;
+      return answer as T;
+    },
   };
-  return { store, rows, copies, tools: createPostingTools(store, { now: () => NOW }) };
+  const sleep = async () => {
+    for (const id of sent) {
+      const row = rows.get(id);
+      if (!row) continue;
+      const deliveries = Object.fromEntries(Object.keys(row.deliveries).map((platform) => [platform, settle(platform)]));
+      row.deliveries = deliveries;
+      if (Object.values(deliveries).every((delivery) => delivery.state === "sent")) row.data = { ...row.data, status: "posted" };
+    }
+  };
+  return { store, rows, copies, sent, asked, approvals, tools: createPostingTools(store, { now: () => NOW, sleep, site: "https://plan.example" }) };
 }
 
 async function ok(outcome: Promise<unknown>) {
-  const result = (await outcome) as { text?: string; error?: boolean; tab?: string };
-  expect(result.tab, result.tab).toBeUndefined();
+  const result = (await outcome) as { text?: string; error?: boolean };
   expect(result.error, result.text).toBe(false);
   return JSON.parse(result.text!);
+}
+
+async function refused(outcome: Promise<unknown>) {
+  const result = (await outcome) as { text: string; error: boolean };
+  expect(result.error, result.text).toBe(true);
+  return result.text;
 }
 
 const existing = (id: string, data: Partial<PostData> = {}): PostRow => ({
@@ -115,35 +164,47 @@ describe("schedule_post without a tab", () => {
     expect(nextRunAfter(saved, "UTC", new Date("2026-12-08T09:00:00Z"))).toBeNull();
   });
 
-  test("leaves a post due within minutes to the tab, and saves nothing", async () => {
-    const { tools, rows, copies } = memoryStore();
+  test("a post due in a few minutes is saved like any other", async () => {
+    const { tools, rows } = memoryStore();
     // 13:05 in Amsterdam is five minutes from NOW.
-    const result = await tools.run("schedule_post", { caption: "Now-ish", platforms: ["bluesky"], day: "2026-11-27", time: "13:05", media: "media:pic" });
-    expect(result).toEqual({ tab: expect.stringContaining("within 10 minutes") });
-    expect(rows.size).toBe(0);
-    expect(copies).toEqual([]);
-    await ok(tools.run("schedule_post", { caption: "Later", platforms: ["bluesky"], day: "2026-11-27", time: "13:15" }));
+    const view = await ok(tools.run("schedule_post", { caption: "Now-ish", platforms: ["bluesky"], day: "2026-11-27", time: "13:05" }));
+    expect(rows.get(view.id)!.data).toMatchObject({ status: "scheduled", start: "13:05" });
   });
 
-  test("a draft never waits on the tab, whatever its day", async () => {
+  test("a draft has no time to go out at", async () => {
     const { tools, rows } = memoryStore();
     const view = await ok(tools.run("schedule_post", { caption: "Idea", platforms: ["bluesky"], draft: true }));
     expect(rows.get(view.id)!.data).toMatchObject({ status: "draft", allDay: true, day: "2026-11-27" });
   });
 
-  test("TikTok's profile needs the person's yes in the tab; its inbox doesn't", async () => {
-    const { tools, rows } = memoryStore();
-    const profile = await tools.run("schedule_post", {
-      caption: "Dance",
-      platforms: ["tiktok"],
-      day: "2026-12-02",
-      time: "10:00",
-      media: "media:clip",
-      tiktok: { privacy: "public", promotion: "none", agreed: true },
-    });
-    expect(profile).toEqual({ tab: expect.stringContaining("TikTok's terms") });
+  test("TikTok's profile needs the user's yes and goes by the account's creator info; its inbox needs neither", async () => {
+    const { tools, rows, asked } = memoryStore(context(), { reads: { "tiktok/creator": { data: { ...CREATOR, comment_disabled: true } } } });
+    const post = { caption: "Dance", platforms: ["tiktok"], day: "2026-12-02", time: "10:00", media: "media:clip" };
+    const unasked = await refused(tools.run("schedule_post", { ...post, tiktok: { privacy: "public", promotion: "none" } }));
+    expect(unasked).toContain("By posting, you agree to TikTok's Music Usage Confirmation");
+    expect(await refused(tools.run("schedule_post", { ...post, tiktok: { privacy: "friends", promotion: "none", agreed: true } }))).toContain("can't show a post to friends");
     expect(rows.size).toBe(0);
-    await ok(tools.run("schedule_post", { caption: "Dance", platforms: ["tiktok"], day: "2026-12-02", time: "10:00", media: "media:clip", tiktok: { inbox: true } }));
+
+    const view = await ok(tools.run("schedule_post", { ...post, tiktok: { privacy: "public", promotion: "none", comments: true, agreed: true } }));
+    expect(rows.get(view.id)!.data.tiktok).toMatchObject({ privacy: "public", comments: false });
+    expect(view.warnings).toContainEqual(expect.stringContaining("Comments is turned off"));
+    expect(asked.every(({ route, body }) => route === "tiktok/creator" && (body as { connectionId: string }).connectionId === "tt")).toBe(true);
+
+    asked.length = 0;
+    await ok(tools.run("schedule_post", { ...post, tiktok: { inbox: true } }));
+    expect(asked).toEqual([]);
+  });
+
+  test("a member's post waits for approval where the workspace asks for it, and the owner's goes out", async () => {
+    const member = memoryStore(context({ role: "member", membersNeedApproval: true }));
+    const held = await ok(member.tools.run("schedule_post", { caption: "Hi", platforms: ["bluesky"], day: "2026-12-01", time: "09:30" }));
+    expect(member.rows.get(held.id)!.data).toMatchObject({ status: "draft", approval: { state: "pending" } });
+    expect(held.approval).toEqual({ state: "pending" });
+    expect(held.warnings).toContainEqual(expect.stringContaining("ask_for_approval"));
+
+    const owner = memoryStore(context({ membersNeedApproval: true }));
+    const view = await ok(owner.tools.run("schedule_post", { caption: "Hi", platforms: ["bluesky"], day: "2026-12-01", time: "09:30" }));
+    expect(owner.rows.get(view.id)!.data.status).toBe("scheduled");
   });
 
   test("copies a library file onto the post before the post names it", async () => {
@@ -202,13 +263,19 @@ describe("update_post and copy_post without a tab", () => {
     expect(rows.get("p1")!.data.description).toBe("New words");
   });
 
-  test("a new time gets a new sendFrom, and one within minutes goes to the tab", async () => {
+  test("a new time gets a new sendFrom", async () => {
     const { tools, rows } = memoryStore();
     rows.set("p1", existing("p1"));
     await ok(tools.run("update_post", { id: "p1", day: "2026-12-11", time: "10:00" }));
     expect(rows.get("p1")!.data).toMatchObject({ day: "2026-12-11", start: "10:00", sendFrom: new Date(NOW).toISOString() });
-    expect(await tools.run("update_post", { id: "p1", day: "2026-11-27", time: "13:01" })).toEqual({ tab: expect.stringContaining("within 10 minutes") });
-    expect(rows.get("p1")!.data.day).toBe("2026-12-11");
+  });
+
+  test("a post waiting for approval keeps waiting at a new time, and can't be scheduled around it", async () => {
+    const { tools, rows } = memoryStore(context({ role: "member", membersNeedApproval: true }));
+    rows.set("p1", existing("p1", { status: "draft", approval: { state: "pending", at: "2026-11-20T00:00:00Z" } }));
+    await ok(tools.run("update_post", { id: "p1", day: "2026-12-11", time: "10:00" }));
+    expect(rows.get("p1")!.data).toMatchObject({ status: "draft", day: "2026-12-11", approval: { state: "pending" } });
+    expect(await refused(tools.run("update_post", { id: "p1", draft: false }))).toContain("waiting for approval");
   });
 
   test("a post that went out stays as it went out", async () => {
@@ -258,14 +325,87 @@ describe("update_post and copy_post without a tab", () => {
   });
 });
 
-describe("what stays with the tab, and what's read", () => {
-  test("publishing, deleting, TikTok's details and analytics go to the tab", async () => {
-    const { tools } = memoryStore();
-    for (const name of ["publish_post", "delete_post", "tiktok_creator", "analytics"]) {
-      expect(await tools.run(name, { id: "p1" })).toEqual({ tab: expect.any(String) });
-    }
+describe("what used to need the tab", () => {
+  test("delete_post deletes over the version read, but not a post that went out", async () => {
+    const { tools, rows } = memoryStore();
+    rows.set("p1", existing("p1"));
+    rows.set("p2", existing("p2", { status: "posted" }));
+    expect(await ok(tools.run("delete_post", { id: "p1" }))).toEqual({ id: "p1", deleted: true });
+    expect(rows.has("p1")).toBe(false);
+    expect(await refused(tools.run("delete_post", { id: "p2" }))).toContain("stay as they went out");
+    expect(rows.has("p2")).toBe(true);
   });
 
+  test("publish_post moves a future post to now, hands it to the publisher and waits until it's out", async () => {
+    const { tools, rows, sent } = memoryStore();
+    rows.set("p1", existing("p1"));
+    const view = await ok(tools.run("publish_post", { id: "p1" }));
+    expect(sent).toEqual(["p1"]);
+    expect(view.deliveries).toEqual([{ platform: "bluesky", state: "sent" }]);
+    // 12:00 UTC is 13:00 in Amsterdam.
+    expect(rows.get("p1")!.data).toMatchObject({ day: "2026-11-27", start: "13:00", status: "posted" });
+  });
+
+  test("a send that fails says why and puts the post back at its time", async () => {
+    const { tools, rows } = memoryStore(context(), { settle: () => ({ state: "failed", error: "Bluesky is down." }) });
+    rows.set("p1", existing("p1"));
+    expect(await refused(tools.run("publish_post", { id: "p1" }))).toContain("Bluesky: Bluesky is down.");
+    expect(rows.get("p1")!.data).toMatchObject({ day: "2026-12-10", start: "09:00", status: "scheduled" });
+  });
+
+  test("publish_post sends nothing it can't: a post waiting for approval, files still uploading, TikTok without the user's yes", async () => {
+    const { tools, rows, sent } = memoryStore(context(), { reads: { "tiktok/creator": { data: CREATOR } } });
+    rows.set("waiting", existing("waiting", { status: "draft", approval: { state: "pending", at: "2026-11-20T00:00:00Z" } }));
+    expect(await refused(tools.run("publish_post", { id: "waiting" }))).toContain("waiting for approval");
+    const tiktok = { privacy: "public" as const, comments: true, duet: true, stitch: true, yourBrand: false, brandedContent: false };
+    const video = { id: "f1", name: "clip.mp4", type: "video/mp4", lastModified: 1 };
+    rows.set("uploading", existing("uploading", { platforms: ["tiktok"], accounts: { tiktok: ["tt"] }, tiktok, files: ["f1"], media: [video] }));
+    expect(await refused(tools.run("publish_post", { id: "uploading", agreed: true }))).toContain("haven't reached plan.video's storage");
+    rows.set("tiktok", existing("tiktok", { platforms: ["tiktok"], accounts: { tiktok: ["tt"] }, tiktok, files: ["f1"], media: [{ ...video, cloud: { key: "posts/owner-1/f1", at: "" } }] }));
+    expect(await refused(tools.run("publish_post", { id: "tiktok" }))).toContain("TikTok's terms");
+    expect(sent).toEqual([]);
+    await ok(tools.run("publish_post", { id: "tiktok", agreed: true }));
+    expect(sent).toEqual(["tiktok"]);
+  });
+
+  test("ask_for_approval shares what the post shows and returns its link", async () => {
+    const { tools, rows, approvals } = memoryStore();
+    rows.set("p1", existing("p1"));
+    const view = await ok(tools.run("ask_for_approval", { id: "p1" }));
+    expect(view).toMatchObject({ status: "draft", approval: { state: "pending" }, approvalLink: "https://plan.example/p/preview-1" });
+    expect(approvals).toEqual([
+      {
+        id: "p1",
+        base: 3,
+        snapshot: expect.objectContaining({ status: "draft", workspaceId: "default", platforms: [{ id: "bluesky", name: "Bluesky", handles: ["me.bsky.social"], avatars: [""] }] }),
+      },
+    ]);
+  });
+
+  test("tiktok_creator reads the account through the publisher", async () => {
+    const { tools } = memoryStore(context(), { reads: { "tiktok/creator": { data: CREATOR } } });
+    expect(await ok(tools.run("tiktok_creator", {}))).toMatchObject({ accountId: "tt", nickname: "Me", privacy: ["public", "private"], comments: true });
+  });
+
+  test("analytics counts each network's posts on their day in the dashboard's zone, and says why one couldn't be read", async () => {
+    // 23:30 UTC on Tuesday is 00:30 on Wednesday in Amsterdam.
+    const late = Date.parse("2026-11-24T23:30:00Z");
+    const { tools } = memoryStore(context(), {
+      reads: {
+        "tiktok/videos": { videos: [{ id: "v1", title: "Late one", postedAt: late, views: 120, likes: 10, comments: 2 }] },
+        "youtube/analytics": new Error("YouTube is having a moment."),
+      },
+    });
+    const answer = await ok(tools.run("analytics", { days: 30 }));
+    expect(answer.timeZone).toBe("Europe/Amsterdam");
+    expect(answer.topPosts).toEqual([expect.objectContaining({ title: "Late one", postedAt: "2026-11-25 00:30, Wednesday", views: 120 })]);
+    expect(answer.byWeekday).toEqual([expect.objectContaining({ weekday: "Wednesday", posts: 1 })]);
+    expect(answer.accounts).toContainEqual(expect.objectContaining({ platform: "youtube", state: "YouTube is having a moment." }));
+    expect(answer.accounts).toContainEqual(expect.objectContaining({ platform: "tiktok", state: "ready", totals: { views: 120, likes: 10, comments: 2 } }));
+  });
+});
+
+describe("what's read", () => {
   test("list_posts reads deliveries as sending until the network has it", async () => {
     const { tools, rows } = memoryStore();
     rows.set("p1", { ...existing("p1"), deliveries: { bluesky: { state: "queued" } } });

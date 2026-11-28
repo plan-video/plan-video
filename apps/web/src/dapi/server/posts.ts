@@ -2,27 +2,32 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The posting tools agents call at plan.video/mcp, run by services/mcp with no plan.video tab open. They keep the
-// tab's rules (lib/post-rules) and save over the version read, as a browser does. What needs the person there
-// (publishing now, deleting, a post due within minutes, TikTok's terms) is handed to their tab instead.
+// The tools agents call at plan.video/mcp, run by services/mcp with no plan.video tab open. They keep the tab's
+// rules (lib/post-rules) and save over the version read, as a browser does. The person's yes is asked by their
+// agent, which shows each tool's annotations: there's no plan.video tab to ask in.
 
-import { DapiError, isDapiError, listMediaTool, toolByName, type ToolArgs, type ToolName } from "@plan.video/dapi";
+import { analyticsTool, checkTikTokCreator, DapiError, isDapiError, listMediaTool, tiktokConsent, toolByName, type ToolArgs, type ToolName } from "@plan.video/dapi";
 
 import { isDateKey, newId, resolveRepeatEnd } from "@/components/calendar/utils";
-import { CONFIRM_LEAD_MS } from "@/lib/agent-confirm";
 import { inEnglish } from "@/lib/i18n";
 import { FREE_SCHEDULED_PER_ACCOUNT } from "@/lib/plans";
 import {
+  approvalRules,
   assertFits,
+  awaitingApproval,
+  AWAITING_APPROVAL,
   clock,
   definedOnly,
   isPlatform,
   keptAccountIds,
   mergeAccountChoices,
   pickAccounts,
+  heldWarning,
+  NEEDS_FILE,
   postTitle,
   postViewOf,
   readChoices,
+  readTikTokCreator,
   refuseSoon,
   removedAccountNotes,
   repeatOf,
@@ -30,18 +35,35 @@ import {
   scheduleProblem,
   socialSchemaView,
   threadOf,
+  tiktokCreatorView,
   tiktokOf,
   toProfile,
   youtubeOf,
   PUBLISHES,
 } from "@/lib/post-rules";
-import { isAspect, sortPlatforms, type MediaSummary, type PlatformId, type PostKind, type YouTubePostSettings } from "@/lib/social";
-import { dayKeyAt, momentOf } from "@/lib/time-zone";
+import {
+  isAspect,
+  listNames,
+  PUBLISHING_PLATFORMS,
+  socialPlatform,
+  sortPlatforms,
+  type MediaSummary,
+  type PlatformId,
+  type PostKind,
+  type TikTokPostSettings,
+  type YouTubePostSettings,
+} from "@/lib/social";
+import { clockAt, dayKeyAt, momentOf } from "@/lib/time-zone";
+
+import type { AnalyticsArgs } from "@/lib/analytics-answer";
+
+import { readAnalytics, type NetworkReads } from "./analytics";
 
 import type { Delivery, StoredEvent } from "@/components/calendar/types";
 import type { AccountChoices } from "@/lib/social-connections";
 
-export type AgentAccount = { id: string; platform: string; handle: string; ready: boolean };
+/** `scope` is what its login was granted; `page` is a LinkedIn company Page. */
+export type AgentAccount = { id: string; platform: string; handle: string; ready: boolean; scope: string; page: boolean };
 
 export type LibraryItem = {
   id: string;
@@ -64,6 +86,7 @@ export type AgentContext = {
   name: string;
   role: "owner" | "admin" | "member";
   level: number;
+  membersNeedApproval: boolean;
   timeZone: string;
   calendarId: string;
   connections: AgentAccount[];
@@ -77,54 +100,59 @@ export type PostData = StoredEvent & { media?: FileDetails[] };
 
 export type PostRow = { id: string; version: number; data: PostData; deliveries: Partial<Record<string, { state: string; error?: string }>> };
 
+/** As post_deliveries has them, from the publisher's send route. */
+export type DeliveryRow = { platform: string; connection_id: string; state: string; error: string | null };
+
 export type PostFilter = { id?: string; status?: string; from?: string; to?: string };
 
 /** A file copied onto a post, from the library (`media/<id>`) or another post (`posts/<id>`). */
 export type FileCopy = { from: string; to: string };
 
-/** An error with `tab: true` hands the call to the person's tab, as when the server can't do it yet. */
-export interface PostingStore {
+export interface PostingStore extends NetworkReads {
   context(): Promise<AgentContext>;
   posts(scope: AgentContext, filter: PostFilter): Promise<PostRow[]>;
   save(scope: AgentContext, post: PostData, base: number | null): Promise<{ version: number } | { conflict: true }>;
+  remove(scope: AgentContext, id: string, base: number): Promise<{ deleted: true } | { conflict: true }>;
+  askApproval(scope: AgentContext, id: string, base: number, snapshot: object): Promise<{ version: number; preview: string } | { conflict: true }>;
   copyFiles(scope: AgentContext, copies: FileCopy[]): Promise<void>;
+  /** Hands the post to the publisher now. */
+  send(id: string): Promise<DeliveryRow[]>;
 }
 
-/** `tab` says why only the person's open plan.video can do it. */
-export type ToolOutcome = { text: string; error: boolean } | { tab: string };
+export type ToolOutcome = { text: string; error: boolean };
 
-const IN_TAB: Record<string, string> = {
-  publish_post: "Publishing now waits for the user's yes in plan.video.",
-  delete_post: "Deleting a post waits for the user's yes in plan.video.",
-  tiktok_creator: "TikTok's account details are read through plan.video in the browser.",
-  analytics: "Analytics are read in plan.video in the browser.",
+export type PostingOptions = {
+  now?: () => number;
+  /** Between looks at a send's progress. */
+  sleep?: (ms: number) => Promise<void>;
+  /** Where approval links point. */
+  site?: string;
 };
-
-const SOON = `A post due within ${CONFIRM_LEAD_MS / 60_000} minutes waits for the user's yes in plan.video. Schedule it later than that to save it without them.`;
-const TIKTOK_TERMS = "Posting to the TikTok profile waits for the user's yes to TikTok's terms in plan.video. Pass tiktok.inbox true to send it to their TikTok inbox instead, or save it with draft true.";
 
 /** As calendar/store counts the Free plan's waiting posts. */
 const GOING_OUT_MS = 5 * 60_000;
 const SCHEDULED_LIMIT = "On the Free plan, each account can have 10 scheduled posts waiting at a time. Upgrade for unlimited posts.";
 const CONFLICT = "The post changed in plan.video while this was saved, so nothing was changed. Read it again with list_posts and try again.";
-
-class InTab extends Error {}
+/** A send that takes longer goes on without the agent waiting: list_posts tells how it went. */
+const SEND_WAIT_MS = 120_000;
+const SEND_LOOK_MS = 3_000;
 
 type Attached = { from: string[]; names: { name: string; type: string; lastModified: number }[]; kind: PostKind; media: MediaSummary };
 
-type Session = { scope: AgentContext; store: PostingStore; now: number };
+type Session = { scope: AgentContext; store: PostingStore; now: number; options: Required<PostingOptions> };
 
-const SERVER_TOOLS = new Set(["social_accounts", "social_schema", "list_media", "list_posts", "schedule_post", "copy_post", "update_post"]);
-
-export function createPostingTools(store: PostingStore, options: { now?: () => number } = {}) {
-  const now = options.now ?? Date.now;
+export function createPostingTools(store: PostingStore, given: PostingOptions = {}) {
+  const options: Required<PostingOptions> = {
+    now: given.now ?? Date.now,
+    sleep: given.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms))),
+    site: (given.site ?? "https://plan.video").replace(/\/$/, ""),
+  };
   return {
-    handles: (name: string) => SERVER_TOOLS.has(name) || Object.hasOwn(IN_TAB, name),
+    handles: (name: string) => Object.hasOwn(HANDLERS, name) || name === "social_schema",
 
     async run(name: string, input: unknown): Promise<ToolOutcome> {
-      if (Object.hasOwn(IN_TAB, name)) return { tab: IN_TAB[name]! };
-      if (!SERVER_TOOLS.has(name)) return { text: `There is no tool named ${name}.`, error: true };
-      const schema = name === listMediaTool.name ? listMediaTool.input : toolByName(name as ToolName).input;
+      if (!Object.hasOwn(HANDLERS, name) && name !== "social_schema") return { text: `There is no tool named ${name}.`, error: true };
+      const schema = name === listMediaTool.name ? listMediaTool.input : name === analyticsTool.name ? analyticsTool.input : toolByName(name as ToolName).input;
       const parsed = schema.safeParse(input ?? {});
       if (!parsed.success) {
         const problems = parsed.error.issues.map((issue) => `${issue.path.join(".") || "input"}: ${issue.message}`).join("; ");
@@ -132,11 +160,10 @@ export function createPostingTools(store: PostingStore, options: { now?: () => n
       }
       try {
         if (name === "social_schema") return { text: JSON.stringify(socialSchemaView((parsed.data as ToolArgs<"social_schema">).platform)), error: false };
-        const session: Session = { scope: await store.context(), store, now: now() };
+        const session: Session = { scope: await store.context(), store, now: options.now(), options };
         const output = await HANDLERS[name as keyof typeof HANDLERS](session, parsed.data as never);
         return { text: JSON.stringify(output), error: false };
       } catch (error) {
-        if (error instanceof InTab || (error as { tab?: unknown } | null)?.tab === true) return { tab: (error as Error).message };
         const message = (error as Error).message || String(error);
         return { text: isDapiError(error) ? `${error.code}: ${message}` : message, error: true };
       }
@@ -151,6 +178,11 @@ const HANDLERS = {
   schedule_post: schedulePost,
   copy_post: copyPost,
   update_post: updatePost,
+  delete_post: deletePost,
+  publish_post: publishPost,
+  ask_for_approval: askForApproval,
+  tiktok_creator: tiktokCreator,
+  analytics: (session: Session, args: AnalyticsArgs) => readAnalytics(session.store, session.scope, args, session.now),
 };
 
 // ---------------------------------------------------------------------------
@@ -326,12 +358,40 @@ async function written(session: Session, post: PostData, base: number | null): P
   return { id: post.id, version: saved.version, data: post, deliveries: {} };
 }
 
-/** The checks that need the person: anything going out within minutes, or a yes to TikTok's terms. */
-function refuseUnseen(session: Session, scheduled: boolean, at: Date | null, tiktokYes: boolean) {
-  if (!scheduled) return;
-  if (!at || at.getTime() - session.now < CONFIRM_LEAD_MS) throw new InTab(SOON);
-  if (tiktokYes) throw new InTab(TIKTOK_TERMS);
+async function creatorOf(session: Session, account: AgentAccount) {
+  try {
+    const answer = await session.store.network<{ data?: Record<string, unknown> }>("tiktok/creator", { connectionId: account.id });
+    const creator = readTikTokCreator(answer.data ?? {});
+    if (!creator) throw new Error("TikTok didn't say who can watch this post. Try again in a minute.");
+    return creator;
+  } catch (cause) {
+    throw new DapiError("unsupported", `TikTok (${account.handle}): ${(cause as Error).message}`, { cause });
+  }
 }
+
+/** TikTok's rules for its profile: the user's yes to TikTok's terms, passed by their agent, and each account's creator info. */
+async function tiktokYes(session: Session, choices: AccountChoices | undefined, tiktok: TikTokPostSettings, media: MediaSummary | null, agreed: boolean | undefined, field: string) {
+  if (agreed !== true) {
+    throw new DapiError(
+      "invalid-input",
+      `Posting to the TikTok profile needs the user's yes to TikTok's terms. Show them this, word for word: "${tiktokConsent(tiktok.brandedContent)}" Then pass ${field} true once they accept.`,
+    );
+  }
+  let settings = tiktok;
+  const warnings: string[] = [];
+  for (const account of accountsFor(session.scope, "tiktok", choices)) {
+    if (!account.ready) continue;
+    const checked = checkTikTokCreator(settings, await creatorOf(session, account), media?.kind === "video" ? media.duration : null);
+    if (checked.errors.length) throw new DapiError("invalid-input", checked.errors.join(" "));
+    settings = checked.choices;
+    warnings.push(...checked.warnings);
+  }
+  return { tiktok: settings, warnings };
+}
+
+/** The workspace's approval rule, as the calendar store applies it in the tab. */
+const withRules = <T extends StoredEvent>(session: Session, saved: StoredEvent | undefined, next: T) =>
+  approvalRules(saved, next, { approver: session.scope.role !== "member", membersNeedApproval: session.scope.membersNeedApproval }, new Date(session.now).toISOString());
 
 type NewPost = Omit<ToolArgs<"schedule_post">, "media">;
 
@@ -360,16 +420,20 @@ async function saveNew(session: Session, args: NewPost, shared: Attached | null,
   const title = postTitle(args.youtube?.title || caption, shared?.names[0]?.name.replace(/\.[^.]+$/, "") || "Untitled post");
   const media = mediaOn(shared, own);
   const youtube = youtubeOf(args.youtube, youtubeBefore, platforms, caption, knownShape(media("youtube")));
-  const tiktok = platforms.includes("tiktok") ? tiktokOf(args.tiktok) : undefined;
+  let tiktok = platforms.includes("tiktok") ? tiktokOf(args.tiktok) : undefined;
   requireTikTok(platforms, tiktok, scheduling);
   const warnings = assertFits({ kind: kindOf(shared, own), platforms, caption, title: youtube?.title || title, media });
-  refuseUnseen(session, scheduling, when, scheduling && toProfile(platforms, tiktok));
+  if (scheduling && toProfile(platforms, tiktok)) {
+    const checked = await tiktokYes(session, choices, tiktok, media("tiktok"), args.tiktok?.agreed, "tiktok.agreed");
+    tiktok = checked.tiktok;
+    warnings.push(...checked.warnings);
+  }
   const { repeat, repeatEnd } = repeatOf(args.repeat, day);
   const thread = threadOf(args.thread, platforms);
 
   const id = newId();
   const recurrence = repeat || null;
-  const post: PostData = withOwnCaptions(
+  const post: PostData = withRules(session, undefined, withOwnCaptions(
     {
       allDay: !scheduling && !time,
       calendarId: scope.calendarId,
@@ -396,12 +460,12 @@ async function saveNew(session: Session, args: NewPost, shared: Attached | null,
       title: title || "Untitled post",
     },
     { youtube: youtube?.description },
-  );
+  ));
   await refuseOverLimit(session, post);
   // Files last of all the checks: a copy can't be taken back.
   if (shared || Object.keys(own).length) Object.assign(post, await copyOnto(session, id, shared, own));
   const row = await written(session, post, null);
-  return viewOf(session, row, warnings);
+  return viewOf(session, row, [...warnings, ...heldWarning(post, scheduling)]);
 }
 
 // ---------------------------------------------------------------------------
@@ -523,9 +587,11 @@ async function updatePost(session: Session, args: ToolArgs<"update_post">) {
   const time = args.time ? clock(args.time) : existing.allDay ? null : existing.start;
 
   let status = existing.status;
+  if (args.draft === false && awaitingApproval(existing)) throw new DapiError("invalid-input", AWAITING_APPROVAL);
   if (args.draft === true) status = "draft";
   else if (args.draft === false) status = "scheduled";
-  else if (args.day !== undefined && args.time !== undefined && existing.status === "draft") status = "scheduled";
+  // One waiting for approval keeps waiting at its new time.
+  else if (args.day !== undefined && args.time !== undefined && existing.status === "draft" && !awaitingApproval(existing)) status = "scheduled";
   const at = time ? momentOf(day, time, zone) : null;
   if (status === "scheduled") {
     if (!time) throw new DapiError("invalid-input", "A scheduled post needs a time. Pass one, or draft true.");
@@ -541,7 +607,7 @@ async function updatePost(session: Session, args: ToolArgs<"update_post">) {
   const title = args.youtube?.title?.trim() || (args.caption !== undefined ? ownTitle || postTitle(caption, fileTitle || existing.title) : existing.title);
   const media = mediaOn(attached.shared, attached.own);
   const youtube = youtubeOf(args.youtube, existing.youtube, platforms, caption, knownShape(media("youtube")), args.caption !== undefined ? title : existing.youtube?.title);
-  const tiktok = platforms.includes("tiktok") ? tiktokOf(args.tiktok, existing.tiktok) : undefined;
+  let tiktok = platforms.includes("tiktok") ? tiktokOf(args.tiktok, existing.tiktok) : undefined;
   requireTikTok(platforms, tiktok, status === "scheduled");
   const warnings = [
     ...assertFits({ kind: kindOf(attached.shared, attached.own), platforms, caption, own, title: youtube?.title || title, media }),
@@ -550,8 +616,11 @@ async function updatePost(session: Session, args: ToolArgs<"update_post">) {
   // A post already set to go to the profile was agreed to; one newly headed there, or with new answers, needs a yes again.
   const agreedBefore = existing.status === "scheduled" && toProfile(existing.platforms, existing.tiktok);
   const tiktokChanged = args.tiktok?.privacy !== undefined || args.tiktok?.promotion !== undefined || args.tiktok?.inbox !== undefined || args.accounts !== undefined;
-  const tiktokYes = status === "scheduled" && toProfile(platforms, tiktok) && (!agreedBefore || tiktokChanged);
-  refuseUnseen(session, status === "scheduled", at, tiktokYes);
+  if (status === "scheduled" && toProfile(platforms, tiktok) && (!agreedBefore || tiktokChanged)) {
+    const checked = await tiktokYes(session, choices, tiktok, media("tiktok"), args.tiktok?.agreed, "tiktok.agreed");
+    tiktok = checked.tiktok;
+    warnings.push(...checked.warnings);
+  }
   const retimed = day !== existing.day || (time ?? "00:00") !== existing.start || !time !== existing.allDay || status !== existing.status;
 
   const built = args.repeat ? repeatOf(args.repeat, day) : null;
@@ -586,7 +655,7 @@ async function updatePost(session: Session, args: ToolArgs<"update_post">) {
   // A retimed post gets its time now: the publisher won't send a run due before that.
   const changedTiming = retimed || recurrence !== existing.recurrence || recurrenceEnd !== (existing.recurrenceEnd ?? null);
   if (changedTiming) next.sendFrom = new Date(session.now).toISOString();
-  const revised = withOwnCaptions(next, own);
+  const revised = withRules(session, existing, withOwnCaptions(next, own));
   await refuseOverLimit(session, revised, existing);
   if (args.media && attached.shared) {
     const copied = await copyOnto(session, existing.id, attached.shared, {});
@@ -597,5 +666,166 @@ async function updatePost(session: Session, args: ToolArgs<"update_post">) {
     revised.media = [...(existing.media ?? []).filter((item) => replyFiles.has(item.id)), ...copied.media];
   }
   const saved = await written(session, revised, row.version);
-  return viewOf(session, saved, warnings);
+  return viewOf(session, saved, [...warnings, ...heldWarning(revised, status === "scheduled")]);
+}
+
+async function deletePost(session: Session, { id }: ToolArgs<"delete_post">) {
+  const row = await postById(session, id);
+  if (row.data.status === "posted") throw new DapiError("invalid-input", "Posted posts stay as they went out. Post again to make a copy you can change.");
+  const removed = await session.store.remove(session.scope, id, row.version);
+  if ("conflict" in removed) throw new DapiError("busy", CONFLICT);
+  return { id, deleted: true };
+}
+
+async function tiktokCreator(session: Session, { account: requested }: ToolArgs<"tiktok_creator">) {
+  const choices = pickAccounts(connected(session.scope), ["tiktok"], requested ? [requested] : undefined);
+  const account = accountsFor(session.scope, "tiktok", choices)[0];
+  if (!account) throw new DapiError("invalid-input", "Connect TikTok in Connections first.");
+  if (!account.ready) throw new DapiError("invalid-input", `Connect ${account.handle} in Connections again: plan.video has its name but no TikTok login.`);
+  return tiktokCreatorView(account.id, await creatorOf(session, account));
+}
+
+/** The files a network gets: its own, or the post's. A post from before posts listed their files has one under its own id. */
+function filesFor(post: PostData, platform: string): string[] {
+  const ids = post.ownFiles?.[platform] ?? post.files;
+  if (ids) return [...ids];
+  return post.media?.some((item) => item.id === post.id) ? [post.id] : [];
+}
+
+const isVideo = (file: FileDetails | undefined) => !!file && (file.type.startsWith("video/") || /\.(mp4|mov|webm|mkv|m4v)$/i.test(file.name));
+
+const platformName = (id: string) => (isPlatform(id) ? socialPlatform(id).name : id);
+
+function deliveryErrors(row: PostRow): string {
+  const lines = Object.entries(row.deliveries ?? {}).flatMap(([id, delivery]) =>
+    !delivery || delivery.state === "sent" ? [] : [`${platformName(id)}: ${delivery.error ?? "was not published."}`],
+  );
+  return lines.join(" ") || "The post was not published.";
+}
+
+async function publishPost(session: Session, { id, agreed }: ToolArgs<"publish_post">) {
+  const { scope } = session;
+  const row = await postById(session, id);
+  let post = row.data;
+  if (post.status === "posted") throw new DapiError("invalid-input", "This post already went out.");
+  if (awaitingApproval(post)) throw new DapiError("invalid-input", AWAITING_APPROVAL);
+  const foreign = post.platforms.filter((platform) => !PUBLISHES.has(platform));
+  if (foreign.length > 0) {
+    const names = foreign.map(platformName);
+    throw new DapiError(
+      "unsupported",
+      `plan.video sends ${inEnglish(() => listNames(PUBLISHING_PLATFORMS as PlatformId[]))} only. ${names.join(", ")} ${names.length === 1 ? "is" : "are"} not sent. Take ${names.length === 1 ? "it" : "them"} off the post, or leave this post on the calendar.`,
+    );
+  }
+  if (post.platforms.length === 0) throw new DapiError("invalid-input", "This post has no platform to send to.");
+  for (const platform of post.platforms) {
+    const name = platformName(platform);
+    const chosen = accountsFor(scope, platform, post.accounts);
+    if (chosen.length > 1) throw new DapiError("invalid-input", `Publishing sends one ${name} account. This post has ${chosen.length}. Leave one on it.`);
+    if (chosen.some((account) => account.ready)) continue;
+    const unnamed = (readChoices(post.accounts)[platform] ?? []).length === 0;
+    const others = connected(scope).filter((account) => account.platform === platform).length;
+    if (unnamed && others > 1) throw new DapiError("invalid-input", `${name} has more than one account. Update the post with the account id to publish.`);
+    if (!unnamed && chosen.length === 0 && others > 0) throw new DapiError("invalid-input", `The ${name} account this post named was removed. Update the post with a ${name} account id, then publish.`);
+    throw new DapiError("invalid-input", `Connect ${name} in Connections. A name alone can't publish.`);
+  }
+  if (post.platforms.includes("tiktok") && !post.tiktok?.inbox && !post.tiktok?.privacy) {
+    throw new DapiError("invalid-input", "TikTok needs who can watch before it can be published. Update the post with tiktok.privacy, or tiktok.inbox true.");
+  }
+  if (post.platforms.includes("youtube") && !(post.youtube?.title || post.title).trim()) throw new DapiError("invalid-input", "Add a YouTube title, then publish.");
+  // YouTube needs a video, TikTok and Instagram a video or pictures. The others also take pictures, or the words alone.
+  for (const platform of post.platforms.filter((item) => NEEDS_FILE.has(item))) {
+    const files = filesFor(post, platform);
+    if (!files.length) throw new DapiError("invalid-input", platform === "youtube" ? "Attach a video before publishing." : "Attach a video or pictures before publishing.");
+    if (platform === "youtube" && !files.some((file) => isVideo(post.media?.find((item) => item.id === file)))) {
+      throw new DapiError("wrong-kind", "YouTube needs a video. This post has pictures.");
+    }
+  }
+  // A file still on its way up from a browser can't be sent from here.
+  const files = new Set([...post.platforms.flatMap((platform) => filesFor(post, platform)), ...(post.thread ?? []).flatMap((reply) => reply.files ?? [])]);
+  if ([...files].some((file) => !post.media?.find((item) => item.id === file)?.cloud)) {
+    throw new DapiError("invalid-input", "Its files haven't reached plan.video's storage yet. Ask the user to open plan.video where the post was made, so they finish uploading, then try again.");
+  }
+
+  const warnings: string[] = [];
+  let base = row.version;
+  const save = async (next: PostData) => {
+    const saved = await session.store.save(scope, next, base);
+    if ("conflict" in saved) throw new DapiError("busy", CONFLICT);
+    base = saved.version;
+    post = next;
+  };
+  if (toProfile(post.platforms, post.tiktok)) {
+    const attached = savedMedia(post);
+    const checked = await tiktokYes(session, post.accounts, post.tiktok, mediaOn(attached.shared, attached.own)("tiktok"), agreed, "agreed");
+    warnings.push(...checked.warnings);
+    if (checked.warnings.length) await save({ ...post, tiktok: checked.tiktok });
+  }
+
+  // A future post moves to now so the calendar shows where it went out, as Post now does in the app. A miss puts
+  // that time back. A repeat stays on its days.
+  const before = { day: post.day, start: post.start, allDay: post.allDay };
+  const zone = post.timeZone || scope.timeZone;
+  const at = momentOf(post.day, post.allDay ? "00:00" : post.start, zone);
+  const failedBefore = Object.values(row.deliveries ?? {}).some((delivery) => delivery?.state === "failed");
+  const shift = !post.recurrence && !failedBefore && !!at && at.getTime() > session.now;
+  if (shift) await save({ ...post, day: dayKeyAt(session.now, zone), start: clockAt(session.now, zone), allDay: false });
+
+  const handed = await session.store.send(id);
+  const targets = handed.filter((delivery) => PUBLISHES.has(delivery.platform) && delivery.state !== "sent");
+  const missing = targets.filter((delivery) => delivery.connection_id === "none");
+  let latest = await postById(session, id);
+  const settled = (current: PostRow) =>
+    targets.every((delivery) => ["sent", "failed"].includes(current.deliveries[delivery.platform]?.state ?? "") || delivery.connection_id === "none");
+  for (let waited = 0; !settled(latest) && waited < SEND_WAIT_MS; waited += SEND_LOOK_MS) {
+    await session.options.sleep(SEND_LOOK_MS);
+    latest = await postById(session, id);
+  }
+  const failed = missing.length > 0 || targets.some((delivery) => latest.deliveries[delivery.platform]?.state === "failed");
+  if (!failed && !settled(latest)) return viewOf(session, latest, [...warnings, "It's still going out. Check with list_posts in a minute: don't publish it again."]);
+  if (!failed) return viewOf(session, latest, warnings);
+  if (shift && latest.data.status !== "posted") {
+    const back = await session.store.save(scope, { ...latest.data, ...before }, latest.version);
+    if ("conflict" in back) warnings.push("Its time couldn't be put back, so it shows at the time it was tried.");
+  }
+  const reasons = [...missing.map((delivery) => `${platformName(delivery.platform)}: ${delivery.error ?? "no login to send with."}`), deliveryErrors(latest)];
+  throw new DapiError("unsupported", [...new Set(reasons)].join(" "));
+}
+
+/** What the post's link shows, as the tab's snapshotOf makes it, with the files that have a cloud copy. */
+function snapshotOf(session: Session, post: PostData) {
+  const files = (post.files ?? (post.media?.some((item) => item.id === post.id) ? [post.id] : []))
+    .map((id) => post.media?.find((item) => item.id === id))
+    .filter((file): file is FileDetails => !!file?.cloud);
+  const captions = ownCaptions(post);
+  return {
+    title: post.title,
+    caption: post.description ?? "",
+    ...(Object.keys(captions).length ? { captions } : {}),
+    platforms: post.platforms.map((id) => {
+      const accounts = accountsFor(session.scope, id, post.accounts);
+      return { id, name: platformName(id), handles: accounts.map((account) => account.handle), avatars: accounts.map(() => "") };
+    }),
+    day: post.day,
+    start: post.start,
+    allDay: post.allDay,
+    timeZone: post.timeZone ?? null,
+    status: post.status === "scheduled" ? "draft" : post.status,
+    media: files[0] ? (isVideo(files[0]) ? "video" : "image") : null,
+    ...(files.length && (files.length > 1 || files[0]!.id !== post.id) ? { files: files.map((file) => file.id) } : {}),
+    ...(post.story ? { story: true } : {}),
+    youtubeTitle: post.youtube?.title || null,
+    ...(post.platforms.includes("pinterest") && post.pinterest?.title ? { pinterestTitle: post.pinterest.title } : {}),
+    ...(!post.story && post.thread?.some((reply) => reply.text.trim()) ? { thread: post.thread.flatMap((reply) => (reply.text.trim() ? [reply.text] : [])) } : {}),
+    link: post.link,
+    workspaceId: session.scope.workspace,
+  };
+}
+
+async function askForApproval(session: Session, { id }: ToolArgs<"ask_for_approval">) {
+  const row = await postById(session, id);
+  if (row.data.status === "posted") throw new DapiError("invalid-input", "This post has already gone out.");
+  const asked = await session.store.askApproval(session.scope, id, row.version, snapshotOf(session, row.data));
+  if ("conflict" in asked) throw new DapiError("busy", CONFLICT);
+  return { ...viewOf(session, await postById(session, id)), approvalLink: `${session.options.site}/p/${asked.preview}` };
 }

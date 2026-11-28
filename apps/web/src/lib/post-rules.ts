@@ -375,6 +375,9 @@ export function postViewOf(post: StoredEvent, scope: { connections: readonly Acc
   };
 }
 
+/** Word for word in services/publisher/worker.mjs and the migration, so they show translated. */
+export const AWAITING_APPROVAL = msg("This post is waiting for approval. Once it's approved it goes out at its time.");
+
 export function isApproval(value: unknown): value is Approval {
   const state = (value as Approval | null)?.state;
   return state === "pending" || state === "changes" || state === "approved";

@@ -27,7 +27,7 @@ loadWorkspaces("user-1");
 const { allPosts, createEvent, hydrateCalendar, revisePost } = await import("@/components/calendar/store");
 const { localDateKey } = await import("@/components/calendar/utils");
 const { timeOf } = await import("@/components/publish/save");
-const { publishPost, updatePost } = await import("./posts");
+const { publishPost } = await import("./posts");
 
 
 test("an agent's Post now that fails leaves a future post scheduled at its own time", async () => {
@@ -64,17 +64,4 @@ test("a post moved to another time while its Allow waits isn't sent", async () =
   };
   await expect(publishPost({ id: "moved" }, { app: USER, confirm } as never)).rejects.toThrow(/changed while/);
   expect(allPosts().find((post) => post.id === "moved")?.day).toBe(localDateKey(later));
-});
-
-test("an agent taking a post off the schedule asks first, and a no changes nothing", async () => {
-  await hydrateCalendar();
-  await planned("kept", new Date(Date.now() + 5 * 86_400_000));
-  const asked: unknown[] = [];
-  const confirm = async (request: unknown) => {
-    asked.push(request);
-    return false;
-  };
-  await expect(updatePost({ id: "kept", draft: true }, { app: USER, confirm, confirmEvery: true } as never)).rejects.toThrow(/didn't confirm/);
-  expect(asked).toMatchObject([{ leavesSchedule: true }]);
-  expect(allPosts().find((post) => post.id === "kept")?.status).toBe("scheduled");
 });

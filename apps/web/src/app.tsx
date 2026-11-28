@@ -10,7 +10,6 @@ import { RouteError, clearModuleReloadMark, reloadOnceAfterModuleError } from "@
 import { LoadingScreen, PageLoader } from "@/components/page-loader";
 
 import { AuthProvider, useAuth } from '@/context/auth';
-import { connectorEnabled } from '@/ai-editor/connector';
 import { useColorMode } from "@kobalte/core";
 import { signedInUserId } from '@/lib/guest';
 import { dashboardTheme, setThemeSurface } from "@/lib/dashboard-theme";
@@ -45,7 +44,6 @@ const NotFoundPage = page(() => import('@/pages/not-found'), (module) => module.
 const UpgradeDialog = page(() => import('@/components/upgrade-dialog'), (module) => module.UpgradeDialog);
 const PurchaseSuccess = page(() => import('@/components/purchase-success'), (module) => module.PurchaseSuccess);
 const GuestAccountDialog = page(() => import('@/components/guest-account-dialog'), (module) => module.GuestAccountDialog);
-const AgentConfirmDialog = page(() => import('@/components/agent-confirm'), (module) => module.AgentConfirmDialog);
 const GuestFrame = page(() => import('@/components/guest-frame'), (module) => module.GuestFrame);
 
 /** Site pages on screen where the app would be, as the sign-in is at /dashboard when signed out. */
@@ -101,32 +99,6 @@ function ResumeCheckout() {
   });
 
   return null;
-}
-
-/** Loaded after sign-in so the public site stays light. */
-function AgentConnector() {
-  const auth = useAuth();
-
-  createEffect(() => {
-    if (!connectorEnabled || !auth.isAuthenticated() || !auth.hasAccess()) return;
-    let stop: (() => void) | undefined;
-    let cancelled = false;
-    void import('@/lib/agent-connector').then((module) => {
-      if (!cancelled) stop = module.startAgentConnector(auth.user);
-    });
-    onCleanup(() => {
-      cancelled = true;
-      stop?.();
-    });
-  });
-
-  return (
-    <Show when={connectorEnabled && auth.isAuthenticated() && auth.hasAccess()}>
-      <Suspense>
-        <AgentConfirmDialog />
-      </Suspense>
-    </Show>
-  );
 }
 
 function HeroShell() {
@@ -347,7 +319,6 @@ function App() {
             </ErrorBoundary>
             <LoadingScreen />
             <CloudSync />
-            <AgentConnector />
             <ResumeConsent />
             <ResumeCheckout />
             <SignedInDialogs />

@@ -2,20 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// A call nobody answered doesn't run.
+// How the Assistant shows a post it's asking about.
 
-import { For, Show, createSignal } from "solid-js";
+import { For, Show } from "solid-js";
 import { TIKTOK_BRANDED_POLICY, TIKTOK_MUSIC_USAGE } from "@plan.video/dapi";
 
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
 import { recurrenceLabel } from "@/components/calendar/utils";
 import { localized, msg, rich, t } from "@/lib/i18n";
 import { PLATFORM_IDS, socialPlatform, type PlatformId } from "@/lib/social";
@@ -140,99 +131,5 @@ export function TikTokConsent(props: { branded: boolean; class?: string }) {
           })
         : rich("By posting, you agree to TikTok's <music>Music Usage Confirmation</music>.", { music: link(TIKTOK_MUSIC_USAGE) })}
     </p>
-  );
-}
-
-type Pending = { request: ConfirmRequest; answer: (yes: boolean) => void };
-
-const [pending, setPending] = createSignal<Pending | null>(null);
-/** Kept so the dialog keeps its words while it closes. */
-const [shown, setShown] = createSignal<ConfirmRequest | null>(null);
-
-function callAttention(request: ConfirmRequest): () => void {
-  if (document.visibilityState !== "hidden") return () => {};
-  if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-    try {
-      const notice = new Notification(confirmTitle(request), { body: t("An agent you connected is asking."), tag: "plan-video-agent-confirm" });
-      notice.onclick = () => {
-        window.focus();
-        notice.close();
-      };
-      return () => notice.close();
-    } catch {
-      // Some browsers only make notifications from a service worker; the title still says it.
-    }
-  }
-  const original = document.title;
-  const marked = `${t("Waiting for your go-ahead")} · ${original}`;
-  document.title = marked;
-  const restore = () => {
-    if (document.title === marked) document.title = original;
-  };
-  const onVisible = () => {
-    if (document.visibilityState === "visible") restore();
-  };
-  document.addEventListener("visibilitychange", onVisible);
-  return () => {
-    document.removeEventListener("visibilitychange", onVisible);
-    restore();
-  };
-}
-
-/** No answer within `waitMs` is false. A newer request answers the one before it with a no. */
-export function askInTab(request: ConfirmRequest, waitMs: number): Promise<boolean> {
-  if (waitMs <= 0) return Promise.resolve(false);
-  pending()?.answer(false);
-  return new Promise((resolve) => {
-    let settled = false;
-    const quiet = callAttention(request);
-    const answer = (yes: boolean) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      quiet();
-      if (pending()?.answer === answer) setPending(null);
-      resolve(yes);
-    };
-    const timer = setTimeout(() => answer(false), waitMs);
-    setShown(request);
-    setPending({ request, answer });
-  });
-}
-
-export function AgentConfirmDialog() {
-  const deleting = () => shown()?.tool === "delete_post";
-  return (
-    <AlertDialog open={!!pending()} onOpenChange={(open) => !open && pending()?.answer(false)}>
-      <AlertDialogContent class="sm:max-w-md">
-        <Show when={shown()}>
-          {(request) => (
-            <>
-              <AlertDialogHeader>
-                <AlertDialogTitle>{confirmTitle(request())}</AlertDialogTitle>
-                <AlertDialogDescription>
-                  {t("An agent you connected is asking.")} {confirmDetail(request())}
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <ConfirmPost
-                request={request()}
-                class="flex max-h-[50vh] flex-col gap-2 overflow-y-auto rounded-lg border px-3 py-2.5"
-                muted="text-xs text-muted-foreground"
-                text="text-sm text-foreground"
-              />
-              <Show when={request().tiktok}>{(tiktok) => <TikTokConsent branded={tiktok().branded} class="text-xs text-muted-foreground" />}</Show>
-              <AlertDialogFooter>
-                <Button variant="secondary" onClick={() => pending()?.answer(false)}>
-                  {t("Don't allow")}
-                </Button>
-                <Button variant={deleting() ? "destructive" : "default"} onClick={() => pending()?.answer(true)}>
-                  {t("Allow")}
-                </Button>
-              </AlertDialogFooter>
-            </>
-          )}
-        </Show>
-      </AlertDialogContent>
-    </AlertDialog>
   );
 }

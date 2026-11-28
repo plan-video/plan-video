@@ -8,7 +8,6 @@ import { AppContextMenu } from '@/components/app-context-menu';
 import { EditorPage } from './editor';
 import { LayoutProvider } from "@/context/layout";
 import { PromptInputProvider } from "@/context/prompt-input";
-import { EditorApiProvider } from '@/dapi';
 import { ExportProvider } from '@/context/export';
 import { ProjectProvider } from '@/context/project';
 import { appRoute, projectRoute, useProjectRef } from '@/hooks/use-project-route';
@@ -47,7 +46,6 @@ export function ProjectPage() {
         {(found) => (
           <ProjectProvider project={found}>
             <EngineProvider projectId={found.id}>
-              <EditorApiProvider>
                 <TimelineProvider>
                   <ExportProvider>
                     <PromptInputProvider>
@@ -59,7 +57,6 @@ export function ProjectPage() {
                     </PromptInputProvider>
                   </ExportProvider>
                 </TimelineProvider>
-              </EditorApiProvider>
             </EngineProvider>
           </ProjectProvider>
         )}

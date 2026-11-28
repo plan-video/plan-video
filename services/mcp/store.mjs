@@ -3,17 +3,15 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 // What posting.mjs reads and writes, asked with the connector's own token: the agent_* functions check who it
-// speaks for and where they may work (supabase/migrations/20261127120000_agent_tools.sql), and services/storage
-// copies files the same way. This server holds no key of its own.
+// speaks for and where they may work (supabase/migrations/20261127120000_agent_tools.sql), services/storage copies
+// files and the publisher sends and reads networks the same way. This server holds no key of its own.
 
 const RPC_MS = 10_000;
 /** A video copied inside the bucket can be 500 MB. */
 const COPY_MS = 120_000;
-
-/** Hands the call to the person's tab, as before these functions were deployed. */
-export class NotHere extends Error {
-  tab = true;
-}
+/** Networks can be slow to answer, as the publisher is to them. */
+const PUBLISHER_MS = 30_000;
+const NOT_YET = "plan.video is being updated. Try again in a few minutes.";
 
 async function answer(response) {
   const text = await response.text();
@@ -24,7 +22,7 @@ async function answer(response) {
   }
 }
 
-export function createStore({ supabaseUrl, anonKey, storageUrl, token, fetch: fetchImpl = fetch }) {
+export function createStore({ supabaseUrl, anonKey, storageUrl, publisherUrl, token, fetch: fetchImpl = fetch }) {
   async function rpc(name, args) {
     let response;
     try {
@@ -40,9 +38,26 @@ export function createStore({ supabaseUrl, anonKey, storageUrl, token, fetch: fe
     const found = await answer(response);
     if (response.ok) return found;
     // Before the migration is applied, PostgREST knows no such function, and refuse_app_tokens refuses it.
-    if (found?.code === "PGRST202" || found?.code === "PT403") throw new NotHere("plan.video does this in the browser for now.");
+    if (found?.code === "PGRST202" || found?.code === "PT403") throw new Error(NOT_YET);
     if (found?.code === "23505") throw new Error("This post already exists.");
     throw new Error(typeof found?.message === "string" && found.message ? found.message : "plan.video couldn't do that.");
+  }
+
+  async function publisher(route, body) {
+    let response;
+    try {
+      response = await fetchImpl(`${publisherUrl}/api/publisher/${route}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(PUBLISHER_MS),
+      });
+    } catch {
+      throw new Error("plan.video's publisher can't be reached right now. Try again in a minute.");
+    }
+    const found = await answer(response);
+    if (response.ok) return found ?? {};
+    throw new Error(typeof found?.error === "string" && found.error ? found.error : "plan.video couldn't do that.");
   }
 
   return {
@@ -60,6 +75,14 @@ export function createStore({ supabaseUrl, anonKey, storageUrl, token, fetch: fe
 
     save: (scope, post, base) => rpc("agent_save_post", { owner: scope.owner, workspace: scope.workspace, post, base }),
 
+    remove: (scope, id, base) => rpc("agent_delete_post", { owner: scope.owner, workspace: scope.workspace, post_id: id, base }),
+
+    askApproval: (scope, id, base, snapshot) => rpc("agent_ask_approval", { owner: scope.owner, workspace: scope.workspace, post_id: id, base, snapshot }),
+
+    send: async (id) => (await publisher("send", { postId: id })).deliveries ?? [],
+
+    network: (route, body) => publisher(route, body),
+
     async copyFiles(scope, copies) {
       let response;
       try {
@@ -72,7 +95,7 @@ export function createStore({ supabaseUrl, anonKey, storageUrl, token, fetch: fe
       } catch {
         throw new Error("Cloud storage can't be reached right now. Try again in a minute.");
       }
-      if (response.status === 404) throw new NotHere("plan.video attaches files in the browser for now.");
+      if (response.status === 404) throw new Error(NOT_YET);
       if (!response.ok) {
         const found = await answer(response);
         throw new Error(typeof found?.error === "string" && found.error ? found.error : "Cloud storage couldn't attach the file.");

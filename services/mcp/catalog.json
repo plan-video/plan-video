@@ -1,11 +1,11 @@
 {
-  "instructions": "These tools plan and publish the user's social posts on plan.video, in the workspace open last in their plan.video dashboard. Reading, drafts and scheduling a post at least 10 minutes ahead work with plan.video closed. Publishing now, deleting, scheduling sooner, posting to the TikTok profile, tiktok_creator and analytics run in the user's plan.video tab, where they say yes to what goes out: when no tab is open, the tool says so. Ask the user to open https://plan.video in their browser, signed in, and try again.\n\nHow to work:\n- Start with social_accounts: it gives the connected accounts, their ids, and the dashboard time zone that every day and time is read in.\n- Check social_schema before writing for a short network such as X or Bluesky. One caption is shared by every network on a post; when networks need different captions, make one post per network.\n- Media comes from the user's media library. Find files with list_media and pass the media id as media, or a list of picture ids to post them together as a carousel. You can't upload files from your side: when the one they want isn't in the library, ask them to add it in the dashboard's Media tab.\n- schedule_post puts a post on the calendar at a day and time, or as a draft. A scheduled post goes out on its own at that time. publish_post sends a post at once and can't be undone: call it only when the user asks to publish now. Ask before deleting a post they didn't point to.\n- TikTok asks for a few answers before a post goes to someone's profile, scheduled or published. Call tiktok_creator first, then in one message tell the user which account it posts as, and ask who can watch (from its choices; there is no default), whether to allow comments, Duet and Stitch, and whether the post promotes their own brand, a third party, both or nothing. Show TikTok's consent line from tiktok_creator word for word with its links, and pass agreed true only after they say yes.\n- Posts that went out can't be changed, but copy_post makes a new post from any post, with its file and settings, on the day and time asked. When the user refers to posts they made, find them with list_posts rather than asking for the content again.\n- When asked for the best days or times, or how they're doing, call analytics first and go by the weekdays and hours with the highest median views. When it says there's too little to go on, say so and pick sensible times.\n- When several posts are asked for, spread them sensibly over the days and times given, and don't put two on one channel at the same time.\n- After you schedule or change posts, say briefly what you did: where each goes, when, and its caption if it's short.",
+  "instructions": "These tools plan and publish the user's social posts on plan.video, in the workspace open last in their plan.video dashboard at https://plan.video. They work with plan.video closed.\n\nHow to work:\n- Start with social_accounts: it gives the connected accounts, their ids, and the dashboard time zone that every day and time is read in.\n- Check social_schema before writing for a short network such as X or Bluesky. One caption is shared by every network on a post; when networks need different captions, make one post per network.\n- Media comes from the user's media library. Find files with list_media and pass the media id as media, or a list of picture ids to post them together as a carousel. You can't upload files from your side: when the one they want isn't in the library, ask them to add it in the dashboard's Media tab.\n- schedule_post puts a post on the calendar at a day and time, or as a draft. A scheduled post goes out on its own at that time. publish_post sends a post at once and can't be undone: call it only when the user asks to publish now. Ask before deleting a post they didn't point to.\n- TikTok asks for a few answers before a post goes to someone's profile, scheduled or published. Call tiktok_creator first, then in one message tell the user which account it posts as, and ask who can watch (from its choices; there is no default), whether to allow comments, Duet and Stitch, and whether the post promotes their own brand, a third party, both or nothing. Show TikTok's consent line from tiktok_creator word for word with its links, and pass agreed true only after they say yes.\n- Posts that went out can't be changed, but copy_post makes a new post from any post, with its file and settings, on the day and time asked. When the user refers to posts they made, find them with list_posts rather than asking for the content again.\n- When asked for the best days or times, or how they're doing, call analytics first and go by the weekdays and hours with the highest median views. When it says there's too little to go on, say so and pick sensible times.\n- When the user wants a client or their team to approve a post first, call ask_for_approval and give them the link it returns. A post waiting for approval, or sent back with changes, doesn't go out; it's scheduled once it's approved.\n- When several posts are asked for, spread them sensibly over the days and times given, and don't put two on one channel at the same time.\n- After you schedule or change posts, say briefly what you did: where each goes, when, and its caption if it's short.",
   "reference": "",
   "tools": [
     {
       "name": "social_accounts",
       "title": "Social accounts",
-      "description": "List the social accounts connected in Plan Video. Call this before scheduling and use the returned ids. Tokens are never returned. When a platform has more than one account, schedule_post has to be given an id from here.",
+      "description": "List the social accounts connected in plan.video. Call this before scheduling and use the returned ids. Tokens are never returned. When a platform has more than one account, schedule_post has to be given an id from here.",
       "inputSchema": {
         "type": "object",
         "properties": {}
@@ -19,7 +19,7 @@
     {
       "name": "social_schema",
       "title": "Platform rules",
-      "description": "Posting rules for each platform: caption limit, what it accepts, and whether Plan Video can publish it. Call this before writing a caption for a short platform such as X or Bluesky. One caption is shared by every platform on a post.",
+      "description": "Posting rules for each platform: caption limit, what it accepts, and whether plan.video can publish it. Call this before writing a caption for a short platform such as X or Bluesky. One caption is shared by every platform on a post.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -139,7 +139,7 @@
     {
       "name": "schedule_post",
       "title": "Schedule post",
-      "description": "Save a post on the Plan Video calendar. A scheduled post goes out on its own at its day and time, from Plan Video's servers, even with the app closed. A draft stays until the user schedules it. Pass platforms and a caption, then either a future day and time or draft true. Call social_accounts first, and pass account ids when a platform has more than one account. Attach a video, or pictures for a carousel, from the media library with media. A platform whose publishes is false in social_schema is only kept on the calendar.",
+      "description": "Save a post on the plan.video calendar. A scheduled post goes out on its own at its day and time, from plan.video's servers, even with the app closed. A draft stays until the user schedules it. Pass platforms and a caption, then either a future day and time or draft true. Call social_accounts first, and pass account ids when a platform has more than one account. Attach a video, or pictures for a carousel, from the media library with media. A platform whose publishes is false in social_schema is only kept on the calendar.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -348,7 +348,7 @@
       "annotations": {
         "readOnlyHint": false,
         "destructiveHint": false,
-        "openWorldHint": false
+        "openWorldHint": true
       }
     },
     {
@@ -485,7 +485,7 @@
       "annotations": {
         "readOnlyHint": false,
         "destructiveHint": false,
-        "openWorldHint": false
+        "openWorldHint": true
       }
     },
     {
@@ -764,8 +764,31 @@
       },
       "annotations": {
         "readOnlyHint": false,
-        "destructiveHint": false,
-        "openWorldHint": false
+        "destructiveHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "ask_for_approval",
+      "title": "Ask for approval",
+      "description": "Ask for a post to be approved before it goes out, by a client or by the workspace's owner or an admin. It stays on the calendar at its time but off the schedule until it's approved; approving schedules it. Returns the link to send to whoever approves: they approve or ask for changes there without an account. Give the user the link. Comes with paid plans.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "A draft or scheduled post, from list_posts."
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": true
       }
     },
     {
@@ -793,7 +816,7 @@
     {
       "name": "publish_post",
       "title": "Publish post",
-      "description": "Send a saved post now. Every platform on the post has to be one Plan Video sends to, with publishes true in social_schema, which also says what media each needs. This cannot be undone. Do not call it unless the user asked to publish now. Plan Video has to stay open until this answers. Call it again to retry a failed send. A post to the TikTok profile needs tiktok_creator first and agreed true.",
+      "description": "Send a saved post now. Every platform on the post has to be one plan.video sends to, with publishes true in social_schema, which also says what media each needs. This cannot be undone. Do not call it unless the user asked to publish now. Call it again to retry a failed send. A post to the TikTok profile needs tiktok_creator first and agreed true.",
       "inputSchema": {
         "type": "object",
         "properties": {

@@ -1,11 +1,11 @@
 // Built by scripts/build-posting.mjs from apps/web/src/dapi/server/posts.ts. Don't edit: run `npm run posting`.
 
-// packages/dapi/src/tool.ts
+// ../../packages/dapi/src/tool.ts
 function defineTool(tool) {
   return tool;
 }
 
-// packages/dapi/src/tools/posts.ts
+// ../../packages/dapi/src/tools/posts.ts
 import { z } from "zod";
 var PlatformId = z.enum(["tiktok", "instagram", "youtube", "x", "facebook", "linkedin", "threads", "bluesky", "pinterest"]);
 var PostStatus = z.enum(["draft", "scheduled", "posted"]);
@@ -48,16 +48,22 @@ var PostAccount = z.object({
   platform: PlatformId,
   accountId: z.string().describe("Empty when the post names a platform but no account."),
   handle: z.string().describe("Account name. Empty when that account is no longer connected."),
-  publishes: z.boolean().describe("True when Plan Video can send to this platform.")
+  publishes: z.boolean().describe("True when plan.video can send to this platform.")
 });
 var PostDelivery = z.object({
   platform: PlatformId,
   state: z.enum(["sending", "sent", "failed"]),
   error: z.string().optional().describe("What the platform said, when the send failed.")
 });
+var PostApproval = z.object({
+  state: z.enum(["pending", "changes", "approved"]).describe("pending: waiting to be approved. changes: sent back with a note. approved: it goes out at its time."),
+  by: z.string().optional().describe("Who asked, or who decided."),
+  note: z.string().optional().describe("What to change, when changes were asked for.")
+}).nullable().describe("Null when nobody asked for approval. A post waiting for approval or sent back is a draft and doesn't go out.");
 var ScheduledPost = z.object({
   id: z.string(),
   status: PostStatus,
+  approval: PostApproval,
   title: z.string(),
   caption: z.string(),
   day: z.string().describe("YYYY-MM-DD in the dashboard time zone."),
@@ -87,7 +93,7 @@ var postFields = {
 var socialAccounts = defineTool({
   name: "social_accounts",
   title: "Social accounts",
-  description: "List the social accounts connected in Plan Video. Call this before scheduling and use the returned ids. Tokens are never returned. When a platform has more than one account, schedule_post has to be given an id from here.",
+  description: "List the social accounts connected in plan.video. Call this before scheduling and use the returned ids. Tokens are never returned. When a platform has more than one account, schedule_post has to be given an id from here.",
   input: z.object({}),
   output: z.object({
     timeZone: z.string().describe("The dashboard time zone. Day and time arguments are read in this zone."),
@@ -95,8 +101,8 @@ var socialAccounts = defineTool({
       id: z.string(),
       platform: PlatformId,
       handle: z.string(),
-      publishes: z.boolean().describe("True when Plan Video can send to this platform."),
-      ready: z.boolean().describe("A login is stored for a platform Plan Video sends to, so posts to it can go out. False for a name saved without that login, and for a platform Plan Video doesn't send to yet."),
+      publishes: z.boolean().describe("True when plan.video can send to this platform."),
+      ready: z.boolean().describe("A login is stored for a platform plan.video sends to, so posts to it can go out. False for a name saved without that login, and for a platform plan.video doesn't send to yet."),
       scheduledRoom: z.number().int().nullable().describe("How many more scheduled posts this account can have waiting, on the Free plan's limit. Null when the plan has no limit.")
     }))
   })
@@ -104,7 +110,7 @@ var socialAccounts = defineTool({
 var socialSchema = defineTool({
   name: "social_schema",
   title: "Platform rules",
-  description: "Posting rules for each platform: caption limit, what it accepts, and whether Plan Video can publish it. Call this before writing a caption for a short platform such as X or Bluesky. One caption is shared by every platform on a post.",
+  description: "Posting rules for each platform: caption limit, what it accepts, and whether plan.video can publish it. Call this before writing a caption for a short platform such as X or Bluesky. One caption is shared by every platform on a post.",
   input: z.object({
     platform: PlatformId.optional().describe("One platform. Omit for every platform.")
   }),
@@ -147,7 +153,7 @@ var tiktokCreator = defineTool({
 var schedulePost = defineTool({
   name: "schedule_post",
   title: "Schedule post",
-  description: "Save a post on the Plan Video calendar. A scheduled post goes out on its own at its day and time, from Plan Video's servers, even with the app closed, once it has synced to the account, so the app has to stay open until then. A draft stays until the user schedules it. Pass platforms and a caption, then either a future day and time or draft true. Call social_accounts first, and pass account ids when a platform has more than one account. Attach one local video, or pictures for a carousel, with media. A platform whose publishes is false in social_schema is only kept on the calendar.",
+  description: "Save a post on the plan.video calendar. A scheduled post goes out on its own at its day and time, from plan.video's servers, even with the app closed, once it has synced to the account, so the app has to stay open until then. A draft stays until the user schedules it. Pass platforms and a caption, then either a future day and time or draft true. Call social_accounts first, and pass account ids when a platform has more than one account. Attach one local video, or pictures for a carousel, with media. A platform whose publishes is false in social_schema is only kept on the calendar.",
   input: z.object(postFields),
   output: ScheduledPost
 });
@@ -202,6 +208,17 @@ var updatePost = defineTool({
   }),
   output: ScheduledPost
 });
+var askForApproval = defineTool({
+  name: "ask_for_approval",
+  title: "Ask for approval",
+  description: "Ask for a post to be approved before it goes out, by a client or by the workspace's owner or an admin. It stays on the calendar at its time but off the schedule until it's approved; approving schedules it. Returns the link to send to whoever approves: they approve or ask for changes there without an account. Give the user the link. Comes with paid plans.",
+  input: z.object({
+    id: z.string().min(1).describe("A draft or scheduled post, from list_posts.")
+  }),
+  output: ScheduledPost.extend({
+    approvalLink: z.string().describe("Send this to whoever approves the post.")
+  })
+});
 var deletePost = defineTool({
   name: "delete_post",
   title: "Delete post",
@@ -217,7 +234,7 @@ var deletePost = defineTool({
 var publishPost = defineTool({
   name: "publish_post",
   title: "Publish post",
-  description: "Send a saved post now. Every platform on the post has to be one Plan Video sends to, with publishes true in social_schema, which also says what media each needs. This cannot be undone. Do not call it unless the user asked to publish now. Plan Video has to stay open until this answers. Call it again to retry a failed send. A post to the TikTok profile needs tiktok_creator first and agreed true.",
+  description: "Send a saved post now. Every platform on the post has to be one plan.video sends to, with publishes true in social_schema, which also says what media each needs. This cannot be undone. Do not call it unless the user asked to publish now. plan.video has to stay open until this answers. Call it again to retry a failed send. A post to the TikTok profile needs tiktok_creator first and agreed true.",
   input: z.object({
     id: z.string().min(1),
     agreed: z.boolean().optional().describe(
@@ -227,7 +244,7 @@ var publishPost = defineTool({
   output: ScheduledPost
 });
 
-// packages/dapi/src/catalog.ts
+// ../../packages/dapi/src/catalog.ts
 var catalog = [
   socialAccounts,
   socialSchema,
@@ -236,6 +253,7 @@ var catalog = [
   copyPost,
   listPosts,
   updatePost,
+  askForApproval,
   deletePost,
   publishPost
 ];
@@ -244,7 +262,7 @@ function toolByName(name) {
   return byName.get(name);
 }
 
-// packages/dapi/src/errors.ts
+// ../../packages/dapi/src/errors.ts
 var DapiError = class extends Error {
   code;
   constructor(code, message, options) {
@@ -257,7 +275,7 @@ function isDapiError(value) {
   return value instanceof DapiError;
 }
 
-// packages/dapi/src/social-accounts.ts
+// ../../packages/dapi/src/social-accounts.ts
 function chooseAccounts(platforms, requested, connected2, nameOf = (platform) => platform) {
   const unique = [...new Set(platforms)];
   if (unique.length === 0) return { ok: false, message: "Pick at least one platform." };
@@ -310,7 +328,12 @@ function chooseAccounts(platforms, requested, connected2, nameOf = (platform) =>
   return { ok: true, choices, accounts };
 }
 
-// packages/dapi/src/tiktok.ts
+// ../../packages/dapi/src/tiktok.ts
+var TIKTOK_MUSIC_USAGE = "https://www.tiktok.com/legal/page/global/music-usage-confirmation/en";
+var TIKTOK_BRANDED_POLICY = "https://www.tiktok.com/legal/page/global/bc-policy/en";
+function tiktokConsent(branded) {
+  return branded ? `By posting, you agree to TikTok's Branded Content Policy (${TIKTOK_BRANDED_POLICY}) and Music Usage Confirmation (${TIKTOK_MUSIC_USAGE}).` : `By posting, you agree to TikTok's Music Usage Confirmation (${TIKTOK_MUSIC_USAGE}).`;
+}
 function promotionFlags(promotion) {
   return {
     yourBrand: promotion === "your_brand" || promotion === "both",
@@ -318,37 +341,120 @@ function promotionFlags(promotion) {
   };
 }
 var PROMOTION_QUESTION = "TikTok needs to know whether the post promotes something. Ask the user, then pass tiktok.promotion: none; your_brand, when it promotes themselves or their own business (labelled Promotional content); branded_content, when it promotes another brand or a third party (labelled Paid partnership, and it can't be private); or both.";
+function checkTikTokCreator(choices, creator, videoSeconds) {
+  const errors = [];
+  const warnings = [];
+  const name = creator.nickname || "This TikTok account";
+  if (!creator.privacy.includes(choices.privacy)) {
+    errors.push(`${name} can't show a post to ${choices.privacy}. Ask the user to pick one of: ${creator.privacy.join(", ")}.`);
+  }
+  if (choices.brandedContent && choices.privacy === "private") {
+    errors.push("Branded content can't be private on TikTok. Ask the user for another privacy, or to take branded content off.");
+  }
+  if (videoSeconds !== null && videoSeconds > creator.maxVideoSeconds) {
+    errors.push(`${name} can post videos up to ${creator.maxVideoSeconds} seconds. This one is ${Math.ceil(videoSeconds)}.`);
+  }
+  const next = { ...choices };
+  const off = [];
+  if (next.comments && creator.commentDisabled) {
+    next.comments = false;
+    off.push("Comments");
+  }
+  if (next.duet && creator.duetDisabled) {
+    next.duet = false;
+    if (videoSeconds !== null) off.push("Duet");
+  }
+  if (next.stitch && creator.stitchDisabled) {
+    next.stitch = false;
+    if (videoSeconds !== null) off.push("Stitch");
+  }
+  const list = off.length > 1 ? `${off.slice(0, -1).join(", ")} and ${off[off.length - 1]}` : off[0];
+  if (off.length) warnings.push(`${list} ${off.length === 1 ? "is" : "are"} turned off in ${name}'s TikTok settings, so ${off.length === 1 ? "it stays" : "they stay"} off on this post.`);
+  return { choices: next, errors, warnings };
+}
 
-// packages/dapi/src/tools/library.ts
+// ../../packages/dapi/src/tools/analytics.ts
 import { z as z2 } from "zod";
+var Numbers = z2.object({
+  views: z2.int(),
+  likes: z2.int(),
+  comments: z2.int()
+});
+var PostedWhen = z2.object({
+  posts: z2.int().describe("Posts that went out then."),
+  medianViews: z2.int().describe("The middle post's views: a post that took off doesn't sway it."),
+  averageViews: z2.int(),
+  engagement: z2.number().describe("Likes and comments per view, over those posts.")
+});
+var analytics = defineTool({
+  name: "analytics",
+  title: "Analytics",
+  description: "Read the person's numbers from the Analytics page: views, likes and comments for each connected account that reports them (TikTok, YouTube, Instagram, Facebook Pages, Threads and LinkedIn Pages), how posts did by the weekday and hour they went out, and their top posts. Call this before picking days or times from how their posts perform, or when they ask how they're doing. Days and hours are in the dashboard time zone. A post's numbers are its totals so far, so the newest posts have had less time.",
+  input: z2.object({
+    platform: z2.enum(["tiktok", "youtube", "instagram", "facebook", "threads", "linkedin"]).optional().describe("One network. Omit for every account that reports numbers."),
+    account: z2.string().optional().describe("One account id, from social_accounts."),
+    days: z2.int().min(7).max(730).optional().describe("How far back to look, counting today. Defaults to 90.")
+  }),
+  output: z2.object({
+    timeZone: z2.string(),
+    from: z2.string().describe("First day, YYYY-MM-DD."),
+    to: z2.string().describe("Last day, YYYY-MM-DD."),
+    accounts: z2.array(
+      z2.object({
+        platform: z2.string(),
+        accountId: z2.string(),
+        handle: z2.string(),
+        state: z2.string().describe("ready, or why its numbers couldn't be read."),
+        totals: Numbers,
+        previous: Numbers.describe("The same number of days just before."),
+        posts: z2.int()
+      })
+    ),
+    noNumbers: z2.array(z2.string()).describe("Connected accounts whose network doesn't send plan.video its numbers."),
+    byWeekday: z2.array(PostedWhen.extend({ weekday: z2.string() })).describe("Monday first; days with no posts are left out."),
+    byHour: z2.array(PostedWhen.extend({ hour: z2.string().describe("HH:00, the hour the posts went out.") })),
+    topPosts: z2.array(
+      Numbers.extend({
+        title: z2.string(),
+        platform: z2.string(),
+        handle: z2.string(),
+        postedAt: z2.string().describe("YYYY-MM-DD HH:MM, weekday.")
+      })
+    ),
+    note: z2.string().optional().describe("Why there is little or nothing to go on.")
+  })
+});
+
+// ../../packages/dapi/src/tools/library.ts
+import { z as z3 } from "zod";
 var listMedia = defineTool({
   name: "list_media",
   title: "Media library",
   description: "List the videos and pictures in the person's plan.video media library, newest first. Pass an item's media id to schedule_post or update_post as media. Only files in the library can be attached: when the one they want isn't there, ask them to add it in the dashboard's Media tab.",
-  input: z2.object({
-    kind: z2.enum(["video", "image"]).optional().describe("Only videos, or only pictures. Omit for both."),
-    search: z2.string().optional().describe("Words the file name contains."),
-    limit: z2.int().min(1).max(100).optional().describe("How many to return (default 30).")
+  input: z3.object({
+    kind: z3.enum(["video", "image"]).optional().describe("Only videos, or only pictures. Omit for both."),
+    search: z3.string().optional().describe("Words the file name contains."),
+    limit: z3.int().min(1).max(100).optional().describe("How many to return (default 30).")
   }),
-  output: z2.object({
-    total: z2.int().describe("How many matched before the limit."),
-    media: z2.array(
-      z2.object({
-        id: z2.string().describe("The media id to pass as media, such as media:2f9c1e."),
-        name: z2.string(),
-        kind: z2.enum(["video", "image"]),
-        seconds: z2.number().describe("Length of a video. 0 for a picture."),
-        width: z2.int(),
-        height: z2.int(),
-        bytes: z2.int(),
-        added: z2.string().describe("When it was added, as an ISO time."),
-        uses: z2.int().describe("How many posts have used it.")
+  output: z3.object({
+    total: z3.int().describe("How many matched before the limit."),
+    media: z3.array(
+      z3.object({
+        id: z3.string().describe("The media id to pass as media, such as media:2f9c1e."),
+        name: z3.string(),
+        kind: z3.enum(["video", "image"]),
+        seconds: z3.number().describe("Length of a video. 0 for a picture."),
+        width: z3.int(),
+        height: z3.int(),
+        bytes: z3.int(),
+        added: z3.string().describe("When it was added, as an ISO time."),
+        uses: z3.int().describe("How many posts have used it.")
       })
     )
   })
 });
 
-// ../../../../plan.video/node_modules/solid-js/dist/server.js
+// ../../../../../../plan.video/node_modules/solid-js/dist/server.js
 var ERROR = /* @__PURE__ */ Symbol("error");
 function castError(err) {
   if (err instanceof Error) return err;
@@ -443,7 +549,7 @@ function createProvider(id) {
 }
 var SuspenseContext = createContext();
 
-// apps/web/src/lib/i18n.ts
+// ../../apps/web/src/lib/i18n.ts
 var LANGUAGES = [
   { code: "en", name: "English" },
   { code: "es", name: "Espa\xF1ol" },
@@ -581,13 +687,13 @@ function localized(make, english2) {
   };
 }
 
-// apps/web/src/lib/account-sync-bus.ts
+// ../../apps/web/src/lib/account-sync-bus.ts
 var pending = Promise.resolve();
 var teamPending = Promise.resolve();
 var postsPending = Promise.resolve();
 var [notificationTick, setNotificationTick] = createSignal(0);
 
-// apps/web/src/lib/time-zone.ts
+// ../../apps/web/src/lib/time-zone.ts
 var STORAGE_KEY = "plan.video.time-zone";
 var deviceZone;
 if (typeof document !== "undefined") {
@@ -617,8 +723,18 @@ function readSaved() {
   }
 }
 var [chosenZone, setChosenZone] = createSignal(readSaved());
+var fixedZone = null;
 function timeZone() {
-  return chosenZone() ?? deviceTimeZone();
+  return fixedZone ?? chosenZone() ?? deviceTimeZone();
+}
+function inTimeZone(zone, run) {
+  const before = fixedZone;
+  fixedZone = isZone(zone) ? zone : "UTC";
+  try {
+    return run();
+  } finally {
+    fixedZone = before;
+  }
 }
 var partFormatters = /* @__PURE__ */ new Map();
 function partFormatter(zone) {
@@ -669,6 +785,10 @@ function dayKeyAt(moment, zone = timeZone()) {
   const parts = zonedParts(moment, zone);
   return `${parts.year}-${pad(parts.month + 1)}-${pad(parts.date)}`;
 }
+function clockAt(moment, zone = timeZone()) {
+  const parts = zonedParts(moment, zone);
+  return `${pad(parts.hours)}:${pad(parts.minutes)}`;
+}
 function momentOf(day, time = "00:00", zone = timeZone()) {
   const [year, month, date] = day.split("-").map(Number);
   const [hours, minutes] = time.split(":").map(Number);
@@ -676,7 +796,7 @@ function momentOf(day, time = "00:00", zone = timeZone()) {
   return new Date(zonedTime(year, month - 1, date, hours, minutes, zone));
 }
 
-// apps/web/src/components/calendar/utils.ts
+// ../../apps/web/src/components/calendar/utils.ts
 var dayFormatter = localized((locale) => new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", weekday: "short", timeZone: "UTC" }), "en-GB");
 var dayLongFormatter = localized((locale) => new Intl.DateTimeFormat(locale, { day: "numeric", month: "long", weekday: "long", timeZone: "UTC" }), "en-GB");
 var monthFormatter = localized((locale) => new Intl.DateTimeFormat(locale, { month: "long", year: "numeric", timeZone: "UTC" }), "en-GB");
@@ -819,10 +939,7 @@ function newId() {
   return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-// apps/web/src/lib/agent-confirm.ts
-var CONFIRM_LEAD_MS = 10 * 6e4;
-
-// apps/web/src/lib/plans.ts
+// ../../apps/web/src/lib/plans.ts
 var FREE_SCHEDULED_PER_ACCOUNT = 10;
 var [scheduledLimit, setScheduledLimit] = createSignal();
 var [accountsLimit, setAccountsLimit] = createSignal();
@@ -889,7 +1006,7 @@ var PLANS = [
   }
 ];
 
-// apps/web/src/lib/social.ts
+// ../../apps/web/src/lib/social.ts
 var POST_KINDS = [
   { id: "text", name: msg("Text"), plural: "text posts" },
   { id: "image", name: msg("Image"), plural: "image posts" },
@@ -1013,6 +1130,12 @@ function socialPlatform(id) {
   return SOCIAL_PLATFORMS.find((platform) => platform.id === id);
 }
 var NAME_LIST = localized((locale) => new Intl.ListFormat(locale, { type: "conjunction" }), "en-GB");
+function listNames(ids) {
+  const names = ids.map((id) => socialPlatform(id).name);
+  if (names.length <= 1) return names.join("");
+  if (names.length > 3) return NAME_LIST().format([...names.slice(0, 2), t("{count, plural, one {# more} other {# more}}", { count: names.length - 2 })]);
+  return NAME_LIST().format(names);
+}
 function sortPlatforms(ids) {
   const picked = new Set(ids);
   return PLATFORM_IDS2.filter((id) => picked.has(id));
@@ -1020,6 +1143,24 @@ function sortPlatforms(ids) {
 function captionLength(text) {
   return [...text].length;
 }
+var X_URL = new RegExp("(?<![\\p{L}\\p{N}@.])(?:https?:\\/\\/)?(?:[\\p{L}\\p{N}-]+\\.)+\\p{L}{2,}(?::\\d+)?(?:\\/\\S*)?", "gu");
+var X_EMOJI = new RegExp("\\p{RI}\\p{RI}|[#*0-9]\\uFE0F?\\u20E3|\\p{Extended_Pictographic}(?:\\uFE0F|\\p{Emoji_Modifier})*(?:\\u200D\\p{Extended_Pictographic}(?:\\uFE0F|\\p{Emoji_Modifier})*)*", "gu");
+var X_LIGHT = [
+  [0, 4351],
+  [8192, 8205],
+  [8208, 8223],
+  [8242, 8247]
+];
+function xLength(text) {
+  let length = 0;
+  const rest = text.normalize("NFC").replace(X_URL, () => (length += 23, "\0")).replace(X_EMOJI, () => (length += 2, "\0"));
+  for (const char of rest) {
+    const code = char.codePointAt(0);
+    if (code) length += X_LIGHT.some(([low, high]) => code >= low && code <= high) ? 1 : 2;
+  }
+  return length;
+}
+var captionLengthOn = (network, text) => network === "x" ? xLength(text) : captionLength(text);
 function hashtagCount(text) {
   return text.match(/#[\p{L}\p{N}_]+/gu)?.length ?? 0;
 }
@@ -1034,55 +1175,55 @@ function picturesOut(id) {
   const platform = socialPlatform(id);
   return Math.min(platform.maxImages, platform.publishedImages ?? platform.maxImages);
 }
-function settingsIssues(id, settings, add) {
+function settingsIssues(id, settings, add2) {
   if (id === "tiktok") {
     if (settings.tiktok.inbox) return;
     const { disclose, yourBrand, brandedContent, privacy } = settings.tiktok;
-    if (!privacy) add("error", t("Pick who can watch."));
+    if (!privacy) add2("error", t("Pick who can watch."));
     if (disclose && !yourBrand && !brandedContent) {
-      add("error", t("You need to indicate if your content promotes yourself, a third party, or both."));
+      add2("error", t("You need to indicate if your content promotes yourself, a third party, or both."));
     }
-    if (disclose && brandedContent && privacy === "private") add("error", t("Branded content visibility cannot be set to private."));
+    if (disclose && brandedContent && privacy === "private") add2("error", t("Branded content visibility cannot be set to private."));
   }
   if (id === "youtube" && youtubeTagsLength(settings.youtube.tags) > YOUTUBE_TAGS_LIMIT) {
-    add("error", t("Tags are over the {limit} character limit.", { limit: YOUTUBE_TAGS_LIMIT }));
+    add2("error", t("Tags are over the {limit} character limit.", { limit: YOUTUBE_TAGS_LIMIT }));
   }
   if (id === "youtube" && settings.youtube.tags.some((tag) => captionLength(tag) > 30)) {
-    add("error", t("A YouTube tag can be 30 characters."));
+    add2("error", t("A YouTube tag can be 30 characters."));
   }
   if (id === "instagram" && settings.instagram.collaborators.length > INSTAGRAM_MAX_COLLABORATORS) {
-    add("error", t("Takes up to {count, plural, one {# collaborator} other {# collaborators}}.", { count: INSTAGRAM_MAX_COLLABORATORS }));
+    add2("error", t("Takes up to {count, plural, one {# collaborator} other {# collaborators}}.", { count: INSTAGRAM_MAX_COLLABORATORS }));
   }
   if (id === "x" && settings.x.community.trim() && !xCommunityId(settings.x.community)) {
-    add("error", t("Paste the community's link, like x.com/i/communities/\u2026"));
+    add2("error", t("Paste the community's link, like x.com/i/communities/\u2026"));
   }
-  if (id === "pinterest" && !settings.pinterest.board.trim()) add("error", t("Pick a board."));
+  if (id === "pinterest" && !settings.pinterest.board.trim()) add2("error", t("Pick a board."));
 }
 function checkPost(input) {
   const issues = [];
   for (const id of input.platforms) {
     const platform = socialPlatform(id);
     const media = input.media(id);
-    const add = (level, message, crop) => issues.push({ platform: id, level, message, crop });
+    const add2 = (level, message, crop) => issues.push({ platform: id, level, message, crop });
     if (!platform.kinds.includes(input.kind)) {
-      if (input.kind === "text") add("error", platform.kinds.includes("image") ? t("Add a video or pictures.") : t("Add a video."));
-      else add("error", t("Doesn't take {kind, select, image {image posts} video {video posts} story {stories} other {text posts}}.", { kind: input.kind }));
+      if (input.kind === "text") add2("error", platform.kinds.includes("image") ? t("Add a video or pictures.") : t("Add a video."));
+      else add2("error", t("Doesn't take {kind, select, image {image posts} video {video posts} story {stories} other {text posts}}.", { kind: input.kind }));
       continue;
     }
-    if (input.settings && input.kind !== "story") settingsIssues(id, input.settings, add);
+    if (input.settings && input.kind !== "story") settingsIssues(id, input.settings, add2);
     if (input.kind === "story") {
-      if (!media) add("error", t("Needs a picture or a video."));
-      else if (media.kind === "images" && media.count > 1) add("error", t("A story takes one picture."));
+      if (!media) add2("error", t("Needs a picture or a video."));
+      else if (media.kind === "images" && media.count > 1) add2("error", t("A story takes one picture."));
       else if (media.kind === "video" && media.duration > STORY_MAX_SECONDS) {
-        add("error", t("Story videos can be up to {duration}.", { duration: formatDuration(STORY_MAX_SECONDS) }));
+        add2("error", t("Story videos can be up to {duration}.", { duration: formatDuration(STORY_MAX_SECONDS) }));
       }
-      if (media && media.width > 0 && !isAspect(media.width, media.height, 9 / 16)) add("warning", t("Not 9:16, so it shows with bars."));
+      if (media && media.width > 0 && !isAspect(media.width, media.height, 9 / 16)) add2("warning", t("Not 9:16, so it shows with bars."));
       continue;
     }
     const caption = input.caption(id);
-    const length = captionLength(caption);
+    const length = captionLengthOn(id, caption);
     if (length > platform.captionLimit) {
-      add(
+      add2(
         "error",
         t("Caption is {over} over the {limit} limit.", {
           over: (length - platform.captionLimit).toLocaleString(intlLocale()),
@@ -1091,45 +1232,45 @@ function checkPost(input) {
       );
     }
     if (platform.maxHashtags && hashtagCount(caption) > platform.maxHashtags) {
-      add("error", t("Takes up to {count, plural, one {# hashtag} other {# hashtags}}.", { count: platform.maxHashtags }));
+      add2("error", t("Takes up to {count, plural, one {# hashtag} other {# hashtags}}.", { count: platform.maxHashtags }));
     }
     if (platform.title) {
       const title = input.title(id).trim();
-      if (platform.title.required && !title) add("error", t("Needs a title."));
+      if (platform.title.required && !title) add2("error", t("Needs a title."));
       const length2 = captionLength(title);
-      if (length2 > platform.title.limit) add("error", t("Title is over the {limit} limit.", { limit: platform.title.limit }));
+      if (length2 > platform.title.limit) add2("error", t("Title is over the {limit} limit.", { limit: platform.title.limit }));
       else if (platform.title.cutOff && length2 > platform.title.cutOff) {
-        add("warning", t("Titles over {count, plural, one {# character} other {# characters}} get cut off in search.", { count: platform.title.cutOff }));
+        add2("warning", t("Titles over {count, plural, one {# character} other {# characters}} get cut off in search.", { count: platform.title.cutOff }));
       }
     }
     if (input.kind === "text") {
-      if (!caption.trim()) add("error", t("Needs some text."));
+      if (!caption.trim()) add2("error", t("Needs some text."));
       continue;
     }
     if (!media) {
-      add("error", input.kind === "image" ? t("Needs a picture.") : t("Needs a video."));
+      add2("error", input.kind === "image" ? t("Needs a picture.") : t("Needs a video."));
       continue;
     }
     if (media.kind === "images") {
       const out = picturesOut(id);
       if (media.count > out) {
         const skipped = media.count - out;
-        add(
+        add2(
           "warning",
           t("Takes the first {count, plural, one {# picture} other {# pictures}} and skips the other {skipped, plural, =1 {one} other {#}}.", { count: out, skipped })
         );
       }
       if (platform.imageAspect && media.count > 0) {
         const aspect = media.width / media.height;
-        if (aspect < platform.imageAspect.min || aspect > platform.imageAspect.max) add("warning", t("The first picture is cropped to fit."), true);
-        if (media.count > 1 && media.mixedShapes) add("warning", t("Pictures are cropped to the first one's shape."));
+        if (aspect < platform.imageAspect.min || aspect > platform.imageAspect.max) add2("warning", t("The first picture is cropped to fit."), true);
+        if (media.count > 1 && media.mixedShapes) add2("warning", t("Pictures are cropped to the first one's shape."));
       }
     } else if (media.duration > platform.maxVideoSeconds) {
-      add("error", t("Videos can be up to {duration}.", { duration: formatDuration(platform.maxVideoSeconds) }));
+      add2("error", t("Videos can be up to {duration}.", { duration: formatDuration(platform.maxVideoSeconds) }));
     }
     const cropped = media.kind === "images" && platform.imageAspect;
     if (platform.vertical && !cropped && media.width > 0 && media.height > 0 && media.width / media.height > 0.8) {
-      add("warning", t("Not vertical, so it plays with bars."));
+      add2("warning", t("Not vertical, so it plays with bars."));
     }
   }
   return issues;
@@ -1167,7 +1308,7 @@ function youtubeTag(raw) {
   return tag || null;
 }
 function youtubeTagsLength(tags) {
-  return tags.reduce((sum, tag, index) => sum + captionLength(tag) + (tag.includes(" ") ? 2 : 0) + (index ? 1 : 0), 0);
+  return tags.reduce((sum2, tag, index) => sum2 + captionLength(tag) + (tag.includes(" ") ? 2 : 0) + (index ? 1 : 0), 0);
 }
 function xCommunityId(raw) {
   const text = raw.trim();
@@ -1175,7 +1316,7 @@ function xCommunityId(raw) {
   return text.match(/^(?:https?:\/\/)?(?:www\.|mobile\.)?(?:twitter|x)\.com\/i\/communities\/(\d{5,19})\/?(?:[?#]\S*)?$/i)?.[1] ?? null;
 }
 
-// apps/web/src/lib/thread.ts
+// ../../apps/web/src/lib/thread.ts
 var THREAD_PLATFORMS = ["x", "linkedin", "bluesky"];
 var REPLY_MEDIA_PLATFORMS = ["x", "bluesky"];
 var REPLY_LIMITS = { x: 280, bluesky: 300, linkedin: 1250 };
@@ -1197,27 +1338,40 @@ function threadIssues(thread, platforms, media = () => null) {
   const issues = [];
   thread.forEach((reply, index) => {
     const number = index + 1;
-    const length = captionLength(reply.text.trim());
+    const text = reply.text.trim();
     const carries = media(index);
     for (const id of threadPlatforms(platforms)) {
-      const add = (level, message) => issues.push({ platform: id, level, message });
+      const add2 = (level, message) => issues.push({ platform: id, level, message });
       const limit = replyLimit(id);
-      if (length > limit) add("error", t("Follow-up {number} is over the {limit} character limit.", { number, limit: limit.toLocaleString(intlLocale()) }));
+      const length = captionLengthOn(id, text);
+      if (length > limit) add2("error", t("Follow-up {number} is over the {limit} character limit.", { number, limit: limit.toLocaleString(intlLocale()) }));
       if (!carries) continue;
       if (!REPLY_MEDIA_PLATFORMS.includes(id)) {
-        if (!length) add("warning", t("Follow-up {number} has no words, so {network} skips it.", { number, network: socialPlatform(id).name }));
+        if (!length) add2("warning", t("Follow-up {number} has no words, so {network} skips it.", { number, network: socialPlatform(id).name }));
         continue;
       }
       const most = socialPlatform(id).maxVideoSeconds;
       if (carries.kind === "video" && carries.duration > most) {
-        add("error", t("Follow-up {number}'s video is over {network}'s {duration}.", { number, network: socialPlatform(id).name, duration: formatDuration(most) }));
+        add2("error", t("Follow-up {number}'s video is over {network}'s {duration}.", { number, network: socialPlatform(id).name, duration: formatDuration(most) }));
       }
     }
   });
   return issues;
 }
 
-// apps/web/src/lib/post-rules.ts
+// ../../apps/web/src/lib/post-sync-core.ts
+var TOO_MANY_POSTS = msg("This account has reached its limit of 100,000 posts. Delete some old posts to make room for new ones.");
+var OVERLAP_MS = 2 * 6e4;
+function stable(value) {
+  if (Array.isArray(value)) return `[${value.map(stable).join(",")}]`;
+  if (value && typeof value === "object") {
+    const record = value;
+    return `{${Object.keys(record).filter((key) => record[key] !== void 0).sort().map((key) => `${JSON.stringify(key)}:${stable(record[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value) ?? "null";
+}
+
+// ../../apps/web/src/lib/post-rules.ts
 function postTitle(caption, fallback) {
   const line = caption.split("\n").map((part) => part.trim()).find(Boolean) ?? "";
   const title = line || fallback;
@@ -1235,6 +1389,7 @@ function scheduleProblem(at, zone = timeZone(), now = Date.now()) {
 }
 var CAPTION_NOTE = "One caption is stored for every platform on a post. If it is over a platform's limit, shorten it or leave that platform off.";
 var PUBLISHES = new Set(PUBLISHING_PLATFORMS);
+var NEEDS_FILE = /* @__PURE__ */ new Set(["tiktok", "youtube", "instagram"]);
 function threadOf(input, platforms) {
   if (input === void 0) return void 0;
   const thread = input.filter((reply) => reply.text.trim()).map((reply) => {
@@ -1261,7 +1416,7 @@ function clock(value) {
 }
 function refuseSoon(platforms, existing = []) {
   const soon = platforms.filter((id) => !PUBLISHES.has(id) && !existing.includes(id)).map((id) => socialPlatform(id).name);
-  if (soon.length) throw new DapiError("unsupported", `${soon.join(", ")} ${soon.length === 1 ? "is" : "are"} coming soon, so Plan Video can't post there yet. Leave ${soon.length === 1 ? "it" : "them"} off the post.`);
+  if (soon.length) throw new DapiError("unsupported", `${soon.join(", ")} ${soon.length === 1 ? "is" : "are"} coming soon, so plan.video can't post there yet. Leave ${soon.length === 1 ? "it" : "them"} off the post.`);
 }
 function repeatOf(repeat, day) {
   if (!repeat) return { repeat: "", repeatEnd: "" };
@@ -1350,7 +1505,7 @@ function assertFits(input) {
 function platformNotes(platform) {
   const pictures = Math.min(platform.maxImages, platform.publishedImages ?? platform.maxImages);
   const parts = [
-    PUBLISHES.has(platform.id) ? platform.id === "youtube" ? "Plan Video can upload a video here." : platform.id === "tiktok" ? `Plan Video can post here: a video, or up to ${pictures} pictures as a photo post.` : `Plan Video can post here: the words, with the post's video or up to ${pictures} of its pictures.` : "Kept on the calendar. Plan Video doesn't send to this platform yet."
+    PUBLISHES.has(platform.id) ? platform.id === "youtube" ? "plan.video can upload a video here." : platform.id === "tiktok" ? `plan.video can post here: a video, or up to ${pictures} pictures as a photo post.` : `plan.video can post here: the words, with the post's video or up to ${pictures} of its pictures.` : "Kept on the calendar. plan.video doesn't send to this platform yet."
   ];
   if (platform.title?.required) parts.push("A title is required.");
   if (!platform.kinds.includes("text")) parts.push("Needs a picture or a video.");
@@ -1441,9 +1596,11 @@ function postViewOf(post, scope, warnings = []) {
     if (!delivery || !isPlatform(id)) return [];
     return [{ platform: id, state: delivery.state, ...delivery.error ? { error: delivery.error } : {} }];
   });
+  const approval = approvalOf(post);
   return {
     id: post.id,
     status: post.status,
+    approval: approval ? { state: approval.state, ...approval.by ? { by: approval.by } : {}, ...approval.note ? { note: approval.note } : {} } : null,
     title: post.title,
     caption: post.description ?? "",
     day: post.day,
@@ -1457,30 +1614,535 @@ function postViewOf(post, scope, warnings = []) {
     deliveries
   };
 }
-
-// apps/web/src/dapi/server/posts.ts
-var IN_TAB = {
-  publish_post: "Publishing now waits for the user's yes in plan.video.",
-  delete_post: "Deleting a post waits for the user's yes in plan.video.",
-  tiktok_creator: "TikTok's account details are read through plan.video in the browser.",
-  analytics: "Analytics are read in plan.video in the browser."
+var AWAITING_APPROVAL = msg("This post is waiting for approval. Once it's approved it goes out at its time.");
+function isApproval(value) {
+  const state = value?.state;
+  return state === "pending" || state === "changes" || state === "approved";
+}
+var awaitingApproval = (post) => isApproval(post.approval) && post.approval.state !== "approved";
+var approvalOf = (post) => isApproval(post.approval) ? post.approval : void 0;
+var contentOf = ({ status: _status, sendFrom: _sendFrom, deliveries: _deliveries, thumbnail: _thumbnail, timeZone: _zone, ...rest }) => stable(rest);
+function approvalRules(saved, next, rules, at = (/* @__PURE__ */ new Date()).toISOString()) {
+  if (next.status !== "scheduled") return next;
+  if (rules.approver) return awaitingApproval(next) ? { ...next, approval: { state: "approved", via: "team", at } } : next;
+  if (saved?.status === "scheduled" && contentOf(saved) === contentOf(next)) return next;
+  if (!awaitingApproval(next) && !rules.membersNeedApproval) return next;
+  const approval = awaitingApproval(next) ? next.approval : { state: "pending", at };
+  return { ...next, status: "draft", approval, sendFrom: at };
+}
+var HELD_FOR_APPROVAL = "Posts in this workspace need approval first, so it waits as a draft until the owner or an admin approves it, then goes out at its time. Call ask_for_approval for the link to send them.";
+function heldWarning(post, scheduling) {
+  return scheduling && post.status === "draft" && awaitingApproval(post) ? [HELD_FOR_APPROVAL] : [];
+}
+var PRIVACY_FROM_API = {
+  PUBLIC_TO_EVERYONE: "public",
+  MUTUAL_FOLLOW_FRIENDS: "friends",
+  FOLLOWER_OF_CREATOR: "followers",
+  SELF_ONLY: "private"
 };
-var SOON = `A post due within ${CONFIRM_LEAD_MS / 6e4} minutes waits for the user's yes in plan.video. Schedule it later than that to save it without them.`;
-var TIKTOK_TERMS = "Posting to the TikTok profile waits for the user's yes to TikTok's terms in plan.video. Pass tiktok.inbox true to send it to their TikTok inbox instead, or save it with draft true.";
+function readTikTokCreator(data) {
+  const listed = Array.isArray(data.privacy_level_options) ? data.privacy_level_options : [];
+  const privacy = listed.flatMap((item) => {
+    const mapped = typeof item === "string" ? PRIVACY_FROM_API[item] : void 0;
+    return mapped ? [mapped] : [];
+  });
+  if (!privacy.length) return null;
+  const max = Number(data.max_video_post_duration_sec);
+  return {
+    nickname: typeof data.creator_nickname === "string" && data.creator_nickname ? data.creator_nickname : "TikTok",
+    username: typeof data.creator_username === "string" ? data.creator_username : "",
+    avatarUrl: typeof data.creator_avatar_url === "string" ? data.creator_avatar_url : "",
+    privacy,
+    commentDisabled: data.comment_disabled === true,
+    duetDisabled: data.duet_disabled === true,
+    stitchDisabled: data.stitch_disabled === true,
+    maxVideoSeconds: Number.isFinite(max) && max > 0 ? max : 10 * 60
+  };
+}
+function tiktokCreatorView(accountId, creator) {
+  return {
+    accountId,
+    nickname: creator.nickname,
+    username: creator.username,
+    privacy: creator.privacy,
+    comments: !creator.commentDisabled,
+    duet: !creator.duetDisabled,
+    stitch: !creator.stitchDisabled,
+    maxVideoSeconds: creator.maxVideoSeconds,
+    consent: tiktokConsent(false),
+    brandedConsent: tiktokConsent(true)
+  };
+}
+
+// ../../apps/web/src/lib/social-analytics.ts
+var ANALYTICS_PLATFORMS = [
+  { id: "tiktok", name: "TikTok", color: "#2fd6e6" },
+  { id: "youtube", name: "YouTube", color: "#ff4d4d" },
+  { id: "instagram", name: "Instagram", color: "#d65cf0" },
+  { id: "facebook", name: "Facebook", color: "#4a8cff" },
+  { id: "threads", name: "Threads", color: "#b8bcc6" },
+  { id: "linkedin", name: "LinkedIn", color: "#70b5f9" }
+];
+var ANALYTICS_METRICS = [
+  { id: "views", label: msg("Views") },
+  { id: "likes", label: msg("Likes") },
+  { id: "comments", label: msg("Comments") }
+];
+var INTERVALS = [
+  { id: "hour", label: msg("Hourly") },
+  { id: "day", label: msg("Daily") },
+  { id: "week", label: msg("Weekly") },
+  { id: "month", label: msg("Monthly") }
+];
+var [synced, setSynced] = createSignal(/* @__PURE__ */ new Map());
+function withSyncedNumbers(numbers2, run) {
+  const before = synced();
+  setSynced(numbers2);
+  try {
+    return run();
+  } finally {
+    setSynced(before);
+  }
+}
+function postingDayNumbers(posts2) {
+  const days = /* @__PURE__ */ new Map();
+  for (const post of posts2) {
+    const day = dayOfKey(dayKeyOf(post.postedAt));
+    const before = days.get(day);
+    days.set(day, {
+      views: (before?.views ?? 0) + post.views,
+      likes: (before?.likes ?? 0) + post.likes,
+      comments: (before?.comments ?? 0) + post.comments
+    });
+  }
+  return days;
+}
+function youtubeNumbers(found) {
+  const days = /* @__PURE__ */ new Map();
+  for (const row of found.days ?? []) days.set(dayOfKey(row.date), { views: row.views, likes: row.likes, comments: row.comments });
+  return { days, posts: found.videos ?? [] };
+}
+function dayOfKey(key) {
+  const [year, month, day] = key.split("-").map(Number);
+  return Math.floor(Date.UTC(year, month - 1, day) / DAY_MS);
+}
+var HISTORY_DAYS = 730;
+var PROFILES = {
+  tiktok: { views: 14200, growth: 55e-4, likeRate: 0.071, commentRate: 41e-4, weekend: 1.18, postRate: 0.45, peak: 20.5 },
+  youtube: { views: 5300, growth: 38e-4, likeRate: 0.042, commentRate: 32e-4, weekend: 1.26, postRate: 0.18, peak: 18.5 },
+  instagram: { views: 7700, growth: 24e-4, likeRate: 0.057, commentRate: 25e-4, weekend: 1.08, postRate: 0.34, peak: 19.5 },
+  facebook: { views: 2300, growth: -18e-4, likeRate: 0.025, commentRate: 19e-4, weekend: 0.92, postRate: 0.22, peak: 13 },
+  threads: { views: 3100, growth: 42e-4, likeRate: 0.048, commentRate: 62e-4, weekend: 1.02, postRate: 0.5, peak: 21 },
+  linkedin: { views: 1900, growth: 31e-4, likeRate: 0.022, commentRate: 28e-4, weekend: 0.55, postRate: 0.2, peak: 9 }
+};
+var TITLES = [
+  msg("Founder Q&A"),
+  msg("Studio tour"),
+  msg("Weekly tip"),
+  msg("Podcast clip"),
+  msg("Case study"),
+  msg("On set"),
+  msg("Launch teaser"),
+  msg("How it works"),
+  msg("Walkthrough"),
+  msg("BTS reel"),
+  msg("Q&A clip"),
+  msg("Sunday vlog"),
+  msg("Launch recap"),
+  msg("Two-minute edit"),
+  msg("Before and after"),
+  msg("Day in the studio"),
+  msg("Five hooks that work"),
+  msg("Client shoot"),
+  msg("What we use to film"),
+  msg("Captions, start to finish")
+];
+var COVERS = ["creator", "surf", "sunset", "vlogger", "wave", "ride", "golden", "shore"].map((name) => `/site/${name}.webp`);
+var HOUR_MS = 36e5;
+var DAY_MS = 864e5;
+function dayNumber(date) {
+  const parts = zonedParts(date);
+  return Math.floor(Date.UTC(parts.year, parts.month, parts.date) / DAY_MS);
+}
+function dayKeyOf(time) {
+  return new Date(dayNumber(new Date(time)) * DAY_MS).toISOString().slice(0, 10);
+}
+function startOf(time, interval) {
+  const parts = zonedParts(time);
+  if (interval === "hour") return Math.floor(time / 1e3) * 1e3 - (parts.minutes * 60 + parts.seconds) * 1e3;
+  if (interval === "day") return zonedTime(parts.year, parts.month, parts.date);
+  if (interval === "week") return zonedTime(parts.year, parts.month, parts.date - (parts.weekday + 6) % 7);
+  return zonedTime(parts.year, parts.month, 1);
+}
+function advance(time, interval) {
+  if (interval === "hour") return startOf(time + HOUR_MS, "hour");
+  const parts = zonedParts(time);
+  if (interval === "day") return zonedTime(parts.year, parts.month, parts.date + 1);
+  if (interval === "week") return zonedTime(parts.year, parts.month, parts.date + 7);
+  return zonedTime(parts.year, parts.month + 1, 1);
+}
+function bucketsFor(span, interval) {
+  const list = [];
+  for (let cursor = startOf(span.start, interval); cursor < span.end; cursor = advance(cursor, interval)) {
+    list.push({ start: Math.max(cursor, span.start), end: Math.min(advance(cursor, interval), span.end) });
+  }
+  return list;
+}
+function noise(...parts) {
+  let hash = 2166136261;
+  for (const char of parts.join(":")) {
+    hash ^= char.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  hash ^= hash >>> 15;
+  hash = Math.imul(hash, 2246822507);
+  hash ^= hash >>> 13;
+  return (hash >>> 0) / 4294967296;
+}
+function burst(seed, day) {
+  return noise(seed, day, "burst") < 0.07 ? 1.4 + noise(seed, day, "size") * 2.4 : 0;
+}
+function trend(profile, day, today) {
+  return Math.exp(profile.growth * 180 * Math.tanh((day - today) / 180));
+}
+function bell(value, center, width) {
+  return Math.exp(-((value - center) ** 2) / (2 * width * width));
+}
+var ZERO = { views: 0, likes: 0, comments: 0 };
+var fromNetwork = (source) => !!source.account && !source.sample;
+var dayCache = /* @__PURE__ */ new Map();
+var hourCache = /* @__PURE__ */ new Map();
+function dayStats(source, day, today) {
+  if (fromNetwork(source)) return synced().get(source.key)?.days.get(day) ?? ZERO;
+  if (day < today - HISTORY_DAYS || day > today) return ZERO;
+  const key = `${source.key}:${day}:${today}`;
+  const cached = dayCache.get(key);
+  if (cached) return cached;
+  const seed = source.key;
+  const profile = PROFILES[source.platform];
+  const weekday = (new Date(day * DAY_MS).getUTCDay() + 6) % 7;
+  const lift = 1 + burst(seed, day) + 0.45 * burst(seed, day - 1) + 0.15 * burst(seed, day - 2);
+  const views = profile.views * trend(profile, day, today) * lift * (weekday >= 5 ? profile.weekend : 1) * (0.84 + 0.32 * noise(seed, day, "views"));
+  const stats = {
+    views,
+    likes: views * profile.likeRate * (0.85 + 0.3 * noise(seed, day, "likes")),
+    comments: views * profile.commentRate * (0.7 + 0.6 * noise(seed, day, "comments"))
+  };
+  dayCache.set(key, stats);
+  return stats;
+}
+function hourShares(source, day) {
+  const key = `${source.key}:${day}`;
+  const cached = hourCache.get(key);
+  if (cached) return cached;
+  const profile = PROFILES[source.platform];
+  const weekend = (new Date(day * DAY_MS).getUTCDay() + 6) % 7 >= 5;
+  const peak = profile.peak + (weekend ? 1 : 0);
+  const raw = Array.from(
+    { length: 24 },
+    (_, hour) => (bell(hour, peak, 2.4) + 0.5 * bell(hour, 12.5, 1.3) + 0.2 * bell(hour, 8, 1.4) + 0.04) * (0.7 + 0.6 * noise(source.key, day, hour, "hour"))
+  );
+  const total = raw.reduce((sum2, value) => sum2 + value, 0);
+  const shares = raw.map((value) => value / total);
+  hourCache.set(key, shares);
+  return shares;
+}
+function add(total, row, share = 1) {
+  return {
+    views: total.views + row.views * share,
+    likes: total.likes + row.likes * share,
+    comments: total.comments + row.comments * share
+  };
+}
+function round(row) {
+  return { views: Math.round(row.views), likes: Math.round(row.likes), comments: Math.round(row.comments) };
+}
+function spanTotals(source, span, today) {
+  let total = ZERO;
+  let cursor = span.start;
+  while (cursor < span.end) {
+    const date = new Date(cursor);
+    const parts = zonedParts(date);
+    const dayStart = zonedTime(parts.year, parts.month, parts.date);
+    const dayEnd = zonedTime(parts.year, parts.month, parts.date + 1);
+    const stop = Math.min(span.end, dayEnd);
+    const day = dayNumber(date);
+    const stats = dayStats(source, day, today);
+    if (cursor === dayStart && stop === dayEnd) {
+      total = add(total, stats);
+    } else if (fromNetwork(source)) {
+      if (cursor === dayStart) total = add(total, stats);
+    } else if (stats.views) {
+      const shares = hourShares(source, day);
+      let share = 0;
+      for (let hour = 0; hour < 24; hour++) {
+        const from = zonedTime(parts.year, parts.month, parts.date, hour);
+        const overlap = Math.min(stop, from + HOUR_MS) - Math.max(cursor, from);
+        if (overlap > 0) share += shares[hour] * (overlap / HOUR_MS);
+      }
+      total = add(total, stats, share);
+    }
+    cursor = stop;
+  }
+  return total;
+}
+function sum(rows) {
+  return rows.reduce((total, row) => ({
+    views: total.views + row.views,
+    likes: total.likes + row.likes,
+    comments: total.comments + row.comments
+  }), ZERO);
+}
+function posts(sources, span, today) {
+  const list = [];
+  const first = dayNumber(new Date(span.start));
+  const last = dayNumber(new Date(span.end - 1));
+  for (const source of sources) {
+    const { platform, key: seed } = source;
+    if (fromNetwork(source)) {
+      for (const post of synced().get(seed)?.posts ?? []) {
+        if (post.postedAt < span.start || post.postedAt >= span.end) continue;
+        list.push({ ...post, id: `${seed}-${post.id}`, networkId: post.id, platform, source: seed, handle: source.handle });
+      }
+      continue;
+    }
+    const profile = PROFILES[platform];
+    for (let day = Math.max(first, today - HISTORY_DAYS); day <= Math.min(last, today); day++) {
+      if (noise(seed, day, "post") >= profile.postRate) continue;
+      const [year, month, date] = new Date(day * DAY_MS).toISOString().slice(0, 10).split("-").map(Number);
+      const postedAt2 = zonedTime(year, month - 1, date, 9 + Math.floor(noise(seed, day, "at") * 13), 0);
+      if (postedAt2 < span.start || postedAt2 >= span.end) continue;
+      const reach = 0.35 + 3.2 * noise(seed, day, "reach") ** 3 + burst(seed, day);
+      const views = Math.round(profile.views * reach * trend(profile, day, today));
+      list.push({
+        id: `${seed}-${day}`,
+        title: t(TITLES[Math.floor(noise(seed, day, "title") * TITLES.length)]),
+        cover: COVERS[Math.floor(noise(seed, day, "cover") * COVERS.length)],
+        platform,
+        source: source.key,
+        handle: source.handle,
+        postedAt: postedAt2,
+        views,
+        likes: Math.round(views * profile.likeRate * (0.75 + 0.5 * noise(seed, day, "post-likes"))),
+        comments: Math.round(views * profile.commentRate * (0.6 + 0.9 * noise(seed, day, "post-comments")))
+      });
+    }
+  }
+  return list;
+}
+function reportsNumbers(account) {
+  const { platform } = account;
+  if (platform === "linkedin") return !!account.linkedin?.organizationId;
+  return (platform === "youtube" || platform === "tiktok" || platform === "instagram" || platform === "facebook" || platform === "threads") && !!account[platform];
+}
+function analyticsSources(accounts, { sample = false } = {}) {
+  return ANALYTICS_PLATFORMS.flatMap(
+    ({ id: platform }) => accounts.filter((account) => account.platform === platform && (sample || reportsNumbers(account))).map((account) => ({ key: `${platform}:${account.id}`, platform, account: account.id, handle: account.handle, ...sample ? { sample } : {} }))
+  );
+}
+function analyticsReport(span, interval, sources, now = Date.now()) {
+  const today = dayNumber(new Date(now));
+  const clipped = { start: span.start, end: Math.max(span.start + 6e4, Math.min(span.end, now)) };
+  const buckets = bucketsFor(clipped, interval);
+  const length = clipped.end - clipped.start;
+  const series = {};
+  const previous = {};
+  const whole2 = {};
+  for (const source of sources) {
+    series[source.key] = buckets.map((bucket) => round(spanTotals(source, bucket, today)));
+    whole2[source.key] = round(spanTotals(source, clipped, today));
+    previous[source.key] = round(spanTotals(source, { start: clipped.start - length, end: clipped.start }, today));
+  }
+  const last = buckets.at(-1);
+  const live = !!last && span.end >= now - 6e4 && last.end < advance(startOf(last.start, interval), interval);
+  const sample = sources.some((source) => !synced().has(source.key));
+  return { sample, interval, buckets, live, series, totals: whole2, previous, posts: posts(sources, clipped, today) };
+}
+function totals(rows) {
+  return sum(rows);
+}
+function engagement(row) {
+  return row.views ? (row.likes + row.comments) / row.views : 0;
+}
+var compact = localized((locale) => new Intl.NumberFormat(locale, { notation: "compact", maximumFractionDigits: 1 }), "en");
+var whole = localized((locale) => new Intl.NumberFormat(locale), "en");
+
+// ../../apps/web/src/lib/posting-times.ts
+var WEEKDAY_NAMES2 = [msg("Monday"), msg("Tuesday"), msg("Wednesday"), msg("Thursday"), msg("Friday"), msg("Saturday"), msg("Sunday")];
+var WEEKDAY_SHORT = [msg("Mon"), msg("Tue"), msg("Wed"), msg("Thu"), msg("Fri"), msg("Sat"), msg("Sun")];
+function median(values) {
+  if (!values.length) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = sorted.length >> 1;
+  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+}
+function slotStats(posts2) {
+  if (!posts2.length) return { posts: 0, medianViews: 0, averageViews: 0, engagement: 0 };
+  const sum2 = totals(posts2);
+  return {
+    posts: posts2.length,
+    medianViews: Math.round(median(posts2.map((post) => post.views))),
+    averageViews: Math.round(sum2.views / posts2.length),
+    engagement: engagement(sum2)
+  };
+}
+function postedAt(post) {
+  const parts = zonedParts(post.postedAt);
+  return { day: (parts.weekday + 6) % 7, hour: parts.hours };
+}
+function postingTimes(posts2) {
+  const placed = posts2.map((post) => ({ post, ...postedAt(post) }));
+  const weekdays = Array.from({ length: 7 }, (_, day) => ({ day, ...slotStats(placed.filter((row) => row.day === day).map((row) => row.post)) }));
+  const hours = Array.from({ length: 24 }, (_, hour) => ({ hour, ...slotStats(placed.filter((row) => row.hour === hour).map((row) => row.post)) }));
+  const byPair = /* @__PURE__ */ new Map();
+  for (const row of placed) {
+    const key = `${row.day}:${row.hour}`;
+    byPair.set(key, [...byPair.get(key) ?? [], row.post]);
+  }
+  const slots = [...byPair.entries()].map(([key, list]) => {
+    const [day, hour] = key.split(":").map(Number);
+    return { day, hour, ...slotStats(list) };
+  }).sort((a, b) => Number(b.posts > 1) - Number(a.posts > 1) || b.medianViews - a.medianViews || b.posts - a.posts);
+  return { posts: posts2.length, weekdays, hours, slots };
+}
+
+// ../../apps/web/src/lib/analytics-answer.ts
+var WEEKDAYS2 = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+var TOP_POSTS = 8;
+var ENOUGH_POSTS = 10;
+var pad2 = (value) => String(value).padStart(2, "0");
+var platformName = (id) => PLATFORM_IDS2.includes(id) ? socialPlatform(id).name : id;
+var shown = (slot) => ({
+  posts: slot.posts,
+  medianViews: slot.medianViews,
+  averageViews: slot.averageViews,
+  engagement: Math.round(slot.engagement * 1e4) / 1e4
+});
+var numbers = (row) => ({ views: row?.views ?? 0, likes: row?.likes ?? 0, comments: row?.comments ?? 0 });
+function analyticsAccounts(args, accounts) {
+  const picked = accounts.filter((account) => (!args.platform || account.platform === args.platform) && (!args.account || account.id === args.account));
+  if (args.account && !picked.length) throw new DapiError("not-found", "No connected account has that id. Call social_accounts for the ids.");
+  return picked;
+}
+function analyticsAnswer(args, accounts, stateOf, now = Date.now()) {
+  const today = zonedParts(now);
+  const days = args.days ?? 90;
+  const span = { start: zonedTime(today.year, today.month, today.date - (days - 1)), end: now };
+  const sources = analyticsSources(accounts);
+  const report = analyticsReport(span, "month", sources, now);
+  const posts2 = report.posts;
+  const times = postingTimes(posts2);
+  const stamp = (time) => {
+    const parts = zonedParts(time);
+    return `${dayKeyOf(time)} ${pad2(parts.hours)}:${pad2(parts.minutes)}, ${WEEKDAYS2[parts.weekday]}`;
+  };
+  let note;
+  if (!sources.length) {
+    note = "No connected account sends its numbers. plan.video reads TikTok, YouTube, Instagram, Facebook Pages, Threads and LinkedIn Pages: they can connect one in Connections.";
+  } else if (posts2.length < ENOUGH_POSTS) {
+    note = `Only ${posts2.length} ${posts2.length === 1 ? "post" : "posts"} went out in these days: too few to tell which days or hours do best. Look further back with days, or say so.`;
+  }
+  return {
+    timeZone: timeZone(),
+    from: dayKeyOf(span.start),
+    to: dayKeyOf(now),
+    accounts: sources.map((source) => ({
+      platform: source.platform,
+      accountId: source.account ?? "",
+      handle: source.handle ?? "",
+      state: stateOf(source.key) ?? "ready",
+      totals: numbers(report.totals[source.key]),
+      previous: numbers(report.previous[source.key]),
+      posts: posts2.filter((post) => post.source === source.key).length
+    })),
+    noNumbers: accounts.filter((account) => !reportsNumbers(account)).map((account) => `${platformName(account.platform)} @${account.handle}`),
+    // Monday first, as the calendar has it.
+    byWeekday: times.weekdays.filter((slot) => slot.posts).map((slot) => ({ weekday: WEEKDAY_NAMES2[slot.day], ...shown(slot) })),
+    byHour: times.hours.filter((slot) => slot.posts).map((slot) => ({ hour: `${pad2(slot.hour)}:00`, ...shown(slot) })),
+    topPosts: [...posts2].sort((a, b) => b.views - a.views).slice(0, TOP_POSTS).map((post) => ({
+      title: post.title,
+      platform: post.platform,
+      handle: post.handle ?? "",
+      postedAt: stamp(post.postedAt),
+      views: post.views,
+      likes: post.likes,
+      comments: post.comments
+    })),
+    ...note ? { note } : {}
+  };
+}
+
+// ../../apps/web/src/dapi/server/analytics.ts
+var META = /* @__PURE__ */ new Set(["instagram", "facebook", "threads"]);
+var FAILED = "Couldn't load its numbers. Try again later.";
+var isoDay = (time) => new Date(time).toISOString().slice(0, 10);
+var numbersAccount = (account) => ({
+  id: account.id,
+  handle: account.handle,
+  platform: account.platform,
+  ...account.ready ? { [account.platform]: account.platform === "linkedin" ? account.page ? { organizationId: "page" } : {} : {} } : {}
+});
+async function load(reads, account, now) {
+  const connectionId = account.id;
+  if (!account.ready) return null;
+  if (account.platform === "youtube") {
+    return { youtube: await reads.network("youtube/analytics", { connectionId, startDate: isoDay(now - HISTORY_DAYS * DAY_MS), endDate: isoDay(now) }) };
+  }
+  if (account.platform === "tiktok") {
+    if (!account.scope.split(/[,\s]+/).includes("video.list")) throw new Error("Disconnect TikTok in Connections and connect it again, so plan.video can read its numbers.");
+    const found = await reads.network("tiktok/videos", { connectionId });
+    return { posts: found.videos ?? [], perPost: false };
+  }
+  if (META.has(account.platform) || account.platform === "linkedin" && account.page) {
+    const found = await reads.network(`${account.platform}/analytics`, { connectionId });
+    return { posts: (found.videos ?? []).filter((post) => post.postedAt > 0), followers: found.followers ?? null, perPost: true };
+  }
+  return null;
+}
+async function readAnalytics(reads, scope, args, now) {
+  const accounts = analyticsAccounts(args, scope.connections.map(numbersAccount));
+  const answers = /* @__PURE__ */ new Map();
+  const states = /* @__PURE__ */ new Map();
+  await Promise.all(
+    accounts.map(async (account) => {
+      const key = `${account.platform}:${account.id}`;
+      try {
+        const found = await load(reads, scope.connections.find((item) => item.id === account.id), now);
+        if (found) answers.set(key, found);
+      } catch (error) {
+        states.set(key, error instanceof Error && error.message ? error.message : FAILED);
+      }
+    })
+  );
+  return inTimeZone(scope.timeZone, () => {
+    const numbers2 = /* @__PURE__ */ new Map();
+    for (const [key, found] of answers) {
+      numbers2.set(
+        key,
+        "youtube" in found ? youtubeNumbers(found.youtube) : { days: postingDayNumbers(found.posts), posts: found.posts, ...found.perPost ? { followers: found.followers ?? null } : {} }
+      );
+    }
+    return withSyncedNumbers(numbers2, () => analyticsAnswer(args, accounts, (key) => states.get(key), now));
+  });
+}
+
+// ../../apps/web/src/dapi/server/posts.ts
 var GOING_OUT_MS = 5 * 6e4;
 var SCHEDULED_LIMIT = "On the Free plan, each account can have 10 scheduled posts waiting at a time. Upgrade for unlimited posts.";
 var CONFLICT = "The post changed in plan.video while this was saved, so nothing was changed. Read it again with list_posts and try again.";
-var InTab = class extends Error {
-};
-var SERVER_TOOLS = /* @__PURE__ */ new Set(["social_accounts", "social_schema", "list_media", "list_posts", "schedule_post", "copy_post", "update_post"]);
-function createPostingTools(store, options = {}) {
-  const now = options.now ?? Date.now;
+var SEND_WAIT_MS = 12e4;
+var SEND_LOOK_MS = 3e3;
+function createPostingTools(store, given = {}) {
+  const options = {
+    now: given.now ?? Date.now,
+    sleep: given.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms))),
+    site: (given.site ?? "https://plan.video").replace(/\/$/, "")
+  };
   return {
-    handles: (name) => SERVER_TOOLS.has(name) || Object.hasOwn(IN_TAB, name),
+    handles: (name) => Object.hasOwn(HANDLERS, name) || name === "social_schema",
     async run(name, input) {
-      if (Object.hasOwn(IN_TAB, name)) return { tab: IN_TAB[name] };
-      if (!SERVER_TOOLS.has(name)) return { text: `There is no tool named ${name}.`, error: true };
-      const schema = name === listMedia.name ? listMedia.input : toolByName(name).input;
+      if (!Object.hasOwn(HANDLERS, name) && name !== "social_schema") return { text: `There is no tool named ${name}.`, error: true };
+      const schema = name === listMedia.name ? listMedia.input : name === analytics.name ? analytics.input : toolByName(name).input;
       const parsed = schema.safeParse(input ?? {});
       if (!parsed.success) {
         const problems = parsed.error.issues.map((issue) => `${issue.path.join(".") || "input"}: ${issue.message}`).join("; ");
@@ -1488,11 +2150,10 @@ function createPostingTools(store, options = {}) {
       }
       try {
         if (name === "social_schema") return { text: JSON.stringify(socialSchemaView(parsed.data.platform)), error: false };
-        const session = { scope: await store.context(), store, now: now() };
+        const session = { scope: await store.context(), store, now: options.now(), options };
         const output = await HANDLERS[name](session, parsed.data);
         return { text: JSON.stringify(output), error: false };
       } catch (error) {
-        if (error instanceof InTab || error?.tab === true) return { tab: error.message };
         const message = error.message || String(error);
         return { text: isDapiError(error) ? `${error.code}: ${message}` : message, error: true };
       }
@@ -1505,7 +2166,12 @@ var HANDLERS = {
   list_posts: listPosts2,
   schedule_post: schedulePost2,
   copy_post: copyPost2,
-  update_post: updatePost2
+  update_post: updatePost2,
+  delete_post: deletePost2,
+  publish_post: publishPost2,
+  ask_for_approval: askForApproval2,
+  tiktok_creator: tiktokCreator2,
+  analytics: (session, args) => readAnalytics(session.store, session.scope, args, session.now)
 };
 var connected = (scope) => scope.connections.filter((account) => isPlatform(account.platform));
 function accountsFor(scope, platform, choices) {
@@ -1642,11 +2308,35 @@ async function written(session, post, base) {
   if ("conflict" in saved) throw new DapiError("busy", CONFLICT);
   return { id: post.id, version: saved.version, data: post, deliveries: {} };
 }
-function refuseUnseen(session, scheduled, at, tiktokYes) {
-  if (!scheduled) return;
-  if (!at || at.getTime() - session.now < CONFIRM_LEAD_MS) throw new InTab(SOON);
-  if (tiktokYes) throw new InTab(TIKTOK_TERMS);
+async function creatorOf(session, account) {
+  try {
+    const answer = await session.store.network("tiktok/creator", { connectionId: account.id });
+    const creator = readTikTokCreator(answer.data ?? {});
+    if (!creator) throw new Error("TikTok didn't say who can watch this post. Try again in a minute.");
+    return creator;
+  } catch (cause) {
+    throw new DapiError("unsupported", `TikTok (${account.handle}): ${cause.message}`, { cause });
+  }
 }
+async function tiktokYes(session, choices, tiktok, media, agreed, field) {
+  if (agreed !== true) {
+    throw new DapiError(
+      "invalid-input",
+      `Posting to the TikTok profile needs the user's yes to TikTok's terms. Show them this, word for word: "${tiktokConsent(tiktok.brandedContent)}" Then pass ${field} true once they accept.`
+    );
+  }
+  let settings = tiktok;
+  const warnings = [];
+  for (const account of accountsFor(session.scope, "tiktok", choices)) {
+    if (!account.ready) continue;
+    const checked = checkTikTokCreator(settings, await creatorOf(session, account), media?.kind === "video" ? media.duration : null);
+    if (checked.errors.length) throw new DapiError("invalid-input", checked.errors.join(" "));
+    settings = checked.choices;
+    warnings.push(...checked.warnings);
+  }
+  return { tiktok: settings, warnings };
+}
+var withRules = (session, saved, next) => approvalRules(saved, next, { approver: session.scope.role !== "member", membersNeedApproval: session.scope.membersNeedApproval }, new Date(session.now).toISOString());
 async function saveNew(session, args, shared, own, youtubeBefore) {
   const { scope } = session;
   const platforms = sortPlatforms(args.platforms);
@@ -1670,15 +2360,19 @@ async function saveNew(session, args, shared, own, youtubeBefore) {
   const title = postTitle(args.youtube?.title || caption, shared?.names[0]?.name.replace(/\.[^.]+$/, "") || "Untitled post");
   const media = mediaOn(shared, own);
   const youtube = youtubeOf(args.youtube, youtubeBefore, platforms, caption, knownShape(media("youtube")));
-  const tiktok = platforms.includes("tiktok") ? tiktokOf(args.tiktok) : void 0;
+  let tiktok = platforms.includes("tiktok") ? tiktokOf(args.tiktok) : void 0;
   requireTikTok(platforms, tiktok, scheduling);
   const warnings = assertFits({ kind: kindOf(shared, own), platforms, caption, title: youtube?.title || title, media });
-  refuseUnseen(session, scheduling, when, scheduling && toProfile(platforms, tiktok));
+  if (scheduling && toProfile(platforms, tiktok)) {
+    const checked = await tiktokYes(session, choices, tiktok, media("tiktok"), args.tiktok?.agreed, "tiktok.agreed");
+    tiktok = checked.tiktok;
+    warnings.push(...checked.warnings);
+  }
   const { repeat, repeatEnd } = repeatOf(args.repeat, day);
   const thread = threadOf(args.thread, platforms);
   const id = newId();
   const recurrence = repeat || null;
-  const post = withOwnCaptions(
+  const post = withRules(session, void 0, withOwnCaptions(
     {
       allDay: !scheduling && !time,
       calendarId: scope.calendarId,
@@ -1705,11 +2399,11 @@ async function saveNew(session, args, shared, own, youtubeBefore) {
       title: title || "Untitled post"
     },
     { youtube: youtube?.description }
-  );
+  ));
   await refuseOverLimit(session, post);
   if (shared || Object.keys(own).length) Object.assign(post, await copyOnto(session, id, shared, own));
   const row = await written(session, post, null);
-  return viewOf(session, row, warnings);
+  return viewOf(session, row, [...warnings, ...heldWarning(post, scheduling)]);
 }
 async function socialAccounts2(session) {
   const { scope } = session;
@@ -1806,9 +2500,10 @@ async function updatePost2(session, args) {
   if (!isDateKey(day)) throw new DapiError("invalid-input", "Day is YYYY-MM-DD.");
   const time = args.time ? clock(args.time) : existing.allDay ? null : existing.start;
   let status = existing.status;
+  if (args.draft === false && awaitingApproval(existing)) throw new DapiError("invalid-input", AWAITING_APPROVAL);
   if (args.draft === true) status = "draft";
   else if (args.draft === false) status = "scheduled";
-  else if (args.day !== void 0 && args.time !== void 0 && existing.status === "draft") status = "scheduled";
+  else if (args.day !== void 0 && args.time !== void 0 && existing.status === "draft" && !awaitingApproval(existing)) status = "scheduled";
   const at = time ? momentOf(day, time, zone) : null;
   if (status === "scheduled") {
     if (!time) throw new DapiError("invalid-input", "A scheduled post needs a time. Pass one, or draft true.");
@@ -1822,7 +2517,7 @@ async function updatePost2(session, args) {
   const title = args.youtube?.title?.trim() || (args.caption !== void 0 ? ownTitle || postTitle(caption, fileTitle || existing.title) : existing.title);
   const media = mediaOn(attached.shared, attached.own);
   const youtube = youtubeOf(args.youtube, existing.youtube, platforms, caption, knownShape(media("youtube")), args.caption !== void 0 ? title : existing.youtube?.title);
-  const tiktok = platforms.includes("tiktok") ? tiktokOf(args.tiktok, existing.tiktok) : void 0;
+  let tiktok = platforms.includes("tiktok") ? tiktokOf(args.tiktok, existing.tiktok) : void 0;
   requireTikTok(platforms, tiktok, status === "scheduled");
   const warnings = [
     ...assertFits({ kind: kindOf(attached.shared, attached.own), platforms, caption, own, title: youtube?.title || title, media }),
@@ -1830,8 +2525,11 @@ async function updatePost2(session, args) {
   ];
   const agreedBefore = existing.status === "scheduled" && toProfile(existing.platforms, existing.tiktok);
   const tiktokChanged = args.tiktok?.privacy !== void 0 || args.tiktok?.promotion !== void 0 || args.tiktok?.inbox !== void 0 || args.accounts !== void 0;
-  const tiktokYes = status === "scheduled" && toProfile(platforms, tiktok) && (!agreedBefore || tiktokChanged);
-  refuseUnseen(session, status === "scheduled", at, tiktokYes);
+  if (status === "scheduled" && toProfile(platforms, tiktok) && (!agreedBefore || tiktokChanged)) {
+    const checked = await tiktokYes(session, choices, tiktok, media("tiktok"), args.tiktok?.agreed, "tiktok.agreed");
+    tiktok = checked.tiktok;
+    warnings.push(...checked.warnings);
+  }
   const retimed = day !== existing.day || (time ?? "00:00") !== existing.start || !time !== existing.allDay || status !== existing.status;
   const built = args.repeat ? repeatOf(args.repeat, day) : null;
   const recurrence = args.repeat === null ? null : built ? built.repeat || null : existing.recurrence;
@@ -1863,7 +2561,7 @@ async function updatePost2(session, args) {
   else delete next.thread;
   const changedTiming = retimed || recurrence !== existing.recurrence || recurrenceEnd !== (existing.recurrenceEnd ?? null);
   if (changedTiming) next.sendFrom = new Date(session.now).toISOString();
-  const revised = withOwnCaptions(next, own);
+  const revised = withRules(session, existing, withOwnCaptions(next, own));
   await refuseOverLimit(session, revised, existing);
   if (args.media && attached.shared) {
     const copied = await copyOnto(session, existing.id, attached.shared, {});
@@ -1873,7 +2571,147 @@ async function updatePost2(session, args) {
     revised.media = [...(existing.media ?? []).filter((item) => replyFiles.has(item.id)), ...copied.media];
   }
   const saved = await written(session, revised, row.version);
-  return viewOf(session, saved, warnings);
+  return viewOf(session, saved, [...warnings, ...heldWarning(revised, status === "scheduled")]);
+}
+async function deletePost2(session, { id }) {
+  const row = await postById(session, id);
+  if (row.data.status === "posted") throw new DapiError("invalid-input", "Posted posts stay as they went out. Post again to make a copy you can change.");
+  const removed = await session.store.remove(session.scope, id, row.version);
+  if ("conflict" in removed) throw new DapiError("busy", CONFLICT);
+  return { id, deleted: true };
+}
+async function tiktokCreator2(session, { account: requested }) {
+  const choices = pickAccounts(connected(session.scope), ["tiktok"], requested ? [requested] : void 0);
+  const account = accountsFor(session.scope, "tiktok", choices)[0];
+  if (!account) throw new DapiError("invalid-input", "Connect TikTok in Connections first.");
+  if (!account.ready) throw new DapiError("invalid-input", `Connect ${account.handle} in Connections again: plan.video has its name but no TikTok login.`);
+  return tiktokCreatorView(account.id, await creatorOf(session, account));
+}
+function filesFor(post, platform) {
+  const ids = post.ownFiles?.[platform] ?? post.files;
+  if (ids) return [...ids];
+  return post.media?.some((item) => item.id === post.id) ? [post.id] : [];
+}
+var isVideo = (file) => !!file && (file.type.startsWith("video/") || /\.(mp4|mov|webm|mkv|m4v)$/i.test(file.name));
+var platformName2 = (id) => isPlatform(id) ? socialPlatform(id).name : id;
+function deliveryErrors(row) {
+  const lines = Object.entries(row.deliveries ?? {}).flatMap(
+    ([id, delivery]) => !delivery || delivery.state === "sent" ? [] : [`${platformName2(id)}: ${delivery.error ?? "was not published."}`]
+  );
+  return lines.join(" ") || "The post was not published.";
+}
+async function publishPost2(session, { id, agreed }) {
+  const { scope } = session;
+  const row = await postById(session, id);
+  let post = row.data;
+  if (post.status === "posted") throw new DapiError("invalid-input", "This post already went out.");
+  if (awaitingApproval(post)) throw new DapiError("invalid-input", AWAITING_APPROVAL);
+  const foreign = post.platforms.filter((platform) => !PUBLISHES.has(platform));
+  if (foreign.length > 0) {
+    const names = foreign.map(platformName2);
+    throw new DapiError(
+      "unsupported",
+      `plan.video sends ${inEnglish(() => listNames(PUBLISHING_PLATFORMS))} only. ${names.join(", ")} ${names.length === 1 ? "is" : "are"} not sent. Take ${names.length === 1 ? "it" : "them"} off the post, or leave this post on the calendar.`
+    );
+  }
+  if (post.platforms.length === 0) throw new DapiError("invalid-input", "This post has no platform to send to.");
+  for (const platform of post.platforms) {
+    const name = platformName2(platform);
+    const chosen = accountsFor(scope, platform, post.accounts);
+    if (chosen.length > 1) throw new DapiError("invalid-input", `Publishing sends one ${name} account. This post has ${chosen.length}. Leave one on it.`);
+    if (chosen.some((account) => account.ready)) continue;
+    const unnamed = (readChoices(post.accounts)[platform] ?? []).length === 0;
+    const others = connected(scope).filter((account) => account.platform === platform).length;
+    if (unnamed && others > 1) throw new DapiError("invalid-input", `${name} has more than one account. Update the post with the account id to publish.`);
+    if (!unnamed && chosen.length === 0 && others > 0) throw new DapiError("invalid-input", `The ${name} account this post named was removed. Update the post with a ${name} account id, then publish.`);
+    throw new DapiError("invalid-input", `Connect ${name} in Connections. A name alone can't publish.`);
+  }
+  if (post.platforms.includes("tiktok") && !post.tiktok?.inbox && !post.tiktok?.privacy) {
+    throw new DapiError("invalid-input", "TikTok needs who can watch before it can be published. Update the post with tiktok.privacy, or tiktok.inbox true.");
+  }
+  if (post.platforms.includes("youtube") && !(post.youtube?.title || post.title).trim()) throw new DapiError("invalid-input", "Add a YouTube title, then publish.");
+  for (const platform of post.platforms.filter((item) => NEEDS_FILE.has(item))) {
+    const files2 = filesFor(post, platform);
+    if (!files2.length) throw new DapiError("invalid-input", platform === "youtube" ? "Attach a video before publishing." : "Attach a video or pictures before publishing.");
+    if (platform === "youtube" && !files2.some((file) => isVideo(post.media?.find((item) => item.id === file)))) {
+      throw new DapiError("wrong-kind", "YouTube needs a video. This post has pictures.");
+    }
+  }
+  const files = /* @__PURE__ */ new Set([...post.platforms.flatMap((platform) => filesFor(post, platform)), ...(post.thread ?? []).flatMap((reply) => reply.files ?? [])]);
+  if ([...files].some((file) => !post.media?.find((item) => item.id === file)?.cloud)) {
+    throw new DapiError("invalid-input", "Its files haven't reached plan.video's storage yet. Ask the user to open plan.video where the post was made, so they finish uploading, then try again.");
+  }
+  const warnings = [];
+  let base = row.version;
+  const save = async (next) => {
+    const saved = await session.store.save(scope, next, base);
+    if ("conflict" in saved) throw new DapiError("busy", CONFLICT);
+    base = saved.version;
+    post = next;
+  };
+  if (toProfile(post.platforms, post.tiktok)) {
+    const attached = savedMedia(post);
+    const checked = await tiktokYes(session, post.accounts, post.tiktok, mediaOn(attached.shared, attached.own)("tiktok"), agreed, "agreed");
+    warnings.push(...checked.warnings);
+    if (checked.warnings.length) await save({ ...post, tiktok: checked.tiktok });
+  }
+  const before = { day: post.day, start: post.start, allDay: post.allDay };
+  const zone = post.timeZone || scope.timeZone;
+  const at = momentOf(post.day, post.allDay ? "00:00" : post.start, zone);
+  const failedBefore = Object.values(row.deliveries ?? {}).some((delivery) => delivery?.state === "failed");
+  const shift = !post.recurrence && !failedBefore && !!at && at.getTime() > session.now;
+  if (shift) await save({ ...post, day: dayKeyAt(session.now, zone), start: clockAt(session.now, zone), allDay: false });
+  const handed = await session.store.send(id);
+  const targets = handed.filter((delivery) => PUBLISHES.has(delivery.platform) && delivery.state !== "sent");
+  const missing = targets.filter((delivery) => delivery.connection_id === "none");
+  let latest = await postById(session, id);
+  const settled = (current2) => targets.every((delivery) => ["sent", "failed"].includes(current2.deliveries[delivery.platform]?.state ?? "") || delivery.connection_id === "none");
+  for (let waited = 0; !settled(latest) && waited < SEND_WAIT_MS; waited += SEND_LOOK_MS) {
+    await session.options.sleep(SEND_LOOK_MS);
+    latest = await postById(session, id);
+  }
+  const failed = missing.length > 0 || targets.some((delivery) => latest.deliveries[delivery.platform]?.state === "failed");
+  if (!failed && !settled(latest)) return viewOf(session, latest, [...warnings, "It's still going out. Check with list_posts in a minute: don't publish it again."]);
+  if (!failed) return viewOf(session, latest, warnings);
+  if (shift && latest.data.status !== "posted") {
+    const back = await session.store.save(scope, { ...latest.data, ...before }, latest.version);
+    if ("conflict" in back) warnings.push("Its time couldn't be put back, so it shows at the time it was tried.");
+  }
+  const reasons = [...missing.map((delivery) => `${platformName2(delivery.platform)}: ${delivery.error ?? "no login to send with."}`), deliveryErrors(latest)];
+  throw new DapiError("unsupported", [...new Set(reasons)].join(" "));
+}
+function snapshotOf(session, post) {
+  const files = (post.files ?? (post.media?.some((item) => item.id === post.id) ? [post.id] : [])).map((id) => post.media?.find((item) => item.id === id)).filter((file) => !!file?.cloud);
+  const captions = ownCaptions(post);
+  return {
+    title: post.title,
+    caption: post.description ?? "",
+    ...Object.keys(captions).length ? { captions } : {},
+    platforms: post.platforms.map((id) => {
+      const accounts = accountsFor(session.scope, id, post.accounts);
+      return { id, name: platformName2(id), handles: accounts.map((account) => account.handle), avatars: accounts.map(() => "") };
+    }),
+    day: post.day,
+    start: post.start,
+    allDay: post.allDay,
+    timeZone: post.timeZone ?? null,
+    status: post.status === "scheduled" ? "draft" : post.status,
+    media: files[0] ? isVideo(files[0]) ? "video" : "image" : null,
+    ...files.length && (files.length > 1 || files[0].id !== post.id) ? { files: files.map((file) => file.id) } : {},
+    ...post.story ? { story: true } : {},
+    youtubeTitle: post.youtube?.title || null,
+    ...post.platforms.includes("pinterest") && post.pinterest?.title ? { pinterestTitle: post.pinterest.title } : {},
+    ...!post.story && post.thread?.some((reply) => reply.text.trim()) ? { thread: post.thread.flatMap((reply) => reply.text.trim() ? [reply.text] : []) } : {},
+    link: post.link,
+    workspaceId: session.scope.workspace
+  };
+}
+async function askForApproval2(session, { id }) {
+  const row = await postById(session, id);
+  if (row.data.status === "posted") throw new DapiError("invalid-input", "This post has already gone out.");
+  const asked = await session.store.askApproval(session.scope, id, row.version, snapshotOf(session, row.data));
+  if ("conflict" in asked) throw new DapiError("busy", CONFLICT);
+  return { ...viewOf(session, await postById(session, id)), approvalLink: `${session.options.site}/p/${asked.preview}` };
 }
 export {
   createPostingTools

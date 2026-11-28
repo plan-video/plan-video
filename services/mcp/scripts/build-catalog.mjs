@@ -34,9 +34,10 @@ const READ_ONLY = new Set([
   "list_media",
   "list_posts",
 ]);
-const DESTRUCTIVE = new Set(["delete_elements", "delete_post", "publish_post"]);
-/** Tools that reach past plan.video: publishing posts on the networks. */
-const OPEN_WORLD = new Set(["publish_post"]);
+/** Tools that change or take away what's there, sends that can't be taken back among them. */
+const DESTRUCTIVE = new Set(["delete_elements", "update_post", "ask_for_approval", "delete_post", "publish_post"]);
+/** Tools whose posts reach past plan.video: onto the networks, now or at their time, or to anyone with a link. */
+const OPEN_WORLD = new Set(["schedule_post", "copy_post", "update_post", "ask_for_approval", "publish_post"]);
 
 /** In the order an agent meets them. */
 const POSTING = ["social_accounts", "social_schema", "tiktok_creator", "analytics", "list_media", "schedule_post", "copy_post", "list_posts", "update_post", "ask_for_approval", "delete_post", "publish_post"];
@@ -45,7 +46,7 @@ const POSTING = ["social_accounts", "social_schema", "tiktok_creator", "analytic
 const MEDIA =
   "One video, or up to 35 pictures as a list for a carousel, from the user's media library, by media id from list_media, such as media:2f9c1e. Paths and URLs are refused.";
 
-const POSTING_INSTRUCTIONS = `These tools plan and publish the user's social posts on plan.video, in the workspace open last in their plan.video dashboard. Reading, drafts and scheduling a post at least 10 minutes ahead work with plan.video closed. Publishing now, deleting, scheduling sooner, posting to the TikTok profile, tiktok_creator and analytics run in the user's plan.video tab, where they say yes to what goes out: when no tab is open, the tool says so. Ask the user to open https://plan.video in their browser, signed in, and try again.
+const POSTING_INSTRUCTIONS = `These tools plan and publish the user's social posts on plan.video, in the workspace open last in their plan.video dashboard at https://plan.video. They work with plan.video closed.
 
 How to work:
 - Start with social_accounts: it gives the connected accounts, their ids, and the dashboard time zone that every day and time is read in.
@@ -98,6 +99,7 @@ async function postingTools() {
       title: tool.title,
       description: tool.description
         .replace(", once it has synced to the account, so the app has to stay open until then", "")
+        .replace(" plan.video has to stay open until this answers.", "")
         .replace("Attach one local video, or pictures for a carousel, with media.", "Attach a video, or pictures for a carousel, from the media library with media.")
         .replace("Read the person's numbers", "Read the user's numbers")
         .replace("when they ask how they're doing", "when the user asks how they're doing"),

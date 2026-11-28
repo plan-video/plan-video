@@ -32,8 +32,6 @@ export const APPROVAL_LABELS: Record<ApprovalState, string> = {
   approved: msg("Approved"),
 };
 
-/** Word for word in services/publisher/worker.mjs and the migration, so they show translated. */
-export const AWAITING_APPROVAL = msg("This post is waiting for approval. Once it's approved it goes out at its time.");
 export const MEMBERS_NEED_APPROVAL = msg("Posts in this workspace need approval before they go out. Ask for approval instead.");
 export const ONLY_APPROVERS = msg("Only the workspace's owner and admins can approve posts.");
 /** What the publisher and the database say back, so they show translated. */
@@ -44,7 +42,7 @@ export const SERVER_WORDS = [
   msg("Add your name."),
 ];
 
-export { approvalOf, awaitingApproval, isApproval } from "@/lib/post-rules";
+export { approvalOf, awaitingApproval, AWAITING_APPROVAL, isApproval } from "@/lib/post-rules";
 
 /** The person's role in the open workspace. Their own workspaces are theirs. */
 export const workspaceRole = (): "owner" | "admin" | "member" => activeShared()?.role ?? "owner";

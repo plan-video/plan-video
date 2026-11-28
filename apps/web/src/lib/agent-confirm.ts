@@ -2,9 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Publishing and deleting always ask. Agents at plan.video/mcp ask for any scheduled post (the publisher sends it
-// unseen later); the Assistant asks for posts due within minutes or going to TikTok, where only the person
-// may accept TikTok's terms. The handlers, the Assistant and the hosted connector must agree on these rules.
+// What the Assistant asks the person before it does: publishing and deleting always, and posts due within
+// minutes or going to TikTok, where only the person may accept TikTok's terms. Agents at plan.video/mcp are asked
+// by their own app instead, which goes by each tool's annotations.
 
 export type ConfirmTool = "schedule_post" | "copy_post" | "update_post" | "publish_post" | "delete_post";
 
@@ -47,33 +47,8 @@ export function isSoon(at: Date | null, now = Date.now()): boolean {
   return !!at && at.getTime() - now < CONFIRM_LEAD_MS;
 }
 
-/** `every` is for agents at plan.video/mcp: any scheduled post waits, however far out. */
-export function needsConfirm(input: { tool: ConfirmTool; scheduled?: boolean; leavesSchedule?: boolean; at?: Date | null; tiktokYes?: boolean; every?: boolean; now?: number }): boolean {
+export function needsConfirm(input: { tool: ConfirmTool; scheduled?: boolean; at?: Date | null; tiktokYes?: boolean; now?: number }): boolean {
   if (input.tool === "publish_post" || input.tool === "delete_post") return true;
-  if (!input.scheduled) return !!input.every && !!input.leavesSchedule;
-  return !!input.every || !!input.tiktokYes || isSoon(input.at ?? null, input.now);
-}
-
-/** Must match the timeouts in services/mcp/relay.mjs. */
-const RELAY_MS: Partial<Record<string, number>> = {
-  publish_post: 600_000,
-  schedule_post: 120_000,
-  update_post: 120_000,
-  copy_post: 120_000,
-};
-const RELAY_DEFAULT_MS = 60_000;
-
-/** Kept back for the work after a yes: sending takes longest. */
-const AFTER_YES_MS: Partial<Record<string, number>> = {
-  publish_post: 300_000,
-  schedule_post: 30_000,
-  update_post: 30_000,
-  copy_post: 30_000,
-};
-const AFTER_YES_DEFAULT_MS = 15_000;
-
-/** So the answer reaches the agent before the relay gives up. */
-export function confirmWaitMs(tool: string, arrived: number, now = Date.now()): number {
-  const deadline = arrived + (RELAY_MS[tool] ?? RELAY_DEFAULT_MS) - (AFTER_YES_MS[tool] ?? AFTER_YES_DEFAULT_MS);
-  return Math.max(0, deadline - now);
+  if (!input.scheduled) return false;
+  return !!input.tiktokYes || isSoon(input.at ?? null, input.now);
 }

@@ -63,8 +63,22 @@ const [chosenZone, setChosenZone] = createSignal<string | null>(readSaved());
 
 export { chosenZone };
 
+/** Set only while inTimeZone runs. */
+let fixedZone: string | null = null;
+
 export function timeZone(): string {
-  return chosenZone() ?? deviceTimeZone();
+  return fixedZone ?? chosenZone() ?? deviceTimeZone();
+}
+
+/** For a server answering for one person after another: `run` reads days and hours in `zone`. It must not await. */
+export function inTimeZone<T>(zone: string, run: () => T): T {
+  const before = fixedZone;
+  fixedZone = isZone(zone) ? zone : "UTC";
+  try {
+    return run();
+  } finally {
+    fixedZone = before;
+  }
 }
 
 const listeners = new Set<(from: string, to: string) => void>();

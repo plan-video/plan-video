@@ -109,7 +109,7 @@ function channelsOf(platforms: readonly string[], choices: AccountChoices | unde
 // A no stops the call before anything changes.
 async function askPerson(ctx: ToolContext, request: ConfirmRequest & { scheduled?: boolean; at?: Date | null; tiktokYes?: boolean }) {
   const { scheduled, at, tiktokYes, ...shown } = request;
-  if (!ctx.confirm || !needsConfirm({ tool: request.tool, scheduled, leavesSchedule: request.leavesSchedule, at, tiktokYes, every: ctx.confirmEvery })) return;
+  if (!ctx.confirm || !needsConfirm({ tool: request.tool, scheduled, at, tiktokYes })) return;
   if (!(await ctx.confirm(shown))) throw new DapiError("canceled", NOT_CONFIRMED);
 }
 
