@@ -152,7 +152,6 @@ function LayoutTab(props: InspectorProps) {
       </FieldGroup>
       <FieldGroup
         label={t("Crops")}
-        hint={t("Drag a box to move it, or a corner to resize it. Arrow keys move a box a little.")}
         trailing={
           <span class="flex items-center gap-1">
             <CropActions {...props} />
@@ -184,7 +183,6 @@ function LayoutTab(props: InspectorProps) {
               onChange={setCrop}
               maxHeight="(100dvh - 11rem)"
             />
-            <p class="text-xs text-muted-foreground">{t("Drag a box to move it, or a corner to resize it. Arrow keys move a box a little.")}</p>
           </DialogContent>
         </DialogPortal>
       </Dialog>
