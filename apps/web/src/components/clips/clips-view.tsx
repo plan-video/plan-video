@@ -362,7 +362,7 @@ function Start(props: {
 
         <div class="mt-10 w-full max-w-[680px] max-md:mt-8">
           <form
-            class="flex min-h-36 flex-col justify-between gap-4 rounded-2xl border border-(--plane-border-subtle) bg-(--plane-surface-1) p-4 shadow-[0_12px_40px_-12px_rgb(0_0_0/0.35)] focus-within:border-(--plane-border-strong)"
+            class="flex min-h-36 flex-col justify-between gap-4 rounded-2xl border border-(--plane-border-subtle) bg-(--plane-surface-1) p-4 focus-within:border-(--plane-border-strong)"
             onSubmit={(event) => {
               event.preventDefault();
               props.onFind();
