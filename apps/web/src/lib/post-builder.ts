@@ -16,7 +16,7 @@ import {
 } from "./stream-layouts";
 import { t } from "./i18n";
 
-import type { CaptionPreset } from "@plan.video/jsx";
+import type { CaptionPreset, TextLookName } from "@plan.video/jsx";
 
 export type PostClip = {
   /** What `src` names. */
@@ -35,15 +35,21 @@ export type PostSpec = {
   layoutId: string;
   /** Null for no captions. */
   captions: CaptionPreset | null;
+  /** The captions' face, colour and outlines, over the preset's motion. */
+  captionsLook?: TextLookName;
   /** A transcript file for the captions, so nothing is transcribed again. Its times are the scene's. */
   captionsSrc?: string;
   /** Crops found for the source, as fractions of it, in place of the layout's own. */
   crops?: Crops;
+  /** A line shown big over the first seconds, to stop the scroll. */
+  hook?: string;
 };
 
 export type PostNode = {
   tag: string;
   props: Record<string, unknown>;
+  /** A `<text>`'s words. */
+  text?: string;
   children: PostNode[];
 };
 
@@ -91,10 +97,27 @@ function slotVideo(clip: PostClip, slot: Slot, crop: Box, start: number, muted: 
   );
 }
 
+/** How far the gameplay crop may move off its middle to keep a found facecam out of it, as a share of the source. */
+const MOST_GAMEPLAY_SHIFT = 0.1;
+/** A camera's picture reaches past the person found in it, by up to this share of the source. */
+const CAMERA_EDGE = 0.04;
+
+/** The gameplay crop moved sideways off the facecam, so the camera doesn't show again at the game's edge. */
+function clearOfFacecam(gameplay: Box, facecam: Box): Box {
+  const camLeft = facecam.x - CAMERA_EDGE;
+  const camRight = facecam.x + facecam.width + CAMERA_EDGE;
+  if (gameplay.x >= camRight || gameplay.x + gameplay.width <= camLeft) return gameplay;
+  const left = facecam.x + facecam.width / 2 < gameplay.x + gameplay.width / 2;
+  const wanted = left ? camRight : camLeft - gameplay.width;
+  const x = Math.min(1 - gameplay.width, Math.max(0, Math.min(gameplay.x + MOST_GAMEPLAY_SHIFT, Math.max(gameplay.x - MOST_GAMEPLAY_SHIFT, wanted))));
+  return { ...gameplay, x };
+}
+
 function layoutFor(layoutId: string, clip: PostClip, found: Crops = {}): { slots: Slot[]; crops: Crops } {
   const layout = getStreamLayout(layoutId);
   const fractions: Crops = {};
   for (const spec of layout.crops) fractions[spec.id] = found[spec.id] ?? defaultCrop(spec, clip.width / clip.height);
+  if (found.facecam && fractions.gameplay && !found.gameplay) fractions.gameplay = clearOfFacecam(fractions.gameplay, found.facecam);
   const crops = toPixels(fractions, clip.width, clip.height);
   return { slots: layout.slots(crops).filter((slot) => crops[slot.crop]), crops };
 }
@@ -125,13 +148,71 @@ export function buildPost(spec: PostSpec): PostNode {
   }
 
   const children = [...tracks];
-  if (spec.captions) children.push(node("captions", { preset: spec.captions, ...(spec.captionsSrc ? { src: spec.captionsSrc } : {}) }));
+  const length = spec.clips.reduce((sum, clip) => sum + clip.duration, 0);
+  const placed = perClip[0] ? captionsAt(perClip[0].slots) : null;
+  if (spec.captions) {
+    children.push(
+      node("captions", {
+        preset: spec.captions,
+        ...(spec.captionsLook ? { look: spec.captionsLook } : {}),
+        ...(spec.captionsSrc ? { src: spec.captionsSrc } : {}),
+        ...(placed !== null ? { verticalAlign: "center", offsetY: Math.round(placed - LAYOUT_HEIGHT / 2) } : {}),
+      }),
+    );
+  }
+  if (spec.hook?.trim() && length > HOOK_SECONDS + 1) children.push(hookText(spec.hook.trim()));
 
   return node(
     "scene",
     { name: spec.name, width: LAYOUT_WIDTH, height: LAYOUT_HEIGHT, fill: "#000000", active: true },
     children,
   );
+}
+
+const HOOK_SECONDS = 3.2;
+
+/** Where the captions' middle goes: on the seam under a facecam band, just under a game band, or low on a full frame. */
+function captionsAt(slots: Slot[]): number | null {
+  const game = slots.find((slot) => slot.crop === "gameplay" && !slot.blur);
+  if (!game) return null;
+  const { y, height } = game.box;
+  if (height >= LAYOUT_HEIGHT - 40) return Math.round(LAYOUT_HEIGHT * 0.72);
+  const camAbove = slots.some((slot) => slot.crop === "facecam" && !slot.float && Math.abs(slot.box.y + slot.box.height - y) < 2);
+  if (camAbove) return y;
+  const under = y + height + 150;
+  return under < LAYOUT_HEIGHT - 300 ? under : Math.round(LAYOUT_HEIGHT * 0.72);
+}
+
+/** The hook in the captions' gaming face, near the top where the feed's own buttons don't reach. */
+function hookText(words: string): PostNode {
+  const size = words.length > 48 ? 72 : 88;
+  return {
+    tag: "text",
+    props: {
+      name: t("Hook"),
+      x: 70,
+      y: 170,
+      width: LAYOUT_WIDTH - 140,
+      height: 340,
+      start: 0,
+      end: HOOK_SECONDS,
+      fontFamily: "Luckiest Guy",
+      fontWeight: 400,
+      fontSize: size,
+      textCase: "upper",
+      textAlign: "center",
+      textBaseline: "middle",
+      leading: 1.05,
+      color: "#FFFFFF",
+    },
+    text: words,
+    children: [
+      node("stroke", { color: "#000000", width: Math.round(size * 0.18), join: "round" }),
+      node("shadow", { color: "#000000", opacity: 0.8, blur: Math.round(size * 0.3) }),
+      node("animation", { type: "pop", duration: 0.3 }),
+      node("animation", { type: "fade", phase: "out", duration: 0.3 }),
+    ],
+  };
 }
 
 const IDENTIFIER = /^[A-Za-z_$][\w$]*$/;
@@ -146,8 +227,9 @@ function jsxProp(key: string, value: unknown): string {
 function jsxNode(entry: PostNode, indent: string): string {
   const props = Object.entries(entry.props).map(([key, value]) => jsxProp(key, value)).join(" ");
   const open = props ? `<${entry.tag} ${props}` : `<${entry.tag}`;
-  if (!entry.children.length) return `${indent}${open} />`;
-  const inner = entry.children.map((child) => jsxNode(child, `${indent}  `)).join("\n");
+  if (!entry.children.length && entry.text === undefined) return `${indent}${open} />`;
+  const words = entry.text === undefined ? [] : [`${indent}  {${JSON.stringify(entry.text)}}`];
+  const inner = [...words, ...entry.children.map((child) => jsxNode(child, `${indent}  `))].join("\n");
   return `${indent}${open}>\n${inner}\n${indent}</${entry.tag}>`;
 }
 

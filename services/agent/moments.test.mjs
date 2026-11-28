@@ -18,7 +18,8 @@ const window0 = {
 test("picks snap to word edges and stay inside their window", () => {
   const request = readRequest({ windows: [window0], count: 5 });
   const { moments } = answerFor({ moments: [{ window: 0, start: 1.8, end: 31.0, score: 90, title: "He did not", caption: "", reason: "" }] }, request);
-  assert.deepEqual(moments.map(({ start, end }) => [start, end]), [[2.1, 31.4]]);
+  // A breath before the first word, and a moment after the payoff for the reaction.
+  assert.deepEqual(moments.map(({ start, end }) => [start, end]), [[1.9, 32]]);
 
   const outside = answerFor({ moments: [{ window: 3, start: 0, end: 20, score: 99, title: "x", caption: "", reason: "" }] }, request);
   assert.deepEqual(outside.moments, []);

@@ -20,6 +20,9 @@ const MAX_WORDS = 15000;
 const MIN_CLIP = 8;
 const MAX_CLIP = 90;
 const MAX_MOMENTS = 10;
+/** Kept before the first word and after the last, so a clip doesn't start mid-breath or cut off the laugh. */
+const LEAD = 0.2;
+const TAIL = 0.6;
 /** A Creator's day in input-token equivalents: about ten streams. */
 const DEFAULT_MOMENTS_BUDGET = 15_000_000;
 
@@ -157,8 +160,8 @@ export function answerFor(output, { windows, count }) {
     const start0 = seconds(pick?.start);
     const end0 = seconds(pick?.end);
     if (!window || start0 === null || end0 === null) return [];
-    let start = Math.max(0, snap(window.words, start0, "start"));
-    let end = Math.min(window.length, snap(window.words, end0, "end"));
+    let start = Math.max(0, snap(window.words, start0, "start") - LEAD);
+    let end = Math.min(window.length, snap(window.words, end0, "end") + TAIL);
     if (end - start > MAX_CLIP) end = start + MAX_CLIP;
     if (end - start < MIN_CLIP) {
       end = Math.min(window.length, end + (MIN_CLIP - (end - start)) / 2);

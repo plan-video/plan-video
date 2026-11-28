@@ -179,6 +179,7 @@ import {
 } from "@/lib/social-media";
 import { projectKey, type ProjectInfo } from "@/projects";
 import { createPostProject } from "@/projects/post";
+import { getDefaultExportTemplate } from "@/components/sidebar-right/inspector/export-templates";
 import { findStreamLook } from "@/lib/facecam-find";
 import { segmentWords } from "@/lib/transcribe";
 import { fetchMomentVideo, type TwitchMoment, type TwitchVideo } from "@/lib/twitch-clips";
@@ -1674,13 +1675,18 @@ function MediaEditor(props: { slot: MediaSlot }) {
     });
     const project = await createPostProject([file], {
       layoutId: look.layout,
-      captions: "classic",
+      captions: "pop",
+      captionsLook: "hook",
+      hook: moment.title,
       trims: [{ start: offset, duration }],
       transcript: segmentWords(moment.words),
       crops: look.crops,
     });
     if (!project) throw new Error(t("Your projects folder couldn't be opened."));
-    await attachProject(project);
+    // Gameplay moves fast: a 60 fps stream keeps its 60 frames a second.
+    const standard = getDefaultExportTemplate();
+    const smooth = "frameRate" in look && (look.frameRate ?? 0) > 45;
+    await attachProject(project, smooth ? { key: projectKey(project), settings: { ...standard, video: { ...standard.video, fps: 60 } } } : null);
     if (!post.caption.trim()) setPost("caption", moment.caption);
     if (!post.settings.youtube.title.trim()) setPost("settings", "youtube", "title", moment.title);
     track("post_twitch_clip_used", { layout: look.layout });

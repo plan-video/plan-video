@@ -15,12 +15,15 @@ import { createBrowserProjectFS } from "./browser";
 import { createProject, ensureProjectsRoot } from "./host";
 
 import type { Transcript } from "@plan.video/assets";
-import type { CaptionPreset } from "@plan.video/jsx";
+import type { CaptionPreset, TextLookName } from "@plan.video/jsx";
 import type { ProjectInfo } from "./types";
 
 export type PostOptions = {
   layoutId: string;
   captions: CaptionPreset | null;
+  captionsLook?: TextLookName;
+  /** A line shown big over the first seconds. */
+  hook?: string;
   /** Per file: the stretch of it to use, in seconds. */
   trims?: ({ start: number; duration: number } | undefined)[];
   /** What's said, timed on the finished post, so the captions need no transcribing. */
@@ -36,6 +39,7 @@ function toSaved(entry: PostNode, next: () => string): SavedNode {
   return {
     tag: entry.tag,
     props: entry.props,
+    ...(entry.text !== undefined ? { text: entry.text } : {}),
     source: next(),
     children: entry.children.map((child) => toSaved(child, next)),
   };
@@ -71,7 +75,7 @@ export async function createPostProject(files: ReadonlyArray<File>, options: Pos
   }
   if (!clips.length) throw new Error(t("None of the files could be read as video."));
 
-  const scene = buildPost({ name, clips, layoutId: options.layoutId, captions: options.captions, captionsSrc, crops: options.crops });
+  const scene = buildPost({ name, clips, layoutId: options.layoutId, captions: options.captions, captionsLook: options.captionsLook, captionsSrc, crops: options.crops, hook: options.hook });
 
   let stamp = 0;
   await writeBrowserComposition(project.dir, {

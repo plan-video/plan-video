@@ -157,7 +157,8 @@ export async function createEncoder(world: World, config: EncoderConfig) {
 	}
 
 	if (videoEnabled) {
-		output.addVideoTrack(videoSource);
+		// The encoder spends its bitrate per frame at the rate it's told, 30 when it isn't: 60 fps came out at twice the bitrate.
+		output.addVideoTrack(videoSource, { frameRate });
 	}
 
 	// Audio worklet streams render-quantum chunks back to the main thread so
