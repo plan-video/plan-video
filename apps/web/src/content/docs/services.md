@@ -15,11 +15,11 @@ Everything that needs a secret runs on your server as a small Node.js service. E
 | `mcp` | 8791 | `/mcp` | The MCP server AI agents connect to |
 | `agent` | 8796 | `/api/agent` | The dashboard's Assistant and the editor's caption tools, with Claude |
 | `transcribe` | 8792 | `/api/transcribe` | Auto-captions, with ElevenLabs speech-to-text |
-| `clips` | 8800 | `/api/clips/` | Finds clips in Twitch, Kick and YouTube streams for ClipSquirrel. It asks `transcribe` and `agent` for each person, and needs ffmpeg, curl and yt-dlp. |
+| `clips` | 8800 | `/api/clips/` | Finds clips in Twitch, Kick and YouTube streams for Stream Clipper. It asks `transcribe` and `agent` for each person, and needs ffmpeg, curl and yt-dlp. |
 | `billing` | 8799 | `/api/billing/` | Paid plans, with Stripe |
 | `monitor` | | | Checks the server every minute and reports to Healthchecks.io |
 
-You need `publisher`, `gateway`, `photos` and `storage`, plus the service of each network you connect. The rest are optional: without `mcp` agents can't connect, without `agent` there's no Assistant, without `transcribe` there are no auto-captions, without `clips` there is no ClipSquirrel, and without `billing` everyone stays on the Free plan unless you [give them a plan](/docs/self-hosting#give-yourself-a-plan).
+You need `publisher`, `gateway`, `photos` and `storage`, plus the service of each network you connect. The rest are optional: without `mcp` agents can't connect, without `agent` there's no Assistant, without `transcribe` there are no auto-captions, without `clips` there is no Stream Clipper, and without `billing` everyone stays on the Free plan unless you [give them a plan](/docs/self-hosting#give-yourself-a-plan).
 
 ## Settings files
 

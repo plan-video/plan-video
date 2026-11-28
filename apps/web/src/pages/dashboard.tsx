@@ -208,7 +208,7 @@ const PAGES: Partial<Record<DashboardView, { label: string; icon: PlaneIconName 
   queue: { label: msg("Auto-schedule"), icon: "queue" },
   agent: { label: msg("Assistant"), icon: "agent" },
   projects: { label: msg("All projects"), icon: "project" },
-  clips: { label: "ClipSquirrel", icon: "clips" },
+  clips: { label: "Stream Clipper", icon: "clips" },
   trash: { label: msg("Trash"), icon: "trash" },
   media: { label: msg("Media"), icon: "video-file" },
   templates: { label: msg("Templates"), icon: "template" },

@@ -207,7 +207,7 @@ export function DashboardClipsView() {
     const stream = open.stream;
     if (!stream) return undefined;
     return [
-      { label: "ClipSquirrel", icon: "clips" as const, onClick: closeStream },
+      { label: "Stream Clipper", icon: "clips" as const, onClick: closeStream },
       { label: `${stream.video.channel} · ${stream.video.title}` },
     ];
   };
