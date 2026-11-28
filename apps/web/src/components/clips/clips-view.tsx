@@ -315,10 +315,10 @@ export function DashboardClipsView() {
 
 type Platform = "twitch" | "kick" | "youtube";
 
-const PLATFORMS: { id: Platform; label: string; placeholder: string }[] = [
-  { id: "twitch", label: "Twitch", placeholder: msg("twitch.tv/videos/… or a channel's link") },
-  { id: "kick", label: "Kick", placeholder: msg("kick.com/…/videos/… or a channel's link") },
-  { id: "youtube", label: "YouTube", placeholder: msg("youtube.com/watch?v=… or a channel's link") },
+const PLATFORMS: { id: Platform; label: string }[] = [
+  { id: "twitch", label: "Twitch" },
+  { id: "kick", label: "Kick" },
+  { id: "youtube", label: "YouTube" },
 ];
 
 const platformOf = (link: string): Platform | null =>
@@ -342,12 +342,71 @@ function SourceMark(props: { id: Platform; class?: string }) {
   );
 }
 
-const HOW = [
-  { icon: "link", title: msg("Paste a link"), line: msg("A past broadcast, or a channel for its latest one.") },
-  { icon: "agent", title: msg("Get the best moments"), line: msg("Up to 30, picked from chat, sound and what was said.") },
-  { icon: "edit", title: msg("Make each one yours"), line: msg("Trim it, style the captions, add a hook, frame the facecam.") },
-  { icon: "calendar", title: msg("Post or download"), line: msg("Schedule it to any account, or save the video.") },
+/** The three signals the scan reads, drawn on a made-up broadcast so the page shows what it looks for. */
+const PEAKS = [
+  { at: 0.2, height: 0.72, time: "0:41:08", icon: "ask-chat", label: msg("Chat lit up") },
+  { at: 0.53, height: 0.92, time: "1:43:52", icon: "volume", label: msg("Loudest moment") },
+  { at: 0.81, height: 0.66, time: "2:39:15", icon: "scissors", label: msg("Viewers clipped it") },
 ] as const;
+const BARS = 132;
+const CLIP_WIDTH = 0.06;
+const HEAT = (() => {
+  let seed = 7;
+  const random = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
+  const raw = Array.from({ length: BARS }, () => random());
+  const bumps = [...PEAKS, { at: 0.36, height: 0.28 }, { at: 0.67, height: 0.34 }, { at: 0.93, height: 0.22 }, { at: 0.08, height: 0.2 }];
+  return raw.map((_, i) => {
+    const x = i / (BARS - 1);
+    const near = (raw[Math.max(0, i - 1)] + raw[i] * 2 + raw[Math.min(BARS - 1, i + 1)]) / 4;
+    const drift = 0.08 * Math.sin(x * 9.4) + 0.05 * Math.sin(x * 23);
+    const bump = Math.max(...bumps.map((entry) => entry.height * Math.exp(-((x - entry.at) ** 2) / 0.0004)));
+    const hot = PEAKS.some((peak) => Math.abs(x - peak.at) <= CLIP_WIDTH / 2);
+    return { value: Math.min(1, Math.max(0.08, 0.12 + 0.2 * near + drift + bump)), hot };
+  });
+})();
+
+function StreamHeat() {
+  return (
+    <div class="px-8 pt-2 pb-6 max-md:hidden" aria-hidden="true">
+      <div class="relative h-11">
+        <For each={PEAKS}>
+          {(peak) => (
+            <div class="absolute bottom-0 flex -translate-x-1/2 flex-col items-center" style={{ left: `${peak.at * 100}%` }}>
+              <span class="flex items-center gap-1.5 rounded-full bg-(--plane-surface-1) py-1 pr-2.5 pl-2 text-xs whitespace-nowrap text-foreground shadow-xs ring-1 ring-(--plane-border-subtle)">
+                <Icon name={peak.icon} class="size-3.5 text-primary" />
+                {t(peak.label)}
+                <span class="text-muted-foreground tabular-nums">{peak.time}</span>
+              </span>
+              <span class="h-2.5 w-px bg-primary/50" />
+            </div>
+          )}
+        </For>
+      </div>
+      <div class="relative flex h-20 items-end gap-[2px]">
+        <For each={PEAKS}>
+          {(peak) => (
+            <span
+              class="absolute -inset-y-1 -mx-1 rounded-md bg-primary/10"
+              style={{ left: `${(peak.at - CLIP_WIDTH / 2) * 100}%`, width: `${CLIP_WIDTH * 100}%` }}
+            />
+          )}
+        </For>
+        <For each={HEAT}>
+          {(bar) => (
+            <span
+              class={cx("relative min-w-0 flex-1 rounded-full", bar.hot ? "bg-primary" : "bg-foreground/14")}
+              style={{ height: `${bar.value * 100}%` }}
+            />
+          )}
+        </For>
+      </div>
+      <div class="mt-2 flex justify-between text-[11px] text-muted-foreground tabular-nums">
+        <span>0:00:00</span>
+        <span>3:12:40</span>
+      </div>
+    </div>
+  );
+}
 
 function Start(props: {
   link: string;
@@ -358,70 +417,42 @@ function Start(props: {
   onOpen(id: string): void;
   onRemove(stream: ClipStream): void;
 }) {
-  const [platform, setPlatform] = createSignal<Platform>("twitch");
   let field!: HTMLInputElement;
+  const found = () => platformOf(props.link);
   const dated = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleDateString(intlLocale(), { day: "numeric", month: "short" }) : "");
-  const type = (value: string) => {
-    props.onLink(value);
-    const found = platformOf(value);
-    if (found) setPlatform(found);
-  };
   const paste = async () => {
     const text = await navigator.clipboard?.readText?.().catch(() => "");
-    if (text?.trim()) type(text.trim());
+    if (text?.trim()) props.onLink(text.trim());
     field.focus();
   };
 
   return (
     <div class="flex min-h-0 flex-1 flex-col overflow-y-auto">
       <div class="flex w-full flex-col gap-10 px-6 pt-6 pb-12 max-md:gap-8 max-md:px-4 max-md:pt-4">
-        <div class="@container">
-        <form
-          class="grid gap-x-10 gap-y-8 rounded-2xl border border-(--plane-border-subtle) bg-(--plane-layer-1) p-8 @3xl:grid-cols-[minmax(0,1fr)_minmax(260px,340px)] @7xl:grid-cols-[minmax(0,1fr)_600px] max-md:p-5"
-          onSubmit={(event) => {
-            event.preventDefault();
-            props.onFind();
-          }}
-        >
-          <div class="flex min-w-0 flex-col justify-center">
+        <div class="overflow-hidden rounded-2xl border border-(--plane-border-subtle) bg-(--plane-layer-1)">
+          <form
+            class="flex flex-col p-8 max-md:p-5"
+            onSubmit={(event) => {
+              event.preventDefault();
+              props.onFind();
+            }}
+          >
             <h2 class="text-[28px] leading-tight font-semibold tracking-[-0.02em] text-foreground max-md:text-2xl">{t("Turn a stream into clips")}</h2>
-            <p class="mt-2 max-w-[600px] text-[15px] text-pretty text-muted-foreground">
-              {t("Paste a past broadcast and Stream Clipper finds its best moments, each one a vertical clip with captions, ready to post.")}
+            <p class="mt-2 max-w-[620px] text-[15px] text-pretty text-muted-foreground">
+              {t("Paste a past broadcast. Stream Clipper reads its chat, listens to it and checks what viewers clipped, then cuts the best moments into vertical clips with captions.")}
             </p>
 
-            <div class="mt-7 flex flex-wrap gap-1.5" role="radiogroup" aria-label={t("Platform")}>
-              <For each={PLATFORMS}>
-                {(entry) => (
-                  <button
-                    type="button"
-                    role="radio"
-                    aria-checked={platform() === entry.id}
-                    class="flex h-8 items-center gap-2 rounded-lg pr-3 pl-1.5 text-sm outline-none focus-ring"
-                    classList={{
-                      "bg-(--plane-surface-1) text-foreground shadow-xs ring-1 ring-(--plane-border-subtle)": platform() === entry.id,
-                      "text-muted-foreground hover:bg-(--plane-surface-1)/60 hover:text-foreground": platform() !== entry.id,
-                    }}
-                    onClick={() => {
-                      setPlatform(entry.id);
-                      field.focus();
-                    }}
-                  >
-                    <SourceMark id={entry.id} class="size-5" />
-                    {entry.label}
-                  </button>
-                )}
-              </For>
-            </div>
-
-            <div class="mt-3 flex max-w-[920px] gap-2 max-sm:flex-col">
+            <div class="mt-7 flex max-w-[820px] gap-2 max-sm:flex-col">
               <label class="flex h-12 min-w-0 flex-1 items-center gap-3 rounded-xl border border-(--plane-border-subtle) bg-(--plane-surface-1) pr-1.5 pl-3 shadow-xs focus-within:border-(--plane-border-strong)">
-                <PlaneIcon name="link" class="size-4.5 shrink-0 text-(--plane-text-placeholder)" />
+                <Show when={found()} fallback={<PlaneIcon name="link" class="size-5 shrink-0 text-(--plane-text-placeholder)" />}>
+                  {(platform) => <SourceMark id={platform()} class="size-5" />}
+                </Show>
                 <input
                   ref={field}
                   class="min-w-0 flex-1 bg-transparent text-[15px] text-foreground outline-none placeholder:text-(--plane-text-placeholder)"
                   value={props.link}
-                  onInput={(event) => type(event.currentTarget.value)}
-                  placeholder={t(PLATFORMS.find((entry) => entry.id === platform())!.placeholder)}
+                  onInput={(event) => props.onLink(event.currentTarget.value)}
+                  placeholder={t("Paste a Twitch, Kick or YouTube link")}
                   aria-label={t("Stream link")}
                   spellcheck={false}
                   autocomplete="off"
@@ -439,32 +470,25 @@ function Start(props: {
                 {t("Find clips")}
               </Button>
             </div>
-            <Show
-              when={props.error}
-              fallback={<p class="mt-3 text-xs text-muted-foreground">{t("Uses about 35 minutes of your monthly captions.")}</p>}
-            >
-              <p class="mt-3 text-xs text-destructive" role="alert">
-                {props.error}
-              </p>
-            </Show>
-          </div>
 
-          <ol class="grid grid-cols-2 gap-5 border-t border-(--plane-border-subtle) pt-7 max-md:hidden @3xl:flex @3xl:flex-col @3xl:justify-center @3xl:border-t-0 @3xl:border-l @3xl:pt-0 @3xl:pl-10 @7xl:grid @7xl:grid-cols-2 @7xl:content-center @7xl:gap-x-8 @7xl:gap-y-7">
-            <For each={HOW}>
-              {(step) => (
-                <li class="flex gap-3">
-                  <span class="grid size-8 shrink-0 place-items-center rounded-lg bg-(--plane-surface-1) text-foreground ring-1 ring-(--plane-border-subtle)">
-                    <PlaneIcon name={step.icon} class="size-4" />
+            <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
+              <For each={PLATFORMS}>
+                {(entry) => (
+                  <span class="flex items-center gap-1.5">
+                    <SourceMark id={entry.id} class="size-4 rounded-[4px]" />
+                    {entry.label}
                   </span>
-                  <span class="flex min-w-0 flex-col gap-0.5">
-                    <span class="text-sm font-medium text-foreground">{t(step.title)}</span>
-                    <span class="text-xs text-pretty text-muted-foreground">{t(step.line)}</span>
-                  </span>
-                </li>
-              )}
-            </For>
-          </ol>
-        </form>
+                )}
+              </For>
+              <span class="h-3 w-px bg-(--plane-border-subtle) max-sm:hidden" />
+              <Show when={props.error} fallback={<span>{t("Uses about 35 minutes of your monthly captions.")}</span>}>
+                <span class="text-destructive" role="alert">
+                  {props.error}
+                </span>
+              </Show>
+            </div>
+          </form>
+          <StreamHeat />
         </div>
 
         <section class="flex flex-col gap-4">
