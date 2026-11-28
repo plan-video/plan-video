@@ -121,7 +121,7 @@ export const canPickSaveLocation = () => "showSaveFilePicker" in window;
  * The file a save streams into: the one the person picks, or where the browser can't ask, a file in the
  * site's own storage that `handOver` then downloads. Null when the dialog was cancelled.
  */
-export async function pickSaveFile(suggestedName: string, types?: FilePickerAcceptType[]): Promise<FileSystemFileHandle | null> {
+export async function pickSaveFile(suggestedName: string, types?: { description?: string; accept: Record<`${string}/${string}`, `.${string}`[]> }[]): Promise<FileSystemFileHandle | null> {
   if (canPickSaveLocation()) {
     try {
       return await window.showSaveFilePicker({ suggestedName, types });
