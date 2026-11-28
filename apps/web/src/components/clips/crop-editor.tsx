@@ -17,6 +17,8 @@ type CropEditorProps = {
   /** Bumped to redraw the picture. */
   frame: number;
   onChange(id: CropId, box: Box): void;
+  /** Caps the picture's height, keeping its shape; it fills the width otherwise. */
+  maxHeight?: string;
 };
 
 const LEAST = 0.05;
@@ -106,7 +108,11 @@ export function CropEditor(props: CropEditorProps) {
   };
 
   return (
-    <div ref={area} class="relative w-full touch-none select-none overflow-hidden rounded-lg bg-black" style={{ "aspect-ratio": String(aspect()) }}>
+    <div
+      ref={area}
+      class="relative mx-auto w-full touch-none select-none overflow-hidden rounded-lg bg-black"
+      style={{ "aspect-ratio": String(aspect()), "max-width": props.maxHeight ? `calc(${props.maxHeight} * ${aspect()})` : undefined }}
+    >
       <canvas ref={canvas} class="absolute inset-0 size-full" aria-hidden="true" />
       <For each={boxes()}>
         {(entry) => (
@@ -133,7 +139,7 @@ export function CropEditor(props: CropEditorProps) {
             <For each={["nw", "ne", "sw", "se"] as const}>
               {(corner) => (
                 <span
-                  class="absolute size-3 rounded-full border-2 border-white"
+                  class="absolute size-3 rounded-full border-2 border-white before:absolute before:-inset-2 before:content-['']"
                   classList={{
                     "-top-1.5 -left-1.5 cursor-nwse-resize": corner === "nw",
                     "-top-1.5 -right-1.5 cursor-nesw-resize": corner === "ne",

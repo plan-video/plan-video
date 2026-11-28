@@ -9,6 +9,7 @@ import { getTextLook, type TextLook } from "@plan.video/runtime";
 import { Icon } from "@/components/dashboard/dashboard-icon";
 import { Field, FieldGroup, Segmented, SwitchRow, fieldControl, fieldControlBase } from "@/components/publish/controls";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogPortal, DialogTitle } from "@/components/ui/dialog";
 import { SliderRow } from "@/components/ui/slider-row";
 import { CAPTION_COLORS, CLIP_CAPTION_STYLES, captionStyle, clock, readClock, trimmed, type ClipCaptionStyle, type ClipEdit } from "@/lib/clip-studio";
 import { cx } from "@/lib/cva";
@@ -91,7 +92,32 @@ function LayoutThumb(props: { id: string }) {
   );
 }
 
+function CropActions(props: InspectorProps) {
+  return (
+    <>
+      <Button variant="ghost" size="small" class="h-6 px-1.5 text-xs" disabled={props.finding} onClick={props.onFindFacecam}>
+        <Show when={props.finding} fallback={t("Find facecam")}>
+          {t("Looking…")}
+        </Show>
+      </Button>
+      <Button
+        variant="ghost"
+        size="small"
+        class="h-6 px-1.5 text-xs"
+        onClick={() =>
+          props.update((clip) => {
+            clip.crops = {};
+          })
+        }
+      >
+        {t("Reset")}
+      </Button>
+    </>
+  );
+}
+
 function LayoutTab(props: InspectorProps) {
+  const [large, setLarge] = createSignal(false);
   const setCrop = (id: CropId, box: Box) =>
     props.update((clip) => {
       clip.crops = { ...clip.crops, [id]: box };
@@ -128,28 +154,39 @@ function LayoutTab(props: InspectorProps) {
         hint={t("Drag a box to move it, or a corner to resize it. Arrow keys move a box a little.")}
         trailing={
           <span class="flex items-center gap-1">
-            <Button variant="ghost" size="small" class="h-6 px-1.5 text-xs" disabled={props.finding} onClick={props.onFindFacecam}>
-              <Show when={props.finding} fallback={t("Find facecam")}>
-                {t("Looking…")}
-              </Show>
-            </Button>
-            <Button
-              variant="ghost"
-              size="small"
-              class="h-6 px-1.5 text-xs"
-              onClick={() =>
-                props.update((clip) => {
-                  clip.crops = {};
-                })
-              }
-            >
-              {t("Reset")}
+            <CropActions {...props} />
+            <Button variant="ghost" size="icon-square" class="size-6" aria-label={t("Enlarge")} title={t("Enlarge")} onClick={() => setLarge(true)}>
+              <svg viewBox="0 0 16 16" class="size-3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M10 2.5h3.5V6M6 13.5H2.5V10M13.5 2.5 9.5 6.5M2.5 13.5l4-4" />
+              </svg>
             </Button>
           </span>
         }
       >
         <CropEditor layout={props.clip.layout} crops={props.clip.crops} source={props.source} frame={props.frame} onChange={setCrop} />
       </FieldGroup>
+      <Dialog open={large()} onOpenChange={setLarge}>
+        <DialogPortal>
+          <DialogContent showCloseButton={false} class="w-[min(1600px,calc(100%-2rem))] gap-4 p-5 sm:max-w-none">
+            <div class="flex items-center gap-1">
+              <DialogTitle class="mr-auto text-[13px] font-medium">{t("Crops")}</DialogTitle>
+              <CropActions {...props} />
+              <Button class="ml-2 px-3 text-xs" onClick={() => setLarge(false)}>
+                {t("Done")}
+              </Button>
+            </div>
+            <CropEditor
+              layout={props.clip.layout}
+              crops={props.clip.crops}
+              source={props.source}
+              frame={props.frame}
+              onChange={setCrop}
+              maxHeight="(100dvh - 11rem)"
+            />
+            <p class="text-xs text-muted-foreground">{t("Drag a box to move it, or a corner to resize it. Arrow keys move a box a little.")}</p>
+          </DialogContent>
+        </DialogPortal>
+      </Dialog>
     </>
   );
 }
