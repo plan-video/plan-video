@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { useSearchParams } from "@solidjs/router";
-import { For, Match, Show, Switch, createEffect, createMemo, createSignal, on, onCleanup } from "solid-js";
+import { For, Match, Show, Switch, createEffect, createMemo, createSignal, on, onCleanup, onMount } from "solid-js";
 import { createStore, produce, unwrap } from "solid-js/store";
 import { toast } from "somoto";
 
@@ -342,11 +342,45 @@ const PLATFORMS: { id: Platform; label: string; placeholder: string }[] = [
   { id: "youtube", label: "YouTube", placeholder: msg("Paste a YouTube video or channel link") },
 ];
 
-/** A soft dusk light behind the paste box, drawn once: one band, warm above and blue below, fading out at its edges. */
-const GLOW = {
-  background: "linear-gradient(180deg, transparent 4%, #fb923c 26%, #ef4444 42%, #a855f7 58%, #3b82f6 74%, transparent 96%)",
-  "mask-image": "radial-gradient(50% 50% at 50% 50%, black 25%, transparent 100%)",
-};
+const BAYER = [0, 32, 8, 40, 2, 34, 10, 42, 48, 16, 56, 24, 50, 18, 58, 26, 12, 44, 4, 36, 14, 46, 6, 38, 60, 28, 52, 20, 62, 30, 54, 22, 3, 35, 11, 43, 1, 33, 9, 41, 51, 19, 59, 27, 49, 17, 57, 25, 15, 47, 7, 39, 13, 45, 5, 37, 63, 31, 55, 23, 61, 29, 53, 21].map((step) => (step + 0.5) / 64);
+const DOT_CELL = 4;
+
+/** An ordered-dither field, densest at its centre, drawn once per size as a mask so it takes the theme's colour. */
+function DitherField(props: { class?: string }) {
+  let box!: HTMLDivElement;
+  const [mask, setMask] = createSignal("");
+  onMount(() => {
+    const draw = () => {
+      const width = Math.round(box.clientWidth);
+      const height = Math.round(box.clientHeight);
+      if (!width || !height) return;
+      const ratio = Math.min(2, window.devicePixelRatio || 1);
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(width * ratio);
+      canvas.height = Math.round(height * ratio);
+      const context = canvas.getContext("2d");
+      if (!context) return;
+      context.scale(ratio, ratio);
+      context.fillStyle = "#000";
+      const cols = Math.ceil(width / DOT_CELL);
+      const rows = Math.ceil(height / DOT_CELL);
+      for (let y = 0; y < rows; y++) {
+        const ny = ((y + 0.5) / rows) * 2 - 1;
+        for (let x = 0; x < cols; x++) {
+          const nx = ((x + 0.5) / cols) * 2 - 1;
+          const level = Math.max(0, 1 - Math.hypot(nx, ny * 0.9)) ** 1.6;
+          if (level > BAYER[(y % 8) * 8 + (x % 8)]) context.fillRect(x * DOT_CELL, y * DOT_CELL, 2, 2);
+        }
+      }
+      setMask(`url(${canvas.toDataURL()})`);
+    };
+    draw();
+    const observer = new ResizeObserver(draw);
+    observer.observe(box);
+    onCleanup(() => observer.disconnect());
+  });
+  return <div ref={box} class={props.class} style={{ "mask-image": mask(), "mask-size": "100% 100%" }} aria-hidden="true" />;
+}
 
 function Start(props: {
   link: string;
@@ -375,7 +409,7 @@ function Start(props: {
           {t("Turn a stream into clips")}
         </h2>
 
-        <div class="mt-8 flex flex-wrap justify-center gap-2 max-md:mt-6" role="radiogroup" aria-label={t("Platform")}>
+        <div class="relative z-10 mt-8 flex flex-wrap justify-center gap-2 max-md:mt-6" role="radiogroup" aria-label={t("Platform")}>
           <For each={PLATFORMS}>
             {(entry) => (
               <button
@@ -384,8 +418,8 @@ function Start(props: {
                 aria-checked={platform() === entry.id}
                 class="flex h-10 items-center gap-2 rounded-xl border pr-4 pl-2.5 text-sm outline-none transition-colors focus-ring"
                 classList={{
-                  "border-(--plane-border-strong) bg-(--plane-surface-1) text-foreground": platform() === entry.id,
-                  "border-(--plane-border-subtle) bg-(--plane-layer-1) text-muted-foreground hover:text-foreground": platform() !== entry.id,
+                  "border-(--plane-border-strong) bg-(--plane-surface-1) text-foreground shadow-xs": platform() === entry.id,
+                  "border-(--plane-border-subtle) bg-(--plane-surface-1) text-muted-foreground hover:text-foreground": platform() !== entry.id,
                 }}
                 onClick={() => {
                   setChosen(entry.id);
@@ -400,7 +434,7 @@ function Start(props: {
         </div>
 
         <div class="relative isolate mt-5 w-full max-w-[680px]">
-          <div class="pointer-events-none absolute -inset-x-[22%] -top-14 -bottom-20 -z-10 opacity-30 blur-3xl dark:opacity-85 max-md:hidden" style={GLOW} aria-hidden="true" />
+          <DitherField class="pointer-events-none absolute -inset-x-[24%] -top-20 -bottom-20 -z-10 bg-foreground/30 max-md:hidden" />
           <form
             class="flex min-h-36 flex-col justify-between gap-4 rounded-2xl border border-(--plane-border-subtle) bg-(--plane-surface-1) p-4 shadow-[0_12px_40px_-12px_rgb(0_0_0/0.35)] focus-within:border-(--plane-border-strong)"
             onSubmit={(event) => {
