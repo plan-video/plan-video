@@ -18,7 +18,7 @@ import { useAuth } from "@/context/auth";
 import { track } from "@/lib/analytics";
 import { addedClip, clipFromMoment, clock, deleteStream, duplicateClip, loadStreams, saveStream, type ClipEdit, type ClipStream } from "@/lib/clip-studio";
 import { cx } from "@/lib/cva";
-import { intlLocale, msg, t } from "@/lib/i18n";
+import { msg, t } from "@/lib/i18n";
 import { ClipsRefused, scanStream, type ScanStep, type StreamVideo } from "@/lib/stream-clips";
 
 import { AddClip } from "./add-clip";
@@ -347,7 +347,6 @@ function Start(props: {
   onRemove(stream: ClipStream): void;
 }) {
   let field!: HTMLTextAreaElement;
-  const dated = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleDateString(intlLocale(), { day: "numeric", month: "short" }) : "");
   const paste = async () => {
     const text = await navigator.clipboard?.readText?.().catch(() => "");
     if (text?.trim()) props.onLink(text.trim());
@@ -394,7 +393,6 @@ function Start(props: {
                 {t("Paste")}
               </Button>
               <span class="flex-1" />
-              <span class="text-xs text-muted-foreground max-sm:hidden">{t("Up to 30 clips")}</span>
               <Button type="submit" class="size-9 rounded-full p-0 disabled:bg-(--plane-layer-2) disabled:text-muted-foreground disabled:opacity-100" disabled={!props.link.trim()} aria-label={t("Find clips")} title={t("Find clips")}>
                 <Icon name="arrow-top" class="size-4.5" />
               </Button>
@@ -416,7 +414,6 @@ function Start(props: {
           <section class="mt-24 flex w-full flex-col gap-4 max-md:mt-14">
             <h3 class="flex items-baseline gap-2 px-2 text-base font-medium text-foreground">
               {t("Recent streams")}
-              <span class="text-sm font-normal text-muted-foreground tabular-nums">{props.streams.length}</span>
             </h3>
             <div class="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] content-start items-start gap-x-0.5 gap-y-3 max-sm:grid-cols-1">
               <For each={props.streams}>
@@ -434,12 +431,7 @@ function Start(props: {
                         </DashboardCardPreview>
                         <DashboardCardMeta
                           title={stream.video.title || stream.video.channel}
-                          subtitle={[
-                            SOURCE_NAMES[stream.video.source ?? "twitch"],
-                            stream.video.channel,
-                            t("{count, plural, one {# clip} other {# clips}}", { count: stream.clips.length }),
-                            dated(stream.video.createdAt),
-                          ]
+                          subtitle={[stream.video.channel, t("{count, plural, one {# clip} other {# clips}}", { count: stream.clips.length })]
                             .filter(Boolean)
                             .join(" · ")}
                         />
