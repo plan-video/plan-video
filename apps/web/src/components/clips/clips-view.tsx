@@ -355,7 +355,7 @@ function Start(props: {
 
   return (
     <div class="flex min-h-0 flex-1 flex-col overflow-y-auto">
-      <div class="mx-auto flex w-full max-w-[1120px] flex-col items-center px-8 pt-16 pb-16 max-md:px-4 max-md:pt-10">
+      <div class="flex w-full flex-col items-center px-6 pt-16 pb-16 max-md:px-4 max-md:pt-10">
         <LogoMark class="size-12 text-foreground max-md:size-9" />
         <h2 class="mt-6 text-center text-[52px] leading-[1.08] font-normal tracking-[-0.035em] text-balance text-foreground max-md:mt-4 max-md:text-[34px]">
           {t("Turn a stream into clips")}
@@ -415,7 +415,7 @@ function Start(props: {
             <h3 class="flex items-baseline gap-2 px-2 text-base font-medium text-foreground">
               {t("Recent streams")}
             </h3>
-            <div class="grid grid-cols-3 content-start items-start gap-x-0.5 gap-y-3 max-lg:grid-cols-2 max-sm:grid-cols-1">
+            <div class="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] content-start items-start gap-x-0.5 gap-y-3 max-sm:grid-cols-1">
               <For each={props.streams}>
                 {(stream) => (
                   <ContextMenu modal={false}>
