@@ -24,7 +24,7 @@ import { ClipsRefused, scanStream, type ScanStep, type StreamVideo } from "@/lib
 import { AddClip } from "./add-clip";
 import { ClipEditor } from "./clip-editor";
 import { ClipList, StoryboardThumb } from "./clip-list";
-import { SOURCE_NAMES, SourceLogo, sourceUrl } from "./source-logo";
+import { SOURCE_NAMES, sourceUrl } from "./sources";
 
 type Scan = { link: string; video: StreamVideo | null; step: ScanStep | null };
 
@@ -324,88 +324,84 @@ function Start(props: {
   onOpen(id: string): void;
   onRemove(stream: ClipStream): void;
 }) {
-  const dated = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleDateString(intlLocale(), { day: "numeric", month: "short", year: "numeric" }) : "");
+  const dated = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleDateString(intlLocale(), { day: "numeric", month: "short" }) : "");
+  const first = () => props.streams.length === 0;
   return (
-    <div class="flex min-h-0 flex-1 flex-col items-center overflow-y-auto px-4 pt-14 pb-16 max-md:pt-8">
-      <div class="flex w-full max-w-[560px] flex-col items-center gap-4 text-center">
-        <ClipsArt />
-        <div class="flex flex-col gap-1">
-          <h2 class="text-sm font-medium text-foreground">{t("Clips from a stream")}</h2>
-          <p class="max-w-sm text-xs text-balance text-muted-foreground">
-            {t("Paste a link to a past stream on Twitch, Kick or YouTube. plan.video finds up to 30 moments worth posting, and you finish each one here.")}
-          </p>
-        </div>
+    <div class={cx("flex min-h-0 flex-1 flex-col items-center overflow-y-auto px-4 pb-16", first() ? "pt-16 max-md:pt-10" : "pt-10 max-md:pt-6")}>
+      <div class="flex w-full max-w-[520px] flex-col items-center gap-4">
+        <Show when={first()}>
+          <ClipsArt />
+          <div class="flex flex-col gap-1 text-center">
+            <h2 class="text-sm font-medium text-foreground">{t("Clips from a stream")}</h2>
+            <p class="text-xs text-balance text-muted-foreground">{t("Stream Clipper finds up to 30 moments worth posting in a past stream.")}</p>
+          </div>
+        </Show>
         <form
-          class="flex w-full gap-2"
+          class="flex w-full flex-col gap-2"
           onSubmit={(event) => {
             event.preventDefault();
             props.onFind();
           }}
         >
-          <div class="relative min-w-0 flex-1">
-            <PlaneIcon name="link" class="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-(--plane-text-placeholder)" />
-            <input
-              class={cx(fieldControl, "h-9 w-full pl-8")}
-              value={props.link}
-              onInput={(event) => props.onLink(event.currentTarget.value)}
-              placeholder={t("A stream's link, or a channel's for its latest")}
-              aria-label={t("Stream link")}
-              spellcheck={false}
-              autocomplete="off"
-              autofocus
-            />
+          <div class="flex w-full gap-2">
+            <div class="relative min-w-0 flex-1">
+              <PlaneIcon name="link" class="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-(--plane-text-placeholder)" />
+              <input
+                class={cx(fieldControl, "h-9 w-full pl-8")}
+                value={props.link}
+                onInput={(event) => props.onLink(event.currentTarget.value)}
+                placeholder={t("Paste a Twitch, Kick or YouTube link")}
+                aria-label={t("Stream link")}
+                spellcheck={false}
+                autocomplete="off"
+                autofocus
+              />
+            </div>
+            <Button type="submit" class="h-9 px-3" disabled={!props.link.trim()}>
+              {t("Find clips")}
+            </Button>
           </div>
-          <Button type="submit" class="h-9 px-3" disabled={!props.link.trim()}>
-            {t("Find clips")}
-          </Button>
+          <Show
+            when={props.error}
+            fallback={<p class="px-0.5 text-xs text-muted-foreground">{t("Uses about 35 minutes of your monthly captions.")}</p>}
+          >
+            <p class="px-0.5 text-xs text-destructive" role="alert">
+              {props.error}
+            </p>
+          </Show>
         </form>
-        <Show when={props.error}>
-          <p class="text-xs text-destructive" role="alert">
-            {props.error}
-          </p>
-        </Show>
-        <div class="flex items-center gap-3" aria-label={t("Works with Twitch, Kick and YouTube")}>
-          <SourceLogo source="twitch" />
-          <SourceLogo source="kick" />
-          <SourceLogo source="youtube" />
-        </div>
-        <p class="text-xs text-muted-foreground">{t("Finding them uses about 35 minutes of your monthly captions, however long the stream.")}</p>
-      </div>
 
-      <Show when={props.streams.length}>
-        <section class="mt-10 flex w-full max-w-[560px] flex-col gap-2">
-          <h3 class="px-1 text-xs font-medium text-muted-foreground">{t("Recent streams")}</h3>
-          <ul class="flex flex-col divide-y divide-(--plane-border-subtle) overflow-hidden rounded-lg border border-(--plane-border-subtle) bg-(--plane-surface-1)">
+        <Show when={!first()}>
+          <section class="mt-6 flex w-full flex-col gap-1">
+            <h3 class="px-0.5 pb-1 text-xs text-muted-foreground">{t("Recent streams")}</h3>
             <For each={props.streams}>
               {(stream) => (
-                <li class="group relative">
-                  <button type="button" class="flex w-full items-center gap-3 p-2 pr-10 text-left outline-none press hover:bg-(--plane-layer-1) focus-ring" onClick={() => props.onOpen(stream.video.id)}>
-                    <StoryboardThumb board={stream.video.storyboard} seconds={stream.clips[0]?.start ?? 0} still={stream.clips[0]?.thumb} class="w-20" />
+                <div class="group relative">
+                  <button type="button" class="flex w-full items-center gap-3 rounded-lg p-1.5 pr-10 text-left outline-none press hover:bg-(--plane-layer-1) focus-ring" onClick={() => props.onOpen(stream.video.id)}>
+                    <StoryboardThumb board={stream.video.storyboard} seconds={stream.clips[0]?.start ?? 0} still={stream.clips[0]?.thumb} class="w-16" />
                     <span class="flex min-w-0 flex-1 flex-col gap-0.5">
-                      <span class="flex items-center gap-1.5">
-                        <SourceLogo source={stream.video.source} class="scale-75" />
-                        <span class="truncate text-sm text-foreground">{stream.video.title || stream.video.channel}</span>
-                      </span>
+                      <span class="truncate text-sm text-foreground">{stream.video.title || stream.video.channel}</span>
                       <span class="truncate text-xs text-muted-foreground">
-                        {[stream.video.channel, dated(stream.video.createdAt), t("{count, plural, one {# clip} other {# clips}}", { count: stream.clips.length })].filter(Boolean).join(" · ")}
+                        {[SOURCE_NAMES[stream.video.source ?? "twitch"], stream.video.channel, dated(stream.video.createdAt), t("{count, plural, one {# clip} other {# clips}}", { count: stream.clips.length })]
+                          .filter(Boolean)
+                          .join(" · ")}
                       </span>
                     </span>
-                    <PlaneIcon name="chevron-right" class="size-4 text-(--plane-text-placeholder)" />
                   </button>
                   <button
                     type="button"
                     aria-label={t("Remove stream")}
-                    class="absolute top-1/2 right-2 grid size-7 -translate-y-1/2 place-items-center rounded-md text-muted-foreground opacity-0 outline-none press group-hover:opacity-100 hover:bg-accent hover:text-foreground focus-ring focus-visible:opacity-100 max-md:opacity-100"
+                    class="absolute top-1/2 right-1.5 grid size-7 -translate-y-1/2 place-items-center rounded-md text-muted-foreground opacity-0 outline-none press group-hover:opacity-100 hover:bg-accent hover:text-foreground focus-ring focus-visible:opacity-100 max-md:opacity-100"
                     onClick={() => props.onRemove(stream)}
                   >
                     <Icon name="trash" class="size-4" />
                   </button>
-                </li>
+                </div>
               )}
             </For>
-          </ul>
-        </section>
-      </Show>
+          </section>
+        </Show>
+      </div>
     </div>
   );
 }
