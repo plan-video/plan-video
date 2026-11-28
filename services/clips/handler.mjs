@@ -18,6 +18,8 @@ const WINDOWS = 25;
 const TRANSCRIBE_AT_ONCE = 3;
 const MOMENTS = 8;
 const MAX_CLIP_SECONDS = 120;
+/** A preview only has to be watched in a small player, at about a tenth of the full picture's size. */
+const PREVIEW_LINES = 480;
 /** Each scan downloads a broadcast's sound and runs ffmpeg over it. */
 const SERVER_SCANS = 2;
 const RESULT_HOURS = 6;
@@ -282,11 +284,14 @@ export async function handleScan(req, res, env, fetchImpl = fetch) {
   }
 }
 
-/** [start, end) of a broadcast as an MP4 cut on the pieces around it; `X-Clip-Offset` is where `start` falls in it. */
+/**
+ * [start, end) of a broadcast as an MP4 cut on the pieces around it; `X-Clip-Offset` is where `start` falls in it.
+ * `quality=preview` sends a small picture for watching before choosing.
+ */
 export async function handleVideo(req, res, env, fetchImpl = fetch) {
   if (req.method !== "GET") throw new Refused(405, "Use GET.");
   const user = await userFor(req, env);
-  limit(`video:${user.id}`, 60, 3600, "That's a lot of clips for one hour. Try again later.");
+  limit(`video:${user.id}`, 120, 3600, "That's a lot of clips for one hour. Try again later.");
   const query = new URL(req.url, "http://clips").searchParams;
   const vod = query.get("vod") ?? "";
   const start = Number(query.get("start"));
@@ -294,7 +299,7 @@ export async function handleVideo(req, res, env, fetchImpl = fetch) {
   if (!/^\d{6,12}$/.test(vod) || !Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end <= start) throw new Refused(400, "That stretch of the broadcast can't be read.");
   if (end - start > MAX_CLIP_SECONDS) throw new Refused(400, "A clip can be at most two minutes.");
 
-  const picture = pickVideo(await playlistsFor(vod, fetchImpl));
+  const picture = pickVideo(await playlistsFor(vod, fetchImpl), query.get("quality") === "preview" ? PREVIEW_LINES : 1080);
   if (!picture) throw new Refused(502, "Twitch didn't offer that broadcast's picture.");
   const { init, pieces } = await readPieces(picture.url, fetchImpl);
   const wanted = piecesBetween(pieces, start, end);

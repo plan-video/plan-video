@@ -28,6 +28,8 @@ test("the picture is the sharpest up to 1080 lines", () => {
   const lists = [{ name: "chunked", height: 1440, url: "a" }, { name: "1080p60", height: 1080, url: "b" }, { name: "720p60", height: 720, url: "c" }, { name: "audio_only", height: 0, url: "d" }];
   assert.equal(pickVideo(lists).name, "1080p60");
   assert.equal(pickVideo([lists[0], lists[3]]).name, "chunked");
+  assert.equal(pickVideo(lists, 480).name, "720p60");
+  assert.equal(pickVideo([...lists, { name: "480p30", height: 480, url: "e" }], 480).name, "480p30");
 });
 
 /** A fake chat: `messages` by second; Twitch's page is the ~50 messages from a bit before the offset. */

@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { For, Match, Show, Switch, createSignal, onCleanup } from "solid-js";
+import { For, Match, Show, Switch, createResource, createSignal, onCleanup } from "solid-js";
 
 import { Icon } from "@/components/dashboard/dashboard-icon";
 import { fieldControl } from "@/components/publish/controls";
@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogPortal } from "@/components/ui/dialog";
 import { cx } from "@/lib/cva";
 import { t } from "@/lib/i18n";
-import { ClipsRefused, scanTwitch, type ScanResult, type ScanStep, type TwitchMoment, type TwitchVideo } from "@/lib/twitch-clips";
+import { ClipsRefused, fetchMomentVideo, scanTwitch, type ScanResult, type ScanStep, type TwitchMoment, type TwitchVideo } from "@/lib/twitch-clips";
 
 /** Simple Icons' Twitch glyph (CC0). */
 export function TwitchLogo(props: { class?: string }) {
@@ -40,14 +40,81 @@ function stepText(step: ScanStep | null, video: TwitchVideo | null): string {
   return t("Picking the best moments…");
 }
 
+type Preview = { url: string; offset: number };
+
+/** Plays just the moment, with sound, from a small copy of its stretch. */
+function MomentPreview(props: { video: TwitchVideo; moment: TwitchMoment; load(video: TwitchVideo, moment: TwitchMoment): Promise<Preview> }) {
+  const [preview] = createResource(() => props.moment, (moment) => props.load(props.video, moment));
+  const end = (clip: Preview) => clip.offset + (props.moment.end - props.moment.start);
+
+  return (
+    <div class="relative mt-2 aspect-video w-full overflow-hidden rounded-lg bg-black">
+      <Switch>
+        <Match when={preview.error}>
+          <p class="absolute inset-0 grid place-items-center px-4 text-center text-xs text-white/70">
+            {preview.error instanceof ClipsRefused ? preview.error.message : t("The preview couldn't be loaded. Try again.")}
+          </p>
+        </Match>
+        <Match when={preview()}>
+          {(clip) => (
+            <video
+              src={clip().url}
+              class="size-full"
+              controls
+              autoplay
+              playsinline
+              onLoadedMetadata={(event) => (event.currentTarget.currentTime = clip().offset)}
+              onPlay={(event) => {
+                const player = event.currentTarget;
+                if (player.currentTime < clip().offset - 0.5 || player.currentTime >= end(clip()) - 0.05) player.currentTime = clip().offset;
+              }}
+              onTimeUpdate={(event) => {
+                const player = event.currentTarget;
+                if (player.currentTime >= end(clip())) {
+                  player.pause();
+                  player.currentTime = clip().offset;
+                }
+              }}
+            />
+          )}
+        </Match>
+        <Match when={preview.loading}>
+          <span class="absolute inset-0 grid place-items-center">
+            <Icon name="spinner-loader" class="size-6 animate-spin text-white/70" />
+          </span>
+        </Match>
+      </Switch>
+    </div>
+  );
+}
+
 export function TwitchClipsDialog(props: { onUse(video: TwitchVideo, moment: TwitchMoment): Promise<void>; onClose(): void }) {
   const [scanning, setScanning] = createSignal(false);
   const [video, setVideo] = createSignal<TwitchVideo | null>(null);
   const [step, setStep] = createSignal<ScanStep | null>(null);
   const [error, setError] = createSignal("");
   const [using, setUsing] = createSignal<TwitchMoment | null>(null);
+  const [watching, setWatching] = createSignal<TwitchMoment | null>(null);
   let abort: AbortController | null = null;
-  onCleanup(() => abort?.abort());
+  // Kept while the dialog is open, so opening a preview again doesn't download it again.
+  const previews = new Map<TwitchMoment, Promise<Preview>>();
+  const previewAbort = new AbortController();
+  onCleanup(() => {
+    abort?.abort();
+    previewAbort.abort();
+    for (const pending of previews.values()) void pending.then((clip) => URL.revokeObjectURL(clip.url), () => {});
+  });
+
+  const loadPreview = (video: TwitchVideo, moment: TwitchMoment): Promise<Preview> => {
+    let pending = previews.get(moment);
+    if (!pending) {
+      pending = fetchMomentVideo(video, moment, { preview: true, signal: previewAbort.signal }).then(({ file, offset }) => ({ url: URL.createObjectURL(file), offset }));
+      // A failed download is asked again next time.
+      pending.catch(() => previews.delete(moment));
+      previews.set(moment, pending);
+    }
+    return pending;
+  };
 
   const find = async () => {
     const pasted = link().trim();
@@ -56,6 +123,7 @@ export function TwitchClipsDialog(props: { onUse(video: TwitchVideo, moment: Twi
     setScanning(true);
     setError("");
     setResult(null);
+    setWatching(null);
     setVideo(null);
     setStep(null);
     try {
@@ -150,21 +218,38 @@ export function TwitchClipsDialog(props: { onUse(video: TwitchVideo, moment: Twi
                       <ul class="flex flex-col py-1">
                         <For each={found().moments}>
                           {(moment) => (
-                            <li class="flex items-start gap-3 px-4 py-2.5 hover:bg-accent/50">
-                              <span class="w-14 shrink-0 pt-0.5 text-xs tabular-nums text-muted-foreground">{clock(moment.start)}</span>
-                              <div class="flex min-w-0 flex-1 flex-col gap-0.5">
-                                <span class="text-sm text-foreground">{moment.title}</span>
-                                <span class="text-xs text-muted-foreground">{moment.reason}</span>
-                                <span class="text-xs text-muted-foreground tabular-nums">
-                                  {t("{seconds} s · score {score}", { seconds: Math.round(moment.end - moment.start), score: moment.score })}
-                                </span>
+                            <li class="flex flex-col px-4 py-2.5" classList={{ "bg-accent/50": watching() === moment, "hover:bg-accent/50": watching() !== moment }}>
+                              <div class="flex items-start gap-3">
+                                <span class="w-14 shrink-0 pt-0.5 text-xs tabular-nums text-muted-foreground">{clock(moment.start)}</span>
+                                <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+                                  <span class="text-sm text-foreground">{moment.title}</span>
+                                  <span class="text-xs text-muted-foreground">{moment.reason}</span>
+                                  <span class="text-xs text-muted-foreground tabular-nums">
+                                    {t("{seconds} s · score {score}", { seconds: Math.round(moment.end - moment.start), score: moment.score })}
+                                  </span>
+                                </div>
+                                <Button
+                                  variant="secondary"
+                                  size="icon-square"
+                                  class="shrink-0"
+                                  aria-label={watching() === moment ? t("Close preview") : t("Preview")}
+                                  aria-pressed={watching() === moment}
+                                  onClick={() => setWatching(watching() === moment ? null : moment)}
+                                >
+                                  <Icon name={watching() === moment ? "close-remove" : "play"} class="size-4" />
+                                </Button>
+                                <Button variant="secondary" class="shrink-0" disabled={!!using()} onClick={() => void use(moment)}>
+                                  <Show when={using() === moment} fallback={t("Use")}>
+                                    <Icon name="spinner-loader" class="-ml-0.5 size-4 animate-spin" />
+                                    {t("Making…")}
+                                  </Show>
+                                </Button>
                               </div>
-                              <Button variant="secondary" class="shrink-0" disabled={!!using()} onClick={() => void use(moment)}>
-                                <Show when={using() === moment} fallback={t("Use")}>
-                                  <Icon name="spinner-loader" class="-ml-0.5 size-4 animate-spin" />
-                                  {t("Making…")}
-                                </Show>
-                              </Button>
+                              <Show when={watching() === moment}>
+                                <div class="pl-17">
+                                  <MomentPreview video={found().video} moment={moment} load={loadPreview} />
+                                </div>
+                              </Show>
                             </li>
                           )}
                         </For>

@@ -92,9 +92,16 @@ export async function scanTwitch(
   throw new ClipsRefused(t("The connection closed before the clips were found. Try again."));
 }
 
-/** The moment's stretch as an MP4 and where in it the moment starts: the file is cut on Twitch's pieces. */
-export async function fetchMomentVideo(video: TwitchVideo, moment: TwitchMoment, signal?: AbortSignal): Promise<{ file: File; offset: number }> {
-  const query = new URLSearchParams({ vod: video.id, start: String(moment.start), end: String(moment.end) });
+/**
+ * The moment's stretch as an MP4 and where in it the moment starts: the file is cut on Twitch's pieces.
+ * `preview` gets a small picture, for watching before choosing.
+ */
+export async function fetchMomentVideo(
+  video: TwitchVideo,
+  moment: TwitchMoment,
+  { signal, preview = false }: { signal?: AbortSignal; preview?: boolean } = {},
+): Promise<{ file: File; offset: number }> {
+  const query = new URLSearchParams({ vod: video.id, start: String(moment.start), end: String(moment.end), ...(preview ? { quality: "preview" } : {}) });
   let response: Response;
   try {
     response = await fetch(`/api/clips/video?${query}`, { headers: { Authorization: `Bearer ${await token()}` }, signal });

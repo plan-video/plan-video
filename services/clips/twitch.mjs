@@ -131,10 +131,10 @@ export function parseMaster(text) {
   return playlists;
 }
 
-/** The sharpest picture up to 1080 lines, or the smallest above it. */
-export function pickVideo(playlists) {
+/** The sharpest picture up to `lines` tall, or the smallest above it. */
+export function pickVideo(playlists, lines = 1080) {
   const videos = playlists.filter((entry) => entry.name !== "audio_only" && entry.height > 0);
-  const fits = videos.filter((entry) => entry.height <= 1080).sort((a, b) => b.height - a.height);
+  const fits = videos.filter((entry) => entry.height <= lines).sort((a, b) => b.height - a.height);
   return fits[0] ?? videos.sort((a, b) => a.height - b.height)[0] ?? null;
 }
 
