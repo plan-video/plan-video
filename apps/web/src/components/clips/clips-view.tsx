@@ -345,8 +345,8 @@ function SourceMark(props: { id: Platform; class?: string }) {
 /** The three signals the scan reads, drawn on a made-up broadcast so the page shows what it looks for. */
 const PEAKS = [
   { at: 0.2, height: 0.72, time: "0:41:08", icon: "ask-chat", label: msg("Chat lit up") },
-  { at: 0.53, height: 0.92, time: "1:43:52", icon: "volume", label: msg("Loudest moment") },
-  { at: 0.81, height: 0.66, time: "2:39:15", icon: "scissors", label: msg("Viewers clipped it") },
+  { at: 0.5, height: 0.92, time: "1:43:52", icon: "volume", label: msg("Loudest moment") },
+  { at: 0.8, height: 0.72, time: "2:39:15", icon: "scissors", label: msg("Viewers clipped it") },
 ] as const;
 const BARS = 132;
 const CLIP_WIDTH = 0.06;
@@ -354,7 +354,7 @@ const HEAT = (() => {
   let seed = 7;
   const random = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
   const raw = Array.from({ length: BARS }, () => random());
-  const bumps = [...PEAKS, { at: 0.36, height: 0.28 }, { at: 0.67, height: 0.34 }, { at: 0.93, height: 0.22 }, { at: 0.08, height: 0.2 }];
+  const bumps = [...PEAKS, { at: 0.35, height: 0.26 }, { at: 0.65, height: 0.26 }, { at: 0.05, height: 0.16 }, { at: 0.95, height: 0.16 }];
   return raw.map((_, i) => {
     const x = i / (BARS - 1);
     const near = (raw[Math.max(0, i - 1)] + raw[i] * 2 + raw[Math.min(BARS - 1, i + 1)]) / 4;
@@ -431,18 +431,18 @@ function Start(props: {
       <div class="flex w-full flex-col gap-10 px-6 pt-6 pb-12 max-md:gap-8 max-md:px-4 max-md:pt-4">
         <div class="overflow-hidden rounded-2xl border border-(--plane-border-subtle) bg-(--plane-layer-1)">
           <form
-            class="flex flex-col p-8 max-md:p-5"
+            class="flex flex-col items-center px-8 pt-12 pb-8 text-center max-md:p-5 max-md:text-left max-md:items-stretch"
             onSubmit={(event) => {
               event.preventDefault();
               props.onFind();
             }}
           >
-            <h2 class="text-[28px] leading-tight font-semibold tracking-[-0.02em] text-foreground max-md:text-2xl">{t("Turn a stream into clips")}</h2>
-            <p class="mt-2 max-w-[620px] text-[15px] text-pretty text-muted-foreground">
+            <h2 class="text-[32px] leading-tight font-semibold tracking-[-0.02em] text-foreground max-md:text-2xl">{t("Turn a stream into clips")}</h2>
+            <p class="mt-3 max-w-[600px] text-[15px] text-balance text-muted-foreground">
               {t("Paste a past broadcast. Stream Clipper reads its chat, listens to it and checks what viewers clipped, then cuts the best moments into vertical clips with captions.")}
             </p>
 
-            <div class="mt-7 flex max-w-[820px] gap-2 max-sm:flex-col">
+            <div class="mt-8 flex w-full max-w-[720px] gap-2 max-sm:flex-col">
               <label class="flex h-12 min-w-0 flex-1 items-center gap-3 rounded-xl border border-(--plane-border-subtle) bg-(--plane-surface-1) pr-1.5 pl-3 shadow-xs focus-within:border-(--plane-border-strong)">
                 <Show when={found()} fallback={<PlaneIcon name="link" class="size-5 shrink-0 text-(--plane-text-placeholder)" />}>
                   {(platform) => <SourceMark id={platform()} class="size-5" />}
@@ -471,7 +471,7 @@ function Start(props: {
               </Button>
             </div>
 
-            <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
+            <div class="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-muted-foreground max-md:justify-start">
               <For each={PLATFORMS}>
                 {(entry) => (
                   <span class="flex items-center gap-1.5">
@@ -492,7 +492,7 @@ function Start(props: {
         </div>
 
         <section class="flex flex-col gap-4">
-          <h3 class="flex items-baseline gap-2 px-0.5 text-base font-medium text-foreground">
+          <h3 class="flex items-baseline justify-center gap-2 px-0.5 text-base font-medium text-foreground max-sm:justify-start">
             {t("Recent streams")}
             <Show when={props.streams.length}>
               <span class="text-sm font-normal text-muted-foreground tabular-nums">{props.streams.length}</span>
@@ -506,7 +506,7 @@ function Start(props: {
               </div>
             }
           >
-            <div class="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-x-4 gap-y-6">
+            <div class="grid grid-cols-[repeat(auto-fit,minmax(260px,340px))] justify-center gap-x-4 gap-y-6 max-sm:grid-cols-1">
               <For each={props.streams}>
                 {(stream) => (
                   <div class="group relative">
