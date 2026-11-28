@@ -7,9 +7,9 @@ import { For, Match, Show, Switch, createEffect, createMemo, createSignal, on, o
 import { createStore, produce, unwrap } from "solid-js/store";
 import { toast } from "somoto";
 
+import { LogoMark } from "@/components/brand/logo";
 import { Icon } from "@/components/dashboard/dashboard-icon";
 import { DashboardPageHeader } from "@/components/dashboard/page-header";
-import { PlaneIcon } from "@/components/dashboard/plane-icons";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/context/auth";
@@ -336,6 +336,19 @@ function SourceMark(props: { id: Platform; class?: string }) {
   );
 }
 
+const PLATFORMS: { id: Platform; label: string; placeholder: string }[] = [
+  { id: "twitch", label: "Twitch", placeholder: msg("Paste a Twitch video or channel link") },
+  { id: "kick", label: "Kick", placeholder: msg("Paste a Kick video or channel link") },
+  { id: "youtube", label: "YouTube", placeholder: msg("Paste a YouTube video or channel link") },
+];
+
+/** A soft dusk light behind the paste box, drawn once. */
+const GLOW = [
+  "radial-gradient(42% 46% at 58% 28%, rgb(249 115 22 / 0.55), transparent 72%)",
+  "radial-gradient(38% 42% at 40% 40%, rgb(239 68 68 / 0.42), transparent 72%)",
+  "radial-gradient(46% 44% at 52% 78%, rgb(37 99 235 / 0.55), transparent 72%)",
+].join(", ");
+
 function Start(props: {
   link: string;
   onLink(value: string): void;
@@ -345,90 +358,138 @@ function Start(props: {
   onOpen(id: string): void;
   onRemove(stream: ClipStream): void;
 }) {
-  const found = () => platformOf(props.link);
+  const [chosen, setChosen] = createSignal<Platform | null>(null);
+  let field!: HTMLTextAreaElement;
+  const platform = () => platformOf(props.link) ?? chosen();
   const dated = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleDateString(intlLocale(), { day: "numeric", month: "short" }) : "");
+  const paste = async () => {
+    const text = await navigator.clipboard?.readText?.().catch(() => "");
+    if (text?.trim()) props.onLink(text.trim());
+    field.focus();
+  };
+
   return (
     <div class="flex min-h-0 flex-1 flex-col overflow-y-auto">
-      <div class="flex w-full flex-col items-center px-6 pt-20 pb-12 max-md:px-4 max-md:pt-10">
-        <h2 class="text-center text-[32px] leading-tight font-semibold tracking-[-0.02em] text-foreground max-md:text-2xl">{t("Turn a stream into clips")}</h2>
-        <p class="mt-2 text-center text-[15px] text-balance text-muted-foreground">{t("Paste a past broadcast and get its best moments as vertical clips with captions.")}</p>
+      <div class="flex w-full flex-col items-center px-8 pt-20 pb-12 max-md:px-4 max-md:pt-10">
+        <LogoMark class="size-12 text-foreground max-md:size-9" />
+        <h2 class="mt-6 text-center text-[52px] leading-[1.08] font-normal tracking-[-0.035em] text-balance text-foreground max-md:mt-4 max-md:text-[34px]">
+          {t("Turn a stream into clips")}
+        </h2>
 
-        <form
-          class="mt-8 w-full max-w-[640px]"
-          onSubmit={(event) => {
-            event.preventDefault();
-            props.onFind();
-          }}
-        >
-          <label class="flex h-14 items-center gap-3 rounded-2xl border border-(--plane-border-subtle) bg-(--plane-surface-1) pr-2 pl-4 shadow-xs focus-within:border-(--plane-border-strong)">
-            <Show when={found()} fallback={<PlaneIcon name="link" class="size-5 shrink-0 text-(--plane-text-placeholder)" />}>
-              {(platform) => <SourceMark id={platform()} class="size-5" />}
-            </Show>
-            <input
-              class="min-w-0 flex-1 bg-transparent text-[15px] text-foreground outline-none placeholder:text-(--plane-text-placeholder)"
+        <div class="mt-8 flex flex-wrap justify-center gap-2 max-md:mt-6" role="radiogroup" aria-label={t("Platform")}>
+          <For each={PLATFORMS}>
+            {(entry) => (
+              <button
+                type="button"
+                role="radio"
+                aria-checked={platform() === entry.id}
+                class="flex h-9 items-center gap-2 rounded-xl border pr-3.5 pl-2 text-sm outline-none focus-ring"
+                classList={{
+                  "border-(--plane-border-strong) bg-(--plane-surface-1) text-foreground": platform() === entry.id,
+                  "border-(--plane-border-subtle) bg-(--plane-layer-1) text-muted-foreground hover:text-foreground": platform() !== entry.id,
+                }}
+                onClick={() => {
+                  setChosen(entry.id);
+                  field.focus();
+                }}
+              >
+                <SourceMark id={entry.id} class="size-5" />
+                {entry.label}
+              </button>
+            )}
+          </For>
+        </div>
+
+        <div class="relative isolate mt-5 w-full max-w-[680px]">
+          <div class="pointer-events-none absolute -inset-x-[30%] -top-10 -bottom-16 -z-10 opacity-45 blur-2xl dark:opacity-100 max-md:hidden" style={{ background: GLOW }} aria-hidden="true" />
+          <form
+            class="flex min-h-36 flex-col justify-between gap-4 rounded-2xl border border-(--plane-border-subtle) bg-(--plane-surface-1) p-4 shadow-xs focus-within:border-(--plane-border-strong)"
+            onSubmit={(event) => {
+              event.preventDefault();
+              props.onFind();
+            }}
+          >
+            <textarea
+              ref={field}
+              rows={2}
+              class="w-full resize-none bg-transparent px-1 text-[17px] text-foreground outline-none placeholder:text-(--plane-text-placeholder)"
               value={props.link}
-              onInput={(event) => props.onLink(event.currentTarget.value)}
-              placeholder={t("Paste a Twitch, Kick or YouTube link")}
+              onInput={(event) => props.onLink(event.currentTarget.value.replace(/\s*\n\s*/g, " "))}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault();
+                  if (props.link.trim()) props.onFind();
+                }
+              }}
+              placeholder={(() => {
+                const entry = PLATFORMS.find((item) => item.id === platform());
+                return entry ? t(entry.placeholder) : t("Paste a Twitch, Kick or YouTube link");
+              })()}
               aria-label={t("Stream link")}
               spellcheck={false}
               autocomplete="off"
               autofocus
             />
-            <Button type="submit" class="h-10 rounded-xl px-4" disabled={!props.link.trim()}>
-              {t("Find clips")}
-            </Button>
-          </label>
-          <Show
-            when={props.error}
-            fallback={<p class="mt-3 text-center text-xs text-muted-foreground">{t("Uses about 35 minutes of your monthly captions.")}</p>}
-          >
-            <p class="mt-3 text-center text-xs text-destructive" role="alert">
-              {props.error}
-            </p>
-          </Show>
-        </form>
+            <div class="flex items-center gap-2">
+              <Button type="button" variant="ghost" class="gap-1.5 pl-1.5 text-muted-foreground" onClick={() => void paste()}>
+                <Icon name="clipboard" class="size-4" />
+                {t("Paste")}
+              </Button>
+              <span class="flex-1" />
+              <span class="text-xs text-muted-foreground max-sm:hidden">{t("Up to 30 clips")}</span>
+              <Button type="submit" class="size-9 rounded-full p-0" disabled={!props.link.trim()} aria-label={t("Find clips")} title={t("Find clips")}>
+                <Icon name="arrow-top" class="size-4.5" />
+              </Button>
+            </div>
+          </form>
+          <div class="mx-4 flex items-center gap-3 rounded-b-xl border border-t-0 border-(--plane-border-subtle) bg-(--plane-layer-1) px-4 py-2.5 text-xs">
+            <Show when={props.error} fallback={<span class="text-muted-foreground">{t("Uses about 35 minutes of your monthly captions.")}</span>}>
+              <span class="text-destructive" role="alert">
+                {props.error}
+              </span>
+            </Show>
+            <span class="ml-auto flex shrink-0 gap-1.5">
+              <For each={PLATFORMS}>{(entry) => <SourceMark id={entry.id} class="size-4.5 rounded-[5px]" />}</For>
+            </span>
+          </div>
+        </div>
 
         <Show when={props.streams.length}>
-          <section class="mt-20 flex w-full flex-col gap-4 max-md:mt-12">
-            <h3 class="flex items-baseline justify-center gap-2 px-0.5 text-base font-medium text-foreground max-sm:justify-start">
+          <section class="mt-24 flex w-full flex-col gap-4 max-md:mt-14">
+            <h3 class="flex items-baseline gap-2 px-0.5 text-base font-medium text-foreground">
               {t("Recent streams")}
               <span class="text-sm font-normal text-muted-foreground tabular-nums">{props.streams.length}</span>
             </h3>
-            <div class="grid grid-cols-[repeat(auto-fit,minmax(260px,340px))] justify-center gap-x-4 gap-y-6 max-sm:grid-cols-1">
+            <div class="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-5 max-sm:grid-cols-1">
               <For each={props.streams}>
                 {(stream) => (
                   <div class="group relative">
                     <button
                       type="button"
-                      class="flex w-full flex-col gap-3 rounded-xl text-left outline-none focus-ring"
+                      class="flex w-full flex-col overflow-hidden rounded-2xl border border-(--plane-border-subtle) bg-(--plane-surface-1) text-left outline-none hover:border-(--plane-border-strong) focus-ring"
                       onClick={() => props.onOpen(stream.video.id)}
                     >
-                      <span class="relative block w-full overflow-hidden rounded-xl ring-1 ring-(--plane-border-subtle)">
-                        <StoryboardThumb
-                          board={stream.video.storyboard}
-                          seconds={stream.clips[0]?.start ?? 0}
-                          still={stream.clips[0]?.thumb}
-                          class="w-full rounded-none transition-[filter] group-hover:brightness-110"
-                        />
-                        <span class="absolute bottom-2 left-2 flex items-center gap-1.5 rounded-md bg-black/65 py-0.5 pr-2 pl-0.5 text-xs font-medium text-white">
-                          <SourceMark id={stream.video.source ?? "twitch"} class="size-4.5 rounded-[5px]" />
-                          {t("{count, plural, one {# clip} other {# clips}}", { count: stream.clips.length })}
-                        </span>
+                      <span class="relative block w-full border-b border-(--plane-border-subtle)">
+                        <StoryboardThumb board={stream.video.storyboard} seconds={stream.clips[0]?.start ?? 0} still={stream.clips[0]?.thumb} class="w-full rounded-none" />
+                        <SourceMark id={stream.video.source ?? "twitch"} class="absolute top-3 left-3 size-7 rounded-lg ring-2 ring-black/20" />
                         <Show when={stream.video.seconds}>
-                          <span class="absolute right-2 bottom-2 rounded-md bg-black/65 px-1.5 py-0.5 text-xs text-white tabular-nums">{clock(stream.video.seconds)}</span>
+                          <span class="absolute right-3 bottom-3 rounded-md bg-black/65 px-1.5 py-0.5 text-xs text-white tabular-nums">{clock(stream.video.seconds)}</span>
                         </Show>
                       </span>
-                      <span class="flex min-w-0 flex-col gap-0.5 px-0.5">
-                        <span class="truncate text-sm font-medium text-foreground">{stream.video.title || stream.video.channel}</span>
-                        <span class="truncate text-xs text-muted-foreground">
-                          {[stream.video.channel, dated(stream.video.createdAt)].filter(Boolean).join(" · ")}
+                      <span class="flex items-center gap-3 px-4 py-3.5">
+                        <span class="flex min-w-0 flex-1 flex-col gap-0.5">
+                          <span class="truncate text-[15px] font-medium text-foreground">{stream.video.title || stream.video.channel}</span>
+                          <span class="truncate text-sm text-muted-foreground">{[stream.video.channel, dated(stream.video.createdAt)].filter(Boolean).join(", ")}</span>
+                        </span>
+                        <span class="shrink-0 rounded-full bg-(--plane-layer-2) px-2.5 py-1 text-xs text-foreground tabular-nums">
+                          {t("{count, plural, one {# clip} other {# clips}}", { count: stream.clips.length })}
                         </span>
                       </span>
                     </button>
                     <button
                       type="button"
                       aria-label={t("Remove stream")}
-                      class="absolute top-2 right-2 grid size-7 place-items-center rounded-md bg-black/65 text-white opacity-0 outline-none group-hover:opacity-100 hover:bg-black/80 focus-ring focus-visible:opacity-100 max-md:opacity-100"
+                      class="absolute top-3 right-3 grid size-7 place-items-center rounded-md bg-black/65 text-white opacity-0 outline-none group-hover:opacity-100 hover:bg-black/80 focus-ring focus-visible:opacity-100 max-md:opacity-100"
                       onClick={() => props.onRemove(stream)}
                     >
                       <Icon name="trash" class="size-4" />
