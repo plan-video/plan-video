@@ -5,7 +5,7 @@
 // The rules a post an agent makes has to keep, in the tab (dapi/handlers/posts.ts) and on the
 // server (dapi/server/posts.ts) alike. No stores and no browser: services/mcp bundles this file.
 
-import { chooseAccounts, DapiError, promotionFlags, PROMOTION_QUESTION, type TikTokPromotion } from "@plan.video/dapi";
+import { chooseAccounts, DapiError, promotionFlags, PROMOTION_QUESTION, tiktokConsent, type TikTokPromotion } from "@plan.video/dapi";
 import { everyRecurrence, isDateKey, newId, parseRecurrence, resolveRepeatEnd } from "@/components/calendar/utils";
 import { inEnglish, msg } from "@/lib/i18n";
 import {
@@ -31,7 +31,10 @@ import {
 import { REPLY_DELAYS, threadIssues, type ThreadReply } from "@/lib/thread";
 import { timeZone, zonedParts, zonedTime } from "@/lib/time-zone";
 
+import { stable } from "@/lib/post-sync-core";
+
 import type { StoredEvent } from "@/components/calendar/types";
+import type { Approval } from "@/lib/approval-state";
 import type { AccountChoices } from "@/lib/social-connections";
 
 export function postTitle(caption: string, fallback: string): string {
@@ -117,7 +120,7 @@ export function clock(value: string): string {
 /** One already on a post can stay, as a person can take it off in their own time. */
 export function refuseSoon(platforms: readonly PlatformId[], existing: readonly string[] = []) {
   const soon = platforms.filter((id) => !PUBLISHES.has(id) && !existing.includes(id)).map((id) => socialPlatform(id).name);
-  if (soon.length) throw new DapiError("unsupported", `${soon.join(", ")} ${soon.length === 1 ? "is" : "are"} coming soon, so Plan Video can't post there yet. Leave ${soon.length === 1 ? "it" : "them"} off the post.`);
+  if (soon.length) throw new DapiError("unsupported", `${soon.join(", ")} ${soon.length === 1 ? "is" : "are"} coming soon, so plan.video can't post there yet. Leave ${soon.length === 1 ? "it" : "them"} off the post.`);
 }
 
 export function repeatOf(repeat: RepeatInput | undefined, day: string): { repeat: string; repeatEnd: string } {
@@ -237,11 +240,11 @@ export function platformNotes(platform: SocialPlatform): string {
   const parts = [
     PUBLISHES.has(platform.id)
       ? platform.id === "youtube"
-        ? "Plan Video can upload a video here."
+        ? "plan.video can upload a video here."
         : platform.id === "tiktok"
-          ? `Plan Video can post here: a video, or up to ${pictures} pictures as a photo post.`
-          : `Plan Video can post here: the words, with the post's video or up to ${pictures} of its pictures.`
-      : "Kept on the calendar. Plan Video doesn't send to this platform yet.",
+          ? `plan.video can post here: a video, or up to ${pictures} pictures as a photo post.`
+          : `plan.video can post here: the words, with the post's video or up to ${pictures} of its pictures.`
+      : "Kept on the calendar. plan.video doesn't send to this platform yet.",
   ];
   if (platform.title?.required) parts.push("A title is required.");
   if (!platform.kinds.includes("text")) parts.push("Needs a picture or a video.");
@@ -353,9 +356,11 @@ export function postViewOf(post: StoredEvent, scope: { connections: readonly Acc
     if (!delivery || !isPlatform(id)) return [];
     return [{ platform: id, state: delivery.state, ...(delivery.error ? { error: delivery.error } : {}) }];
   });
+  const approval = approvalOf(post);
   return {
     id: post.id,
     status: post.status,
+    approval: approval ? { state: approval.state, ...(approval.by ? { by: approval.by } : {}), ...(approval.note ? { note: approval.note } : {}) } : null,
     title: post.title,
     caption: post.description ?? "",
     day: post.day,
@@ -367,5 +372,104 @@ export function postViewOf(post: StoredEvent, scope: { connections: readonly Acc
     thread: (post.thread ?? []).map((reply) => ({ text: reply.text, delayMinutes: reply.delay })),
     warnings,
     deliveries,
+  };
+}
+
+export function isApproval(value: unknown): value is Approval {
+  const state = (value as Approval | null)?.state;
+  return state === "pending" || state === "changes" || state === "approved";
+}
+
+/** Asked for and not approved yet: it doesn't go out. */
+export const awaitingApproval = (post: { approval?: unknown }) => isApproval(post.approval) && post.approval.state !== "approved";
+
+export const approvalOf = (post: { approval?: unknown }): Approval | undefined => (isApproval(post.approval) ? post.approval : undefined);
+
+/**
+ * What a member changed in a scheduled post: everything but its status and when it was timed, as the database
+ * compares. Its zone is left out too: an older post gains one on any write, such as a send's progress.
+ */
+const contentOf = ({ status: _status, sendFrom: _sendFrom, deliveries: _deliveries, thumbnail: _thumbnail, timeZone: _zone, ...rest }: StoredEvent) =>
+  stable(rest);
+
+/**
+ * Scheduled, a post waits for nobody: an owner or admin scheduling one that waits approves it, and a member's
+ * waits until it's approved, as does any change of theirs to a scheduled post where members need approval.
+ */
+export function approvalRules<T extends StoredEvent>(
+  saved: StoredEvent | undefined,
+  next: T,
+  rules: { approver: boolean; membersNeedApproval: boolean },
+  at = new Date().toISOString(),
+): T {
+  if (next.status !== "scheduled") return next;
+  if (rules.approver) return awaitingApproval(next) ? { ...next, approval: { state: "approved", via: "team", at } } : next;
+  if (saved?.status === "scheduled" && contentOf(saved) === contentOf(next)) return next;
+  if (!awaitingApproval(next) && !rules.membersNeedApproval) return next;
+  const approval: Approval = awaitingApproval(next) ? next.approval! : { state: "pending", at };
+  return { ...next, status: "draft", approval, sendFrom: at };
+}
+
+export const HELD_FOR_APPROVAL =
+  "Posts in this workspace need approval first, so it waits as a draft until the owner or an admin approves it, then goes out at its time. Call ask_for_approval for the link to send them.";
+
+/** Asked to go out, but held for approval by the workspace's rule. */
+export function heldWarning(post: StoredEvent, scheduling: boolean): string[] {
+  return scheduling && post.status === "draft" && awaitingApproval(post) ? [HELD_FOR_APPROVAL] : [];
+}
+
+export type TikTokCreator = {
+  nickname: string;
+  username: string;
+  avatarUrl: string;
+  /** The picker lists these and nothing else. */
+  privacy: TikTokPostSettings["privacy"][];
+  commentDisabled: boolean;
+  duetDisabled: boolean;
+  stitchDisabled: boolean;
+  maxVideoSeconds: number;
+};
+
+const PRIVACY_FROM_API: Record<string, TikTokPostSettings["privacy"]> = {
+  PUBLIC_TO_EVERYONE: "public",
+  MUTUAL_FOLLOW_FRIENDS: "friends",
+  FOLLOWER_OF_CREATOR: "followers",
+  SELF_ONLY: "private",
+};
+
+/** TikTok's creator_info answer. Null when it didn't say who can watch. */
+export function readTikTokCreator(data: Record<string, unknown>): TikTokCreator | null {
+  const listed = Array.isArray(data.privacy_level_options) ? data.privacy_level_options : [];
+  const privacy = listed.flatMap((item) => {
+    const mapped = typeof item === "string" ? PRIVACY_FROM_API[item] : undefined;
+    return mapped ? [mapped] : [];
+  });
+  if (!privacy.length) return null;
+  const max = Number(data.max_video_post_duration_sec);
+  return {
+    nickname: typeof data.creator_nickname === "string" && data.creator_nickname ? data.creator_nickname : "TikTok",
+    username: typeof data.creator_username === "string" ? data.creator_username : "",
+    avatarUrl: typeof data.creator_avatar_url === "string" ? data.creator_avatar_url : "",
+    privacy,
+    commentDisabled: data.comment_disabled === true,
+    duetDisabled: data.duet_disabled === true,
+    stitchDisabled: data.stitch_disabled === true,
+    maxVideoSeconds: Number.isFinite(max) && max > 0 ? max : 10 * 60,
+  };
+}
+
+/** What tiktok_creator answers, in the tab and on the server alike. */
+export function tiktokCreatorView(accountId: string, creator: TikTokCreator) {
+  return {
+    accountId,
+    nickname: creator.nickname,
+    username: creator.username,
+    privacy: creator.privacy,
+    comments: !creator.commentDisabled,
+    duet: !creator.duetDisabled,
+    stitch: !creator.stitchDisabled,
+    maxVideoSeconds: creator.maxVideoSeconds,
+    consent: tiktokConsent(false),
+    brandedConsent: tiktokConsent(true),
   };
 }

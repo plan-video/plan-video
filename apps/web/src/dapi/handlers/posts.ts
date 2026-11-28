@@ -19,7 +19,7 @@ import { hasFailed, PUBLISHING_PLATFORMS, sendPost } from "@/components/publish/
 import { resolveAsset } from "../lib/assets";
 import { accountsFor, loadSocialConnections, readChoices, socialConnections } from "@/lib/social-connections";
 import { isAspect, listNames, socialPlatform, sortPlatforms } from "@/lib/social";
-import { AWAITING_APPROVAL, approvalOf, awaitingApproval } from "@/lib/approval-state";
+import { AWAITING_APPROVAL } from "@/lib/approval-state";
 import { askForApproval as requestApproval } from "@/lib/approvals";
 import { inEnglish } from "@/lib/i18n";
 import { previewLink } from "@/lib/post-previews";
@@ -46,6 +46,9 @@ import {
   tiktokOf,
   toProfile,
   youtubeOf,
+  awaitingApproval,
+  heldWarning,
+  tiktokCreatorView,
 } from "@/lib/post-rules";
 import { isSoon, needsConfirm, NOT_CONFIRMED, type ConfirmDetails, type ConfirmRequest, type ConfirmTool } from "@/lib/agent-confirm";
 
@@ -259,14 +262,6 @@ const fileTitle = (attached: Attached | null) => attached?.files[0]?.name.replac
 
 const postView = (post: StoredEvent, warnings: string[] = []) => postViewOf(post, { connections: socialConnections(), timeZone: timeZone() }, warnings);
 
-const HELD_FOR_APPROVAL =
-  "Posts in this workspace need approval first, so it waits as a draft until the owner or an admin approves it, then goes out at its time. Call ask_for_approval for the link to send them.";
-
-/** Asked to go out, but held for approval by the workspace's rule. */
-function heldWarning(post: StoredEvent, scheduling: boolean): string[] {
-  return scheduling && post.status === "draft" && awaitingApproval(post) ? [HELD_FOR_APPROVAL] : [];
-}
-
 function deliveryErrors(post: StoredEvent): string {
   const lines = Object.entries(post.deliveries ?? {}).flatMap(([id, delivery]) => {
     if (!delivery || delivery.state === "sent") return [];
@@ -309,19 +304,7 @@ export const tiktokCreator: ToolHandler<"tiktok_creator"> = async ({ account: re
   const account = accountsFor("tiktok", choices)[0];
   if (!account) throw new DapiError("invalid-input", "Connect TikTok in Connections first.");
   if (!account.tiktok) throw new DapiError("invalid-input", `Connect ${account.handle} in Connections again: plan.video has its name but no TikTok login.`);
-  const creator = await creatorOf({ ...account, tiktok: account.tiktok });
-  return {
-    accountId: account.id,
-    nickname: creator.nickname,
-    username: creator.username,
-    privacy: creator.privacy,
-    comments: !creator.commentDisabled,
-    duet: !creator.duetDisabled,
-    stitch: !creator.stitchDisabled,
-    maxVideoSeconds: creator.maxVideoSeconds,
-    consent: tiktokConsent(false),
-    brandedConsent: tiktokConsent(true),
-  };
+  return tiktokCreatorView(account.id, await creatorOf({ ...account, tiktok: account.tiktok }));
 };
 
 export const schedulePost: ToolHandler<"schedule_post"> = async (args, ctx) => {

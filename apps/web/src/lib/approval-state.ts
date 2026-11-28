@@ -44,15 +44,7 @@ export const SERVER_WORDS = [
   msg("Add your name."),
 ];
 
-export function isApproval(value: unknown): value is Approval {
-  const state = (value as Approval | null)?.state;
-  return state === "pending" || state === "changes" || state === "approved";
-}
-
-/** Asked for and not approved yet: it doesn't go out. */
-export const awaitingApproval = (post: { approval?: unknown }) => isApproval(post.approval) && post.approval.state !== "approved";
-
-export const approvalOf = (post: { approval?: unknown }): Approval | undefined => (isApproval(post.approval) ? post.approval : undefined);
+export { approvalOf, awaitingApproval, isApproval } from "@/lib/post-rules";
 
 /** The person's role in the open workspace. Their own workspaces are theirs. */
 export const workspaceRole = (): "owner" | "admin" | "member" => activeShared()?.role ?? "owner";
