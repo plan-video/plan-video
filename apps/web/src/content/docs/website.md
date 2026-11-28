@@ -45,6 +45,12 @@ your-domain.com {
 	handle /api/transcribe* {
 		reverse_proxy 127.0.0.1:8792
 	}
+	# Finding clips reports its progress as it goes.
+	handle /api/clips/* {
+		reverse_proxy 127.0.0.1:8800 {
+			flush_interval -1
+		}
+	}
 	handle /api/billing/* {
 		reverse_proxy 127.0.0.1:8799
 	}

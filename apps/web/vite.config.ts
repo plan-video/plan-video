@@ -11,6 +11,7 @@ import { xDevPlugin } from './x-server'
 import { tiktokDevPlugin } from './tiktok-server'
 import { youtubeDevPlugin } from './youtube-server'
 import { transcribeDevPlugin } from './transcribe-server'
+import { clipsDevPlugin } from './clips-server'
 import { contentSecurityPolicyPlugin } from './content-security-policy'
 import { ocrModelPlugin } from './ocr-model'
 import { serverSecretsPlugin } from './server-env'
@@ -179,6 +180,7 @@ export default defineConfig(async ({ mode, command }): Promise<UserConfig> => {
       workspaceRestartPlugin(),
       googleDrivePagePlugin(),
       transcribeDevPlugin(__dirname, mode),
+      clipsDevPlugin(__dirname, mode),
       agentDevPlugin(__dirname, mode),
       tiktokDevPlugin(__dirname, mode),
       youtubeDevPlugin(__dirname, mode),

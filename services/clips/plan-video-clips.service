@@ -1,0 +1,31 @@
+[Unit]
+Description=plan.video clips from Twitch broadcasts
+After=network-online.target
+Wants=network-online.target
+
+# Reads SUPABASE_URL / SUPABASE_ANON_KEY from r2.env. Needs ffmpeg (apt install ffmpeg).
+# Asks the transcribe and agent services on this server, under each person's own sign-in.
+
+[Service]
+User=planvideo-clips
+Group=planvideo-clips
+SupplementaryGroups=planvideo-r2
+WorkingDirectory=/opt/plan-video-clips
+ExecStart=/usr/bin/node server.mjs
+Restart=always
+RestartSec=2
+# Two scans at once, each holding a few windows of sound and one clip on disk.
+MemoryMax=768M
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

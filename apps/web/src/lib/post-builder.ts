@@ -23,7 +23,10 @@ export type PostClip = {
   src: string;
   width: number;
   height: number;
+  /** Seconds of it that play. */
   duration: number;
+  /** Where in the file playing starts. */
+  sourceIn?: number;
 };
 
 export type PostSpec = {
@@ -32,6 +35,10 @@ export type PostSpec = {
   layoutId: string;
   /** Null for no captions. */
   captions: CaptionPreset | null;
+  /** A transcript file for the captions, so nothing is transcribed again. Its times are the scene's. */
+  captionsSrc?: string;
+  /** Crops found for the source, as fractions of it, in place of the layout's own. */
+  crops?: Crops;
 };
 
 export type PostNode = {
@@ -74,6 +81,7 @@ function slotVideo(clip: PostClip, slot: Slot, crop: Box, start: number, muted: 
       objectFit: "fill",
       start,
       end: start + clip.duration,
+      ...(clip.sourceIn ? { sourceIn: clip.sourceIn } : {}),
       ...(muted ? { muted: true } : {}),
     },
     [
@@ -83,10 +91,10 @@ function slotVideo(clip: PostClip, slot: Slot, crop: Box, start: number, muted: 
   );
 }
 
-function layoutFor(layoutId: string, clip: PostClip): { slots: Slot[]; crops: Crops } {
+function layoutFor(layoutId: string, clip: PostClip, found: Crops = {}): { slots: Slot[]; crops: Crops } {
   const layout = getStreamLayout(layoutId);
   const fractions: Crops = {};
-  for (const spec of layout.crops) fractions[spec.id] = defaultCrop(spec, clip.width / clip.height);
+  for (const spec of layout.crops) fractions[spec.id] = found[spec.id] ?? defaultCrop(spec, clip.width / clip.height);
   const crops = toPixels(fractions, clip.width, clip.height);
   return { slots: layout.slots(crops).filter((slot) => crops[slot.crop]), crops };
 }
@@ -94,7 +102,7 @@ function layoutFor(layoutId: string, clip: PostClip): { slots: Slot[]; crops: Cr
 /** Slots are listed back to front, and so are the sequences made of them. */
 export function buildPost(spec: PostSpec): PostNode {
   const layout = getStreamLayout(spec.layoutId);
-  const perClip = spec.clips.map((clip) => layoutFor(spec.layoutId, clip));
+  const perClip = spec.clips.map((clip) => layoutFor(spec.layoutId, clip, spec.crops));
   const slotCount = Math.max(0, ...perClip.map((entry) => entry.slots.length));
 
   const tracks: PostNode[] = [];
@@ -117,7 +125,7 @@ export function buildPost(spec: PostSpec): PostNode {
   }
 
   const children = [...tracks];
-  if (spec.captions) children.push(node("captions", { preset: spec.captions }));
+  if (spec.captions) children.push(node("captions", { preset: spec.captions, ...(spec.captionsSrc ? { src: spec.captionsSrc } : {}) }));
 
   return node(
     "scene",

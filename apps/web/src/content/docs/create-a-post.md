@@ -17,6 +17,16 @@ Every post starts in **New post** in the dashboard.
   </Step>
 </Steps>
 
+## Clips from a Twitch stream
+
+Under **Add media**, click **From Twitch** and paste the link to a past broadcast, or a channel's link for its latest one. plan.video reads the broadcast's chat, how loud it gets, and the clips viewers made, writes down what was said in the parts that stand out, and picks up to 8 moments that work on their own. A 2-hour stream takes a minute or two.
+
+Click **Use** on a moment and it becomes the post's video: cut to the moment, laid out 9:16 with your facecam above the game when there is one, and captioned with what you said. Its title and caption fill in an empty title and caption. The list stays there while the page is open, so you can come back and use another moment for your next post. To change the layout or the captions, click **Open project**.
+
+- The stream has to be public: a broadcast for subscribers only can't be read.
+- Finding the moments uses about 25 minutes of your monthly [captions](/docs/captions), however long the stream. When fewer are left, plan.video checks the best parts it has room for.
+- Parts Twitch muted for music are skipped.
+
 ## Captions for each network
 
 Each network has its own caption limit. plan.video counts characters the way each network does: an emoji is one character, except on X, which counts an emoji, and a Chinese, Japanese or Korean character, as two, and any link as 23.

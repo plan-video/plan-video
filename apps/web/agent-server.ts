@@ -6,6 +6,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Plugin } from "vite";
 
 import { handleCaptions } from "../../services/agent/captions.mjs";
+import { handleMoments } from "../../services/agent/moments.mjs";
 import { handleAgent, json, Refused } from "../../services/agent/handler.mjs";
 import { serverEnv } from "./server-env";
 
@@ -16,7 +17,7 @@ export function agentDevPlugin(envDir: string, mode: string): Plugin {
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         const path = req.url?.split("?")[0];
-        const handle = path === "/api/agent" ? handleAgent : path === "/api/agent/captions" ? handleCaptions : null;
+        const handle = path === "/api/agent" ? handleAgent : path === "/api/agent/captions" ? handleCaptions : path === "/api/agent/moments" ? handleMoments : null;
         if (!handle) {
           next();
           return;

@@ -85,7 +85,7 @@ export function addGuestProject(id: string) {
 }
 
 /** The dialog's words follow it. */
-export type AccountReason = "schedule" | "post" | "connect" | "share" | "approval" | "captions" | "agent" | "account";
+export type AccountReason = "schedule" | "post" | "connect" | "share" | "approval" | "captions" | "clips" | "agent" | "account";
 
 export type AccountAsk = {
   reason: AccountReason;

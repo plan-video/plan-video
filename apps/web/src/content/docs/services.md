@@ -15,10 +15,11 @@ Everything that needs a secret runs on your server as a small Node.js service. E
 | `mcp` | 8791 | `/mcp` | The MCP server AI agents connect to |
 | `agent` | 8796 | `/api/agent` | The dashboard's Assistant and the editor's caption tools, with Claude |
 | `transcribe` | 8792 | `/api/transcribe` | Auto-captions, with ElevenLabs speech-to-text |
+| `clips` | 8800 | `/api/clips/` | Finds clips in Twitch streams for New post. It asks `transcribe` and `agent` for each person, and needs ffmpeg. |
 | `billing` | 8799 | `/api/billing/` | Paid plans, with Stripe |
 | `monitor` | | | Checks the server every minute and reports to Healthchecks.io |
 
-You need `publisher`, `gateway`, `photos` and `storage`, plus the service of each network you connect. The rest are optional: without `mcp` agents can't connect, without `agent` there's no Assistant, without `transcribe` there are no auto-captions, and without `billing` everyone stays on the Free plan unless you [give them a plan](/docs/self-hosting#give-yourself-a-plan).
+You need `publisher`, `gateway`, `photos` and `storage`, plus the service of each network you connect. The rest are optional: without `mcp` agents can't connect, without `agent` there's no Assistant, without `transcribe` there are no auto-captions, without `clips` New post has no From Twitch, and without `billing` everyone stays on the Free plan unless you [give them a plan](/docs/self-hosting#give-yourself-a-plan).
 
 ## Settings files
 
@@ -47,13 +48,13 @@ Make each file owned by `root` and by the group of the service that reads it, wi
 
 ## Install a service
 
-The units expect each service in `/opt/plan-video-<name>`, each run by a user of its own, `planvideo-<name>`. They run `/usr/bin/node`, so install Node.js 22 there first, from your distribution or [nodejs.org](https://nodejs.org). `services/deploy.sh` also needs `git`, `rsync`, `curl`, and `node` and `npm` on your path, and runs as root.
+The units expect each service in `/opt/plan-video-<name>`, each run by a user of its own, `planvideo-<name>`. They run `/usr/bin/node`, so install Node.js 22 there first, from your distribution or [nodejs.org](https://nodejs.org). `services/deploy.sh` also needs `git`, `rsync`, `curl`, and `node` and `npm` on your path, and runs as root. `clips` also needs `ffmpeg` (`apt install ffmpeg`).
 
 <Steps>
   <Step title="Make the users">
     ```bash
     groupadd --system planvideo-r2
-    for name in agent billing linkedin mcp photos publisher storage tiktok transcribe x youtube; do
+    for name in agent billing clips linkedin mcp photos publisher storage tiktok transcribe x youtube; do
       useradd --system --no-create-home --shell /usr/sbin/nologin --user-group planvideo-$name
     done
     usermod -aG planvideo-r2,planvideo-tiktok,planvideo-youtube,planvideo-linkedin,planvideo-x planvideo-publisher

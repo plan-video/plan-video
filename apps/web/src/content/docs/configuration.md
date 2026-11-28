@@ -123,6 +123,7 @@ The network's service and the publisher both read these. `meta.env` has no servi
 | `AGENT_FREE_SHARE` | | The share of `AGENT_SITE_BUDGET` that Free accounts can use between them, from `0` to `1`, so they never use up what paying ones need. Default `0.5`. |
 | `AGENT_NETWORK_BUDGET` | | What Free accounts on one network (IP address, or IPv6 /64) can use between them in a day, the Assistant and caption tools together. Default `4000000`. |
 | `CAPTIONS_PERSON_BUDGET` | | Each person's daily share of the caption tools, by plan like `AGENT_PERSON_BUDGET`. Default `4000000`. |
+| `MOMENTS_PERSON_BUDGET` | | Each person's daily share of finding clips in Twitch streams, by plan like `AGENT_PERSON_BUDGET`. It uses Claude Opus, counted at 40 times the price, so one stream is about `1400000`. Default `15000000`. |
 | `AGENT_SIGNING_SECRET` | | Signs the Assistant's replies, so a browser can't make up its turns. By default it comes from the API key, so a new key ends open chats. |
 
 ## transcribe.env

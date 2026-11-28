@@ -4,7 +4,7 @@
 #
 #   services/deploy.sh status               which commit each service runs, and what differs
 #   services/deploy.sh [--dry-run] all      every service, the publisher and then its gateway last
-#   services/deploy.sh [--dry-run] <name>…  agent billing gateway linkedin mcp monitor photos publisher storage tiktok transcribe x youtube
+#   services/deploy.sh [--dry-run] <name>…  agent billing clips gateway linkedin mcp monitor photos publisher storage tiktok transcribe x youtube
 #
 # A failed check puts the service's previous files back and restarts it.
 set -euo pipefail
@@ -17,7 +17,7 @@ RESTART=${DEPLOY_RESTART:-1}
 ENV_DIR=${DEPLOY_ENV:-/etc/plan-video}
 NETWORKS=(tiktok youtube linkedin x)
 ONE_PIXEL_PNG=iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAEBgIApD5fRAAAAABJRU5ErkJggg==
-ORDER=(transcribe mcp storage agent billing tiktok youtube linkedin x monitor photos publisher gateway)
+ORDER=(transcribe mcp storage agent clips billing tiktok youtube linkedin x monitor photos publisher gateway)
 
 say() { printf '%s\n' "$*"; }
 fail() { printf 'deploy: %s\n' "$*" >&2; exit 1; }

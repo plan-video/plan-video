@@ -30,6 +30,8 @@ function reasonText(ask: AccountAsk) {
       return t("Nothing is sent from the demo. Create an account to have your clients and team approve posts before they go out.");
     case "captions":
       return t("Create a free account to make captions from your video's speech.");
+    case "clips":
+      return t("Create a free account to find clips in your Twitch streams.");
     case "agent":
       return t("Create a free account to plan and schedule posts with the Assistant.");
     default:
