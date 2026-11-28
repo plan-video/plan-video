@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { useSearchParams } from "@solidjs/router";
-import { For, Match, Show, Switch, createEffect, createMemo, createSignal, on, onCleanup, onMount } from "solid-js";
+import { For, Match, Show, Switch, createEffect, createMemo, createSignal, on, onCleanup } from "solid-js";
 import { createStore, produce, unwrap } from "solid-js/store";
 import { toast } from "somoto";
 
@@ -315,9 +315,6 @@ export function DashboardClipsView() {
 
 type Platform = "twitch" | "kick" | "youtube";
 
-const platformOf = (link: string): Platform | null =>
-  /kick\.com/i.test(link) ? "kick" : /youtube\.com|youtu\.be/i.test(link) ? "youtube" : /twitch\.tv/i.test(link) ? "twitch" : null;
-
 const MARKS: Record<Platform, { tile: string; ink: string; path: string }> = {
   twitch: { tile: "#9146FF", ink: "#FFFFFF", path: "M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0 1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z" },
   kick: { tile: "#0B0E0F", ink: "#53FC18", path: "M1.333 0h8v5.333H12V2.667h2.667V0h8v8H20v2.667h-2.667v2.666H20V16h2.667v8h-8v-2.667H12v-2.666H9.333V24h-8Z" },
@@ -336,51 +333,7 @@ function SourceMark(props: { id: Platform; class?: string }) {
   );
 }
 
-const PLATFORMS: { id: Platform; label: string; placeholder: string }[] = [
-  { id: "twitch", label: "Twitch", placeholder: msg("Paste a Twitch video or channel link") },
-  { id: "kick", label: "Kick", placeholder: msg("Paste a Kick video or channel link") },
-  { id: "youtube", label: "YouTube", placeholder: msg("Paste a YouTube video or channel link") },
-];
-
-const BAYER = [0, 32, 8, 40, 2, 34, 10, 42, 48, 16, 56, 24, 50, 18, 58, 26, 12, 44, 4, 36, 14, 46, 6, 38, 60, 28, 52, 20, 62, 30, 54, 22, 3, 35, 11, 43, 1, 33, 9, 41, 51, 19, 59, 27, 49, 17, 57, 25, 15, 47, 7, 39, 13, 45, 5, 37, 63, 31, 55, 23, 61, 29, 53, 21].map((step) => (step + 0.5) / 64);
-const DOT_CELL = 4;
-
-/** An ordered-dither field, densest at its centre, drawn once per size as a mask so it takes the theme's colour. */
-function DitherField(props: { class?: string }) {
-  let box!: HTMLDivElement;
-  const [mask, setMask] = createSignal("");
-  onMount(() => {
-    const draw = () => {
-      const width = Math.round(box.clientWidth);
-      const height = Math.round(box.clientHeight);
-      if (!width || !height) return;
-      const ratio = Math.min(2, window.devicePixelRatio || 1);
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.round(width * ratio);
-      canvas.height = Math.round(height * ratio);
-      const context = canvas.getContext("2d");
-      if (!context) return;
-      context.scale(ratio, ratio);
-      context.fillStyle = "#000";
-      const cols = Math.ceil(width / DOT_CELL);
-      const rows = Math.ceil(height / DOT_CELL);
-      for (let y = 0; y < rows; y++) {
-        const ny = ((y + 0.5) / rows) * 2 - 1;
-        for (let x = 0; x < cols; x++) {
-          const nx = ((x + 0.5) / cols) * 2 - 1;
-          const level = Math.max(0, 1 - Math.hypot(nx, ny * 0.9)) ** 1.6;
-          if (level > BAYER[(y % 8) * 8 + (x % 8)]) context.fillRect(x * DOT_CELL, y * DOT_CELL, 2, 2);
-        }
-      }
-      setMask(`url(${canvas.toDataURL()})`);
-    };
-    draw();
-    const observer = new ResizeObserver(draw);
-    observer.observe(box);
-    onCleanup(() => observer.disconnect());
-  });
-  return <div ref={box} class={props.class} style={{ "mask-image": mask(), "mask-size": "100% 100%" }} aria-hidden="true" />;
-}
+const PLATFORMS: Platform[] = ["twitch", "kick", "youtube"];
 
 function Start(props: {
   link: string;
@@ -391,9 +344,7 @@ function Start(props: {
   onOpen(id: string): void;
   onRemove(stream: ClipStream): void;
 }) {
-  const [chosen, setChosen] = createSignal<Platform | null>(null);
   let field!: HTMLTextAreaElement;
-  const platform = () => platformOf(props.link) ?? chosen();
   const dated = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleDateString(intlLocale(), { day: "numeric", month: "short" }) : "");
   const paste = async () => {
     const text = await navigator.clipboard?.readText?.().catch(() => "");
@@ -409,32 +360,7 @@ function Start(props: {
           {t("Turn a stream into clips")}
         </h2>
 
-        <div class="relative z-10 mt-8 flex flex-wrap justify-center gap-2 max-md:mt-6" role="radiogroup" aria-label={t("Platform")}>
-          <For each={PLATFORMS}>
-            {(entry) => (
-              <button
-                type="button"
-                role="radio"
-                aria-checked={platform() === entry.id}
-                class="flex h-10 items-center gap-2 rounded-xl border pr-4 pl-2.5 text-sm outline-none transition-colors focus-ring"
-                classList={{
-                  "border-(--plane-border-strong) bg-(--plane-surface-1) text-foreground shadow-xs": platform() === entry.id,
-                  "border-(--plane-border-subtle) bg-(--plane-surface-1) text-muted-foreground hover:text-foreground": platform() !== entry.id,
-                }}
-                onClick={() => {
-                  setChosen(entry.id);
-                  field.focus();
-                }}
-              >
-                <SourceMark id={entry.id} class="size-5" />
-                {entry.label}
-              </button>
-            )}
-          </For>
-        </div>
-
-        <div class="relative isolate mt-5 w-full max-w-[680px]">
-          <DitherField class="pointer-events-none absolute -inset-x-[24%] -top-20 -bottom-20 -z-10 bg-foreground/30 max-md:hidden" />
+        <div class="mt-10 w-full max-w-[680px] max-md:mt-8">
           <form
             class="flex min-h-36 flex-col justify-between gap-4 rounded-2xl border border-(--plane-border-subtle) bg-(--plane-surface-1) p-4 shadow-[0_12px_40px_-12px_rgb(0_0_0/0.35)] focus-within:border-(--plane-border-strong)"
             onSubmit={(event) => {
@@ -454,10 +380,7 @@ function Start(props: {
                   if (props.link.trim()) props.onFind();
                 }
               }}
-              placeholder={(() => {
-                const entry = PLATFORMS.find((item) => item.id === platform());
-                return entry ? t(entry.placeholder) : t("Paste a Twitch, Kick or YouTube link");
-              })()}
+              placeholder={t("Paste a Twitch, Kick or YouTube link")}
               aria-label={t("Stream link")}
               spellcheck={false}
               autocomplete="off"
@@ -482,7 +405,7 @@ function Start(props: {
               </span>
             </Show>
             <span class="ml-auto flex shrink-0 gap-1.5">
-              <For each={PLATFORMS}>{(entry) => <SourceMark id={entry.id} class="size-4.5 rounded-[5px]" />}</For>
+              <For each={PLATFORMS}>{(id) => <SourceMark id={id} class="size-4.5 rounded-[5px]" />}</For>
             </span>
           </div>
         </div>
