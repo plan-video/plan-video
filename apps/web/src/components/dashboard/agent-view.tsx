@@ -484,7 +484,7 @@ function Composer(props: { placeholder: string; compact?: boolean; class?: strin
       <div
         class={cx(
           !props.compact && COLUMN,
-          "assistant-composer flex flex-col rounded-xl border border-(--plane-border-subtle-1) bg-(--plane-layer-2) transition-colors focus-within:border-(--plane-border-strong)",
+          "flex flex-col rounded-xl border border-(--plane-border-subtle-1) bg-(--plane-layer-2) transition-colors focus-within:border-(--plane-border-strong)",
         )}
       >
         <Show when={draftMedia().length}>

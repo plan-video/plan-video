@@ -1004,14 +1004,6 @@ html.dashboard-theme [data-popper-positioner] > [role="tooltip"] {
   box-shadow: var(--depth-tooltip);
 }
 
-html.dashboard-theme .assistant-composer {
-  box-shadow: var(--depth-card);
-  background-image: linear-gradient(90deg, transparent, var(--depth-edge) 12%, var(--depth-edge) 88%, transparent);
-  background-size: 100% 1px;
-  background-position: top;
-  background-repeat: no-repeat;
-}
-
 .assistant-prose > div {
   font-size: 14px;
   line-height: 1.6;
