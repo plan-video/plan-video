@@ -182,22 +182,20 @@ describe("schedule_post without a tab", () => {
     expect(rows.get(view.id)!.data).toMatchObject({ status: "draft", allDay: true, day: "2026-11-27" });
   });
 
-  test("TikTok's profile needs the user's yes and goes by the account's creator info; its inbox needs neither", async () => {
-    const { tools, rows, asked } = memoryStore(context(), { reads: { "tiktok/creator": { data: { ...CREATOR, comment_disabled: true } } } });
+  test("a post for the TikTok profile waits as a draft at its time for the user's yes in plan.video; one for the inbox is scheduled", async () => {
+    const { tools, rows } = memoryStore();
     const post = { caption: "Dance", platforms: ["tiktok"], day: "2026-12-02", time: "10:00", media: "media:clip" };
-    const unasked = await refused(tools.run("schedule_post", { ...post, tiktok: { privacy: "public", promotion: "none" } }));
-    expect(unasked).toContain("By posting, you agree to TikTok's Music Usage Confirmation");
-    expect(await refused(tools.run("schedule_post", { ...post, tiktok: { privacy: "friends", promotion: "none", agreed: true } }))).toContain("can't show a post to friends");
-    expect(rows.size).toBe(0);
+    // The agent's word for the user's yes isn't taken.
+    const view = await ok(tools.run("schedule_post", { ...post, tiktok: { privacy: "public", promotion: "none", agreed: true } }));
+    expect(rows.get(view.id)!.data).toMatchObject({ status: "draft", day: "2026-12-02", start: "10:00", allDay: false, tiktok: { privacy: "public" } });
+    expect(view.warnings).toContainEqual(expect.stringContaining("https://plan.example/dashboard"));
+    const unanswered = await ok(tools.run("schedule_post", post));
+    expect(rows.get(unanswered.id)!.data.status).toBe("draft");
+    const copy = await ok(tools.run("copy_post", { id: view.id, day: "2026-12-03", time: "10:00" }));
+    expect(rows.get(copy.id)!.data.status).toBe("draft");
 
-    const view = await ok(tools.run("schedule_post", { ...post, tiktok: { privacy: "public", promotion: "none", comments: true, agreed: true } }));
-    expect(rows.get(view.id)!.data.tiktok).toMatchObject({ privacy: "public", comments: false });
-    expect(view.warnings).toContainEqual(expect.stringContaining("Comments is turned off"));
-    expect(asked.every(({ route, body }) => route === "tiktok/creator" && (body as { connectionId: string }).connectionId === "tt")).toBe(true);
-
-    asked.length = 0;
-    await ok(tools.run("schedule_post", { ...post, tiktok: { inbox: true } }));
-    expect(asked).toEqual([]);
+    const inbox = await ok(tools.run("schedule_post", { ...post, tiktok: { inbox: true } }));
+    expect(rows.get(inbox.id)!.data.status).toBe("scheduled");
   });
 
   test("a member's post waits for approval where the workspace asks for it, and the owner's goes out", async () => {
@@ -281,6 +279,24 @@ describe("update_post and copy_post without a tab", () => {
     await ok(tools.run("update_post", { id: "p1", day: "2026-12-11", time: "10:00" }));
     expect(rows.get("p1")!.data).toMatchObject({ status: "draft", day: "2026-12-11", approval: { state: "pending" } });
     expect(await refused(tools.run("update_post", { id: "p1", draft: false }))).toContain("waiting for approval");
+  });
+
+  test("a post for the TikTok profile keeps the user's yes at a new time, and waits for it again after any other change", async () => {
+    const { tools, rows } = memoryStore();
+    const tiktok = { privacy: "public" as const, comments: false, duet: false, stitch: false, yourBrand: false, brandedContent: false };
+    const video = { id: "f1", name: "clip.mp4", type: "video/mp4", lastModified: 1, cloud: { key: "posts/owner-1/f1", at: "" } };
+    rows.set("p1", existing("p1", { platforms: ["tiktok"], accounts: { tiktok: ["tt"] }, tiktok, files: ["f1"], media: [video] }));
+    await ok(tools.run("update_post", { id: "p1", day: "2026-12-11", time: "10:00" }));
+    expect(rows.get("p1")!.data).toMatchObject({ status: "scheduled", day: "2026-12-11" });
+    const changed = await ok(tools.run("update_post", { id: "p1", caption: "New words" }));
+    expect(rows.get("p1")!.data.status).toBe("draft");
+    expect(changed.warnings).toContainEqual(expect.stringContaining("press Schedule"));
+    await ok(tools.run("update_post", { id: "p1", draft: false }));
+    expect(rows.get("p1")!.data.status).toBe("draft");
+
+    rows.set("p2", existing("p2"));
+    await ok(tools.run("update_post", { id: "p2", platforms: ["bluesky", "tiktok"], media: "media:clip", tiktok: { privacy: "public", promotion: "none" } }));
+    expect(rows.get("p2")!.data.status).toBe("draft");
   });
 
   test("a post that went out stays as it went out", async () => {
@@ -376,19 +392,21 @@ describe("what used to need the tab", () => {
     expect(rows.get("p1")!.data).toMatchObject({ day: "2026-11-27", start: "13:00" });
   });
 
-  test("publish_post sends nothing it can't: a post waiting for approval, files still uploading, TikTok without the user's yes", async () => {
-    const { tools, rows, sent } = memoryStore(context(), { reads: { "tiktok/creator": { data: CREATOR } } });
+  test("publish_post sends nothing it can't: a post waiting for approval, files still uploading, anything for the TikTok profile", async () => {
+    const { tools, rows, sent } = memoryStore();
     rows.set("waiting", existing("waiting", { status: "draft", approval: { state: "pending", at: "2026-11-20T00:00:00Z" } }));
     expect(await refused(tools.run("publish_post", { id: "waiting" }))).toContain("waiting for approval");
-    const tiktok = { privacy: "public" as const, comments: true, duet: true, stitch: true, yourBrand: false, brandedContent: false };
     const video = { id: "f1", name: "clip.mp4", type: "video/mp4", lastModified: 1 };
-    rows.set("uploading", existing("uploading", { platforms: ["tiktok"], accounts: { tiktok: ["tt"] }, tiktok, files: ["f1"], media: [video] }));
-    expect(await refused(tools.run("publish_post", { id: "uploading", agreed: true }))).toContain("haven't reached plan.video's storage");
-    rows.set("tiktok", existing("tiktok", { platforms: ["tiktok"], accounts: { tiktok: ["tt"] }, tiktok, files: ["f1"], media: [{ ...video, cloud: { key: "posts/owner-1/f1", at: "" } }] }));
-    expect(await refused(tools.run("publish_post", { id: "tiktok" }))).toContain("TikTok's terms");
+    rows.set("uploading", existing("uploading", { platforms: ["youtube"], accounts: { youtube: ["yt"] }, files: ["f1"], media: [video] }));
+    expect(await refused(tools.run("publish_post", { id: "uploading" }))).toContain("haven't reached plan.video's storage");
+    const uploaded = { files: ["f1"], media: [{ ...video, cloud: { key: "posts/owner-1/f1", at: "" } }] };
+    const tiktok = { privacy: "public" as const, comments: true, duet: true, stitch: true, yourBrand: false, brandedContent: false };
+    rows.set("tiktok", existing("tiktok", { platforms: ["tiktok"], accounts: { tiktok: ["tt"] }, tiktok, ...uploaded }));
+    expect(await refused(tools.run("publish_post", { id: "tiktok", agreed: true }))).toContain("press Post now");
     expect(sent).toEqual([]);
-    await ok(tools.run("publish_post", { id: "tiktok", agreed: true }));
-    expect(sent).toEqual(["tiktok"]);
+    rows.set("inbox", existing("inbox", { platforms: ["tiktok"], accounts: { tiktok: ["tt"] }, tiktok: { ...tiktok, privacy: "private", inbox: true }, ...uploaded }));
+    await ok(tools.run("publish_post", { id: "inbox" }));
+    expect(sent).toEqual(["inbox"]);
   });
 
   test("ask_for_approval shares what the post shows and returns its link", async () => {

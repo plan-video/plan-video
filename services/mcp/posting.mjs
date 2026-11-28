@@ -24,16 +24,13 @@ var YouTubeSettings = z.object({
 var TikTokPrivacy = z.enum(["public", "friends", "followers", "private"]);
 var TikTokSettings = z.object({
   privacy: TikTokPrivacy.optional().describe(
-    "Who can watch, as the user picked it from the choices tiktok_creator lists. There is no default: ask. Required to schedule a TikTok post to the profile, together with promotion."
+    "Who can watch, as the user picked it from the choices tiktok_creator lists. There is no default: ask. Needed with promotion before a post goes to the TikTok profile."
   ),
   comments: z.boolean().optional().describe("Allow comments. Off unless the user turns it on."),
   duet: z.boolean().optional().describe("Allow Duet, for a video. Off unless the user turns it on."),
   stitch: z.boolean().optional().describe("Allow Stitch, for a video. Off unless the user turns it on."),
   promotion: z.enum(["none", "your_brand", "branded_content", "both"]).optional().describe(
     "Whether the post promotes something, as the user answered: none; your_brand, when it promotes themselves or their own business (labelled Promotional content); branded_content, when it promotes another brand or a third party (labelled Paid partnership, and it can't be private); or both. Required with privacy."
-  ),
-  agreed: z.boolean().optional().describe(
-    "True once the user has accepted TikTok's terms for this post: show them consent from tiktok_creator word for word with its links (brandedConsent for branded content) and wait for their yes. Required to schedule a post to the TikTok profile."
   ),
   inbox: z.boolean().optional().describe("Send the video to the TikTok inbox instead of posting it to the profile. The person finishes it in TikTok.")
 });
@@ -133,7 +130,7 @@ var socialSchema = defineTool({
 var tiktokCreator = defineTool({
   name: "tiktok_creator",
   title: "TikTok account check",
-  description: "Ask TikTok what a connected TikTok account can post right now: the name it posts as, who can watch, whether comments, Duet and Stitch can be on, and the longest video. TikTok requires this before anything goes to a profile, and it can change, so call it each time before you schedule or publish to the TikTok profile. Then tell the user which account the post goes out as, and ask them who can watch (one of privacy; there is no default), whether to allow comments, Duet and Stitch (not those the account has off), and whether the post promotes something. Last, show them consent word for word with its links, or brandedConsent for branded content, and pass agreed true only once they accept. Not needed for tiktok.inbox, where they finish the post in TikTok.",
+  description: "Ask TikTok what a connected TikTok account can post right now: the name it posts as, who can watch, whether comments, Duet and Stitch can be on, and the longest video. TikTok requires this before anything goes to a profile, and it can change, so call it each time before you schedule or publish to the TikTok profile. Then tell the user which account the post goes out as, and ask them who can watch (one of privacy; there is no default), whether to allow comments, Duet and Stitch (not those the account has off), and whether the post promotes something. plan.video then shows them TikTok's terms and takes their yes itself before anything goes to the profile. Not needed for tiktok.inbox, where they finish the post in TikTok.",
   input: z.object({
     account: z.string().min(1).optional().describe("A TikTok connection id from social_accounts. Required when there's more than one.")
   }),
@@ -146,8 +143,8 @@ var tiktokCreator = defineTool({
     duet: z.boolean().describe("False when the account has Duet off in TikTok: it stays off."),
     stitch: z.boolean().describe("False when the account has Stitch off in TikTok: it stays off."),
     maxVideoSeconds: z.number().describe("The longest video this account can post."),
-    consent: z.string().describe("Show the user this before the post is scheduled or published, word for word with its link."),
-    brandedConsent: z.string().describe("Show this instead when the post is branded content.")
+    consent: z.string().describe("TikTok's terms, which plan.video shows the user before a post goes to the profile."),
+    brandedConsent: z.string().describe("Its terms for branded content.")
   })
 });
 var schedulePost = defineTool({
@@ -171,7 +168,7 @@ var copyPost = defineTool({
     accounts: postFields.accounts,
     thread: Thread.optional().describe("Follow-ups for the copy, in place of the original's. Omit to keep the original's, or pass [] for none."),
     tiktok: TikTokSettings.optional().describe(
-      "Changes to the copy's TikTok settings. To schedule a copy to the TikTok profile, pass agreed true once the user accepted TikTok's terms, as tiktok_creator describes."
+      "Changes to the copy's TikTok settings."
     )
   }),
   output: ScheduledPost
@@ -234,12 +231,9 @@ var deletePost = defineTool({
 var publishPost = defineTool({
   name: "publish_post",
   title: "Publish post",
-  description: "Send a saved post now. Every platform on the post has to be one plan.video sends to, with publishes true in social_schema, which also says what media each needs. This cannot be undone. Do not call it unless the user asked to publish now. plan.video has to stay open until this answers. Call it again to retry a failed send. A post to the TikTok profile needs tiktok_creator first and agreed true.",
+  description: "Send a saved post now. Every platform on the post has to be one plan.video sends to, with publishes true in social_schema, which also says what media each needs. This cannot be undone. Do not call it unless the user asked to publish now. plan.video has to stay open until this answers. Call it again to retry a failed send. A post to the TikTok profile goes out only after the user says yes to TikTok's terms in plan.video.",
   input: z.object({
-    id: z.string().min(1),
-    agreed: z.boolean().optional().describe(
-      "For a post to the TikTok profile: true once the user has accepted TikTok's terms for it just now. Show them consent from tiktok_creator word for word with its links (brandedConsent for branded content) and wait for their yes. Required for those posts."
-    )
+    id: z.string().min(1)
   }),
   output: ScheduledPost
 });
@@ -341,37 +335,6 @@ function promotionFlags(promotion) {
   };
 }
 var PROMOTION_QUESTION = "TikTok needs to know whether the post promotes something. Ask the user, then pass tiktok.promotion: none; your_brand, when it promotes themselves or their own business (labelled Promotional content); branded_content, when it promotes another brand or a third party (labelled Paid partnership, and it can't be private); or both.";
-function checkTikTokCreator(choices, creator, videoSeconds) {
-  const errors = [];
-  const warnings = [];
-  const name = creator.nickname || "This TikTok account";
-  if (!creator.privacy.includes(choices.privacy)) {
-    errors.push(`${name} can't show a post to ${choices.privacy}. Ask the user to pick one of: ${creator.privacy.join(", ")}.`);
-  }
-  if (choices.brandedContent && choices.privacy === "private") {
-    errors.push("Branded content can't be private on TikTok. Ask the user for another privacy, or to take branded content off.");
-  }
-  if (videoSeconds !== null && videoSeconds > creator.maxVideoSeconds) {
-    errors.push(`${name} can post videos up to ${creator.maxVideoSeconds} seconds. This one is ${Math.ceil(videoSeconds)}.`);
-  }
-  const next = { ...choices };
-  const off = [];
-  if (next.comments && creator.commentDisabled) {
-    next.comments = false;
-    off.push("Comments");
-  }
-  if (next.duet && creator.duetDisabled) {
-    next.duet = false;
-    if (videoSeconds !== null) off.push("Duet");
-  }
-  if (next.stitch && creator.stitchDisabled) {
-    next.stitch = false;
-    if (videoSeconds !== null) off.push("Stitch");
-  }
-  const list = off.length > 1 ? `${off.slice(0, -1).join(", ")} and ${off[off.length - 1]}` : off[0];
-  if (off.length) warnings.push(`${list} ${off.length === 1 ? "is" : "are"} turned off in ${name}'s TikTok settings, so ${off.length === 1 ? "it stays" : "they stay"} off on this post.`);
-  return { choices: next, errors, warnings };
-}
 
 // packages/dapi/src/tools/analytics.ts
 import { z as z2 } from "zod";
@@ -1485,7 +1448,6 @@ function requireTikTok(platforms, tiktok, scheduling) {
     "TikTok needs who can watch. Call tiktok_creator for the choices this account has, ask the user, and pass tiktok.privacy with tiktok.promotion. Or set tiktok.inbox so it goes to the TikTok app as a draft. Save with draft true if you don't know yet."
   );
 }
-var toProfile = (platforms, tiktok) => platforms.includes("tiktok") && !!tiktok && !tiktok.inbox;
 function assertFits(input) {
   const issues = inEnglish(
     () => checkPost({
@@ -2322,24 +2284,8 @@ async function creatorOf(session, account) {
     throw new DapiError("unsupported", `TikTok (${account.handle}): ${cause.message}`, { cause });
   }
 }
-async function tiktokYes(session, choices, tiktok, media, agreed, field) {
-  if (agreed !== true) {
-    throw new DapiError(
-      "invalid-input",
-      `Posting to the TikTok profile needs the user's yes to TikTok's terms. Show them this, word for word: "${tiktokConsent(tiktok.brandedContent)}" Then pass ${field} true once they accept.`
-    );
-  }
-  let settings = tiktok;
-  const warnings = [];
-  for (const account of accountsFor(session.scope, "tiktok", choices)) {
-    if (!account.ready) continue;
-    const checked = checkTikTokCreator(settings, await creatorOf(session, account), media?.kind === "video" ? media.duration : null);
-    if (checked.errors.length) throw new DapiError("invalid-input", checked.errors.join(" "));
-    settings = checked.choices;
-    warnings.push(...checked.warnings);
-  }
-  return { tiktok: settings, warnings };
-}
+var headedToProfile = (platforms, tiktok) => platforms.includes("tiktok") && !tiktok?.inbox;
+var tiktokHeld = (session) => `Saved as a draft: TikTok asks the user to accept its terms in plan.video before a post goes to their profile. Tell them to open it in plan.video's calendar (${session.options.site}/dashboard) and press Schedule. Other networks on this post wait with it: to schedule them now, make them a post of their own. Or set tiktok.inbox true to send it to their TikTok inbox at its time, where they finish it in TikTok.`;
 var withRules = (session, saved, next) => approvalRules(saved, next, { approver: session.scope.role !== "member", membersNeedApproval: session.scope.membersNeedApproval }, new Date(session.now).toISOString());
 async function saveNew(session, args, shared, own, youtubeBefore) {
   const { scope } = session;
@@ -2364,14 +2310,11 @@ async function saveNew(session, args, shared, own, youtubeBefore) {
   const title = postTitle(args.youtube?.title || caption, shared?.names[0]?.name.replace(/\.[^.]+$/, "") || "Untitled post");
   const media = mediaOn(shared, own);
   const youtube = youtubeOf(args.youtube, youtubeBefore, platforms, caption, knownShape(media("youtube")));
-  let tiktok = platforms.includes("tiktok") ? tiktokOf(args.tiktok) : void 0;
-  requireTikTok(platforms, tiktok, scheduling);
+  const tiktok = platforms.includes("tiktok") ? tiktokOf(args.tiktok) : void 0;
+  const held = scheduling && headedToProfile(platforms, tiktok);
+  requireTikTok(platforms, tiktok, scheduling && !held);
   const warnings = assertFits({ kind: kindOf(shared, own), platforms, caption, title: youtube?.title || title, media });
-  if (scheduling && toProfile(platforms, tiktok)) {
-    const checked = await tiktokYes(session, choices, tiktok, media("tiktok"), args.tiktok?.agreed, "tiktok.agreed");
-    tiktok = checked.tiktok;
-    warnings.push(...checked.warnings);
-  }
+  if (held) warnings.push(tiktokHeld(session));
   const { repeat, repeatEnd } = repeatOf(args.repeat, day);
   const thread = threadOf(args.thread, platforms);
   const id = newId();
@@ -2398,7 +2341,7 @@ async function saveNew(session, args, shared, own, youtubeBefore) {
       recurrenceEnd: recurrence ? resolveRepeatEnd(repeatEnd || void 0, recurrence, day) : null,
       sendFrom: new Date(session.now).toISOString(),
       start: time ?? "00:00",
-      status: scheduling ? "scheduled" : "draft",
+      status: scheduling && !held ? "scheduled" : "draft",
       timeZone: zone,
       title: title || "Untitled post"
     },
@@ -2407,7 +2350,7 @@ async function saveNew(session, args, shared, own, youtubeBefore) {
   await refuseOverLimit(session, post);
   if (shared || Object.keys(own).length) Object.assign(post, await copyOnto(session, id, shared, own));
   const row = await written(session, post, null);
-  return viewOf(session, row, [...warnings, ...heldWarning(post, scheduling)]);
+  return viewOf(session, row, [...warnings, ...heldWarning(post, scheduling && !held)]);
 }
 async function socialAccounts2(session) {
   const { scope } = session;
@@ -2521,19 +2464,17 @@ async function updatePost2(session, args) {
   const title = args.youtube?.title?.trim() || (args.caption !== void 0 ? ownTitle || postTitle(caption, fileTitle || existing.title) : existing.title);
   const media = mediaOn(attached.shared, attached.own);
   const youtube = youtubeOf(args.youtube, existing.youtube, platforms, caption, knownShape(media("youtube")), args.caption !== void 0 ? title : existing.youtube?.title);
-  let tiktok = platforms.includes("tiktok") ? tiktokOf(args.tiktok, existing.tiktok) : void 0;
+  const tiktok = platforms.includes("tiktok") ? tiktokOf(args.tiktok, existing.tiktok) : void 0;
+  const retimedOnly = Object.entries(args).every(([key, value]) => value === void 0 || ["id", "day", "time", "draft", "repeat"].includes(key));
+  const accepted = existing.status === "scheduled" && headedToProfile(existing.platforms, existing.tiktok) && retimedOnly;
+  const held = status === "scheduled" && headedToProfile(platforms, tiktok) && !accepted;
+  if (held) status = "draft";
   requireTikTok(platforms, tiktok, status === "scheduled");
   const warnings = [
     ...assertFits({ kind: kindOf(attached.shared, attached.own), platforms, caption, own, title: youtube?.title || title, media }),
     ...removedAccountNotes(connected(scope), platforms, choices)
   ];
-  const agreedBefore = existing.status === "scheduled" && toProfile(existing.platforms, existing.tiktok);
-  const tiktokChanged = args.tiktok?.privacy !== void 0 || args.tiktok?.promotion !== void 0 || args.tiktok?.inbox !== void 0 || args.accounts !== void 0;
-  if (status === "scheduled" && toProfile(platforms, tiktok) && (!agreedBefore || tiktokChanged)) {
-    const checked = await tiktokYes(session, choices, tiktok, media("tiktok"), args.tiktok?.agreed, "tiktok.agreed");
-    tiktok = checked.tiktok;
-    warnings.push(...checked.warnings);
-  }
+  if (held) warnings.push(tiktokHeld(session));
   const retimed = day !== existing.day || (time ?? "00:00") !== existing.start || !time !== existing.allDay || status !== existing.status;
   const built = args.repeat ? repeatOf(args.repeat, day) : null;
   const recurrence = args.repeat === null ? null : built ? built.repeat || null : existing.recurrence;
@@ -2604,12 +2545,18 @@ function deliveryErrors(row) {
   );
   return lines.join(" ") || "The post was not published.";
 }
-async function publishPost2(session, { id, agreed }) {
+async function publishPost2(session, { id }) {
   const { scope } = session;
   const row = await postById(session, id);
   let post = row.data;
   if (post.status === "posted") throw new DapiError("invalid-input", "This post already went out.");
   if (awaitingApproval(post)) throw new DapiError("invalid-input", AWAITING_APPROVAL);
+  if (headedToProfile(post.platforms, post.tiktok)) {
+    throw new DapiError(
+      "invalid-input",
+      `TikTok asks the user to accept its terms in plan.video before a post goes to their profile. Tell them to open this post in plan.video's calendar (${session.options.site}/dashboard) and press Post now. Or update it with tiktok.inbox true and publish it to their TikTok inbox, where they finish it in TikTok.`
+    );
+  }
   const foreign = post.platforms.filter((platform) => !PUBLISHES.has(platform));
   if (foreign.length > 0) {
     const names = foreign.map(platformName2);
@@ -2629,9 +2576,6 @@ async function publishPost2(session, { id, agreed }) {
     if (unnamed && others > 1) throw new DapiError("invalid-input", `${name} has more than one account. Update the post with the account id to publish.`);
     if (!unnamed && chosen.length === 0 && others > 0) throw new DapiError("invalid-input", `The ${name} account this post named was removed. Update the post with a ${name} account id, then publish.`);
     throw new DapiError("invalid-input", `Connect ${name} in Connections. A name alone can't publish.`);
-  }
-  if (post.platforms.includes("tiktok") && !post.tiktok?.inbox && !post.tiktok?.privacy) {
-    throw new DapiError("invalid-input", "TikTok needs who can watch before it can be published. Update the post with tiktok.privacy, or tiktok.inbox true.");
   }
   if (post.platforms.includes("youtube") && !(post.youtube?.title || post.title).trim()) throw new DapiError("invalid-input", "Add a YouTube title, then publish.");
   for (const platform of post.platforms.filter((item) => NEEDS_FILE.has(item))) {
@@ -2653,12 +2597,6 @@ async function publishPost2(session, { id, agreed }) {
     base = saved.version;
     post = next;
   };
-  if (toProfile(post.platforms, post.tiktok)) {
-    const attached = savedMedia(post);
-    const checked = await tiktokYes(session, post.accounts, post.tiktok, mediaOn(attached.shared, attached.own)("tiktok"), agreed, "agreed");
-    warnings.push(...checked.warnings);
-    if (checked.warnings.length) await save({ ...post, tiktok: checked.tiktok });
-  }
   const before = { day: post.day, start: post.start, allDay: post.allDay };
   const zone = post.timeZone || scope.timeZone;
   const at = momentOf(post.day, post.allDay ? "00:00" : post.start, zone);

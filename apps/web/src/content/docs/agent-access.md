@@ -9,6 +9,8 @@ An agent you allow can:
 - schedule, change and delete posts
 - publish posts when you ask
 
+TikTok asks you to accept its terms in plan.video before a post goes to your profile, so an agent can't post there by itself. A TikTok post it schedules waits on your calendar as a draft: open it, check its settings and press **Schedule**. Posts it sends to your TikTok inbox go out as planned, and you finish them in TikTok.
+
 plan.video tells your agent's app which actions can't be taken back: publishing, deleting, changing a post and asking for approval. The app asks you before those, unless you've told it not to. Posts it schedules are on your calendar, where you can change or delete them before they go out.
 
 It can't see your network logins, change your plan, or delete your account.

@@ -33,7 +33,7 @@
   },
   {
     "name": "tiktok_creator",
-    "description": "Ask TikTok what a connected TikTok account can post right now: the name it posts as, who can watch, whether comments, Duet and Stitch can be on, and the longest video. TikTok requires this before anything goes to a profile, and it can change, so call it each time before you schedule or publish to the TikTok profile. Then tell the user which account the post goes out as, and ask them who can watch (one of privacy; there is no default), whether to allow comments, Duet and Stitch (not those the account has off), and whether the post promotes something. Last, show them consent word for word with its links, or brandedConsent for branded content, and pass agreed true only once they accept. Not needed for tiktok.inbox, where they finish the post in TikTok.",
+    "description": "Ask TikTok what a connected TikTok account can post right now: the name it posts as, who can watch, whether comments, Duet and Stitch can be on, and the longest video. TikTok requires this before anything goes to a profile, and it can change, so call it each time before you schedule or publish to the TikTok profile. Then tell the user which account the post goes out as, and ask them who can watch (one of privacy; there is no default), whether to allow comments, Duet and Stitch (not those the account has off), and whether the post promotes something. plan.video then shows them TikTok's terms and takes their yes itself before anything goes to the profile. Not needed for tiktok.inbox, where they finish the post in TikTok.",
     "input_schema": {
       "type": "object",
       "properties": {
@@ -179,7 +179,7 @@
           "type": "object",
           "properties": {
             "privacy": {
-              "description": "Who can watch, as the user picked it from the choices tiktok_creator lists. There is no default: ask. Required to schedule a TikTok post to the profile, together with promotion.",
+              "description": "Who can watch, as the user picked it from the choices tiktok_creator lists. There is no default: ask. Needed with promotion before a post goes to the TikTok profile.",
               "type": "string",
               "enum": [
                 "public",
@@ -209,10 +209,6 @@
                 "branded_content",
                 "both"
               ]
-            },
-            "agreed": {
-              "description": "True once the user has accepted TikTok's terms for this post: show them consent from tiktok_creator word for word with its links (brandedConsent for branded content) and wait for their yes. Required to schedule a post to the TikTok profile.",
-              "type": "boolean"
             },
             "inbox": {
               "description": "Send the video to the TikTok inbox instead of posting it to the profile. The person finishes it in TikTok.",
@@ -365,11 +361,11 @@
           }
         },
         "tiktok": {
-          "description": "Changes to the copy's TikTok settings. To schedule a copy to the TikTok profile, pass agreed true once the user accepted TikTok's terms, as tiktok_creator describes.",
+          "description": "Changes to the copy's TikTok settings.",
           "type": "object",
           "properties": {
             "privacy": {
-              "description": "Who can watch, as the user picked it from the choices tiktok_creator lists. There is no default: ask. Required to schedule a TikTok post to the profile, together with promotion.",
+              "description": "Who can watch, as the user picked it from the choices tiktok_creator lists. There is no default: ask. Needed with promotion before a post goes to the TikTok profile.",
               "type": "string",
               "enum": [
                 "public",
@@ -399,10 +395,6 @@
                 "branded_content",
                 "both"
               ]
-            },
-            "agreed": {
-              "description": "True once the user has accepted TikTok's terms for this post: show them consent from tiktok_creator word for word with its links (brandedConsent for branded content) and wait for their yes. Required to schedule a post to the TikTok profile.",
-              "type": "boolean"
             },
             "inbox": {
               "description": "Send the video to the TikTok inbox instead of posting it to the profile. The person finishes it in TikTok.",
@@ -572,7 +564,7 @@
           "type": "object",
           "properties": {
             "privacy": {
-              "description": "Who can watch, as the user picked it from the choices tiktok_creator lists. There is no default: ask. Required to schedule a TikTok post to the profile, together with promotion.",
+              "description": "Who can watch, as the user picked it from the choices tiktok_creator lists. There is no default: ask. Needed with promotion before a post goes to the TikTok profile.",
               "type": "string",
               "enum": [
                 "public",
@@ -602,10 +594,6 @@
                 "branded_content",
                 "both"
               ]
-            },
-            "agreed": {
-              "description": "True once the user has accepted TikTok's terms for this post: show them consent from tiktok_creator word for word with its links (brandedConsent for branded content) and wait for their yes. Required to schedule a post to the TikTok profile.",
-              "type": "boolean"
             },
             "inbox": {
               "description": "Send the video to the TikTok inbox instead of posting it to the profile. The person finishes it in TikTok.",
@@ -719,17 +707,13 @@
   },
   {
     "name": "publish_post",
-    "description": "Send a saved post now. Every platform on the post has to be one plan.video sends to, with publishes true in social_schema, which also says what media each needs. This cannot be undone. Do not call it unless the user asked to publish now. plan.video has to stay open until this answers. Call it again to retry a failed send. A post to the TikTok profile needs tiktok_creator first and agreed true.",
+    "description": "Send a saved post now. Every platform on the post has to be one plan.video sends to, with publishes true in social_schema, which also says what media each needs. This cannot be undone. Do not call it unless the user asked to publish now. plan.video has to stay open until this answers. Call it again to retry a failed send. A post to the TikTok profile goes out only after the user says yes to TikTok's terms in plan.video.",
     "input_schema": {
       "type": "object",
       "properties": {
         "id": {
           "type": "string",
           "minLength": 1
-        },
-        "agreed": {
-          "description": "For a post to the TikTok profile: true once the user has accepted TikTok's terms for it just now. Show them consent from tiktok_creator word for word with its links (brandedConsent for branded content) and wait for their yes. Required for those posts.",
-          "type": "boolean"
         }
       },
       "required": [

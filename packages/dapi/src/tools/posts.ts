@@ -27,7 +27,7 @@ const TikTokPrivacy = z.enum(["public", "friends", "followers", "private"]);
 
 const TikTokSettings = z.object({
   privacy: TikTokPrivacy.optional().describe(
-    "Who can watch, as the user picked it from the choices tiktok_creator lists. There is no default: ask. Required to schedule a TikTok post to the profile, together with promotion.",
+    "Who can watch, as the user picked it from the choices tiktok_creator lists. There is no default: ask. Needed with promotion before a post goes to the TikTok profile.",
   ),
   comments: z.boolean().optional().describe("Allow comments. Off unless the user turns it on."),
   duet: z.boolean().optional().describe("Allow Duet, for a video. Off unless the user turns it on."),
@@ -37,12 +37,6 @@ const TikTokSettings = z.object({
     .optional()
     .describe(
       "Whether the post promotes something, as the user answered: none; your_brand, when it promotes themselves or their own business (labelled Promotional content); branded_content, when it promotes another brand or a third party (labelled Paid partnership, and it can't be private); or both. Required with privacy.",
-    ),
-  agreed: z
-    .boolean()
-    .optional()
-    .describe(
-      "True once the user has accepted TikTok's terms for this post: show them consent from tiktok_creator word for word with its links (brandedConsent for branded content) and wait for their yes. Required to schedule a post to the TikTok profile.",
     ),
   inbox: z.boolean().optional().describe("Send the video to the TikTok inbox instead of posting it to the profile. The person finishes it in TikTok."),
 });
@@ -169,7 +163,7 @@ export const tiktokCreator = defineTool({
   name: "tiktok_creator",
   title: "TikTok account check",
   description:
-    "Ask TikTok what a connected TikTok account can post right now: the name it posts as, who can watch, whether comments, Duet and Stitch can be on, and the longest video. TikTok requires this before anything goes to a profile, and it can change, so call it each time before you schedule or publish to the TikTok profile. Then tell the user which account the post goes out as, and ask them who can watch (one of privacy; there is no default), whether to allow comments, Duet and Stitch (not those the account has off), and whether the post promotes something. Last, show them consent word for word with its links, or brandedConsent for branded content, and pass agreed true only once they accept. Not needed for tiktok.inbox, where they finish the post in TikTok.",
+    "Ask TikTok what a connected TikTok account can post right now: the name it posts as, who can watch, whether comments, Duet and Stitch can be on, and the longest video. TikTok requires this before anything goes to a profile, and it can change, so call it each time before you schedule or publish to the TikTok profile. Then tell the user which account the post goes out as, and ask them who can watch (one of privacy; there is no default), whether to allow comments, Duet and Stitch (not those the account has off), and whether the post promotes something. plan.video then shows them TikTok's terms and takes their yes itself before anything goes to the profile. Not needed for tiktok.inbox, where they finish the post in TikTok.",
   input: z.object({
     account: z.string().min(1).optional().describe("A TikTok connection id from social_accounts. Required when there's more than one."),
   }),
@@ -182,8 +176,8 @@ export const tiktokCreator = defineTool({
     duet: z.boolean().describe("False when the account has Duet off in TikTok: it stays off."),
     stitch: z.boolean().describe("False when the account has Stitch off in TikTok: it stays off."),
     maxVideoSeconds: z.number().describe("The longest video this account can post."),
-    consent: z.string().describe("Show the user this before the post is scheduled or published, word for word with its link."),
-    brandedConsent: z.string().describe("Show this instead when the post is branded content."),
+    consent: z.string().describe("TikTok's terms, which plan.video shows the user before a post goes to the profile."),
+    brandedConsent: z.string().describe("Its terms for branded content."),
   }),
 });
 
@@ -211,7 +205,7 @@ export const copyPost = defineTool({
     accounts: postFields.accounts,
     thread: Thread.optional().describe("Follow-ups for the copy, in place of the original's. Omit to keep the original's, or pass [] for none."),
     tiktok: TikTokSettings.optional().describe(
-      "Changes to the copy's TikTok settings. To schedule a copy to the TikTok profile, pass agreed true once the user accepted TikTok's terms, as tiktok_creator describes.",
+      "Changes to the copy's TikTok settings.",
     ),
   }),
   output: ScheduledPost,
@@ -283,15 +277,9 @@ export const publishPost = defineTool({
   name: "publish_post",
   title: "Publish post",
   description:
-    "Send a saved post now. Every platform on the post has to be one plan.video sends to, with publishes true in social_schema, which also says what media each needs. This cannot be undone. Do not call it unless the user asked to publish now. plan.video has to stay open until this answers. Call it again to retry a failed send. A post to the TikTok profile needs tiktok_creator first and agreed true.",
+    "Send a saved post now. Every platform on the post has to be one plan.video sends to, with publishes true in social_schema, which also says what media each needs. This cannot be undone. Do not call it unless the user asked to publish now. plan.video has to stay open until this answers. Call it again to retry a failed send. A post to the TikTok profile goes out only after the user says yes to TikTok's terms in plan.video.",
   input: z.object({
     id: z.string().min(1),
-    agreed: z
-      .boolean()
-      .optional()
-      .describe(
-        "For a post to the TikTok profile: true once the user has accepted TikTok's terms for it just now. Show them consent from tiktok_creator word for word with its links (brandedConsent for branded content) and wait for their yes. Required for those posts.",
-      ),
   }),
   output: ScheduledPost,
 });
