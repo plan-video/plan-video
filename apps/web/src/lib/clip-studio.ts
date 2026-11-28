@@ -14,7 +14,7 @@ import type { Transcript, TranscriptWord } from "@plan.video/assets";
 import type { CaptionPreset, TextLookName } from "@plan.video/jsx";
 import type { Crops } from "@/lib/stream-layouts";
 import type { PostOptions } from "@/projects/post";
-import type { StreamMoment, StreamVideo } from "@/lib/stream-clips";
+import type { StreamMoment, StreamVideo, ViralityMarks } from "@/lib/stream-clips";
 
 export type ClipCaptionStyle = {
   id: string;
@@ -72,6 +72,7 @@ export type ClipEdit = {
   title: string;
   caption: string;
   score: number | null;
+  marks?: ViralityMarks;
   reason: string;
   /** A frame of it, when the stream has no storyboard. */
   thumb?: string;
@@ -124,6 +125,7 @@ export function clipFromMoment(moment: StreamMoment, video: StreamVideo): ClipEd
     title: moment.title,
     caption: moment.caption,
     score: moment.score,
+    ...(moment.marks ? { marks: moment.marks } : {}),
     reason: moment.reason,
     ...(moment.thumb ? { thumb: moment.thumb } : {}),
   };

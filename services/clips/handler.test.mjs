@@ -57,7 +57,7 @@ test("a moment comes back on the broadcast's timeline, with every word heard in 
   const result = await scan({ vod: VOD }, { req, user, env, say: (line) => lines.push(line), fetchImpl, sound });
   const firstWindow = calls.agent.windows[0];
   assert.equal(calls.agent.windows.length, calls.transcribe);
-  assert.deepEqual(firstWindow.clips, [{ title: "clip 0", views: 1000 }]);
+  assert.deepEqual(firstWindow.clips.map(({ title, views }) => ({ title, views })), [{ title: "clip 0", views: 1000 }]);
   const [moment] = result.moments;
   assert.ok(moment.start >= 640 && moment.start < 700, `starts at ${moment.start}`);
   assert.equal(moment.end - moment.start, 25);

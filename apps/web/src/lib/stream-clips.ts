@@ -26,11 +26,15 @@ export type StreamVideo = {
   storyboard?: Storyboard | null;
 };
 
+/** What Virality is weighed from, each 0 to 10. */
+export type ViralityMarks = { hook: number; payoff: number; standalone: number; buzz: number };
+
 /** A stretch of the broadcast worth a clip. Times are the broadcast's; `words` are all heard in `window`. */
 export type StreamMoment = {
   start: number;
   end: number;
   score: number;
+  marks?: ViralityMarks;
   title: string;
   caption: string;
   reason: string;

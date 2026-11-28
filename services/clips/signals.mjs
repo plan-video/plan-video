@@ -153,3 +153,47 @@ export function chatSummary(messages, from, to, top = 8) {
   const lines = [...counts.values()].sort((a, b) => b.count - a.count || b.text.length - a.text.length).slice(0, top);
   return { total, lines: lines.map((entry) => (entry.count > 1 ? `${entry.text} ×${entry.count}` : entry.text)) };
 }
+
+/** The stream's usual chat per 10 s and loudness, to measure each window's reactions against. */
+export function usual({ seconds, messages = [], loud = [] }) {
+  let weight = 0;
+  for (const message of messages) weight += message.weight ?? 1;
+  return { chat: (weight / Math.max(1, seconds)) * 10, loud: median(loud.slice(0, seconds)) };
+}
+
+/**
+ * When in [start, end) the stream reacted, in seconds into the window: chat's busiest 10 s (already moved
+ * back by its lag) and how many times its usual pace, the loudest 3 s in dB over the stream's usual, and
+ * the stretch each viewer clip covers.
+ */
+export function reactions({ start, end }, { messages = [], loud = [], clips = [] }, base) {
+  const length = end - start;
+  const counts = new Float64Array(length);
+  for (const message of messages) {
+    const s = Math.floor(message.t) - CHAT_LAG - start;
+    if (s >= 0 && s < length) counts[s] += message.weight ?? 1;
+  }
+  let chatPeak = null;
+  for (let s = 0; s + 10 <= length; s++) {
+    let sum = 0;
+    for (let i = s; i < s + 10; i++) sum += counts[i];
+    if (sum > 0 && (!chatPeak || sum > chatPeak.sum)) chatPeak = { at: s, sum };
+  }
+  let loudPeak = null;
+  if (base.loud !== null) {
+    for (let s = 0; s < length; s++) {
+      const near = loud.slice(start + Math.max(0, s - 1), start + Math.min(length, s + 2)).filter((value) => value !== null && Number.isFinite(value));
+      if (!near.length) continue;
+      const db = near.reduce((a, b) => a + b, 0) / near.length - base.loud;
+      if (!loudPeak || db > loudPeak.db) loudPeak = { at: s, db };
+    }
+  }
+  const round1 = (value) => Math.round(value * 10) / 10;
+  return {
+    chatPeak: chatPeak && base.chat > 0 ? { at: chatPeak.at, pace: round1(chatPeak.sum / base.chat) } : null,
+    loudPeak: loudPeak && loudPeak.db >= 3 ? { at: loudPeak.at, db: Math.round(loudPeak.db) } : null,
+    clips: clips
+      .filter((clip) => clip.start < end && clip.start + clip.duration > start)
+      .map((clip) => ({ title: clip.title, views: clip.views, start: round1(Math.max(0, clip.start - start)), end: round1(Math.min(length, clip.start + clip.duration - start)) })),
+  };
+}

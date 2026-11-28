@@ -47,6 +47,7 @@ test("virality weighs the payoff and the hook above the rest, and stays within 0
   const request = readRequest({ windows: [window0], count: 1 });
   const { moments } = answerFor({ moments: [{ window: 0, start: 2, end: 31, hook: 7, payoff: 8, standalone: 6, buzz: 9, title: "x", caption: "", reason: "" }] }, request);
   assert.equal(moments[0].score, 76);
+  assert.deepEqual(moments[0].marks, { hook: 7, payoff: 8, standalone: 6, buzz: 9 });
 });
 
 test("a stream with nothing said is refused before the model is asked", () => {

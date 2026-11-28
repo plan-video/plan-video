@@ -11,7 +11,7 @@ import { join } from "node:path";
 
 import { measureLoudness, speechWav } from "./audio.mjs";
 import { StreamError } from "./hls.mjs";
-import { chatSummary, heat, pickWindows } from "./signals.mjs";
+import { chatSummary, heat, pickWindows, reactions, usual } from "./signals.mjs";
 import { openSource, parseLink, sourceOfId, writeStretch } from "./sources.mjs";
 
 const MIN_SECONDS = 60;
@@ -194,21 +194,19 @@ async function scanIn(link, { req, user, env, say, language, fetchImpl = fetch, 
   if (!sent.length) throw new Refused(spent ? 402 : 422, spent ?? "No speech was heard in the parts of the stream that stood out.");
 
   say({ type: "step", step: "picking" });
-  const usualPace = messages.length / seconds;
+  const base = usual({ seconds, messages, loud });
   const body = {
     stream: { title: video.title, channel: video.channel, game: video.game },
     count: MOMENTS,
     language,
     windows: sent.map(({ window, words }) => {
       const summary = chatSummary(messages, window.start, window.end);
-      const length = window.end - window.start;
       return {
-        length,
+        length: window.end - window.start,
         words,
         chat: summary.lines,
         chatTotal: summary.total,
-        chatPace: usualPace ? summary.total / length / usualPace : 0,
-        clips: clips.filter((clip) => clip.start < window.end && clip.start + clip.duration > window.start).map(({ title, views }) => ({ title, views })),
+        ...reactions(window, { messages, loud, clips }, base),
       };
     }),
   };
@@ -226,6 +224,7 @@ async function scanIn(link, { req, user, env, say, language, fetchImpl = fetch, 
       start: +start.toFixed(2),
       end: +end.toFixed(2),
       score: moment.score,
+      marks: moment.marks,
       title: moment.title,
       caption: moment.caption,
       reason: moment.reason,

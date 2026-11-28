@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { CHAT_LAG, chatSummary, heat, pickWindows } from "./signals.mjs";
+import { CHAT_LAG, chatSummary, heat, pickWindows, reactions, usual } from "./signals.mjs";
 
 const quietLoud = (seconds) => Array.from({ length: seconds }, (_, s) => -30 + (s % 7) * 0.1);
 
@@ -38,4 +38,27 @@ test("chat is summed by what people typed most, timed back by the chat's lag", (
     { t: 100, text: "too early" },
   ];
   assert.deepEqual(chatSummary(messages, 95, 155), { total: 7, lines: ["KEKW ×6", "what was that"] });
+});
+
+test("a window's reactions are placed inside it, chat moved back by its lag, against the stream's usual", () => {
+  const seconds = 1000;
+  const messages = [];
+  for (let s = 0; s < seconds; s += 10) messages.push({ t: s, text: "hi" });
+  // 40 messages over 5 s, read with chat's lag, so they belong 30 s into the window at 400.
+  for (let i = 0; i < 40; i++) messages.push({ t: 430 + CHAT_LAG + (i % 5), text: "KEKW" });
+  const loud = Array.from({ length: seconds }, () => -30);
+  for (let s = 445; s < 448; s++) loud[s] = -18;
+  const clips = [{ start: 380, duration: 40, views: 900, title: "no way" }, { start: 600, duration: 20, views: 5, title: "elsewhere" }];
+  const signals = { seconds, messages, loud, clips };
+
+  const found = reactions({ start: 400, end: 460 }, signals, usual(signals));
+  assert.ok(found.chatPeak.at >= 21 && found.chatPeak.at <= 30, JSON.stringify(found.chatPeak));
+  // The stream's usual is 1.4 messages per 10 s; the burst plus the steady chat is 41.
+  assert.ok(found.chatPeak.pace > 25 && found.chatPeak.pace < 35, JSON.stringify(found.chatPeak));
+  assert.deepEqual(found.loudPeak, { at: 46, db: 12 });
+  assert.deepEqual(found.clips, [{ title: "no way", views: 900, start: 0, end: 20 }]);
+
+  const calm = reactions({ start: 800, end: 860 }, signals, usual(signals));
+  assert.equal(calm.loudPeak, null);
+  assert.deepEqual(calm.clips, []);
 });
