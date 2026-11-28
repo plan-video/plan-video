@@ -342,12 +342,11 @@ const PLATFORMS: { id: Platform; label: string; placeholder: string }[] = [
   { id: "youtube", label: "YouTube", placeholder: msg("Paste a YouTube video or channel link") },
 ];
 
-/** A soft dusk light behind the paste box, drawn once. */
-const GLOW = [
-  "radial-gradient(42% 46% at 58% 28%, rgb(249 115 22 / 0.55), transparent 72%)",
-  "radial-gradient(38% 42% at 40% 40%, rgb(239 68 68 / 0.42), transparent 72%)",
-  "radial-gradient(46% 44% at 52% 78%, rgb(37 99 235 / 0.55), transparent 72%)",
-].join(", ");
+/** A soft dusk light behind the paste box, drawn once: one band, warm above and blue below, fading out at its edges. */
+const GLOW = {
+  background: "linear-gradient(180deg, transparent 4%, #fb923c 26%, #ef4444 42%, #a855f7 58%, #3b82f6 74%, transparent 96%)",
+  "mask-image": "radial-gradient(50% 50% at 50% 50%, black 25%, transparent 100%)",
+};
 
 function Start(props: {
   link: string;
@@ -383,7 +382,7 @@ function Start(props: {
                 type="button"
                 role="radio"
                 aria-checked={platform() === entry.id}
-                class="flex h-9 items-center gap-2 rounded-xl border pr-3.5 pl-2 text-sm outline-none focus-ring"
+                class="flex h-10 items-center gap-2 rounded-xl border pr-4 pl-2.5 text-sm outline-none transition-colors focus-ring"
                 classList={{
                   "border-(--plane-border-strong) bg-(--plane-surface-1) text-foreground": platform() === entry.id,
                   "border-(--plane-border-subtle) bg-(--plane-layer-1) text-muted-foreground hover:text-foreground": platform() !== entry.id,
@@ -401,9 +400,9 @@ function Start(props: {
         </div>
 
         <div class="relative isolate mt-5 w-full max-w-[680px]">
-          <div class="pointer-events-none absolute -inset-x-[30%] -top-10 -bottom-16 -z-10 opacity-45 blur-2xl dark:opacity-100 max-md:hidden" style={{ background: GLOW }} aria-hidden="true" />
+          <div class="pointer-events-none absolute -inset-x-[22%] -top-14 -bottom-20 -z-10 opacity-30 blur-3xl dark:opacity-85 max-md:hidden" style={GLOW} aria-hidden="true" />
           <form
-            class="flex min-h-36 flex-col justify-between gap-4 rounded-2xl border border-(--plane-border-subtle) bg-(--plane-surface-1) p-4 shadow-xs focus-within:border-(--plane-border-strong)"
+            class="flex min-h-36 flex-col justify-between gap-4 rounded-2xl border border-(--plane-border-subtle) bg-(--plane-surface-1) p-4 shadow-[0_12px_40px_-12px_rgb(0_0_0/0.35)] focus-within:border-(--plane-border-strong)"
             onSubmit={(event) => {
               event.preventDefault();
               props.onFind();
@@ -437,7 +436,7 @@ function Start(props: {
               </Button>
               <span class="flex-1" />
               <span class="text-xs text-muted-foreground max-sm:hidden">{t("Up to 30 clips")}</span>
-              <Button type="submit" class="size-9 rounded-full p-0" disabled={!props.link.trim()} aria-label={t("Find clips")} title={t("Find clips")}>
+              <Button type="submit" class="size-9 rounded-full p-0 disabled:bg-(--plane-layer-2) disabled:text-muted-foreground disabled:opacity-100" disabled={!props.link.trim()} aria-label={t("Find clips")} title={t("Find clips")}>
                 <Icon name="arrow-top" class="size-4.5" />
               </Button>
             </div>
@@ -466,7 +465,7 @@ function Start(props: {
                   <div class="group relative">
                     <button
                       type="button"
-                      class="flex w-full flex-col overflow-hidden rounded-2xl border border-(--plane-border-subtle) bg-(--plane-surface-1) text-left outline-none hover:border-(--plane-border-strong) focus-ring"
+                      class="flex w-full flex-col overflow-hidden rounded-2xl border border-(--plane-border-subtle) bg-(--plane-surface-1) text-left outline-none transition-colors hover:border-(--plane-border-strong) hover:bg-(--plane-layer-1) focus-ring"
                       onClick={() => props.onOpen(stream.video.id)}
                     >
                       <span class="relative block w-full border-b border-(--plane-border-subtle)">
@@ -476,7 +475,7 @@ function Start(props: {
                           <span class="absolute right-3 bottom-3 rounded-md bg-black/65 px-1.5 py-0.5 text-xs text-white tabular-nums">{clock(stream.video.seconds)}</span>
                         </Show>
                       </span>
-                      <span class="flex items-center gap-3 px-4 py-3.5">
+                      <span class="flex items-center gap-3 px-4 pt-3.5 pb-4">
                         <span class="flex min-w-0 flex-1 flex-col gap-0.5">
                           <span class="truncate text-[15px] font-medium text-foreground">{stream.video.title || stream.video.channel}</span>
                           <span class="truncate text-sm text-muted-foreground">{[stream.video.channel, dated(stream.video.createdAt)].filter(Boolean).join(", ")}</span>
