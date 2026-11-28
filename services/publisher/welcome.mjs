@@ -135,12 +135,7 @@ export function composeWelcome({ publicUrl = "https://plan.video" } = {}) {
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;font-family:${FONT};">
             <tr>
               <td class="pad" bgcolor="#2563eb" style="background-color:#2563eb;border-radius:24px 24px 0 0;padding:36px 48px 0 48px;text-align:center;">
-                <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center">
-                  <tr>
-                    <td valign="middle" style="padding-right:8px;"><img src="${images}/mark-white.png" width="22" height="24" alt="" style="display:block;width:22px;height:24px;border:0;" /></td>
-                    <td valign="middle" style="font-size:19px;line-height:24px;font-weight:600;letter-spacing:-0.02em;color:#ffffff;">plan<span style="font-size:11px;vertical-align:1px;padding:0 1px;">&#9654;</span>video</td>
-                  </tr>
-                </table>
+                <img src="${images}/wordmark-white.png" width="131" height="26" alt="plan.video" style="display:block;width:131px;height:26px;margin:0 auto;border:0;color:#ffffff;font-size:19px;font-weight:600;" />
                 <div class="hero-title" style="padding-top:40px;font-size:44px;line-height:48px;font-weight:600;letter-spacing:-0.035em;color:#ffffff;">${escape(subject)}</div>
                 <div style="padding:16px 12px 0 12px;font-size:17px;line-height:26px;color:#dbe6ff;">Plan every post on one calendar. We send it to every network, on time.</div>
                 <div style="height:28px;line-height:28px;font-size:0;">&nbsp;</div>${button(dashboard, "Open your dashboard", { background: "#ffffff", color: "#1d4ed8" })}
