@@ -10,6 +10,7 @@ import { toast } from "somoto";
 import { LogoMark } from "@/components/brand/logo";
 import { Icon } from "@/components/dashboard/dashboard-icon";
 import { DashboardPageHeader } from "@/components/dashboard/page-header";
+import { CLIPS_SHOWN_KEY, PageSkeleton } from "@/components/dashboard/page-skeleton";
 import { DashboardCardButton, DashboardCardPreview } from "@/components/dashboard/shared";
 import { Button } from "@/components/ui/button";
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuPortal, ContextMenuSeparator, ContextMenuTrigger } from "@/components/ui/context-menu";
@@ -50,6 +51,7 @@ export function DashboardClipsView() {
   const [params, setParams] = useSearchParams();
   const userId = () => auth.user()?.id;
   const [streams, setStreams] = createSignal<ClipStream[]>([]);
+  const [loaded, setLoaded] = createSignal(false);
   const [open, setOpen] = createStore<{ stream: ClipStream | null }>({ stream: null });
   const [scan, setScan] = createSignal<Scan | null>(null);
   const [error, setError] = createSignal("");
@@ -57,7 +59,14 @@ export function DashboardClipsView() {
   let abort: AbortController | null = null;
   onCleanup(() => abort?.abort());
 
-  createEffect(on(userId, (uid) => void loadStreams(uid).then(setStreams)));
+  createEffect(
+    on(userId, (uid) =>
+      void loadStreams(uid).then((list) => {
+        setStreams(list);
+        setLoaded(true);
+      }),
+    ),
+  );
 
   const vod = () => (typeof params.vod === "string" ? params.vod : undefined);
   createEffect(
@@ -267,6 +276,9 @@ export function DashboardClipsView() {
       </DashboardPageHeader>
 
       <Switch>
+        <Match when={!loaded()}>
+          <PageSkeleton kind="clips" />
+        </Match>
         <Match when={scan()}>{(now) => <Scanning scan={now()} onStop={stop} />}</Match>
         <Match when={open.stream}>
           {(stream) => (
@@ -432,6 +444,14 @@ function Start(props: {
     if (order() === "clips") return list.sort((a, b) => b.clips.length - a.clips.length);
     if (order() === "name") return list.sort((a, b) => (a.video.title || a.video.channel).localeCompare(b.video.title || b.video.channel, intlLocale()));
     return list;
+  });
+  createEffect(() => {
+    try {
+      if (props.streams.length) localStorage.setItem(CLIPS_SHOWN_KEY, String(shown().length));
+      else localStorage.removeItem(CLIPS_SHOWN_KEY);
+    } catch {
+      // Only the loading skeleton reads it.
+    }
   });
   const paste = async () => {
     const text = await navigator.clipboard?.readText?.().catch(() => "");

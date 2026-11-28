@@ -6,16 +6,18 @@ import { For, Match, Switch, type JSX } from "solid-js";
 
 import { defaultCalendarView, isCalendarView } from "@/components/calendar/default-view";
 import { cx } from "@/lib/cva";
+import { t } from "@/lib/i18n";
 import { isPhone } from "@/lib/phone";
 
 import type { DashboardView } from "./types";
 
-export type SkeletonKind = "cards" | "list" | "week" | "month" | "settings" | "analytics" | "billing";
+export type SkeletonKind = "cards" | "list" | "week" | "month" | "settings" | "analytics" | "billing" | "clips";
 
 /** `calendarView` is the `?view=` of the calendar or the queue. */
 export function skeletonFor(view: DashboardView, calendarView?: string): SkeletonKind {
   if ((view === "calendar" || view === "queue") && isPhone()) return "list";
   if (view === "calendar") return isCalendarView(calendarView) ? calendarView : defaultCalendarView();
+  if (view === "clips") return "clips";
   if (view === "projects" || view === "trash" || view === "media" || view === "templates" || view === "vault" || view === "plugs") return "cards";
   if (view === "queue") return calendarView === "list" ? "list" : "month";
   if (view === "notifications" || view === "posts" || view === "scheduled" || view === "posted" || view === "drafts" || view === "failed") return "list";
@@ -33,6 +35,48 @@ function Bar(props: { class: string; style?: JSX.CSSProperties }) {
 export { Bar as SkeletonBar };
 
 const times = (count: number) => Array.from({ length: count }, (_, index) => index);
+
+/** A bar sitting on one line of text in `text`'s size, so the line keeps the page's height. */
+function Line(props: { text: string; bar: string }) {
+  return (
+    <span class={cx("flex items-center", props.text)}>
+      {"\u200b"}
+      <Bar class={props.bar} />
+    </span>
+  );
+}
+
+// A mask, not layered backgrounds: the fill is see-through, and mask pieces can overlap without doubling it.
+const end = (side: "left" | "right") =>
+  `radial-gradient(circle 0.31em at ${side === "left" ? "100%" : "0"} 50%, #000 95%, transparent) ${side} center / 0.31em 0.62em no-repeat`;
+const PILL = `${end("left")}, ${end("right")}, linear-gradient(#000, #000) center / calc(100% - 0.62em + 2px) 0.62em no-repeat`;
+const WORDS_BAR: JSX.CSSProperties = {
+  "background-color": "var(--plane-fill-subtle)",
+  mask: PILL,
+  "-webkit-mask": PILL,
+  "box-decoration-break": "clone",
+  "-webkit-box-decoration-break": "clone",
+};
+
+/** The page's own words with the ink hidden: a bar on each line, wrapping exactly as the page does. */
+function Words(props: { children: string; class?: string }) {
+  return (
+    <span class={cx("animate-pulse text-transparent select-none motion-reduce:animate-none", props.class)} style={WORDS_BAR}>
+      {props.children}
+    </span>
+  );
+}
+
+/** What Stream Clipper showed last time, so its skeleton draws as many streams the same way. */
+export const CLIPS_SHOWN_KEY = "plan.clips-shown";
+
+function storedValue(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
 
 /** As [day, top in rows, height in rows]. */
 const WEEK_BLOCKS: [number, number, number][] = [
@@ -175,6 +219,9 @@ export function PageSkeleton(props: { kind: SkeletonKind }) {
             </div>
           </div>
         </Match>
+        <Match when={props.kind === "clips"}>
+          <ClipsSkeleton />
+        </Match>
         <Match when={props.kind === "settings"}>
           <div class="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-12">
             <For each={times(2)}>
@@ -200,6 +247,88 @@ export function PageSkeleton(props: { kind: SkeletonKind }) {
           </div>
         </Match>
       </Switch>
+    </div>
+  );
+}
+
+/** Stream Clipper's start page, element for element. */
+function ClipsSkeleton() {
+  const shown = storedValue(CLIPS_SHOWN_KEY);
+  const count = Math.min(Number(shown) || 0, 12);
+  const list = storedValue("plan.clips-view") === "list";
+  return (
+    <div class="flex w-full flex-col items-center px-6 pt-16 pb-16 max-md:px-4 max-md:pt-10">
+      <Bar class="size-12 rounded-xl max-md:size-9" />
+      <p class="mt-6 text-center text-[52px] leading-[1.08] font-normal tracking-[-0.035em] text-balance max-md:mt-4 max-md:text-[34px]">
+        <Words>{t("Turn a stream into clips")}</Words>
+      </p>
+      <div class="mt-10 w-full max-w-[680px] max-md:mt-8">
+        <div class="flex min-h-36 flex-col justify-between gap-4 rounded-2xl border border-(--plane-border-subtle) bg-(--plane-surface-1) p-4">
+          <p class="h-[49px] px-1 text-[17px]">
+            <Words>{t("Paste a Twitch, Kick or YouTube link")}</Words>
+          </p>
+          <div class="flex items-center gap-2">
+            <span class="flex h-7 items-center gap-1.5 pl-1.5 text-xs font-450">
+              <Bar class="size-4" />
+              <Words>{t("Paste")}</Words>
+            </span>
+            <span class="flex-1" />
+            <Bar class="size-9 rounded-full" />
+          </div>
+        </div>
+        <div class="mx-4 flex items-center gap-3 rounded-b-xl border border-t-0 border-(--plane-border-subtle) bg-(--plane-layer-1) px-4 py-2.5">
+          <p class="min-w-0 text-xs">
+            <Words>{t("Each stream uses about 35 minutes of your monthly captions, however long it is.")}</Words>
+          </p>
+          <span class="ml-auto flex shrink-0 gap-1.5">
+            <For each={times(3)}>{() => <Bar class="size-4.5 rounded-[5px]" />}</For>
+          </span>
+        </div>
+      </div>
+      {shown !== null ? (
+        <section class="mt-16 flex w-full flex-col gap-3 max-md:mt-12">
+          <div class="flex flex-wrap items-center gap-2 px-2">
+            <p class="mr-auto text-base font-medium max-sm:w-full">
+              <Words>{t("Recent streams")}</Words>
+            </p>
+            <Bar class="h-7 w-30" />
+            <Bar class="h-7 w-30" />
+            <Bar class="h-7 w-16" />
+          </div>
+          {list ? (
+            <div class="flex flex-col gap-0.5">
+              <For each={times(count)}>
+                {() => (
+                  <div class="flex items-center gap-4 rounded-xl px-2 py-2">
+                    <Bar class="aspect-video w-28 shrink-0" />
+                    <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+                      <Line text="text-sm" bar="h-3 w-1/2" />
+                      <Line text="text-xs" bar="h-2.5 w-20" />
+                    </div>
+                    <Line text="w-28 shrink-0 text-xs max-md:hidden" bar="h-2.5 w-16" />
+                    <Line text="w-20 shrink-0 text-xs max-sm:hidden" bar="h-2.5 w-12" />
+                    <Line text="w-20 shrink-0 justify-end pr-2 text-xs max-sm:hidden" bar="h-2.5 w-12" />
+                  </div>
+                )}
+              </For>
+            </div>
+          ) : (
+            <div class="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] content-start items-start gap-x-0.5 gap-y-3 max-sm:grid-cols-1">
+              <For each={times(count)}>
+                {() => (
+                  <div class="flex min-w-0 flex-col gap-3 rounded-xl px-2 pt-2 pb-3">
+                    <Bar class="aspect-video w-full" />
+                    <div class="flex min-w-0 flex-col gap-0.5 px-2">
+                      <Line text="text-sm" bar="h-3 w-2/3" />
+                      <Line text="text-xs" bar="h-2.5 w-1/3" />
+                    </div>
+                  </div>
+                )}
+              </For>
+            </div>
+          )}
+        </section>
+      ) : null}
     </div>
   );
 }
