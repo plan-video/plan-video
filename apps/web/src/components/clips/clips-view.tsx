@@ -10,7 +10,7 @@ import { toast } from "somoto";
 import { LogoMark } from "@/components/brand/logo";
 import { Icon } from "@/components/dashboard/dashboard-icon";
 import { DashboardPageHeader } from "@/components/dashboard/page-header";
-import { DashboardCardButton, DashboardCardMeta, DashboardCardPreview } from "@/components/dashboard/shared";
+import { DashboardCardButton, DashboardCardPreview } from "@/components/dashboard/shared";
 import { Button } from "@/components/ui/button";
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuPortal, ContextMenuSeparator, ContextMenuTrigger } from "@/components/ui/context-menu";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -355,7 +355,7 @@ function Start(props: {
 
   return (
     <div class="flex min-h-0 flex-1 flex-col overflow-y-auto">
-      <div class="flex w-full flex-col items-center px-8 pt-20 pb-12 max-md:px-4 max-md:pt-10">
+      <div class="mx-auto flex w-full max-w-[1120px] flex-col items-center px-8 pt-16 pb-16 max-md:px-4 max-md:pt-10">
         <LogoMark class="size-12 text-foreground max-md:size-9" />
         <h2 class="mt-6 text-center text-[52px] leading-[1.08] font-normal tracking-[-0.035em] text-balance text-foreground max-md:mt-4 max-md:text-[34px]">
           {t("Turn a stream into clips")}
@@ -411,11 +411,11 @@ function Start(props: {
         </div>
 
         <Show when={props.streams.length}>
-          <section class="mt-24 flex w-full flex-col gap-4 max-md:mt-14">
+          <section class="mt-16 flex w-full flex-col gap-3 max-md:mt-12">
             <h3 class="flex items-baseline gap-2 px-2 text-base font-medium text-foreground">
               {t("Recent streams")}
             </h3>
-            <div class="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] content-start items-start gap-x-0.5 gap-y-3 max-sm:grid-cols-1">
+            <div class="grid grid-cols-3 content-start items-start gap-x-0.5 gap-y-3 max-lg:grid-cols-2 max-sm:grid-cols-1">
               <For each={props.streams}>
                 {(stream) => (
                   <ContextMenu modal={false}>
@@ -429,12 +429,12 @@ function Start(props: {
                             class="absolute inset-0 size-full rounded-none"
                           />
                         </DashboardCardPreview>
-                        <DashboardCardMeta
-                          title={stream.video.title || stream.video.channel}
-                          subtitle={[stream.video.channel, t("{count, plural, one {# clip} other {# clips}}", { count: stream.clips.length })]
-                            .filter(Boolean)
-                            .join(" · ")}
-                        />
+                        <div class="flex min-w-0 flex-col gap-0.5 px-2">
+                          <p class="truncate text-sm font-medium text-foreground">{stream.video.title || stream.video.channel}</p>
+                          <p class="truncate text-xs text-muted-foreground">
+                            {[stream.video.channel, t("{count, plural, one {# clip} other {# clips}}", { count: stream.clips.length })].filter(Boolean).join(" · ")}
+                          </p>
+                        </div>
                       </DashboardCardButton>
                     </ContextMenuTrigger>
                     <ContextMenuPortal>
