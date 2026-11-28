@@ -20,7 +20,6 @@ export const VALORANT_URL = "/valorant";
 
 export const AGENTS_URL = "/agents";
 
-export const ROADMAP_URL = "/roadmap";
 
 export const CHANGELOG_URL = "/changelog";
 

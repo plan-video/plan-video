@@ -7,7 +7,7 @@ const KEY = 'plan.video.oauth-consent';
 const KEEP_MS = 15 * 60 * 1000;
 
 const canReturnTo = (path: string) =>
-  path.startsWith('/oauth/consent?') || /^\/(docs|roadmap|changelog)(?=$|[/?#])/.test(path);
+  path.startsWith('/oauth/consent?') || /^\/(docs|changelog)(?=$|[/?#])/.test(path);
 
 /** Anything not on the list is ignored. */
 export function rememberReturn(path: string): void {

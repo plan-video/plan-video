@@ -11,7 +11,7 @@ import { useAuth } from "@/context/auth";
 import { t } from "@/lib/i18n";
 import { smoothly } from "@/lib/motion";
 import { reopenOnboarding } from "@/lib/onboarding";
-import { CHANGELOG_URL, DOCS_URL, ROADMAP_URL, SUPPORT_URL } from "@/lib/site-links";
+import { CHANGELOG_URL, DOCS_URL, SUPPORT_URL } from "@/lib/site-links";
 import { site } from "@/lib/site";
 import { activeShared } from "@/lib/workspaces";
 
@@ -107,7 +107,6 @@ export function DashboardHelpView() {
           <Show when={site}>
             <DashboardHelpExternalRow label={t("Docs")} href={DOCS_URL} />
             <DashboardHelpExternalRow label={t("What's new")} href={CHANGELOG_URL} />
-            <DashboardHelpExternalRow label={t("Roadmap")} href={ROADMAP_URL} />
           </Show>
           <DashboardHelpExternalRow
             label={t("Discord community")}

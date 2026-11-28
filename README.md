@@ -3,7 +3,7 @@
 <p align="center">
   <a href="https://plan.video"><b>Website</b></a> ·
   <a href="https://plan.video/docs"><b>Docs</b></a> ·
-  <a href="https://plan.video/roadmap"><b>Roadmap</b></a> ·
+  <a href="https://plan.video/changelog"><b>What's new</b></a> ·
   <a href="https://discord.gg/4C3g9FZsyr"><b>Discord</b></a>
 </p>
 

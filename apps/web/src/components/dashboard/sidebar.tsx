@@ -17,7 +17,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { PlaneIcon, type PlaneIconName } from "@/components/dashboard/plane-icons";
 import { useAuth } from "@/context/auth";
-import { CHANGELOG_URL, DOCS_URL, ROADMAP_URL } from "@/lib/site-links";
+import { CHANGELOG_URL, DOCS_URL } from "@/lib/site-links";
 import { changelogUnread, markChangelogSeen, watchChangelog } from "@/lib/changelog-seen";
 import { dashboardTheme, setDashboardTheme, type DashboardTheme } from "@/lib/dashboard-theme";
 import { AvatarPhoto, useAvatar } from "@/hooks/use-avatar";
@@ -107,7 +107,6 @@ const SITE_PAGES: { url: string; label: string; icon: PlaneIconName }[] = site
   ? [
       { url: DOCS_URL, label: msg("Docs"), icon: "docs" },
       { url: CHANGELOG_URL, label: msg("What's new"), icon: "changelog" },
-      { url: ROADMAP_URL, label: msg("Roadmap"), icon: "roadmap" },
     ]
   : [];
 

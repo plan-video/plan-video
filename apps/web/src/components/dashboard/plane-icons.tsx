@@ -18,7 +18,6 @@ import LifeBuoyLucide from "lucide-solid/icons/life-buoy";
 import MessagesSquareLucide from "lucide-solid/icons/messages-square";
 import LayoutTemplateLucide from "lucide-solid/icons/layout-template";
 import LogOutLucide from "lucide-solid/icons/log-out";
-import MapLucide from "lucide-solid/icons/map";
 import MoonLucide from "lucide-solid/icons/moon";
 import PlugLucide from "lucide-solid/icons/plug";
 import RocketLucide from "lucide-solid/icons/rocket";
@@ -82,7 +81,6 @@ const LUCIDE_ICONS = {
   "log-out": LogOutLucide,
   help: CircleHelpLucide,
   docs: BookOpenLucide,
-  roadmap: MapLucide,
   changelog: RocketLucide,
   external: ArrowUpRightLucide,
   community: MessagesSquareLucide,
