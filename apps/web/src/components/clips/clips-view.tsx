@@ -10,7 +10,9 @@ import { toast } from "somoto";
 import { LogoMark } from "@/components/brand/logo";
 import { Icon } from "@/components/dashboard/dashboard-icon";
 import { DashboardPageHeader } from "@/components/dashboard/page-header";
+import { DashboardCardButton, DashboardCardMeta, DashboardCardPreview } from "@/components/dashboard/shared";
 import { Button } from "@/components/ui/button";
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuPortal, ContextMenuSeparator, ContextMenuTrigger } from "@/components/ui/context-menu";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/context/auth";
 import { track } from "@/lib/analytics";
@@ -412,45 +414,45 @@ function Start(props: {
 
         <Show when={props.streams.length}>
           <section class="mt-24 flex w-full flex-col gap-4 max-md:mt-14">
-            <h3 class="flex items-baseline gap-2 px-0.5 text-base font-medium text-foreground">
+            <h3 class="flex items-baseline gap-2 px-2 text-base font-medium text-foreground">
               {t("Recent streams")}
               <span class="text-sm font-normal text-muted-foreground tabular-nums">{props.streams.length}</span>
             </h3>
-            <div class="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-5 max-sm:grid-cols-1">
+            <div class="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] content-start items-start gap-x-0.5 gap-y-3 max-sm:grid-cols-1">
               <For each={props.streams}>
                 {(stream) => (
-                  <div class="group relative">
-                    <button
-                      type="button"
-                      class="flex w-full flex-col overflow-hidden rounded-2xl border border-(--plane-border-subtle) bg-(--plane-surface-1) text-left outline-none transition-colors hover:border-(--plane-border-strong) hover:bg-(--plane-layer-1) focus-ring"
-                      onClick={() => props.onOpen(stream.video.id)}
-                    >
-                      <span class="relative block w-full border-b border-(--plane-border-subtle)">
-                        <StoryboardThumb board={stream.video.storyboard} seconds={stream.clips[0]?.start ?? 0} still={stream.clips[0]?.thumb} class="w-full rounded-none" />
-                        <SourceMark id={stream.video.source ?? "twitch"} class="absolute top-3 left-3 size-7 rounded-lg ring-2 ring-black/20" />
-                        <Show when={stream.video.seconds}>
-                          <span class="absolute right-3 bottom-3 rounded-md bg-black/65 px-1.5 py-0.5 text-xs text-white tabular-nums">{clock(stream.video.seconds)}</span>
-                        </Show>
-                      </span>
-                      <span class="flex items-center gap-3 px-4 pt-3.5 pb-4">
-                        <span class="flex min-w-0 flex-1 flex-col gap-0.5">
-                          <span class="truncate text-[15px] font-medium text-foreground">{stream.video.title || stream.video.channel}</span>
-                          <span class="truncate text-sm text-muted-foreground">{[stream.video.channel, dated(stream.video.createdAt)].filter(Boolean).join(", ")}</span>
-                        </span>
-                        <span class="shrink-0 rounded-full bg-(--plane-layer-2) px-2.5 py-1 text-xs text-foreground tabular-nums">
-                          {t("{count, plural, one {# clip} other {# clips}}", { count: stream.clips.length })}
-                        </span>
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      aria-label={t("Remove stream")}
-                      class="absolute top-3 right-3 grid size-7 place-items-center rounded-md bg-black/65 text-white opacity-0 outline-none group-hover:opacity-100 hover:bg-black/80 focus-ring focus-visible:opacity-100 max-md:opacity-100"
-                      onClick={() => props.onRemove(stream)}
-                    >
-                      <Icon name="trash" class="size-4" />
-                    </button>
-                  </div>
+                  <ContextMenu modal={false}>
+                    <ContextMenuTrigger as="div" class="contents">
+                      <DashboardCardButton onClick={() => props.onOpen(stream.video.id)} onDelete={() => props.onRemove(stream)}>
+                        <DashboardCardPreview>
+                          <StoryboardThumb
+                            board={stream.video.storyboard}
+                            seconds={stream.clips[0]?.start ?? 0}
+                            still={stream.clips[0]?.thumb}
+                            class="absolute inset-0 size-full rounded-none"
+                          />
+                        </DashboardCardPreview>
+                        <DashboardCardMeta
+                          title={stream.video.title || stream.video.channel}
+                          subtitle={[
+                            SOURCE_NAMES[stream.video.source ?? "twitch"],
+                            stream.video.channel,
+                            t("{count, plural, one {# clip} other {# clips}}", { count: stream.clips.length }),
+                            dated(stream.video.createdAt),
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        />
+                      </DashboardCardButton>
+                    </ContextMenuTrigger>
+                    <ContextMenuPortal>
+                      <ContextMenuContent class="w-45 gap-0">
+                        <ContextMenuItem onSelect={() => props.onOpen(stream.video.id)}>{t("Open")}</ContextMenuItem>
+                        <ContextMenuSeparator class="my-2" />
+                        <ContextMenuItem onSelect={() => props.onRemove(stream)}>{t("Remove stream")}</ContextMenuItem>
+                      </ContextMenuContent>
+                    </ContextMenuPortal>
+                  </ContextMenu>
                 )}
               </For>
             </div>
