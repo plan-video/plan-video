@@ -2060,6 +2060,8 @@
   "No media": "メディアなし",
   "Play preview": "プレビューを再生",
   "Pause preview": "プレビューを一時停止",
+  "Turn sound on": "音声をオン",
+  "Turn sound off": "音声をオフ",
   "now": "たった今",
   "feed tab\u0004Following": "フォロー中",
   "Original audio · {name}": "オリジナル音源 · {name}",

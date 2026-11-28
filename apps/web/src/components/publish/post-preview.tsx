@@ -5,6 +5,7 @@
 import { For, Match, Show, Switch, createContext, createEffect, createSignal, mergeProps, useContext, type JSX } from "solid-js";
 
 import { YouTubeIcon } from "@/components/brand/youtube-icon";
+import { Icon } from "@/components/dashboard/dashboard-icon";
 import { useAuth } from "@/context/auth";
 import { AvatarPhoto, useAvatar } from "@/hooks/use-avatar";
 import { cx } from "@/lib/cva";
@@ -113,12 +114,21 @@ function MediaFill(props: {
   fit?: "cover" | "contain";
   /** Where the "1/N" count sits; the vertical layouts keep it under their status bar. */
   countClass?: string;
+  /** Where the sound button sits, clear of the layout's own overlays. */
+  soundClass?: string;
 }) {
   const first = () => props.media[0];
   const style = () => (props.aspect ? { "aspect-ratio": String(props.aspect) } : undefined);
   const plays = () => first()?.kind === "video" && !(props.still && props.cover);
   const [paused, setPaused] = createSignal(false);
+  const [muted, setMuted] = createSignal(true);
   let video: HTMLVideoElement | undefined;
+
+  const toggleSound = (event: Event) => {
+    event.stopPropagation();
+    setMuted(!muted());
+    if (!muted() && video?.paused) void video.play();
+  };
 
   const toggle = () => {
     if (!video) return;
@@ -175,12 +185,22 @@ function MediaFill(props: {
               class="pointer-events-none size-full"
               classList={{ "object-cover": props.fit !== "contain", "object-contain": props.fit === "contain" }}
               autoplay
-              muted
+              muted={muted()}
               loop
               playsinline
               onPlay={() => setPaused(false)}
               onPause={() => setPaused(true)}
             />
+            <button
+              type="button"
+              class={cx("absolute grid size-6 place-items-center rounded-full bg-black/60 text-white outline-none focus-ring", props.soundClass ?? "left-2 top-2")}
+              aria-label={muted() ? t("Turn sound on") : t("Turn sound off")}
+              aria-pressed={!muted()}
+              onClick={toggleSound}
+              onKeyDown={(event) => event.stopPropagation()}
+            >
+              <Icon name={muted() ? "volume-off" : "volume"} class="size-3.5" />
+            </button>
             <Show when={paused()}>
               <span class="pointer-events-none absolute inset-0 grid place-items-center">
                 <span class="grid size-11 place-items-center rounded-full bg-black/55 text-white">
@@ -248,7 +268,7 @@ function StoryPreview(props: PreviewProps) {
     <Phone>
       <StatusBar />
       <div class="relative mx-1 min-h-0 flex-1 overflow-hidden rounded-xl">
-        <MediaFill media={props.media} cover={props.cover} fit="contain" class="absolute inset-0" />
+        <MediaFill media={props.media} cover={props.cover} fit="contain" class="absolute inset-0" soundClass="left-2 bottom-2" />
         <div class="pointer-events-none absolute inset-x-0 top-0 h-16 bg-linear-to-b from-black/50 to-transparent" />
         <div class="pointer-events-none relative z-10 flex flex-col gap-2 px-2.5 pt-2">
           <span class="h-0.5 w-full overflow-hidden rounded-full bg-white/35">
@@ -279,7 +299,7 @@ function VerticalPreview(props: PreviewProps) {
   const id = () => props.platform;
   return (
     <Phone>
-      <MediaFill media={props.media} cover={props.cover} fit="contain" class="absolute inset-0" countClass="right-2 top-16" />
+      <MediaFill media={props.media} cover={props.cover} fit="contain" class="absolute inset-0" countClass="right-2 top-16" soundClass="left-2 top-16" />
       <div class="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(0,0,0,0.35)_0%,transparent_18%,transparent_55%,rgba(0,0,0,0.65)_100%)]" />
       <div class="pointer-events-none relative z-10 flex h-full flex-col">
         <StatusBar />
