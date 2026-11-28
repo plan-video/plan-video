@@ -39,7 +39,10 @@ const CREATOR = { creator_nickname: "Me", creator_username: "me", privacy_level_
  * Versions as the posts table keeps them: a write over an older one is a conflict. A send hands each network to the
  * publisher, which settles it (`settle`) by the time the tool first waits.
  */
-function memoryStore(scope = context(), { settle = (_platform: string) => ({ state: "sent" }) as { state: string; error?: string }, reads = {} as Record<string, unknown> } = {}) {
+function memoryStore(
+  scope = context(),
+  { settle = (_platform: string) => ({ state: "sent" }) as { state: string; error?: string }, reads = {} as Record<string, unknown>, refuse = null as string | null, queueThenRefuse = false } = {},
+) {
   const rows = new Map<string, PostRow>();
   const copies: FileCopy[] = [];
   const sent: string[] = [];
@@ -79,13 +82,15 @@ function memoryStore(scope = context(), { settle = (_platform: string) => ({ sta
       row.version += 1;
       return { version: row.version, preview: "preview-1" };
     },
-    async send(id) {
+    async send(_scope, id) {
       const row = rows.get(id)!;
+      if (refuse && !queueThenRefuse) throw new Error(refuse);
       sent.push(id);
       row.deliveries = Object.fromEntries(row.data.platforms.map((platform) => [platform, { state: "queued" }]));
+      if (refuse) throw new Error(refuse);
       return row.data.platforms.map((platform): DeliveryRow => ({ platform, connection_id: "c", state: "queued", error: null }));
     },
-    async network<T>(route: string, body: object) {
+    async network<T>(_scope: AgentContext, route: string, body: object) {
       asked.push({ route, body });
       if (!(route in reads)) throw new Error(`no ${route} here`);
       const answer = reads[route];
@@ -351,6 +356,24 @@ describe("what used to need the tab", () => {
     rows.set("p1", existing("p1"));
     expect(await refused(tools.run("publish_post", { id: "p1" }))).toContain("Bluesky: Bluesky is down.");
     expect(rows.get("p1")!.data).toMatchObject({ day: "2026-12-10", start: "09:00", status: "scheduled" });
+  });
+
+  test("a send the publisher refuses leaves the post at its own time, so it doesn't go out by itself", async () => {
+    const { tools, rows } = memoryStore(context(), { refuse: "Give this post a time: the Free plan posts now 10 times a month." });
+    rows.set("p1", existing("p1"));
+    expect(await refused(tools.run("publish_post", { id: "p1" }))).toContain("Give this post a time");
+    expect(rows.get("p1")!.data).toMatchObject({ day: "2026-12-10", start: "09:00", status: "scheduled" });
+
+    rows.set("late", existing("late", { day: "2026-11-27", start: "08:00" }));
+    expect(await refused(tools.run("publish_post", { id: "late" }))).toContain("Give this post a time");
+    expect(rows.get("late")!.data.status).toBe("draft");
+  });
+
+  test("a send whose answer was lost but reached the publisher is left going, and says not to publish again", async () => {
+    const { tools, rows } = memoryStore(context(), { refuse: "plan.video's publisher can't be reached right now.", queueThenRefuse: true });
+    rows.set("p1", existing("p1"));
+    expect(await refused(tools.run("publish_post", { id: "p1" }))).toContain("don't publish it again");
+    expect(rows.get("p1")!.data).toMatchObject({ day: "2026-11-27", start: "13:00" });
   });
 
   test("publish_post sends nothing it can't: a post waiting for approval, files still uploading, TikTok without the user's yes", async () => {

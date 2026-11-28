@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { createHash, randomBytes } from "node:crypto";
 import { before, describe, test } from "node:test";
 
-import { ANON, call, makeUser, refuses, rpc, saveOwner, setLevel, slice, sql, URL } from "./helpers.mjs";
+import { ANON, call, makeUser, refuses, rpc, saveOwner, SERVICE, setLevel, slice, sql, URL } from "./helpers.mjs";
 import { createPostingTools } from "../../services/mcp/posting.mjs";
 import { createStore } from "../../services/mcp/store.mjs";
 
@@ -179,8 +179,12 @@ describe("agent tools", () => {
     await setLevel(owner.id, 3);
     const users = createUsers({ supabaseUrl: URL, anonKey: ANON, requireInvite: true });
     const as = (token) => ({ headers: { authorization: `Bearer ${token}` } });
-    assert.deepEqual(await users.agent(as(agent)), { user: { id: owner.id }, scope: { actor: owner.id, role: "owner" } });
-    assert.deepEqual(await users.agent(as(memberAgent)), { user: { id: member.id }, scope: { actor: owner.id, role: "member", workspace: "team" } });
+    assert.deepEqual(await users.agent(as(agent)), { user: { id: owner.id } });
+    assert.deepEqual(await users.agent(as(memberAgent)), { user: { id: member.id } });
+    // What the publisher asks with its own key about the workspace an agent names.
+    assert.equal(await rpc(SERVICE, "agent_role", { person: member.id, owner: owner.id, workspace: "team" }), "member");
+    assert.equal(await rpc(SERVICE, "agent_role", { person: stranger.id, owner: owner.id, workspace: "team" }), null);
+    await refuses(rpc(agent, "agent_role", { person: owner.id, owner: owner.id, workspace: "default" }), "PT403");
     assert.equal(await users.agent(as(owner.token)), null);
     await assert.rejects(users.from(as(agent)), { status: 401 });
   });

@@ -12,8 +12,8 @@ import { inTimeZone } from "@/lib/time-zone";
 import type { AgentAccount, AgentContext } from "./posts";
 
 export interface NetworkReads {
-  /** A publisher route the agent's token may ask, such as `tiktok/creator`. */
-  network<T>(route: string, body: object): Promise<T>;
+  /** A publisher route the agent's token may ask, such as `tiktok/creator`, in the workspace the agent works in. */
+  network<T>(scope: AgentContext, route: string, body: object): Promise<T>;
 }
 
 type Answer = { youtube: Parameters<typeof youtubeNumbers>[0] } | { posts: PostTotals[]; followers?: number | null; perPost: boolean };
@@ -32,19 +32,19 @@ const numbersAccount = (account: AgentAccount) => ({
   ...(account.ready ? { [account.platform]: account.platform === "linkedin" ? (account.page ? { organizationId: "page" } : {}) : {} } : {}),
 });
 
-async function load(reads: NetworkReads, account: AgentAccount, now: number): Promise<Answer | null> {
+async function load(reads: NetworkReads, scope: AgentContext, account: AgentAccount, now: number): Promise<Answer | null> {
   const connectionId = account.id;
   if (!account.ready) return null;
   if (account.platform === "youtube") {
-    return { youtube: await reads.network("youtube/analytics", { connectionId, startDate: isoDay(now - HISTORY_DAYS * DAY_MS), endDate: isoDay(now) }) };
+    return { youtube: await reads.network(scope, "youtube/analytics", { connectionId, startDate: isoDay(now - HISTORY_DAYS * DAY_MS), endDate: isoDay(now) }) };
   }
   if (account.platform === "tiktok") {
     if (!account.scope.split(/[,\s]+/).includes("video.list")) throw new Error("Disconnect TikTok in Connections and connect it again, so plan.video can read its numbers.");
-    const found = await reads.network<{ videos?: PostTotals[] }>("tiktok/videos", { connectionId });
+    const found = await reads.network<{ videos?: PostTotals[] }>(scope, "tiktok/videos", { connectionId });
     return { posts: found.videos ?? [], perPost: false };
   }
   if (META.has(account.platform) || (account.platform === "linkedin" && account.page)) {
-    const found = await reads.network<{ followers?: number | null; videos?: PostTotals[] }>(`${account.platform}/analytics`, { connectionId });
+    const found = await reads.network<{ followers?: number | null; videos?: PostTotals[] }>(scope, `${account.platform}/analytics`, { connectionId });
     return { posts: (found.videos ?? []).filter((post) => post.postedAt > 0), followers: found.followers ?? null, perPost: true };
   }
   return null;
@@ -58,7 +58,7 @@ export async function readAnalytics(reads: NetworkReads, scope: AgentContext, ar
     accounts.map(async (account) => {
       const key = `${account.platform}:${account.id}`;
       try {
-        const found = await load(reads, scope.connections.find((item) => item.id === account.id)!, now);
+        const found = await load(reads, scope, scope.connections.find((item) => item.id === account.id)!, now);
         if (found) answers.set(key, found);
       } catch (error) {
         states.set(key, error instanceof Error && error.message ? error.message : FAILED);

@@ -424,6 +424,8 @@ revoke all on function public.agent_save_post(uuid, text, jsonb, bigint) from pu
 revoke all on function public.agent_delete_post(uuid, text, text, bigint) from public, anon;
 revoke all on function public.agent_ask_approval(uuid, text, text, bigint, jsonb) from public, anon;
 revoke all on function public.agent_copy_files(uuid, text, text[], text[]) from public, anon;
+-- The publisher checks the workspace an agent names with its own key (AGENT_ROUTES in services/publisher/api.mjs).
+grant execute on function public.agent_role(uuid, uuid, text) to service_role;
 grant execute on function public.agent_context() to authenticated;
 grant execute on function public.agent_posts(uuid, text, text, text, text, text) to authenticated;
 grant execute on function public.agent_save_post(uuid, text, jsonb, bigint) to authenticated;

@@ -2082,19 +2082,19 @@ var numbersAccount = (account) => ({
   platform: account.platform,
   ...account.ready ? { [account.platform]: account.platform === "linkedin" ? account.page ? { organizationId: "page" } : {} : {} } : {}
 });
-async function load(reads, account, now) {
+async function load(reads, scope, account, now) {
   const connectionId = account.id;
   if (!account.ready) return null;
   if (account.platform === "youtube") {
-    return { youtube: await reads.network("youtube/analytics", { connectionId, startDate: isoDay(now - HISTORY_DAYS * DAY_MS), endDate: isoDay(now) }) };
+    return { youtube: await reads.network(scope, "youtube/analytics", { connectionId, startDate: isoDay(now - HISTORY_DAYS * DAY_MS), endDate: isoDay(now) }) };
   }
   if (account.platform === "tiktok") {
     if (!account.scope.split(/[,\s]+/).includes("video.list")) throw new Error("Disconnect TikTok in Connections and connect it again, so plan.video can read its numbers.");
-    const found = await reads.network("tiktok/videos", { connectionId });
+    const found = await reads.network(scope, "tiktok/videos", { connectionId });
     return { posts: found.videos ?? [], perPost: false };
   }
   if (META.has(account.platform) || account.platform === "linkedin" && account.page) {
-    const found = await reads.network(`${account.platform}/analytics`, { connectionId });
+    const found = await reads.network(scope, `${account.platform}/analytics`, { connectionId });
     return { posts: (found.videos ?? []).filter((post) => post.postedAt > 0), followers: found.followers ?? null, perPost: true };
   }
   return null;
@@ -2107,7 +2107,7 @@ async function readAnalytics(reads, scope, args, now) {
     accounts.map(async (account) => {
       const key = `${account.platform}:${account.id}`;
       try {
-        const found = await load(reads, scope.connections.find((item) => item.id === account.id), now);
+        const found = await load(reads, scope, scope.connections.find((item) => item.id === account.id), now);
         if (found) answers.set(key, found);
       } catch (error) {
         states.set(key, error instanceof Error && error.message ? error.message : FAILED);
@@ -2154,6 +2154,10 @@ function createPostingTools(store, given = {}) {
         const output = await HANDLERS[name](session, parsed.data);
         return { text: JSON.stringify(output), error: false };
       } catch (error) {
+        if (error instanceof TypeError || error instanceof RangeError || error instanceof ReferenceError || error instanceof SyntaxError) {
+          console.error(`[mcp] ${name} failed`, error);
+          return { text: "plan.video couldn't do that. Try again in a minute.", error: true };
+        }
         const message = error.message || String(error);
         return { text: isDapiError(error) ? `${error.code}: ${message}` : message, error: true };
       }
@@ -2310,7 +2314,7 @@ async function written(session, post, base) {
 }
 async function creatorOf(session, account) {
   try {
-    const answer = await session.store.network("tiktok/creator", { connectionId: account.id });
+    const answer = await session.store.network(session.scope, "tiktok/creator", { connectionId: account.id });
     const creator = readTikTokCreator(answer.data ?? {});
     if (!creator) throw new Error("TikTok didn't say who can watch this post. Try again in a minute.");
     return creator;
@@ -2661,7 +2665,12 @@ async function publishPost2(session, { id, agreed }) {
   const failedBefore = Object.values(row.deliveries ?? {}).some((delivery) => delivery?.state === "failed");
   const shift = !post.recurrence && !failedBefore && !!at && at.getTime() > session.now;
   if (shift) await save({ ...post, day: dayKeyAt(session.now, zone), start: clockAt(session.now, zone), allDay: false });
-  const handed = await session.store.send(id);
+  let handed;
+  try {
+    handed = await session.store.send(scope, id);
+  } catch (error) {
+    throw await afterRefusedSend(session, id, shift ? before : null, error);
+  }
   const targets = handed.filter((delivery) => PUBLISHES.has(delivery.platform) && delivery.state !== "sent");
   const missing = targets.filter((delivery) => delivery.connection_id === "none");
   let latest = await postById(session, id);
@@ -2679,6 +2688,22 @@ async function publishPost2(session, { id, agreed }) {
   }
   const reasons = [...missing.map((delivery) => `${platformName2(delivery.platform)}: ${delivery.error ?? "no login to send with."}`), deliveryErrors(latest)];
   throw new DapiError("unsupported", [...new Set(reasons)].join(" "));
+}
+async function afterRefusedSend(session, id, before, error) {
+  const latest = await postById(session, id).catch(() => null);
+  if (!latest) return error;
+  if (Object.keys(latest.deliveries).length) {
+    return new DapiError("busy", `${error.message} It may be going out anyway: check with list_posts in a minute, and don't publish it again.`);
+  }
+  const zone = latest.data.timeZone || session.scope.timeZone;
+  const back = before ? { ...latest.data, ...before } : latest.data;
+  const at = momentOf(back.day, back.allDay ? "00:00" : back.start, zone);
+  const due = back.status === "scheduled" && !back.recurrence && (!at || at.getTime() <= session.now);
+  if (before || due) {
+    const saved = await session.store.save(session.scope, due ? { ...back, status: "draft" } : back, latest.version);
+    if ("conflict" in saved) return new DapiError("busy", `${error.message} The post changed meanwhile: check it with list_posts.`);
+  }
+  return due ? new DapiError("unsupported", `${error.message} It's saved as a draft, so it won't go out by itself.`) : error;
 }
 function snapshotOf(session, post) {
   const files = (post.files ?? (post.media?.some((item) => item.id === post.id) ? [post.id] : [])).map((id) => post.media?.find((item) => item.id === id)).filter((file) => !!file?.cloud);

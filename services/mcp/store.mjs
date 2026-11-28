@@ -12,6 +12,8 @@ const COPY_MS = 120_000;
 /** Networks can be slow to answer, as the publisher is to them. */
 const PUBLISHER_MS = 30_000;
 const NOT_YET = "plan.video is being updated. Try again in a few minutes.";
+/** Raised by the agent_* functions and the posts table's rules with words meant for the agent. */
+const OWN_CODES = new Set(["28000", "42501", "22023", "P0002", "P0001", "54000"]);
 
 async function answer(response) {
   const text = await response.text();
@@ -21,6 +23,9 @@ async function answer(response) {
     return null;
   }
 }
+
+/** The workspace the publisher acts in, which it checks the agent's person is in. */
+const teamOf = (scope) => ({ owner: scope.owner, workspace: scope.workspace });
 
 export function createStore({ supabaseUrl, anonKey, storageUrl, publisherUrl, token, fetch: fetchImpl = fetch }) {
   async function rpc(name, args) {
@@ -40,7 +45,9 @@ export function createStore({ supabaseUrl, anonKey, storageUrl, publisherUrl, to
     // Before the migration is applied, PostgREST knows no such function, and refuse_app_tokens refuses it.
     if (found?.code === "PGRST202" || found?.code === "PT403") throw new Error(NOT_YET);
     if (found?.code === "23505") throw new Error("This post already exists.");
-    throw new Error(typeof found?.message === "string" && found.message ? found.message : "plan.video couldn't do that.");
+    // Only the agent_* functions' own words; anything else may name tables or types.
+    if (OWN_CODES.has(found?.code) && typeof found.message === "string" && found.message) throw new Error(found.message);
+    throw new Error("plan.video couldn't do that. Try again in a minute.");
   }
 
   async function publisher(route, body) {
@@ -79,9 +86,9 @@ export function createStore({ supabaseUrl, anonKey, storageUrl, publisherUrl, to
 
     askApproval: (scope, id, base, snapshot) => rpc("agent_ask_approval", { owner: scope.owner, workspace: scope.workspace, post_id: id, base, snapshot }),
 
-    send: async (id) => (await publisher("send", { postId: id })).deliveries ?? [],
+    send: async (scope, id) => (await publisher("send", { postId: id, team: teamOf(scope) })).deliveries ?? [],
 
-    network: (route, body) => publisher(route, body),
+    network: (scope, route, body) => publisher(route, { ...body, team: teamOf(scope) }),
 
     async copyFiles(scope, copies) {
       let response;

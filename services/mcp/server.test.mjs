@@ -86,6 +86,10 @@ before(async () => {
     if (req.url === "/rest/v1/rpc/connector_identity" && claims?.client_id) return res.end(JSON.stringify({ user_id: ALICE, client_id: claims.client_id }));
     if (req.url.startsWith("/rest/v1/rpc/agent_") || req.url.startsWith("/api/storage/") || req.url.startsWith("/api/publisher/")) {
       asked.push({ url: req.url, client: claims?.client_id, body });
+      if (claims?.client_id === "broken") {
+        res.statusCode = 400;
+        return res.end(JSON.stringify({ code: "22P02", message: 'invalid input syntax for type uuid: "x" in public.posts' }));
+      }
       if (claims?.client_id === "before") {
         res.statusCode = 404;
         return res.end(JSON.stringify({ code: "PGRST202", message: "Could not find the function" }));
@@ -202,6 +206,12 @@ test("before the database has the agent functions, an agent is told to try again
   const result = await callTool("list_posts", {}, { bearer: BEFORE_TOKEN });
   assert.equal(result.isError, true);
   assert.match(result.content[0].text, /being updated/);
+});
+
+test("a database error that isn't plan.video's own words doesn't reach the agent", async () => {
+  const result = await callTool("list_posts", {}, { bearer: token({ sub: ALICE, client_id: "broken" }) });
+  assert.equal(result.isError, true);
+  assert.doesNotMatch(result.content[0].text, /uuid|public\.posts/);
 });
 
 test("OpenAI's domain check reads the token it asked for, as plain text", async () => {

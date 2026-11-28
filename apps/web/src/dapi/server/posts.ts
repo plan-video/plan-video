@@ -115,8 +115,8 @@ export interface PostingStore extends NetworkReads {
   remove(scope: AgentContext, id: string, base: number): Promise<{ deleted: true } | { conflict: true }>;
   askApproval(scope: AgentContext, id: string, base: number, snapshot: object): Promise<{ version: number; preview: string } | { conflict: true }>;
   copyFiles(scope: AgentContext, copies: FileCopy[]): Promise<void>;
-  /** Hands the post to the publisher now. */
-  send(id: string): Promise<DeliveryRow[]>;
+  /** Hands the post to the publisher now, in the workspace it was saved in. */
+  send(scope: AgentContext, id: string): Promise<DeliveryRow[]>;
 }
 
 export type ToolOutcome = { text: string; error: boolean };
@@ -164,6 +164,11 @@ export function createPostingTools(store: PostingStore, given: PostingOptions = 
         const output = await HANDLERS[name as keyof typeof HANDLERS](session, parsed.data as never);
         return { text: JSON.stringify(output), error: false };
       } catch (error) {
+        // A bug's own words aren't for the agent.
+        if (error instanceof TypeError || error instanceof RangeError || error instanceof ReferenceError || error instanceof SyntaxError) {
+          console.error(`[mcp] ${name} failed`, error);
+          return { text: "plan.video couldn't do that. Try again in a minute.", error: true };
+        }
         const message = (error as Error).message || String(error);
         return { text: isDapiError(error) ? `${error.code}: ${message}` : message, error: true };
       }
@@ -360,7 +365,7 @@ async function written(session: Session, post: PostData, base: number | null): P
 
 async function creatorOf(session: Session, account: AgentAccount) {
   try {
-    const answer = await session.store.network<{ data?: Record<string, unknown> }>("tiktok/creator", { connectionId: account.id });
+    const answer = await session.store.network<{ data?: Record<string, unknown> }>(session.scope, "tiktok/creator", { connectionId: account.id });
     const creator = readTikTokCreator(answer.data ?? {});
     if (!creator) throw new Error("TikTok didn't say who can watch this post. Try again in a minute.");
     return creator;
@@ -771,7 +776,12 @@ async function publishPost(session: Session, { id, agreed }: ToolArgs<"publish_p
   const shift = !post.recurrence && !failedBefore && !!at && at.getTime() > session.now;
   if (shift) await save({ ...post, day: dayKeyAt(session.now, zone), start: clockAt(session.now, zone), allDay: false });
 
-  const handed = await session.store.send(id);
+  let handed: DeliveryRow[];
+  try {
+    handed = await session.store.send(scope, id);
+  } catch (error) {
+    throw await afterRefusedSend(session, id, shift ? before : null, error as Error);
+  }
   const targets = handed.filter((delivery) => PUBLISHES.has(delivery.platform) && delivery.state !== "sent");
   const missing = targets.filter((delivery) => delivery.connection_id === "none");
   let latest = await postById(session, id);
@@ -790,6 +800,27 @@ async function publishPost(session: Session, { id, agreed }: ToolArgs<"publish_p
   }
   const reasons = [...missing.map((delivery) => `${platformName(delivery.platform)}: ${delivery.error ?? "no login to send with."}`), deliveryErrors(latest)];
   throw new DapiError("unsupported", [...new Set(reasons)].join(" "));
+}
+
+/**
+ * A send the publisher didn't take must not leave the post due by its own clock, or the publisher would send it
+ * unasked, after the agent heard it failed. One the publisher did take, though its answer was lost, is left going.
+ */
+async function afterRefusedSend(session: Session, id: string, before: Pick<PostData, "day" | "start" | "allDay"> | null, error: Error) {
+  const latest = await postById(session, id).catch(() => null);
+  if (!latest) return error;
+  if (Object.keys(latest.deliveries).length) {
+    return new DapiError("busy", `${error.message} It may be going out anyway: check with list_posts in a minute, and don't publish it again.`);
+  }
+  const zone = latest.data.timeZone || session.scope.timeZone;
+  const back = before ? { ...latest.data, ...before } : latest.data;
+  const at = momentOf(back.day, back.allDay ? "00:00" : back.start, zone);
+  const due = back.status === "scheduled" && !back.recurrence && (!at || at.getTime() <= session.now);
+  if (before || due) {
+    const saved = await session.store.save(session.scope, due ? { ...back, status: "draft" } : back, latest.version);
+    if ("conflict" in saved) return new DapiError("busy", `${error.message} The post changed meanwhile: check it with list_posts.`);
+  }
+  return due ? new DapiError("unsupported", `${error.message} It's saved as a draft, so it won't go out by itself.`) : error;
 }
 
 /** What the post's link shows, as the tab's snapshotOf makes it, with the files that have a cloud copy. */

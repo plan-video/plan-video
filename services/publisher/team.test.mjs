@@ -30,6 +30,10 @@ function setup({ users: given } = {}) {
   db.tables.workspace_members = [{ id: INVITE, owner_id: OWNER, workspace_id: SHARED, email: "new@team.test", user_id: null, invited_by: ADMIN }];
   const rpc = db.rpc.bind(db);
   db.rpc = async (name, args) => {
+    if (name === "agent_role") {
+      if (args.owner === args.person) return "owner";
+      return args.owner === OWNER ? (ROLES[`${args.person}:${args.workspace}`] ?? null) : null;
+    }
     if (name === "publisher_workspace_connections") {
       return db.posts.filter((item) => item.user_id === args.owner).flatMap((item) => item.connections.map((row) => ({ workspace_id: item.workspace_id, connection_id: row.id })));
     }
@@ -315,20 +319,20 @@ test("access asks Supabase with the person's own token and keeps the answer brie
 
 const agentToken = (person) => `x.${Buffer.from(JSON.stringify({ sub: "00000000-0000-0000-0000-000000000000", plan_user: person, client_id: "claude" })).toString("base64url")}.y`;
 
-/** Supabase as an agent's token finds it: whose it is, and the workspace open last in their dashboard. */
-function agentSupabase(t, { person, workspace = SHARED, role = "member", letIn = true, signedIn = true }) {
+/** Supabase as an agent's token finds it: whose it is, and whether they're let in. */
+function agentSupabase(t, { person, letIn = true, signedIn = true }) {
   const asked = [];
-  t.mock.method(globalThis, "fetch", async (url, init) => {
+  t.mock.method(globalThis, "fetch", async (url) => {
     const path = new URL(url).pathname;
     asked.push(path);
     if (path === "/rest/v1/rpc/connector_identity") return Response.json(signedIn ? { user_id: person, client_id: "claude" } : null);
-    if (path === "/rest/v1/rpc/agent_context") return Response.json({ owner: OWNER, workspace, role, letIn });
+    if (path === "/rest/v1/rpc/agent_context") return Response.json({ letIn });
     return Response.json({ message: "not for agents" }, { status: 403 });
   });
   return asked;
 }
 
-test("an agent's token sends a post and reads TikTok in the workspace open in the person's dashboard, and reaches nothing else", async (t) => {
+test("an agent's token sends a post and reads TikTok only in a workspace its person is in, and reaches nothing else", async (t) => {
   const supabase = agentSupabase(t, { person: MEMBER });
   const users = createUsers({ supabaseUrl: "https://sb.test", anonKey: "anon", requireInvite: true });
   const { vault, ask, db } = setup({ users });
@@ -337,12 +341,12 @@ test("an agent's token sends a post and reads TikTok in the workspace open in th
   const agent = agentToken(MEMBER);
 
   db.posts[0].post.status = "scheduled";
-  // The body's workspace counts for nothing: the agent's is the one its context names.
-  const sent = await ask(agent, "send", { team: team(PRIVATE), postId: "p-shared" });
+  const sent = await ask(agent, "send", { team: team(), postId: "p-shared" });
   assert.equal(sent.status, 200);
   assert.equal(sent.deliveries[0].connection_id, "c-shared");
-  assert.equal((await ask(agent, "send", { postId: "p-private" })).status, 400);
-  assert.equal((await ask(agent, "tiktok/videos", { connectionId: "c-private" })).status, 403);
+  assert.equal((await ask(agent, "send", { team: team(PRIVATE), postId: "p-private" })).status, 403);
+  assert.equal((await ask(agent, "send", { postId: "p-shared" })).status, 400);
+  assert.equal((await ask(agent, "tiktok/videos", { team: team(), connectionId: "c-private" })).status, 403);
 
   for (const route of ["logins", "login/forget", "tiktok/exchange", "usage", "team/invite"]) {
     assert.equal((await ask(agent, route, { team: team(), connectionId: "c-shared" })).status, 401, route);
@@ -354,12 +358,12 @@ test("an agent's token whose session ended, or whose person isn't let in, sends 
   agentSupabase(t, { person: MEMBER, signedIn: false });
   const ended = setup({ users: createUsers({ supabaseUrl: "https://sb.test", anonKey: "anon", requireInvite: false }) });
   ended.db.posts[0].post.status = "scheduled";
-  assert.equal((await ended.ask(agentToken(MEMBER), "send", { postId: "p-shared" })).status, 401);
+  assert.equal((await ended.ask(agentToken(MEMBER), "send", { team: team(), postId: "p-shared" })).status, 401);
   t.mock.restoreAll();
 
-  agentSupabase(t, { person: OWNER, role: "owner", letIn: false });
+  agentSupabase(t, { person: OWNER, letIn: false });
   const waiting = setup({ users: createUsers({ supabaseUrl: "https://sb.test", anonKey: "anon", requireInvite: true }) });
   waiting.db.posts[0].post.status = "scheduled";
-  assert.equal((await waiting.ask(agentToken(OWNER), "send", { postId: "p-shared" })).status, 403);
+  assert.equal((await waiting.ask(agentToken(OWNER), "send", { team: team(), postId: "p-shared" })).status, 403);
   assert.equal(waiting.db.tables.post_deliveries?.length ?? 0, 0);
 });

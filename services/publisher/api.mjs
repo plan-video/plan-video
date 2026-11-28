@@ -178,6 +178,17 @@ export function createApi({ env, vault, worker, users, kick, bluesky, limits, pl
     return { actor: owner, role: access.role, workspace };
   }
 
+  /** An agent names the workspace it works in; the database says whether its person is in it. */
+  async function agentScopeOf(user, body) {
+    const owner = typeof body.team?.owner === "string" ? body.team.owner.toLowerCase() : "";
+    const workspace = typeof body.team?.workspace === "string" ? body.team.workspace : "";
+    if (!UUID.test(owner) || !ID.test(workspace)) throw new Refused(400, "That isn't a workspace.");
+    const role = await db.rpc("agent_role", { person: user.id, owner, workspace });
+    if (role === "owner") return { actor: user.id, role };
+    if (role !== "admin" && role !== "member") throw new Refused(403, "You're not in this workspace anymore.");
+    return { actor: owner, role, workspace };
+  }
+
   /** Who a connect ticket is for (ticketBinding in vault.mjs). */
   const holderOf = (user, scope) => ({ person: user.id, owner: scope.actor, workspace: scope.workspace ?? "" });
 
@@ -265,7 +276,6 @@ export function createApi({ env, vault, worker, users, kick, bluesky, limits, pl
       return;
     }
 
-    // An agent works in the workspace open last in the person's dashboard, whatever the body says.
     const agent = AGENT_ROUTES.has(path) ? await users.agent(req) : null;
     const user = agent?.user ?? (await users.from(req));
     limit(`api:${user.id}`, 600, 600);
@@ -300,7 +310,7 @@ export function createApi({ env, vault, worker, users, kick, bluesky, limits, pl
       return;
     }
 
-    const scope = agent?.scope ?? (await scopeOf(req, user, body));
+    const scope = agent ? await agentScopeOf(user, body) : await scopeOf(req, user, body);
 
     if (path === "/api/publisher/login/save") {
       const connectionId = connectionOf(body);
@@ -591,24 +601,18 @@ export function createUsers({ supabaseUrl, anonKey, requireInvite }) {
     const identity = await asked("connector_identity");
     const person = identity.ok && typeof identity.found?.user_id === "string" && UUID_TEXT.test(identity.found.user_id) ? identity.found.user_id.toLowerCase() : null;
     if (!person || typeof identity.found?.client_id !== "string" || !identity.found.client_id) throw new Refused(401, "Your plan.video sign-in has expired. Connect again.");
-    const context = await asked("agent_context");
-    const owner = typeof context.found?.owner === "string" && UUID_TEXT.test(context.found.owner) ? context.found.owner.toLowerCase() : "";
-    const role = context.found?.role;
-    if (!context.ok || !owner || typeof context.found.workspace !== "string" || !["owner", "admin", "member"].includes(role)) {
-      throw new Refused(403, typeof context.found?.message === "string" && context.found.message ? context.found.message : "You're not in this workspace anymore.");
+    if (requireInvite) {
+      const context = await asked("agent_context");
+      if (context.found?.letIn !== true) throw new Refused(403, "This account hasn't been let in yet.");
     }
-    if (requireInvite && context.found.letIn !== true) throw new Refused(403, "This account hasn't been let in yet.");
-    const agent = {
-      user: { id: person },
-      scope: role === "owner" ? { actor: person, role } : { actor: owner, role, workspace: context.found.workspace },
-    };
+    const agent = { user: { id: person } };
     if (agents.size > 5000) agents.clear();
     agents.set(token, { agent, until: Date.now() + 10_000 });
     return agent;
   }
 
   return {
-    /** For AGENT_ROUTES: who an agent's token speaks for and where, or null for any other sign-in. */
+    /** For AGENT_ROUTES: who an agent's token speaks for, or null for any other sign-in. */
     async agent(req) {
       const header = req.headers.authorization ?? "";
       const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
