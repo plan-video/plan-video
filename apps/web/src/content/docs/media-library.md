@@ -9,7 +9,7 @@ Upload videos and pictures to **Media**, under **Library** in the dashboard, onc
 
 ## From Google Drive
 
-Click **Google Drive** next to **Upload**, sign in to Google, and pick your files. plan.video copies them into Media then, so moving or deleting them in Drive later changes nothing here. plan.video only sees the files you pick. The same button is in **New post** and in the editor's Assets panel.
+Click **Google Drive** next to **Upload**, sign in to Google, and pick your files. plan.video copies them into Media then, so moving or deleting them in Drive later changes nothing here. plan.video only sees the files you pick. The same button is in **New post** and in the editor's Assets panel. It only shows where Google Drive is [turned on](/docs/configuration#google-drive) for the site.
 
 ## Video rules
 

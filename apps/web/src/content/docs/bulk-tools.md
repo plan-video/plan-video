@@ -8,7 +8,7 @@
     The panel on the right changes every post as you go, with nothing to confirm. Pick the accounts under **Post to**: each file goes to the ones that take it, so pictures skip YouTube and the videos still go there. Then write one **Caption** for every post that doesn't have its own. On YouTube, the caption is the video's description. A caption can use `{name}`, `{n}` and `{date}`, so each post gets its own.
   </Step>
   <Step title="Choose when">
-    Under **When**, choose how many posts go out a day and at what times, how many days apart, and whether to **Skip weekends**. Or use the next free times in Auto-schedule, or your [best times](/docs/analytics#post-at-your-best-times). The times in the list change straight away.
+    Under **When**, **Spread out** asks for a start day, **How often** (every day up to every 2 weeks) and the **Times** each of those days gets: click **Add time** for one more, or the × on a time to take it off. Turn on **Skip weekends** to leave Saturdays and Sundays free. Or pick **Auto-schedule** to fill your next free times, or **Best times** for your [best times](/docs/analytics#post-at-your-best-times). The times in the list change straight away.
   </Step>
   <Step title="Send them off">
     Click **Schedule # posts**, or press ⌘↵ or Ctrl+Enter. You can also **Save as drafts** or **Post now**.
