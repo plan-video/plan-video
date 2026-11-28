@@ -42,7 +42,7 @@ test("login/save refuses a new account past the limit, and still takes a reconne
     vault,
     worker: {},
     kick: () => undefined,
-    users: { from: async () => ({ id: "u1" }) },
+    users: { agent: async () => null, from: async () => ({ id: "u1" }) },
     limits: { limitFor: async () => 2 },
   });
   const session = { accessToken: "a", refreshToken: "r", expiresAt: Date.now() + 3_600_000, openId: "o", scope: "video.publish" };

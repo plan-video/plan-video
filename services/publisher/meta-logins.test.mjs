@@ -47,6 +47,7 @@ function setup({ role = "owner", exchange } = {}) {
     worker: {},
     kick: () => undefined,
     users: {
+      agent: async () => null,
       from: async (req) => ({ id: req.headers.authorization.slice(7) }),
       access: async (req) => (req.headers.authorization.slice(7) === MEMBER ? { role, level: 3 } : null),
     },
