@@ -45,9 +45,11 @@ export const WAVEFORM: CacheKind<Uint8ClampedArray> = {
 	decode: async (blob) => new Uint8ClampedArray(await blob.arrayBuffer()),
 };
 
-type Keyed = string | Pick<Asset, 'id'>;
+type Keyed = string | Pick<Asset, 'id' | 'transient'>;
 
 const idOf = (keyed: Keyed): string => (typeof keyed === 'string' ? keyed : keyed.id);
+
+const isTransient = (keyed: Keyed): boolean => typeof keyed !== 'string' && keyed.transient === true;
 
 export class AssetCache {
 	private readonly fs: ProjectFS;
@@ -56,6 +58,8 @@ export class AssetCache {
 	private readonly files = new Map<string, Promise<File | null>>();
 	/** Every kind used, so `remove` and `prune` know which directories to look in. */
 	private readonly kinds = new Map<string, CacheKind<unknown>>();
+	/** Entries for transient assets, by key: those live in memory only, and a load would prune their files anyway. */
+	private readonly memory = new Map<string, Promise<unknown>>();
 
 	public constructor(fs: ProjectFS) {
 		this.fs = fs;
@@ -87,6 +91,7 @@ export class AssetCache {
 	public get<T>(kind: CacheKind<T>, keyed: Keyed, produce: () => Promise<T | null>, variant?: string): Promise<T | null> {
 		this.register(kind);
 		const key = this.key(kind, keyed, variant);
+		if (isTransient(keyed)) return this.remember(key, produce);
 		const running = this.inflight.get(key);
 		if (running) return running as Promise<T | null>;
 
@@ -99,6 +104,12 @@ export class AssetCache {
 	public ensure<T>(kind: CacheKind<T>, keyed: Keyed, produce: () => Promise<T | null>, variant?: string): Promise<File | null> {
 		this.register(kind);
 		const key = this.key(kind, keyed, variant);
+		if (isTransient(keyed)) {
+			return this.remember(`${key}#file`, async () => {
+				const value = await produce();
+				return value === null ? null : new File([kind.encode(value)], key.split('/').pop()!);
+			});
+		}
 		const running = this.files.get(key);
 		if (running) return running;
 
@@ -147,6 +158,24 @@ export class AssetCache {
 	/** The file of an entry: `cache/<dir>/<id>[@variant].<ext>`. */
 	private pathOf(kind: CacheKind<unknown>, key: string): string {
 		return `${CACHE_DIR}/${key}.${kind.ext}`;
+	}
+
+	private remember<T>(key: string, produce: () => Promise<T | null>): Promise<T | null> {
+		const held = this.memory.get(key);
+		if (held) return held as Promise<T | null>;
+
+		const promise = produce()
+			.catch((error: unknown) => {
+				console.warn(`[assets] could not derive ${key}:`, error);
+				return null;
+			})
+			.then((value) => {
+				// As on disk, nothing derived means nothing kept: the next ask tries again.
+				if (value === null) this.memory.delete(key);
+				return value;
+			});
+		this.memory.set(key, promise);
+		return promise;
 	}
 
 	private async load<T>(kind: CacheKind<T>, key: string, produce: () => Promise<T | null>): Promise<T | null> {

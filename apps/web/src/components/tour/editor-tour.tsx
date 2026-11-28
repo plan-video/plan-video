@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { Show, createEffect, createMemo, createSignal, on, onCleanup, onMount, untrack } from "solid-js";
+import { For, Show, createEffect, createMemo, createSignal, on, onCleanup, onMount, untrack } from "solid-js";
 import { Portal } from "solid-js/web";
 import { useWorld } from "@plan.video/koota-solid";
 import {
@@ -18,17 +18,19 @@ import {
 } from "@plan.video/runtime";
 
 import { setSidebarTab, sidebarTab } from "@/agent-chat";
-import { LogoBadge } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { useLayout } from "@/context/layout";
 import { getDocumentEditor } from "@/engine/editor";
+import { cx } from "@/lib/cva";
 import { msg, t } from "@/lib/i18n";
 import { createStoredSignal } from "@/lib/store";
+import { placeTourSample, warmTourSample } from "./tour-sample";
 import { store } from "@/init";
 
 import type { Entity, World } from "koota";
 import type { SidebarTab } from "@/agent-chat/store";
+import type { TourSample } from "./tour-sample";
 
 type Placement = "right" | "left" | "top" | "bottom" | "inside";
 
@@ -123,10 +125,26 @@ export function startEditorTour(): void {
 
 type Rect = { x: number; y: number; width: number; height: number };
 
-const CARD_GAP = 12;
+const CARD_GAP = 16;
 const VIEWPORT_MARGIN = 16;
 const INSIDE_OFFSET = 24;
 const HOLE_RADIUS = 12;
+const POINTER_SIZE = 12;
+const POINTER_INSET = 20;
+
+type Side = "left" | "right" | "top" | "bottom";
+
+const POINTER_SIDE: Record<Exclude<Placement, "inside">, Side> = { right: "left", left: "right", top: "bottom", bottom: "top" };
+
+// A square turned 45°: these two borders meet at the corner facing that side.
+const POINTER_BORDERS: Record<Side, string> = {
+  left: "border-l border-b",
+  right: "border-t border-r",
+  top: "border-l border-t",
+  bottom: "border-r border-b",
+};
+const CARD_KEYS = new Set(["Tab", "Enter", " "]);
+const TEXT_BUTTON = "h-8 px-3 text-[13px] text-muted-foreground hover:bg-accent hover:text-foreground";
 
 function sameRect(a: Rect | null, b: Rect | null): boolean {
   if (a === b) return true;
@@ -173,6 +191,10 @@ export function EditorTour() {
   const [hole, setHole] = createSignal<Rect | null>(null, { equals: sameRect });
   const [viewport, setViewport] = createSignal({ width: window.innerWidth, height: window.innerHeight });
   const [cardSize, setCardSize] = createSignal({ width: 320, height: 160 });
+  // An empty project gets a sample clip for the steps about clips, so they show the real canvas, panel and timeline.
+  const [sample, setSample] = createSignal<TourSample | null>(null);
+  let card: HTMLDivElement | undefined;
+  let awaitingMedia: Entity | null = null;
   let before: { tab: SidebarTab; selection: Entity[] } | null = null;
   let primaryButton: HTMLButtonElement | undefined;
 
@@ -189,7 +211,13 @@ export function EditorTour() {
     onCleanup(() => clearTimeout(timer));
   });
 
+  const removeSample = () => {
+    untrack(sample)?.remove();
+    setSample(null);
+  };
+
   onCleanup(() => {
+    removeSample();
     layout.setSectionsRevealed(false);
     setTour(null);
   });
@@ -223,7 +251,10 @@ export function EditorTour() {
       };
       layout.setSectionsRevealed(true);
       layout.setCustomizing(false);
+      const frame = findFrame(world);
+      if (!frame || !findClip(world, frame)) warmTourSample(world, frame);
     }
+    if (state === null) removeSample();
     if (state === null && before) {
       setSidebarTab(before.tab);
       // After the dock's own effect, which shows the assets panel on every tab change.
@@ -240,10 +271,18 @@ export function EditorTour() {
       if (!layout.uiVisible()) layout.toggleUI();
       if (current.targets.includes("timeline") && layout.timelineMinimized()) layout.toggleTimeline();
       if (current.tab) setSidebarTab(current.tab);
+      if (current.select !== "clip") removeSample();
       if (current.select) {
         const frame = findFrame(world);
-        const shown = current.select === "clip" && frame ? findClip(world, frame) ?? frame : frame;
-        if (shown) getDocumentEditor(world).select(shown);
+        let clip = frame ? findClip(world, frame) : null;
+        if (!clip && current.select === "clip") {
+          if (!untrack(sample)) setSample(placeTourSample(world, frame));
+          clip = untrack(sample)?.clip ?? null;
+        }
+        const shown = current.select === "clip" ? clip ?? frame : frame;
+        // Selected once its media is in: the inspector names a clip by what it shows when it is picked.
+        if (shown && shown === untrack(sample)?.clip && !findGeometryAsset(world, shown)) awaitingMedia = shown;
+        else if (shown) getDocumentEditor(world).select(shown);
       }
     });
   });
@@ -255,6 +294,10 @@ export function EditorTour() {
     const tick = () => {
       const current = step();
       setHole(current ? measure(current.targets) : null);
+      if (awaitingMedia && (!awaitingMedia.isAlive() || findGeometryAsset(world, awaitingMedia))) {
+        if (awaitingMedia.isAlive() && current?.select === "clip") getDocumentEditor(world).select(awaitingMedia);
+        awaitingMedia = null;
+      }
       frame = requestAnimationFrame(tick);
     };
     tick();
@@ -268,7 +311,11 @@ export function EditorTour() {
       if (event.key === "Escape") close();
       else if (event.key === "ArrowRight") next();
       else if (event.key === "ArrowLeft") back();
-      else return;
+      else {
+        // Shortcuts would edit around the sample (a split would land in the file), so only the card hears keys then.
+        if (sample() && !(card?.contains(event.target as Node) && CARD_KEYS.has(event.key))) event.stopPropagation();
+        return;
+      }
       event.preventDefault();
       event.stopPropagation();
     };
@@ -311,27 +358,43 @@ export function EditorTour() {
     };
   });
 
-  // Clicks land only inside the lit area: the blocker is the screen with that box cut out.
+  // Level with the lit area's middle; dropped when the screen edge pushes the card onto it.
+  const pointer = createMemo(() => {
+    const rect = hole();
+    const current = step();
+    if (!rect || !current || current.placement === "inside") return null;
+    const { left, top } = cardPosition();
+    const { width: cw, height: ch } = cardSize();
+    const side = POINTER_SIDE[current.placement];
+    const gap = {
+      left: left - (rect.x + rect.width),
+      right: rect.x - (left + cw),
+      top: top - (rect.y + rect.height),
+      bottom: rect.y - (top + ch),
+    }[side];
+    if (gap < POINTER_SIZE / 2) return null;
+    const across = side === "left" || side === "right";
+    const along = across ? rect.y + rect.height / 2 - top : rect.x + rect.width / 2 - left;
+    return { side, offset: clamp(along, POINTER_INSET, (across ? ch : cw) - POINTER_INSET) };
+  });
+
+  // Clicks land only inside the lit area: the blocker is the screen with that box cut out. While the sample is out it covers everything, so nothing is done to it.
   const blockerClip = createMemo(() => {
     const { width, height } = viewport();
     const rect = hole();
     const outer = `M 0 0 H ${width} V ${height} H 0 Z`;
-    if (!rect) return `path(evenodd, "${outer}")`;
+    if (!rect || sample()) return `path(evenodd, "${outer}")`;
     const inner = `M ${rect.x} ${rect.y} H ${rect.x + rect.width} V ${rect.y + rect.height} H ${rect.x} Z`;
     return `path(evenodd, "${outer} ${inner}")`;
   });
 
   const observeCard = (element: HTMLDivElement) => {
+    card = element;
     const observer = new ResizeObserver(() => {
       setCardSize({ width: element.offsetWidth, height: element.offsetHeight });
     });
     observer.observe(element);
     onCleanup(() => observer.disconnect());
-  };
-
-  const progress = () => {
-    const state = tour();
-    return typeof state === "number" ? ((state + 1) / STEPS.length) * 100 : 0;
   };
 
   return (
@@ -370,8 +433,8 @@ export function EditorTour() {
                   height={rect().height}
                   rx={HOLE_RADIUS}
                   fill="none"
-                  stroke="rgba(255,255,255,0.18)"
-                  stroke-width="1"
+                  style={{ stroke: "var(--primary)" }}
+                  stroke-width="1.5"
                 />
               )}
             </Show>
@@ -379,79 +442,101 @@ export function EditorTour() {
 
           <div
             ref={observeCard}
-            class="fixed flex w-80 flex-col rounded-2xl border border-border-strong bg-popover p-4 pointer-events-auto transition-[left,top] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-1 motion-reduce:transition-none motion-reduce:animate-none"
+            class={cx(
+              "fixed flex max-w-[calc(100vw-32px)] flex-col rounded-2xl border border-border bg-popover text-popover-foreground shadow-[0_24px_64px_-16px_rgba(0,0,0,0.55)] pointer-events-auto transition-[left,top] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-1 motion-reduce:transition-none motion-reduce:animate-none",
+              step() ? "w-80" : "w-[25rem]",
+            )}
             style={{ left: `${cardPosition().left}px`, top: `${cardPosition().top}px` }}
           >
             <Show
               when={step()}
+              keyed
               fallback={
                 <>
-                  <TourCover />
-                  <h2 id="editor-tour-title" class="mb-2 text-sm font-550 text-foreground">{t("Welcome to plan.video")}</h2>
-                  <p class="mb-5 text-xs leading-5 text-muted-foreground">
-                    {t("A quick tour of the essentials: bring in your clip, lay it out, and export. About 30 seconds.")}
-                  </p>
-                  <div class="flex items-center justify-end gap-2">
-                    <Button variant="secondary" class="h-8 px-3" onClick={close}>{t("Skip")}</Button>
-                    <Button ref={primaryButton} class="h-8 px-3" onClick={next}>{t("Start tour")}</Button>
+                  <div class="p-1.5 pb-0">
+                    <img
+                      src="/tour/welcome.webp"
+                      alt=""
+                      width="1200"
+                      height="876"
+                      draggable={false}
+                      class="block aspect-[1200/876] max-h-[42vh] w-full rounded-[10px] bg-[#f3c2fb] object-cover object-left-top select-none"
+                    />
+                  </div>
+                  <div class="px-5 pt-5 pb-5">
+                    <h2 id="editor-tour-title" class="text-[19px] leading-6 font-550 tracking-[-0.01em] text-foreground">{t("Welcome to plan.video")}</h2>
+                    <p class="mt-2 text-sm leading-[22px] text-muted-foreground">
+                      {t("A quick tour of the essentials: bring in your clip, lay it out, and export. About 30 seconds.")}
+                    </p>
+                    <div class="mt-6 flex items-center justify-end gap-1.5">
+                      <Button variant="ghost" class={cx(TEXT_BUTTON, "h-9 px-3.5 text-sm")} onClick={close}>{t("Skip")}</Button>
+                      <Button ref={primaryButton} class="h-9 px-4 text-sm" onClick={next}>{t("Start tour")}</Button>
+                    </div>
                   </div>
                 </>
               }
             >
               {(current) => (
-                <>
-                  <div class="mb-2 flex items-center gap-2">
-                    <h2 id="editor-tour-title" class="flex-1 text-sm font-550 text-foreground">{t(current().title)}</h2>
-                    <button
-                      type="button"
-                      aria-label={t("Close tour")}
-                      class="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-ring"
-                      onClick={close}
-                    >
-                      <Icon name="close-remove" />
-                    </button>
-                  </div>
-                  <p class="mb-5 text-xs leading-5 text-muted-foreground">{t(current().body)}</p>
-                  <div class="flex items-center justify-between gap-3">
-                    <div class="relative h-1.5 w-12 shrink-0 overflow-hidden rounded-full bg-foreground/10" aria-hidden="true">
-                      <span
-                        class="absolute inset-y-0 left-0 rounded-full bg-foreground transition-[width] duration-300 motion-reduce:transition-none"
-                        style={{ width: `${progress()}%` }}
-                      />
+                <div class="animate-in fade-in-0 duration-200 motion-reduce:animate-none">
+                  <div class="p-4 pl-4.5">
+                    <div class="flex items-start gap-2">
+                      <h2 id="editor-tour-title" class="flex-1 pt-0.5 text-[15px] leading-5 font-550 text-foreground">{t(current.title)}</h2>
+                      <button
+                        type="button"
+                        aria-label={t("Close tour")}
+                        class="-mt-0.5 -mr-1 grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-ring"
+                        onClick={close}
+                      >
+                        <Icon name="close-remove" />
+                      </button>
                     </div>
-                    <div class="flex items-center gap-2">
-                      <Button variant="secondary" class="h-8 px-3" onClick={back}>{t("Back")}</Button>
-                      <Button ref={primaryButton} class="h-8 px-3" onClick={next}>
-                        {tour() === STEPS.length - 1 ? t("Finish") : t("Next")}
-                      </Button>
+                    <p class="mt-1.5 text-[13px] leading-5 text-muted-foreground">{t(current.body)}</p>
+                    <div class="mt-5 flex items-center justify-between gap-3">
+                      <div class="flex items-center gap-1" aria-hidden="true">
+                        <For each={STEPS}>
+                          {(_, index) => (
+                            <span
+                              class={cx(
+                                "h-1.5 rounded-full transition-[width,background-color] duration-300 motion-reduce:transition-none",
+                                index() === tour() ? "w-4 bg-foreground" : "w-1.5",
+                                index() !== tour() && (index() < (tour() as number) ? "bg-foreground/45" : "bg-foreground/15"),
+                              )}
+                            />
+                          )}
+                        </For>
+                      </div>
+                      <div class="flex items-center gap-1.5">
+                        <Button variant="ghost" class={TEXT_BUTTON} onClick={back}>{t("Back")}</Button>
+                        <Button ref={primaryButton} class="h-8 px-3.5 text-[13px]" onClick={next}>
+                          {tour() === STEPS.length - 1 ? t("Finish") : t("Next")}
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                </>
+                </div>
+              )}
+            </Show>
+            <Show when={pointer()}>
+              {(at) => (
+                <span
+                  aria-hidden="true"
+                  class={cx(
+                    "absolute rotate-45 border-border bg-popover transition-[left,top] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none",
+                    POINTER_BORDERS[at().side],
+                  )}
+                  style={{
+                    width: `${POINTER_SIZE}px`,
+                    height: `${POINTER_SIZE}px`,
+                    ...(at().side === "left" || at().side === "right"
+                      ? { [at().side]: `${-POINTER_SIZE / 2 - 1}px`, top: `${at().offset - POINTER_SIZE / 2 - 1}px` }
+                      : { [at().side]: `${-POINTER_SIZE / 2 - 1}px`, left: `${at().offset - POINTER_SIZE / 2 - 1}px` }),
+                  }}
+                />
               )}
             </Show>
           </div>
         </div>
       </Portal>
     </Show>
-  );
-}
-
-function TourCover() {
-  return (
-    <div
-      class="relative mb-4 grid h-44 place-items-center overflow-hidden rounded-xl"
-      style={{ background: "radial-gradient(120% 90% at 50% 0%, hsla(220, 87%, 60%, 0.35), transparent 60%), linear-gradient(180deg, light-dark(hsl(220, 40%, 94%), hsl(222, 28%, 15%)), light-dark(hsl(222, 30%, 84%), hsl(230, 30%, 7%)))" }}
-    >
-      <div class="relative flex h-36 w-[81px] flex-col overflow-hidden rounded-[14px] border border-white/15 bg-black shadow-[0_18px_40px_rgba(0,0,0,0.5)]">
-        <div class="relative h-[38%]" style={{ background: "linear-gradient(135deg, #3b2a5c, #1d2a4a)" }}>
-          <div class="absolute left-1/2 top-[18%] size-5 -translate-x-1/2 rounded-full bg-white/30" />
-          <div class="absolute bottom-0 left-1/2 h-4 w-10 -translate-x-1/2 rounded-t-full bg-white/20" />
-        </div>
-        <div class="relative flex-1" style={{ background: "linear-gradient(160deg, #ff4655 0%, #7a1d2a 45%, #0f1923 100%)" }}>
-          <div class="absolute left-1/2 top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/70" />
-        </div>
-      </div>
-      <LogoBadge class="absolute bottom-5 left-[calc(50%+26px)] size-9 rotate-6 shadow-[0_8px_20px_rgba(0,0,0,0.45)]" />
-    </div>
   );
 }

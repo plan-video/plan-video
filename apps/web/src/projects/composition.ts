@@ -16,6 +16,8 @@ import {
   getEntityChildren,
 } from "@plan.video/runtime";
 
+import { Unsaved } from "@/engine/traits";
+
 import { readText, replaceText, writeText } from "./browser-store";
 
 import type { EntityEdit } from "@/engine/editor";
@@ -130,6 +132,7 @@ function captureNode(world: World, entity: Entity, source: string, stamp: Stamp)
 }
 
 function captureChild(world: World, entity: Entity, stamp: Stamp): SavedNode | undefined {
+  if (entity.has(Unsaved)) return undefined;
   const current = entity.get(Source)?.value;
   const source = current && !current.startsWith(PENDING_SOURCE) && !stamp.taken.has(current) ? current : freshSource(stamp);
   stamp.taken.add(source);

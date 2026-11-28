@@ -60,5 +60,8 @@ export const PointerEvents = trait({ queue: () => [] as CanvasPointerEvent[] });
 /** By id. Editor state, not a document property; a click on empty canvas clears it. */
 export const AssetSelection = trait({ id: null as string | null });
 
+/** On the stage for a moment and never saved, such as the editor tour's sample clip. */
+export const Unsaved = trait();
+
 /** The handle only, attached while a project is open; the values are its own reactive state. */
 export const ProjectConfig = trait(() => null as ProjectConfigStore | null);
