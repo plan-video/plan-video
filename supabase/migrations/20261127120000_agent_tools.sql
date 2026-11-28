@@ -139,6 +139,8 @@ begin
     ), ''),
     'role', my_role,
     'level', coalesce((select u.access_level from public.user_data u where u.id = owner), 1),
+    'letIn', public.agent_let_in(person),
+    'membersNeedApproval', public.members_need_approval(owner, workspace),
     -- The person's own dashboard time zone, as their tab reads days and times in.
     'timeZone', coalesce(nullif(mine ->> 'timeZone', ''), 'UTC'),
     'calendarId', coalesce(slice -> 'calendars' -> 0 ->> 'id', 'posts'),
@@ -147,7 +149,10 @@ begin
         'id', c ->> 'id',
         'platform', c ->> 'platform',
         'handle', coalesce(c ->> 'handle', ''),
-        'ready', coalesce(jsonb_typeof(c -> (c ->> 'platform')) = 'object', false)
+        'ready', coalesce(jsonb_typeof(c -> (c ->> 'platform')) = 'object', false),
+        -- What its login was granted, and for LinkedIn whether it's a company Page: what analytics can read.
+        'scope', coalesce(c -> (c ->> 'platform') ->> 'scope', ''),
+        'page', coalesce(c -> 'linkedin' ->> 'organizationId', '') <> ''
       ) order by n)
       from jsonb_array_elements(case when jsonb_typeof(slice -> 'connections') = 'array' then slice -> 'connections' else '[]'::jsonb end) with ordinality as x(c, n)
       where c ->> 'id' ~ '^[A-Za-z0-9_-]{1,100}$'
@@ -250,6 +255,117 @@ begin
 end;
 $$;
 
+-- Holds a post for approval and shares its link, as the tab's ask for
+-- approval does: off the schedule until it's approved, with a note in its
+-- comments that it was asked for. `snapshot` is what the link shows. New
+-- links come with paid plans, as post_previews' own rule says.
+create or replace function public.agent_ask_approval(owner uuid, workspace text, post_id text, base bigint, snapshot jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+#variable_conflict use_column
+declare
+  person uuid := public.agent_person();
+  current public.posts;
+  saved bigint;
+  preview uuid;
+  who text;
+begin
+  perform public.agent_scope(owner, workspace, true);
+  if snapshot is null or jsonb_typeof(snapshot) <> 'object' or snapshot ->> 'workspaceId' is distinct from workspace then
+    raise exception 'That isn''t a preview.' using errcode = '22023';
+  end if;
+  select * into current from public.posts p
+  where p.owner_id = agent_ask_approval.owner and p.id = agent_ask_approval.post_id and p.workspace_id = agent_ask_approval.workspace and p.deleted_at is null;
+  if not found then
+    raise exception 'This post no longer exists.' using errcode = 'P0002';
+  end if;
+  if current.version <> base then
+    return jsonb_build_object('conflict', true);
+  end if;
+  if current.data ->> 'status' = 'posted' then
+    raise exception 'This post has already gone out.' using errcode = '22023';
+  end if;
+  select v.id into preview from public.post_previews v where v.owner_id = agent_ask_approval.owner and v.post_id = agent_ask_approval.post_id;
+  if preview is null and coalesce((select u.access_level from public.user_data u where u.id = owner), 1) <= 1 then
+    raise exception 'Approval links come with a paid plan.' using errcode = '42501';
+  end if;
+  who := left(coalesce(public.person_name(person), ''), 80);
+
+  saved := current.version;
+  if current.data -> 'approval' ->> 'state' is distinct from 'pending' then
+    update public.posts p
+    set data = current.data || jsonb_build_object(
+      'approval', jsonb_strip_nulls(jsonb_build_object('state', 'pending', 'at', to_jsonb(now()), 'by', nullif(who, ''))),
+      'status', case when current.data ->> 'status' = 'scheduled' then 'draft' else current.data ->> 'status' end,
+      'sendFrom', to_jsonb(now())
+    )
+    where p.owner_id = current.owner_id and p.id = current.id and p.version = base
+    returning p.version into saved;
+    if saved is null then
+      return jsonb_build_object('conflict', true);
+    end if;
+  end if;
+
+  insert into public.post_previews as v (owner_id, post_id, snapshot, updated_at)
+  values (owner, post_id, snapshot, now())
+  on conflict (owner_id, post_id) do update set snapshot = excluded.snapshot, updated_at = excluded.updated_at
+  returning v.id into preview;
+
+  if who <> '' and not public.preview_busy(preview) and (
+    select c.kind from public.post_preview_comments c
+    where c.preview_id = preview and c.kind <> 'comment'
+    order by c.created_at desc
+    limit 1
+  ) is distinct from 'requested' then
+    insert into public.post_preview_comments (preview_id, author_name, author_id, body, kind)
+    values (preview, who, person, '', 'requested');
+  end if;
+  return jsonb_build_object('version', saved, 'preview', preview);
+end;
+$$;
+
+-- As in 20261126120000_post_approvals.sql, with an agent working for a member
+-- counted as that member: its token names nobody in auth.uid().
+create or replace function public.posts_approval_rules()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  was jsonb := case when tg_op = 'UPDATE' then old.data end;
+  agent uuid := public.agent_person();
+  my_role text;
+begin
+  if new.data is null then
+    return new;
+  end if;
+  if agent is not null then
+    my_role := public.agent_role(agent, new.owner_id, new.workspace_id);
+  elsif auth.uid() is not null then
+    my_role := public.workspace_role(new.owner_id, new.workspace_id);
+  end if;
+  if my_role is distinct from 'member' then
+    return new;
+  end if;
+  if new.data -> 'approval' ->> 'state' in ('approved', 'changes') and (new.data -> 'approval') is distinct from (was -> 'approval') then
+    raise exception 'Only the workspace''s owner and admins can approve posts.' using errcode = '42501';
+  end if;
+  if new.data ->> 'status' = 'scheduled'
+    and public.members_need_approval(new.owner_id, new.workspace_id)
+    and not coalesce(was ->> 'status' = 'scheduled' and (new.data - 'status' - 'sendFrom') = (was - 'status' - 'sendFrom'), false)
+  then
+    raise exception 'Posts in this workspace need approval before they go out. Ask for approval instead.' using errcode = '42501';
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.posts_approval_rules() from public, anon, authenticated;
+
 -- For services/storage, asked with the connector's token before it copies
 -- files onto a post: each source is `media/<id>`, a file of this workspace's
 -- media library, or `posts/<id>`, a file of one of its posts; each new id is
@@ -306,11 +422,13 @@ revoke all on function public.agent_context() from public, anon;
 revoke all on function public.agent_posts(uuid, text, text, text, text, text) from public, anon;
 revoke all on function public.agent_save_post(uuid, text, jsonb, bigint) from public, anon;
 revoke all on function public.agent_delete_post(uuid, text, text, bigint) from public, anon;
+revoke all on function public.agent_ask_approval(uuid, text, text, bigint, jsonb) from public, anon;
 revoke all on function public.agent_copy_files(uuid, text, text[], text[]) from public, anon;
 grant execute on function public.agent_context() to authenticated;
 grant execute on function public.agent_posts(uuid, text, text, text, text, text) to authenticated;
 grant execute on function public.agent_save_post(uuid, text, jsonb, bigint) to authenticated;
 grant execute on function public.agent_delete_post(uuid, text, text, bigint) to authenticated;
+grant execute on function public.agent_ask_approval(uuid, text, text, bigint, jsonb) to authenticated;
 grant execute on function public.agent_copy_files(uuid, text, text[], text[]) to authenticated;
 
 -- A connector's token still reaches nothing else: tables, Storage and every other function stay refused.
@@ -328,6 +446,7 @@ begin
       '/rpc/agent_posts',
       '/rpc/agent_save_post',
       '/rpc/agent_delete_post',
+      '/rpc/agent_ask_approval',
       '/rpc/agent_copy_files'
     ) then
     raise exception 'This token is only for the plan.video connector.' using errcode = 'PT403';
