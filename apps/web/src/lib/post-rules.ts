@@ -82,7 +82,6 @@ export type TikTokInput = {
   duet?: boolean;
   stitch?: boolean;
   promotion?: TikTokPromotion;
-  agreed?: boolean;
   inbox?: boolean;
 };
 

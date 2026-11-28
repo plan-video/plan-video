@@ -13,8 +13,8 @@ export type ToolContext = {
   media?(reference: string): Promise<File | null>;
   /**
    * Asks the signed-in person before a post is published, deleted, due within minutes, or
-   * sent to a TikTok profile. Where set, only this yes accepts TikTok's terms: the caller's
-   * own `agreed` is ignored. Unset, nothing is asked.
+   * sent to a TikTok profile. Only this yes accepts TikTok's terms: unset, nothing goes to
+   * a TikTok profile.
    */
   confirm?(request: ConfirmRequest): Promise<boolean>;
   app: {

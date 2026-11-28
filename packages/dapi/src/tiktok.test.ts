@@ -71,10 +71,11 @@ describe("checkTikTokCreator", () => {
 });
 
 describe("TikTok posting tools", () => {
-  it("ask for the promotion answer and the person's yes", () => {
+  it("ask for the promotion answer, but leave the yes to TikTok's terms to plan.video", () => {
     const tiktok = toolByName("schedule_post").input.shape.tiktok.unwrap().shape;
-    expect(Object.keys(tiktok)).toEqual(expect.arrayContaining(["privacy", "promotion", "agreed"]));
+    expect(Object.keys(tiktok)).toEqual(expect.arrayContaining(["privacy", "promotion"]));
+    expect("agreed" in tiktok).toBe(false);
     expect("tiktok" in toolByName("copy_post").input.shape).toBe(true);
-    expect("agreed" in toolByName("publish_post").input.shape).toBe(true);
+    expect("agreed" in toolByName("publish_post").input.shape).toBe(false);
   });
 });

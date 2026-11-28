@@ -6,7 +6,7 @@
 // rules (lib/post-rules) and save over the version read, as a browser does. The person's yes is asked by their
 // agent, which shows each tool's annotations: there's no plan.video tab to ask in.
 
-import { analyticsTool, checkTikTokCreator, DapiError, isDapiError, listMediaTool, tiktokConsent, toolByName, type ToolArgs, type ToolName } from "@plan.video/dapi";
+import { analyticsTool, DapiError, isDapiError, listMediaTool, toolByName, type ToolArgs, type ToolName } from "@plan.video/dapi";
 
 import { isDateKey, newId, resolveRepeatEnd } from "@/components/calendar/utils";
 import { inEnglish } from "@/lib/i18n";
@@ -37,7 +37,6 @@ import {
   threadOf,
   tiktokCreatorView,
   tiktokOf,
-  toProfile,
   youtubeOf,
   PUBLISHES,
 } from "@/lib/post-rules";
@@ -374,25 +373,11 @@ async function creatorOf(session: Session, account: AgentAccount) {
   }
 }
 
-/** TikTok's rules for its profile: the user's yes to TikTok's terms, passed by their agent, and each account's creator info. */
-async function tiktokYes(session: Session, choices: AccountChoices | undefined, tiktok: TikTokPostSettings, media: MediaSummary | null, agreed: boolean | undefined, field: string) {
-  if (agreed !== true) {
-    throw new DapiError(
-      "invalid-input",
-      `Posting to the TikTok profile needs the user's yes to TikTok's terms. Show them this, word for word: "${tiktokConsent(tiktok.brandedContent)}" Then pass ${field} true once they accept.`,
-    );
-  }
-  let settings = tiktok;
-  const warnings: string[] = [];
-  for (const account of accountsFor(session.scope, "tiktok", choices)) {
-    if (!account.ready) continue;
-    const checked = checkTikTokCreator(settings, await creatorOf(session, account), media?.kind === "video" ? media.duration : null);
-    if (checked.errors.length) throw new DapiError("invalid-input", checked.errors.join(" "));
-    settings = checked.choices;
-    warnings.push(...checked.warnings);
-  }
-  return { tiktok: settings, warnings };
-}
+// TikTok's terms are the user's to accept where they see them, in plan.video, so an agent's post to the profile waits there.
+const headedToProfile = (platforms: readonly string[], tiktok: TikTokPostSettings | undefined) => platforms.includes("tiktok") && !tiktok?.inbox;
+
+const tiktokHeld = (session: Session) =>
+  `Saved as a draft: TikTok asks the user to accept its terms in plan.video before a post goes to their profile. Tell them to open it in plan.video's calendar (${session.options.site}/dashboard) and press Schedule. Other networks on this post wait with it: to schedule them now, make them a post of their own. Or set tiktok.inbox true to send it to their TikTok inbox at its time, where they finish it in TikTok.`;
 
 /** The workspace's approval rule, as the calendar store applies it in the tab. */
 const withRules = <T extends StoredEvent>(session: Session, saved: StoredEvent | undefined, next: T) =>
@@ -425,14 +410,11 @@ async function saveNew(session: Session, args: NewPost, shared: Attached | null,
   const title = postTitle(args.youtube?.title || caption, shared?.names[0]?.name.replace(/\.[^.]+$/, "") || "Untitled post");
   const media = mediaOn(shared, own);
   const youtube = youtubeOf(args.youtube, youtubeBefore, platforms, caption, knownShape(media("youtube")));
-  let tiktok = platforms.includes("tiktok") ? tiktokOf(args.tiktok) : undefined;
-  requireTikTok(platforms, tiktok, scheduling);
+  const tiktok = platforms.includes("tiktok") ? tiktokOf(args.tiktok) : undefined;
+  const held = scheduling && headedToProfile(platforms, tiktok);
+  requireTikTok(platforms, tiktok, scheduling && !held);
   const warnings = assertFits({ kind: kindOf(shared, own), platforms, caption, title: youtube?.title || title, media });
-  if (scheduling && toProfile(platforms, tiktok)) {
-    const checked = await tiktokYes(session, choices, tiktok, media("tiktok"), args.tiktok?.agreed, "tiktok.agreed");
-    tiktok = checked.tiktok;
-    warnings.push(...checked.warnings);
-  }
+  if (held) warnings.push(tiktokHeld(session));
   const { repeat, repeatEnd } = repeatOf(args.repeat, day);
   const thread = threadOf(args.thread, platforms);
 
@@ -460,7 +442,7 @@ async function saveNew(session: Session, args: NewPost, shared: Attached | null,
       recurrenceEnd: recurrence ? resolveRepeatEnd(repeatEnd || undefined, recurrence, day) : null,
       sendFrom: new Date(session.now).toISOString(),
       start: time ?? "00:00",
-      status: scheduling ? "scheduled" : "draft",
+      status: scheduling && !held ? "scheduled" : "draft",
       timeZone: zone,
       title: title || "Untitled post",
     },
@@ -470,7 +452,7 @@ async function saveNew(session: Session, args: NewPost, shared: Attached | null,
   // Files last of all the checks: a copy can't be taken back.
   if (shared || Object.keys(own).length) Object.assign(post, await copyOnto(session, id, shared, own));
   const row = await written(session, post, null);
-  return viewOf(session, row, [...warnings, ...heldWarning(post, scheduling)]);
+  return viewOf(session, row, [...warnings, ...heldWarning(post, scheduling && !held)]);
 }
 
 // ---------------------------------------------------------------------------
@@ -612,20 +594,18 @@ async function updatePost(session: Session, args: ToolArgs<"update_post">) {
   const title = args.youtube?.title?.trim() || (args.caption !== undefined ? ownTitle || postTitle(caption, fileTitle || existing.title) : existing.title);
   const media = mediaOn(attached.shared, attached.own);
   const youtube = youtubeOf(args.youtube, existing.youtube, platforms, caption, knownShape(media("youtube")), args.caption !== undefined ? title : existing.youtube?.title);
-  let tiktok = platforms.includes("tiktok") ? tiktokOf(args.tiktok, existing.tiktok) : undefined;
+  const tiktok = platforms.includes("tiktok") ? tiktokOf(args.tiktok, existing.tiktok) : undefined;
+  // The user's yes in plan.video was to what's scheduled: a new time keeps it, any other change asks again.
+  const retimedOnly = Object.entries(args).every(([key, value]) => value === undefined || ["id", "day", "time", "draft", "repeat"].includes(key));
+  const accepted = existing.status === "scheduled" && headedToProfile(existing.platforms, existing.tiktok) && retimedOnly;
+  const held = status === "scheduled" && headedToProfile(platforms, tiktok) && !accepted;
+  if (held) status = "draft";
   requireTikTok(platforms, tiktok, status === "scheduled");
   const warnings = [
     ...assertFits({ kind: kindOf(attached.shared, attached.own), platforms, caption, own, title: youtube?.title || title, media }),
     ...removedAccountNotes(connected(scope), platforms, choices),
   ];
-  // A post already set to go to the profile was agreed to; one newly headed there, or with new answers, needs a yes again.
-  const agreedBefore = existing.status === "scheduled" && toProfile(existing.platforms, existing.tiktok);
-  const tiktokChanged = args.tiktok?.privacy !== undefined || args.tiktok?.promotion !== undefined || args.tiktok?.inbox !== undefined || args.accounts !== undefined;
-  if (status === "scheduled" && toProfile(platforms, tiktok) && (!agreedBefore || tiktokChanged)) {
-    const checked = await tiktokYes(session, choices, tiktok, media("tiktok"), args.tiktok?.agreed, "tiktok.agreed");
-    tiktok = checked.tiktok;
-    warnings.push(...checked.warnings);
-  }
+  if (held) warnings.push(tiktokHeld(session));
   const retimed = day !== existing.day || (time ?? "00:00") !== existing.start || !time !== existing.allDay || status !== existing.status;
 
   const built = args.repeat ? repeatOf(args.repeat, day) : null;
@@ -708,12 +688,18 @@ function deliveryErrors(row: PostRow): string {
   return lines.join(" ") || "The post was not published.";
 }
 
-async function publishPost(session: Session, { id, agreed }: ToolArgs<"publish_post">) {
+async function publishPost(session: Session, { id }: ToolArgs<"publish_post">) {
   const { scope } = session;
   const row = await postById(session, id);
   let post = row.data;
   if (post.status === "posted") throw new DapiError("invalid-input", "This post already went out.");
   if (awaitingApproval(post)) throw new DapiError("invalid-input", AWAITING_APPROVAL);
+  if (headedToProfile(post.platforms, post.tiktok)) {
+    throw new DapiError(
+      "invalid-input",
+      `TikTok asks the user to accept its terms in plan.video before a post goes to their profile. Tell them to open this post in plan.video's calendar (${session.options.site}/dashboard) and press Post now. Or update it with tiktok.inbox true and publish it to their TikTok inbox, where they finish it in TikTok.`,
+    );
+  }
   const foreign = post.platforms.filter((platform) => !PUBLISHES.has(platform));
   if (foreign.length > 0) {
     const names = foreign.map(platformName);
@@ -733,9 +719,6 @@ async function publishPost(session: Session, { id, agreed }: ToolArgs<"publish_p
     if (unnamed && others > 1) throw new DapiError("invalid-input", `${name} has more than one account. Update the post with the account id to publish.`);
     if (!unnamed && chosen.length === 0 && others > 0) throw new DapiError("invalid-input", `The ${name} account this post named was removed. Update the post with a ${name} account id, then publish.`);
     throw new DapiError("invalid-input", `Connect ${name} in Connections. A name alone can't publish.`);
-  }
-  if (post.platforms.includes("tiktok") && !post.tiktok?.inbox && !post.tiktok?.privacy) {
-    throw new DapiError("invalid-input", "TikTok needs who can watch before it can be published. Update the post with tiktok.privacy, or tiktok.inbox true.");
   }
   if (post.platforms.includes("youtube") && !(post.youtube?.title || post.title).trim()) throw new DapiError("invalid-input", "Add a YouTube title, then publish.");
   // YouTube needs a video, TikTok and Instagram a video or pictures. The others also take pictures, or the words alone.
@@ -760,13 +743,6 @@ async function publishPost(session: Session, { id, agreed }: ToolArgs<"publish_p
     base = saved.version;
     post = next;
   };
-  if (toProfile(post.platforms, post.tiktok)) {
-    const attached = savedMedia(post);
-    const checked = await tiktokYes(session, post.accounts, post.tiktok, mediaOn(attached.shared, attached.own)("tiktok"), agreed, "agreed");
-    warnings.push(...checked.warnings);
-    if (checked.warnings.length) await save({ ...post, tiktok: checked.tiktok });
-  }
-
   // A future post moves to now so the calendar shows where it went out, as Post now does in the app. A miss puts
   // that time back. A repeat stays on its days.
   const before = { day: post.day, start: post.start, allDay: post.allDay };

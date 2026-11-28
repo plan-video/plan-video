@@ -7,7 +7,6 @@ import { isUrlSource } from "@plan.video/assets";
 import {
   checkTikTokCreator,
   DapiError,
-  tiktokConsent,
   type TikTokPromotion,
   type ToolArgs,
 } from "@plan.video/dapi";
@@ -87,13 +86,12 @@ const mergeAccounts = (platforms: readonly PlatformId[], requested: readonly str
   mergeAccountChoices(socialConnections(), platforms, requested, existing);
 const removedAccounts = (platforms: readonly PlatformId[], choices: AccountChoices) => removedAccountNotes(socialConnections(), platforms, choices);
 
-// Where the tab can ask (ctx.confirm) the caller's word doesn't count: this
-// passes and askPerson waits for the person's own yes.
-function requireAgreed(ctx: ToolContext, tiktok: TikTokPostSettings, agreed: boolean | undefined, field: string) {
-  if (ctx.confirm || agreed === true) return;
+// TikTok's terms are accepted only by the person's own yes in this tab (askPerson shows them), never the caller's word.
+function requireAsking(ctx: ToolContext) {
+  if (ctx.confirm) return;
   throw new DapiError(
     "invalid-input",
-    `Posting to the TikTok profile needs the user's yes to TikTok's terms. Show them this, word for word: "${tiktokConsent(tiktok.brandedContent)}" Then pass ${field} true once they accept.`,
+    "Posting to the TikTok profile needs the user's yes to TikTok's terms in plan.video. Save it as a draft for them to schedule there, or set tiktok.inbox true so they finish it in TikTok.",
   );
 }
 
@@ -345,7 +343,7 @@ async function savePost(
   const warnings = assertFits({ kind: kindOf(attached, own), platforms, caption, title: youtube?.title || title, media });
   const profile = scheduling && toProfile(platforms, tiktok);
   if (scheduling && toProfile(platforms, tiktok)) {
-    requireAgreed(ctx, tiktok, args.tiktok?.agreed, "tiktok.agreed");
+    requireAsking(ctx);
     const checked = await checkCreators(choices, tiktok, media("tiktok"));
     tiktok = checked.tiktok;
     warnings.push(...checked.warnings);
@@ -527,7 +525,7 @@ export const updatePost: ToolHandler<"update_post"> = async (args, ctx) => {
     const agreedBefore = existing.status === "scheduled" && toProfile(existing.platforms, existing.tiktok);
     const changed = args.tiktok?.privacy !== undefined || args.tiktok?.promotion !== undefined || args.tiktok?.inbox !== undefined || args.accounts !== undefined;
     tiktokYes = !agreedBefore || changed;
-    if (tiktokYes) requireAgreed(ctx, tiktok, args.tiktok?.agreed, "tiktok.agreed");
+    if (tiktokYes) requireAsking(ctx);
     const checked = await checkCreators(choices, tiktok, media("tiktok"));
     tiktok = checked.tiktok;
     warnings.push(...checked.warnings);
@@ -640,7 +638,7 @@ export const deletePost: ToolHandler<"delete_post"> = async ({ id }, ctx) => {
   return { id, deleted: true };
 };
 
-export const publishPost: ToolHandler<"publish_post"> = async ({ id, agreed }, ctx) => {
+export const publishPost: ToolHandler<"publish_post"> = async ({ id }, ctx) => {
   const user = await ready(ctx);
   const post = allPosts().find((item) => item.id === id);
   if (!post) throw new DapiError("not-found", "This post no longer exists.");
@@ -695,7 +693,7 @@ export const publishPost: ToolHandler<"publish_post"> = async ({ id, agreed }, c
   const warnings: string[] = [];
   let profile: TikTokPostSettings | null = null;
   if (toProfile(post.platforms, post.tiktok)) {
-    requireAgreed(ctx, post.tiktok, agreed, "agreed");
+    requireAsking(ctx);
     const media = (await attach(await postFiles(post, "tiktok"), false))?.media ?? null;
     const checked = await checkCreators(post.accounts, post.tiktok, media);
     warnings.push(...checked.warnings);

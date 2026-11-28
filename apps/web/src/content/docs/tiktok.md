@@ -26,5 +26,9 @@ Post videos and photo posts to TikTok.
 </AccordionGroup>
 
 <Note>
+An [agent](/docs/agents) can't post to your TikTok profile by itself. A TikTok post it schedules waits on your calendar as a draft until you open it and press **Schedule**.
+</Note>
+
+<Note>
 TikTok adds a trending sound to photo posts. Change it in the TikTok app once the post is up.
 </Note>
