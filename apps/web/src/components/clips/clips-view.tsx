@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { useSearchParams } from "@solidjs/router";
-import { For, Match, Show, Switch, createEffect, createMemo, createSignal, on, onCleanup } from "solid-js";
+import { For, Match, Show, Switch, createEffect, createMemo, createSignal, on, onCleanup, type JSX } from "solid-js";
 import { createStore, produce, unwrap } from "solid-js/store";
 import { toast } from "somoto";
 
@@ -13,13 +13,14 @@ import { DashboardPageHeader } from "@/components/dashboard/page-header";
 import { DashboardCardButton, DashboardCardPreview } from "@/components/dashboard/shared";
 import { Button } from "@/components/ui/button";
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuPortal, ContextMenuSeparator, ContextMenuTrigger } from "@/components/ui/context-menu";
+import { Select, SelectContent, SelectItem, SelectPortal, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/context/auth";
 import { track } from "@/lib/analytics";
 import { addedClip, clipFromMoment, clock, deleteStream, duplicateClip, loadStreams, saveStream, type ClipEdit, type ClipStream } from "@/lib/clip-studio";
 import { cx } from "@/lib/cva";
 import type { StreamLook } from "@/lib/facecam-find";
-import { msg, t } from "@/lib/i18n";
+import { intlLocale, msg, t } from "@/lib/i18n";
 import { ClipsRefused, scanStream, type ScanStep, type StreamVideo } from "@/lib/stream-clips";
 
 import { AddClip } from "./add-clip";
@@ -356,6 +357,61 @@ function SourceMark(props: { id: Platform; class?: string }) {
 
 const PLATFORMS: Platform[] = ["twitch", "kick", "youtube"];
 
+const SOURCE_FILTERS = [
+  { id: "all", label: msg("All platforms"), brand: false },
+  { id: "twitch", label: "Twitch", brand: true },
+  { id: "kick", label: "Kick", brand: true },
+  { id: "youtube", label: "YouTube", brand: true },
+] as const;
+const STREAM_ORDERS = [
+  { id: "opened", label: msg("Last opened") },
+  { id: "newest", label: msg("Newest stream") },
+  { id: "clips", label: msg("Most clips") },
+  { id: "name", label: msg("Name") },
+] as const;
+const VIEWS = [
+  { id: "grid", label: msg("Grid"), icon: "view.grid" },
+  { id: "list", label: msg("List"), icon: "list" },
+] as const;
+
+const optionLabel = (option: (typeof SOURCE_FILTERS)[number] | null | undefined) => (option ? (option.brand ? option.label : t(option.label)) : "");
+
+/** A choice kept on this device; anything unknown falls back. */
+function stored<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
+  try {
+    const value = localStorage.getItem(key);
+    return allowed.includes(value as T) ? (value as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function remember<T extends string>(set: (value: T) => void, key: string, value: T) {
+  set(value);
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // Private windows can refuse storage; the choice still holds for now.
+  }
+}
+
+function StreamMenu(props: { stream: ClipStream; onOpen(id: string): void; onRemove(stream: ClipStream): void; children: JSX.Element }) {
+  return (
+    <ContextMenu modal={false}>
+      <ContextMenuTrigger as="div" class="contents">
+        {props.children}
+      </ContextMenuTrigger>
+      <ContextMenuPortal>
+        <ContextMenuContent class="w-45 gap-0">
+          <ContextMenuItem onSelect={() => props.onOpen(props.stream.video.id)}>{t("Open")}</ContextMenuItem>
+          <ContextMenuSeparator class="my-2" />
+          <ContextMenuItem onSelect={() => props.onRemove(props.stream)}>{t("Remove stream")}</ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenuPortal>
+    </ContextMenu>
+  );
+}
+
 function Start(props: {
   link: string;
   onLink(value: string): void;
@@ -366,6 +422,17 @@ function Start(props: {
   onRemove(stream: ClipStream): void;
 }) {
   let field!: HTMLTextAreaElement;
+  const [filter, setFilter] = createSignal(stored("plan.clips-filter", SOURCE_FILTERS.map((option) => option.id), "all"));
+  const [order, setOrder] = createSignal(stored("plan.clips-order", STREAM_ORDERS.map((option) => option.id), "opened"));
+  const [view, setView] = createSignal(stored("plan.clips-view", VIEWS.map((option) => option.id), "grid"));
+  const dated = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleDateString(intlLocale(), { day: "numeric", month: "short" }) : "");
+  const shown = createMemo(() => {
+    const list = props.streams.filter((stream) => filter() === "all" || (stream.video.source ?? "twitch") === filter());
+    if (order() === "newest") return list.sort((a, b) => Date.parse(b.video.createdAt ?? "") - Date.parse(a.video.createdAt ?? "") || 0);
+    if (order() === "clips") return list.sort((a, b) => b.clips.length - a.clips.length);
+    if (order() === "name") return list.sort((a, b) => (a.video.title || a.video.channel).localeCompare(b.video.title || b.video.channel, intlLocale()));
+    return list;
+  });
   const paste = async () => {
     const text = await navigator.clipboard?.readText?.().catch(() => "");
     if (text?.trim()) props.onLink(text.trim());
@@ -431,42 +498,129 @@ function Start(props: {
 
         <Show when={props.streams.length}>
           <section class="mt-16 flex w-full flex-col gap-3 max-md:mt-12">
-            <h3 class="flex items-baseline gap-2 px-2 text-base font-medium text-foreground">
-              {t("Recent streams")}
-            </h3>
-            <div class="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] content-start items-start gap-x-0.5 gap-y-3 max-sm:grid-cols-1">
-              <For each={props.streams}>
-                {(stream) => (
-                  <ContextMenu modal={false}>
-                    <ContextMenuTrigger as="div" class="contents">
-                      <DashboardCardButton onClick={() => props.onOpen(stream.video.id)} onDelete={() => props.onRemove(stream)}>
-                        <DashboardCardPreview>
-                          <StoryboardThumb
-                            board={stream.video.storyboard}
-                            seconds={stream.clips[0]?.start ?? 0}
-                            still={stream.clips[0]?.thumb}
-                            class="absolute inset-0 size-full rounded-none"
-                          />
-                        </DashboardCardPreview>
-                        <div class="flex min-w-0 flex-col gap-0.5 px-2">
-                          <p class="truncate text-sm font-medium text-foreground">{stream.video.title || stream.video.channel}</p>
-                          <p class="truncate text-xs text-muted-foreground">
-                            {[stream.video.channel, t("{count, plural, one {# clip} other {# clips}}", { count: stream.clips.length })].filter(Boolean).join(" · ")}
-                          </p>
-                        </div>
-                      </DashboardCardButton>
-                    </ContextMenuTrigger>
-                    <ContextMenuPortal>
-                      <ContextMenuContent class="w-45 gap-0">
-                        <ContextMenuItem onSelect={() => props.onOpen(stream.video.id)}>{t("Open")}</ContextMenuItem>
-                        <ContextMenuSeparator class="my-2" />
-                        <ContextMenuItem onSelect={() => props.onRemove(stream)}>{t("Remove stream")}</ContextMenuItem>
-                      </ContextMenuContent>
-                    </ContextMenuPortal>
-                  </ContextMenu>
-                )}
-              </For>
+            <div class="flex flex-wrap items-center gap-2 px-2">
+              <h3 class="mr-auto text-base font-medium text-foreground max-sm:w-full">{t("Recent streams")}</h3>
+              <Select<(typeof SOURCE_FILTERS)[number]>
+                options={[...SOURCE_FILTERS]}
+                value={SOURCE_FILTERS.find((option) => option.id === filter()) ?? SOURCE_FILTERS[0]}
+                onChange={(option) => option && remember(setFilter, "plan.clips-filter", option.id)}
+                optionValue="id"
+                optionTextValue="label"
+                itemComponent={(item) => <SelectItem item={item.item}>{optionLabel(item.item.rawValue)}</SelectItem>}
+              >
+                <SelectTrigger class="w-auto min-w-30" aria-label={t("Platform")}>
+                  <SelectValue<(typeof SOURCE_FILTERS)[number]>>{(state) => optionLabel(state.selectedOption())}</SelectValue>
+                </SelectTrigger>
+                <SelectPortal>
+                  <SelectContent />
+                </SelectPortal>
+              </Select>
+              <Select<(typeof STREAM_ORDERS)[number]>
+                options={[...STREAM_ORDERS]}
+                value={STREAM_ORDERS.find((option) => option.id === order()) ?? STREAM_ORDERS[0]}
+                onChange={(option) => option && remember(setOrder, "plan.clips-order", option.id)}
+                optionValue="id"
+                optionTextValue="label"
+                itemComponent={(item) => <SelectItem item={item.item}>{t(item.item.rawValue.label)}</SelectItem>}
+              >
+                <SelectTrigger class="w-auto min-w-30" aria-label={t("Sort streams")}>
+                  <SelectValue<(typeof STREAM_ORDERS)[number]>>{(state) => t(state.selectedOption()?.label ?? "")}</SelectValue>
+                </SelectTrigger>
+                <SelectPortal>
+                  <SelectContent />
+                </SelectPortal>
+              </Select>
+              <div role="group" aria-label={t("View")} class="flex h-7 shrink-0 items-center gap-0.5 rounded-md bg-(--plane-layer-3) p-[3px]">
+                <For each={VIEWS}>
+                  {(entry) => (
+                    <button
+                      type="button"
+                      aria-pressed={view() === entry.id}
+                      aria-label={t(entry.label)}
+                      title={t(entry.label)}
+                      class={cx(
+                        "grid h-full w-7 place-items-center rounded-sm outline-none focus-ring",
+                        view() === entry.id
+                          ? "bg-(--plane-layer-transparent-active) text-(--plane-text-primary)"
+                          : "text-(--plane-text-secondary) hover:bg-(--plane-layer-transparent-hover) hover:text-(--plane-text-primary)",
+                      )}
+                      onClick={() => remember(setView, "plan.clips-view", entry.id)}
+                    >
+                      <Icon name={entry.icon} class="size-3.5" />
+                    </button>
+                  )}
+                </For>
+              </div>
             </div>
+            <Show
+              when={shown().length}
+              fallback={<p class="px-2 py-12 text-center text-sm text-muted-foreground">{t("No streams from {platform} yet.", { platform: SOURCE_NAMES[filter() as Platform] ?? "" })}</p>}
+            >
+              <Show
+                when={view() === "list"}
+                fallback={
+                  <div class="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] content-start items-start gap-x-0.5 gap-y-3 max-sm:grid-cols-1">
+                    <For each={shown()}>
+                      {(stream) => (
+                        <StreamMenu stream={stream} onOpen={props.onOpen} onRemove={props.onRemove}>
+                          <DashboardCardButton onClick={() => props.onOpen(stream.video.id)} onDelete={() => props.onRemove(stream)}>
+                            <DashboardCardPreview>
+                              <StoryboardThumb
+                                board={stream.video.storyboard}
+                                seconds={stream.clips[0]?.start ?? 0}
+                                still={stream.clips[0]?.thumb}
+                                class="absolute inset-0 size-full rounded-none"
+                              />
+                            </DashboardCardPreview>
+                            <div class="flex min-w-0 flex-col gap-0.5 px-2">
+                              <p class="truncate text-sm font-medium text-foreground">{stream.video.title || stream.video.channel}</p>
+                              <p class="truncate text-xs text-muted-foreground">
+                                {[stream.video.channel, t("{count, plural, one {# clip} other {# clips}}", { count: stream.clips.length })].filter(Boolean).join(" · ")}
+                              </p>
+                            </div>
+                          </DashboardCardButton>
+                        </StreamMenu>
+                      )}
+                    </For>
+                  </div>
+                }
+              >
+                <div class="flex flex-col gap-0.5">
+                  <For each={shown()}>
+                    {(stream) => (
+                      <StreamMenu stream={stream} onOpen={props.onOpen} onRemove={props.onRemove}>
+                        <DashboardCardButton
+                          class="flex-row items-center gap-4 py-2"
+                          onClick={() => props.onOpen(stream.video.id)}
+                          onDelete={() => props.onRemove(stream)}
+                        >
+                          <DashboardCardPreview class="w-28 shrink-0">
+                            <StoryboardThumb
+                              board={stream.video.storyboard}
+                              seconds={stream.clips[0]?.start ?? 0}
+                              still={stream.clips[0]?.thumb}
+                              class="absolute inset-0 size-full rounded-none"
+                            />
+                          </DashboardCardPreview>
+                          <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+                            <p class="truncate text-sm font-medium text-foreground">{stream.video.title || stream.video.channel}</p>
+                            <p class="truncate text-xs text-muted-foreground">{stream.video.channel}</p>
+                          </div>
+                          <span class="flex w-28 shrink-0 items-center gap-2 text-xs text-muted-foreground max-md:hidden">
+                            <SourceMark id={stream.video.source ?? "twitch"} class="size-4 rounded-[4px]" />
+                            {SOURCE_NAMES[stream.video.source ?? "twitch"]}
+                          </span>
+                          <span class="w-20 shrink-0 text-xs text-muted-foreground tabular-nums max-sm:hidden">
+                            {t("{count, plural, one {# clip} other {# clips}}", { count: stream.clips.length })}
+                          </span>
+                          <span class="w-20 shrink-0 pr-2 text-right text-xs text-muted-foreground tabular-nums max-sm:hidden">{dated(stream.video.createdAt)}</span>
+                        </DashboardCardButton>
+                      </StreamMenu>
+                    )}
+                  </For>
+                </div>
+              </Show>
+            </Show>
           </section>
         </Show>
       </div>
