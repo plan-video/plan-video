@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { For, createEffect } from "solid-js";
+import { For, Index, createEffect } from "solid-js";
 
 import { postLayout } from "@/lib/post-builder";
 import { CROP_COLORS, CROP_LABELS, type Box, type CropId, type Crops } from "@/lib/stream-layouts";
@@ -61,6 +61,10 @@ export function CropEditor(props: CropEditorProps) {
     }
   });
 
+  const size = (box: Box) => box.width * box.height;
+  /** Smaller boxes sit on top, so one inside another can still be grabbed. */
+  const layer = (box: Box) => 1 + boxes().filter((other) => size(other.box) > size(box)).length;
+
   const grab = (id: CropId, start: Box, mode: "move" | "nw" | "ne" | "sw" | "se") => (event: PointerEvent) => {
     event.preventDefault();
     event.stopPropagation();
@@ -114,27 +118,29 @@ export function CropEditor(props: CropEditorProps) {
       style={{ "aspect-ratio": String(aspect()), "max-width": props.maxHeight ? `calc(${props.maxHeight} * ${aspect()})` : undefined }}
     >
       <canvas ref={canvas} class="absolute inset-0 size-full" aria-hidden="true" />
-      <For each={boxes()}>
+      {/* Index keeps each box the same element while it moves, so a drag holds on to it. */}
+      <Index each={boxes()}>
         {(entry) => (
           <div
             role="slider"
             tabIndex={0}
-            aria-label={t("{name} crop", { name: t(CROP_LABELS[entry.id]) })}
-            aria-valuetext={`${Math.round(entry.box.x * 100)}%, ${Math.round(entry.box.y * 100)}%`}
+            aria-label={t("{name} crop", { name: t(CROP_LABELS[entry().id]) })}
+            aria-valuetext={`${Math.round(entry().box.x * 100)}%, ${Math.round(entry().box.y * 100)}%`}
             class="absolute cursor-move outline-none focus-visible:ring-2 focus-visible:ring-white"
             style={{
-              left: `${entry.box.x * 100}%`,
-              top: `${entry.box.y * 100}%`,
-              width: `${entry.box.width * 100}%`,
-              height: `${entry.box.height * 100}%`,
-              "box-shadow": `inset 0 0 0 2px ${CROP_COLORS[entry.id]}`,
-              "background-color": `color-mix(in srgb, ${CROP_COLORS[entry.id]} 12%, transparent)`,
+              left: `${entry().box.x * 100}%`,
+              top: `${entry().box.y * 100}%`,
+              width: `${entry().box.width * 100}%`,
+              height: `${entry().box.height * 100}%`,
+              "z-index": layer(entry().box),
+              "box-shadow": `inset 0 0 0 2px ${CROP_COLORS[entry().id]}`,
+              "background-color": `color-mix(in srgb, ${CROP_COLORS[entry().id]} 12%, transparent)`,
             }}
-            onPointerDown={grab(entry.id, entry.box, "move")}
-            onKeyDown={nudge(entry.id, entry.box)}
+            onPointerDown={(event) => grab(entry().id, entry().box, "move")(event)}
+            onKeyDown={(event) => nudge(entry().id, entry().box)(event)}
           >
-            <span class="absolute top-1 left-1 rounded px-1 py-px text-[10px] font-medium text-white" style={{ "background-color": CROP_COLORS[entry.id] }}>
-              {t(CROP_LABELS[entry.id])}
+            <span class="absolute top-1 left-1 rounded px-1 py-px text-[10px] font-medium text-white" style={{ "background-color": CROP_COLORS[entry().id] }}>
+              {t(CROP_LABELS[entry().id])}
             </span>
             <For each={["nw", "ne", "sw", "se"] as const}>
               {(corner) => (
@@ -146,14 +152,14 @@ export function CropEditor(props: CropEditorProps) {
                     "-bottom-1.5 -left-1.5 cursor-nesw-resize": corner === "sw",
                     "-bottom-1.5 -right-1.5 cursor-nwse-resize": corner === "se",
                   }}
-                  style={{ "background-color": CROP_COLORS[entry.id] }}
-                  onPointerDown={grab(entry.id, entry.box, corner)}
+                  style={{ "background-color": CROP_COLORS[entry().id] }}
+                  onPointerDown={(event) => grab(entry().id, entry().box, corner)(event)}
                 />
               )}
             </For>
           </div>
         )}
-      </For>
+      </Index>
     </div>
   );
 }
