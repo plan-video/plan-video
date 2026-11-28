@@ -7,7 +7,7 @@ import { Show, createEffect, onCleanup, onMount } from "solid-js";
 import { clock } from "@/lib/clip-studio";
 import { t } from "@/lib/i18n";
 
-import type { ClipPeaks } from "./clip-media";
+import type { ClipStrip } from "./clip-media";
 
 type TrimBarProps = {
   /** Broadcast seconds that can be shown. */
@@ -16,9 +16,8 @@ type TrimBarProps = {
   end: number;
   /** Seconds into the clip. */
   time: number;
-  peaks: ClipPeaks | undefined;
-  /** Where the range starts in the waveform's file. */
-  fileStart: number | undefined;
+  /** Frames spread evenly across `range`. */
+  frames: ClipStrip | undefined;
   /** Seconds into the clip where words are said, as faint ticks. */
   words: number[];
   onTrim(start: number, end: number): void;
@@ -40,7 +39,7 @@ export function TrimBar(props: TrimBarProps) {
 
   const draw = () => {
     const ctx = canvas.getContext("2d");
-    const peaks = props.peaks;
+    const frames = props.frames;
     const width = canvas.clientWidth;
     const height = canvas.clientHeight;
     if (!ctx || !width) return;
@@ -49,24 +48,23 @@ export function TrimBar(props: TrimBarProps) {
     canvas.height = Math.round(height * ratio);
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
     ctx.clearRect(0, 0, width, height);
-    if (!peaks || props.fileStart === undefined) return;
-    const color = getComputedStyle(canvas).color;
-    ctx.fillStyle = color;
-    const bars = Math.floor(width / 3);
-    for (let i = 0; i < bars; i++) {
-      const seconds = props.fileStart + (i / bars) * span();
-      const index = Math.floor((seconds / peaks.duration) * peaks.values.length);
-      const value = peaks.values[Math.min(peaks.values.length - 1, Math.max(0, index))] ?? 0;
-      const bar = Math.max(1.5, value * (height - 6));
-      ctx.fillRect(i * 3, (height - bar) / 2, 2, bar);
+    const first = frames?.find((frame) => frame);
+    if (!frames || !first) return;
+    // Whole frames side by side; each shows the moment under its middle.
+    const across = (height * first.width) / first.height;
+    for (let x = 0; x < width; x += across) {
+      const frame = frames[Math.min(frames.length - 1, Math.floor(((x + across / 2) / width) * frames.length))];
+      if (!frame) continue;
+      try {
+        ctx.drawImage(frame, Math.round(x), 0, Math.ceil(across), height);
+      } catch {
+        // A frame closed when its clip left the cache.
+      }
     }
   };
 
   createEffect(() => {
-    void props.peaks;
-    void props.fileStart;
-    void props.range.start;
-    void props.range.end;
+    void props.frames;
     draw();
   });
   onMount(() => {
@@ -112,7 +110,7 @@ export function TrimBar(props: TrimBarProps) {
         class="relative h-14 cursor-pointer touch-none select-none overflow-hidden rounded-lg bg-(--plane-layer-1) ring-1 ring-inset ring-(--plane-border-subtle)"
         onPointerDown={drag("seek")}
       >
-        <canvas ref={canvas} class="absolute inset-0 size-full text-(--plane-text-placeholder)" aria-hidden="true" />
+        <canvas ref={canvas} class="absolute inset-0 size-full" aria-hidden="true" />
         <div class="pointer-events-none absolute inset-y-0 left-0 bg-(--plane-surface-1)/70" style={{ width: `${at(props.start)}%` }} />
         <div class="pointer-events-none absolute inset-y-0 right-0 bg-(--plane-surface-1)/70" style={{ width: `${100 - at(props.end)}%` }} />
         <div class="pointer-events-none absolute inset-y-0 rounded-md ring-2 ring-inset ring-primary" style={{ left: `${at(props.start)}%`, width: `${at(props.end) - at(props.start)}%` }}>
@@ -143,8 +141,8 @@ export function TrimBar(props: TrimBarProps) {
         >
           <span class="mx-auto block h-5 w-0.5 rounded-full bg-primary-foreground/80" />
         </button>
-        <Show when={!props.peaks}>
-          <span class="pointer-events-none absolute inset-0 grid place-items-center text-xs text-muted-foreground">{t("Loading the sound…")}</span>
+        <Show when={!props.frames}>
+          <span class="pointer-events-none absolute inset-0 grid place-items-center text-xs text-muted-foreground">{t("Loading…")}</span>
         </Show>
       </div>
       <div class="flex items-center justify-between text-xs tabular-nums text-muted-foreground">

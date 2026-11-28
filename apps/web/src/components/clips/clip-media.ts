@@ -11,11 +11,14 @@ export type ClipMedia = { url: string; file: File; offset: number; from: number;
 
 /** A few stay in memory, so moving between clips doesn't fetch them again. */
 const KEEP = 6;
+const STRIP_FRAMES = 24;
+/** Twice the trim bar's height, for sharp frames on retina screens. */
+const STRIP_HEIGHT = 112;
 const media = new Map<string, Promise<ClipMedia>>();
-const peaks = new Map<string, Promise<ClipPeaks>>();
+const strips = new Map<string, Promise<ClipStrip>>();
 
-/** Loudness from 0 to 1 across the whole file, which is `duration` seconds long. */
-export type ClipPeaks = { values: Float32Array; duration: number };
+/** Frames in order; null where one couldn't be read. */
+export type ClipStrip = (ImageBitmap | null)[];
 
 const keyOf = (video: StreamVideo, clip: ClipEdit) => `${video.id}:${clip.range.start}:${clip.range.end}`;
 
@@ -40,8 +43,10 @@ export function clipMedia(video: StreamVideo, clip: ClipEdit): Promise<ClipMedia
   while (media.size > KEEP) {
     const [oldest, gone] = media.entries().next().value as [string, Promise<ClipMedia>];
     media.delete(oldest);
-    peaks.delete(oldest);
+    const strip = strips.get(oldest);
+    strips.delete(oldest);
     void gone.then((old) => URL.revokeObjectURL(old.url), () => {});
+    void strip?.then((frames) => frames.forEach((frame) => frame?.close()), () => {});
   }
   return pending;
 }
@@ -58,29 +63,31 @@ export async function fetchAhead(video: StreamVideo, shown: ClipEdit, next: Clip
   }
 }
 
-/** The file's loudness in `buckets` peaks, for the trim bar's waveform. */
-export function clipPeaks(video: StreamVideo, clip: ClipEdit, buckets = 900): Promise<ClipPeaks> {
+/** `count` frames spread evenly across the clip's whole range, for the trim bar. */
+export function clipStrip(video: StreamVideo, clip: ClipEdit, count = STRIP_FRAMES): Promise<ClipStrip> {
   const key = keyOf(video, clip);
-  let pending = peaks.get(key);
+  let pending = strips.get(key);
   if (!pending) {
-    pending = clipMedia(video, clip).then(async ({ file }) => {
-      const context = new OfflineAudioContext(1, 1, 22050);
-      const audio = await context.decodeAudioData(await file.arrayBuffer());
-      const data = audio.getChannelData(0);
-      const out = new Float32Array(buckets);
-      const size = Math.max(1, Math.floor(data.length / buckets));
-      let loudest = 0;
-      for (let b = 0; b < buckets; b++) {
-        let peak = 0;
-        for (let i = b * size, end = Math.min(data.length, i + size); i < end; i += 4) peak = Math.max(peak, Math.abs(data[i]!));
-        out[b] = peak;
-        loudest = Math.max(loudest, peak);
+    pending = clipMedia(video, clip).then(async (loaded) => {
+      const { ALL_FORMATS, BlobSource, CanvasSink, Input } = await import("mediabunny");
+      const input = new Input({ formats: ALL_FORMATS, source: new BlobSource(loaded.file) });
+      try {
+        const track = await input.getPrimaryVideoTrack();
+        if (!track || !(await track.canDecode())) return [];
+        const height = STRIP_HEIGHT;
+        const sink = new CanvasSink(track, { width: Math.round((height * track.displayWidth) / track.displayHeight), height, fit: "fill", poolSize: 1 });
+        const from = loaded.at(clip.range.start);
+        const span = clip.range.end - clip.range.start;
+        const times = Array.from({ length: count }, (_, i) => from + (span * (i + 0.5)) / count);
+        const frames: ClipStrip = [];
+        for await (const wrapped of sink.canvasesAtTimestamps(times)) frames.push(wrapped ? await createImageBitmap(wrapped.canvas) : null);
+        return frames;
+      } finally {
+        input.dispose();
       }
-      if (loudest > 0) for (let b = 0; b < buckets; b++) out[b] = out[b]! / loudest;
-      return { values: out, duration: audio.duration };
     });
-    pending.catch(() => peaks.delete(key));
-    peaks.set(key, pending);
+    pending.catch(() => strips.delete(key));
+    strips.set(key, pending);
   }
   return pending;
 }

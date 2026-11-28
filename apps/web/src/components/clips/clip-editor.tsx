@@ -21,7 +21,7 @@ import { isInputTarget } from "@/utils";
 import { clipExportSettings, clipProject, downloadClip } from "./clip-actions";
 import { captionLook, drawClip, hookLook, useFont } from "./clip-canvas";
 import { ClipInspector } from "./clip-inspector";
-import { clipMedia, clipPeaks } from "./clip-media";
+import { clipMedia, clipStrip } from "./clip-media";
 import { TrimBar } from "./trim-bar";
 
 import type { StreamVideo } from "@/lib/stream-clips";
@@ -60,9 +60,9 @@ export function ClipEditor(props: ClipEditorProps) {
     () => ({ id: props.clip.id, start: props.clip.range.start, end: props.clip.range.end }),
     () => clipMedia(props.video, props.clip),
   );
-  const [peaks] = createResource(
+  const [strip] = createResource(
     () => media() && { id: props.clip.id },
-    () => clipPeaks(props.video, props.clip),
+    () => clipStrip(props.video, props.clip).catch(() => []),
   );
 
   const draw = () => {
@@ -364,8 +364,7 @@ export function ClipEditor(props: ClipEditorProps) {
             start={props.clip.start}
             end={props.clip.end}
             time={time()}
-            peaks={peaks()}
-            fileStart={media()?.at(props.clip.range.start)}
+            frames={strip()}
             words={props.clip.heard ? clipWords(props.clip).map((word) => word.start) : []}
             onTrim={trim}
             onSeek={seek}
