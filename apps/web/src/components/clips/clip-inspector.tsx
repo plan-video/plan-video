@@ -547,7 +547,7 @@ function PostTab(props: InspectorProps) {
         <FieldGroup label={t("Why it was picked")}>
           <p class="flex items-start gap-2 text-xs text-foreground">
             <Show when={props.clip.score !== null}>
-              <span class="shrink-0 rounded bg-(--plane-layer-2) px-1.5 py-0.5 tabular-nums text-muted-foreground">{props.clip.score}</span>
+              <span class="shrink-0 rounded bg-(--plane-layer-2) px-1.5 py-0.5 tabular-nums text-muted-foreground">{t("Virality {score}", { score: props.clip.score ?? 0 })}</span>
             </Show>
             <span>{props.clip.reason}</span>
           </p>

@@ -141,7 +141,7 @@ export async function scan(link, options) {
   }
 }
 
-async function scanIn(link, { req, user, env, say, fetchImpl = fetch, signal, dir, sound = { measureLoudness, speechWav }, open = openSource }) {
+async function scanIn(link, { req, user, env, say, language, fetchImpl = fetch, signal, dir, sound = { measureLoudness, speechWav }, open = openSource }) {
   const source = await open(link, { fetchImpl, env, dir, signal });
   const video = source.video;
   if (video.seconds < MIN_SECONDS) throw new Refused(422, "That broadcast is too short to clip.");
@@ -194,16 +194,20 @@ async function scanIn(link, { req, user, env, say, fetchImpl = fetch, signal, di
   if (!sent.length) throw new Refused(spent ? 402 : 422, spent ?? "No speech was heard in the parts of the stream that stood out.");
 
   say({ type: "step", step: "picking" });
+  const usualPace = messages.length / seconds;
   const body = {
     stream: { title: video.title, channel: video.channel, game: video.game },
     count: MOMENTS,
+    language,
     windows: sent.map(({ window, words }) => {
       const summary = chatSummary(messages, window.start, window.end);
+      const length = window.end - window.start;
       return {
-        length: window.end - window.start,
+        length,
         words,
         chat: summary.lines,
         chatTotal: summary.total,
+        chatPace: usualPace ? summary.total / length / usualPace : 0,
         clips: clips.filter((clip) => clip.start < window.end && clip.start + clip.duration > window.start).map(({ title, views }) => ({ title, views })),
       };
     }),
@@ -272,7 +276,7 @@ export async function handleScan(req, res, env, fetchImpl = fetch) {
   res.on("close", stop);
   const say = ndjson(res);
   try {
-    const result = await scan(link, { req, user, env, say, fetchImpl, signal: abort.signal });
+    const result = await scan(link, { req, user, env, say, language: body.language, fetchImpl, signal: abort.signal });
     if (results.size > 1000) results.clear();
     results.set(key, { result, until: Date.now() + RESULT_HOURS * 3600_000 });
     say({ type: "done", ...result });

@@ -2,10 +2,12 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createServer, request } from "node:http";
 
-import { answerFor, handleMoments, readRequest } from "./moments.mjs";
+import { answerFor, handleMoments, readRequest, virality } from "./moments.mjs";
 import { json, Refused } from "./handler.mjs";
 
 const words = (...list) => list.map(([text, start, end]) => ({ text, start, end }));
+
+const marks = (all) => ({ hook: all, payoff: all, standalone: all, buzz: all });
 
 const window0 = {
   length: 60,
@@ -17,22 +19,34 @@ const window0 = {
 
 test("picks snap to word edges and stay inside their window", () => {
   const request = readRequest({ windows: [window0], count: 5 });
-  const { moments } = answerFor({ moments: [{ window: 0, start: 1.8, end: 31.0, score: 90, title: "He did not", caption: "", reason: "" }] }, request);
+  const { moments } = answerFor({ moments: [{ window: 0, start: 1.8, end: 31.0, ...marks(9), title: "He did not", caption: "", reason: "" }] }, request);
   // A breath before the first word, and a moment after the payoff for the reaction.
   assert.deepEqual(moments.map(({ start, end }) => [start, end]), [[1.9, 32]]);
 
-  const outside = answerFor({ moments: [{ window: 3, start: 0, end: 20, score: 99, title: "x", caption: "", reason: "" }] }, request);
+  const outside = answerFor({ moments: [{ window: 3, start: 0, end: 20, ...marks(10), title: "x", caption: "", reason: "" }] }, request);
   assert.deepEqual(outside.moments, []);
 
-  const late = answerFor({ moments: [{ window: 0, start: 55, end: 200, score: 50, title: "x", caption: "", reason: "" }] }, request);
+  const late = answerFor({ moments: [{ window: 0, start: 55, end: 200, ...marks(5), title: "x", caption: "", reason: "" }] }, request);
   assert.deepEqual(late.moments.map(({ start, end }) => [start, end]), [[52, 60]]);
 });
 
 test("overlapping picks in one window keep the better one, and the count holds", () => {
   const request = readRequest({ windows: [window0, window0], count: 2 });
-  const pick = (window, start, end, score) => ({ window, start, end, score, title: `t${score}`, caption: "", reason: "" });
-  const { moments } = answerFor({ moments: [pick(0, 0, 30, 40), pick(0, 10, 40, 80), pick(1, 0, 20, 60), pick(1, 30, 50, 10)] }, request);
-  assert.deepEqual(moments.map((moment) => moment.title), ["t80", "t60"]);
+  const pick = (window, start, end, mark) => ({ window, start, end, ...marks(mark), title: `t${mark}`, caption: "", reason: "" });
+  const { moments } = answerFor({ moments: [pick(0, 0, 30, 4), pick(0, 10, 40, 8), pick(1, 0, 20, 6), pick(1, 30, 50, 1)] }, request);
+  assert.deepEqual(moments.map((moment) => moment.title), ["t8", "t6"]);
+});
+
+test("virality weighs the payoff and the hook above the rest, and stays within 0 to 100", () => {
+  assert.equal(virality(marks(10)), 100);
+  assert.equal(virality({ hook: 15, payoff: 12, standalone: 99, buzz: 10 }), 100);
+  assert.equal(virality({ hook: -3, payoff: "x", standalone: null }), 0);
+  const strongPayoff = virality({ hook: 5, payoff: 9, standalone: 5, buzz: 5 });
+  const loudChat = virality({ hook: 5, payoff: 5, standalone: 5, buzz: 9 });
+  assert.ok(strongPayoff > loudChat);
+  const request = readRequest({ windows: [window0], count: 1 });
+  const { moments } = answerFor({ moments: [{ window: 0, start: 2, end: 31, hook: 7, payoff: 8, standalone: 6, buzz: 9, title: "x", caption: "", reason: "" }] }, request);
+  assert.equal(moments[0].score, 76);
 });
 
 test("a stream with nothing said is refused before the model is asked", () => {
@@ -58,7 +72,7 @@ test("Opus spend counts at its price, so the daily cap stops a second run", asyn
         type: "message",
         role: "assistant",
         model: "claude-opus-5-5",
-        content: [{ type: "text", text: JSON.stringify({ moments: [{ window: 0, start: 2, end: 31, score: 80, title: "No way", caption: "", reason: "" }] }) }],
+        content: [{ type: "text", text: JSON.stringify({ moments: [{ window: 0, start: 2, end: 31, ...marks(8), title: "No way", caption: "", reason: "" }] }) }],
         stop_reason: "end_turn",
         // 40x this passes a 300k cap; at Haiku's price it would be well under.
         usage: { input_tokens: 10_000, output_tokens: 0 },

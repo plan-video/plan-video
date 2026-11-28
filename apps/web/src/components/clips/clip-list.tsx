@@ -81,13 +81,13 @@ export function ClipList(props: ClipListProps) {
             type="button"
             class="flex h-7 items-center gap-1 rounded-md px-1.5 text-xs text-muted-foreground outline-none press hover:bg-accent hover:text-foreground focus-ring"
           >
-            {order() === "best" ? t("Best first") : t("In stream order")}
+            {order() === "best" ? t("Most viral first") : t("In stream order")}
             <PlaneIcon name="chevron-down" class="size-3.5" />
           </DropdownMenuTrigger>
           <DropdownMenuPortal>
             <DropdownMenuContent class="w-44">
               <DropdownMenuItem tone="neutral" onSelect={() => setOrder("best")}>
-                <span class="flex-1">{t("Best first")}</span>
+                <span class="flex-1">{t("Most viral first")}</span>
                 <Show when={order() === "best"}>
                   <PlaneIcon name="check" class="size-3.5" />
                 </Show>
@@ -121,11 +121,14 @@ export function ClipList(props: ClipListProps) {
                 </span>
                 <span class="flex min-w-0 flex-1 flex-col gap-0.5 pt-0.5">
                   <span class="line-clamp-2 text-xs font-medium text-foreground">{clip.title || t("Untitled clip")}</span>
+                  <Show when={clip.reason}>
+                    <span class="line-clamp-2 text-xxs text-muted-foreground">{clip.reason}</span>
+                  </Show>
                   <span class="flex items-center gap-1.5 text-xxs text-muted-foreground tabular-nums">
                     {clock(clip.start)}
                     <Show when={clip.score !== null}>
                       <span aria-hidden="true">·</span>
-                      <span>{t("score {score}", { score: clip.score ?? 0 })}</span>
+                      <span>{t("Virality {score}", { score: clip.score ?? 0 })}</span>
                     </Show>
                     <Show when={clip.scheduled}>
                       <Icon name="circle-check" class="size-3.5 text-primary" aria-label={t("Sent to New post")} />

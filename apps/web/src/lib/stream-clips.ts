@@ -5,7 +5,7 @@
 import type { TranscriptWord } from "@plan.video/assets";
 
 import { askForAccount, inGuestMode } from "@/lib/guest";
-import { t } from "@/lib/i18n";
+import { language, t } from "@/lib/i18n";
 import { supabase } from "@/lib/supabase";
 
 /** A platform's seek-bar frames: sheets of `cols` × `rows` frames, one every `interval` seconds. */
@@ -81,7 +81,7 @@ export async function scanStream(
     response = await fetch("/api/clips/scan", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${await token()}` },
-      body: JSON.stringify({ link, ...(again ? { again: true } : {}) }),
+      body: JSON.stringify({ link, language: language(), ...(again ? { again: true } : {}) }),
       signal,
     });
   } catch (error) {

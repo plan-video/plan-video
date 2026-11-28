@@ -45,12 +45,15 @@ const SCHEMA = {
           window: { type: "integer", description: "The window's id." },
           start: { type: "number", description: "Seconds into the window where the clip starts." },
           end: { type: "number", description: "Seconds into the window where the clip ends." },
-          score: { type: "integer", description: "0 to 100: how likely it is to do well as a short." },
+          hook: { type: "integer", description: "0 to 10: do the first seconds stop someone scrolling?" },
+          payoff: { type: "integer", description: "0 to 10: how strong the moment it builds to is." },
+          standalone: { type: "integer", description: "0 to 10: does it make sense to someone who never saw the stream?" },
+          buzz: { type: "integer", description: "0 to 10: how hard the stream reacted: chat, viewers' clips, the streamer." },
           title: { type: "string", description: "A short hook shown on the clip, in the stream's language." },
           caption: { type: "string", description: "The post's text, in the stream's language, with up to three hashtags." },
-          reason: { type: "string", description: "One plain sentence on why it works." },
+          reason: { type: "string", description: "One plain sentence on why it would spread, or what holds it back." },
         },
-        required: ["window", "start", "end", "score", "title", "caption", "reason"],
+        required: ["window", "start", "end", "hook", "payoff", "standalone", "buzz", "title", "caption", "reason"],
         additionalProperties: false,
       },
     },
@@ -65,7 +68,36 @@ You get numbered windows: stretches of the stream that chat, loudness or viewers
 
 A good clip stands on its own for someone who never saw the stream: a clear setup and a payoff, such as a fail, a clutch play, a funny line or a big reaction. Start it on the setup, not seconds of nothing, and end it right after the payoff. Prefer 15 to 45 seconds. Start and end on the edges of what is said, never mid-sentence. Skip windows that don't stand on their own: one great clip beats three weak ones.
 
+Rate each clip 0 to 10 on four things, against what does well on TikTok, Shorts and Reels in general, not against the rest of this stream:
+- hook: do the first three seconds make someone stop scrolling?
+- payoff: how strong is what it builds to?
+- standalone: does it make sense to someone who never saw the stream?
+- buzz: how hard did the stream react? Chat far above its usual pace, viewers clipping it and the streamer's own reaction all count; a quiet chat is not a bad sign on its own.
+Use the whole scale: 5 is an ordinary moment, 8 is rare, 10 is one of the best clips you have seen. Don't round everything up.
+
+The reason is one plain sentence, under 20 words, for the streamer: what makes the clip spread, or what holds it back, backed by what happened in it, such as the line said, chat's reaction or viewers clipping it. Never mention the ratings or numbers from this prompt.
+
 The title is the hook on screen: a few words that make someone stop scrolling, never clickbait the clip doesn't pay off. The caption is the post's text: one short line and up to three relevant hashtags. Write both in the language the streamer speaks.`;
+
+/** The languages plan.video is shown in, by the code the browser sends. */
+const LANGUAGES = {
+  en: "English",
+  es: "Spanish",
+  fr: "French",
+  de: "German",
+  it: "Italian",
+  "pt-BR": "Brazilian Portuguese",
+  nl: "Dutch",
+  pl: "Polish",
+  tr: "Turkish",
+  ja: "Japanese",
+  ko: "Korean",
+  "zh-CN": "Simplified Chinese",
+};
+
+const mark = (value) => Math.min(10, Math.max(0, Math.round(Number(value) || 0)));
+/** Virality, 0 to 100: what a clip builds to and its first seconds matter most. */
+export const virality = (pick) => Math.round(3 * mark(pick.hook) + 3.5 * mark(pick.payoff) + 1.5 * mark(pick.standalone) + 2 * mark(pick.buzz));
 
 const text = (value, max) => (typeof value === "string" ? value.replace(/\s+/g, " ").trim().slice(0, max) : "");
 const seconds = (value) => (typeof value === "number" && Number.isFinite(value) ? Math.round(value * 100) / 100 : null);
@@ -93,6 +125,7 @@ export function readRequest(body) {
       words: spoken,
       chat: (Array.isArray(window.chat) ? window.chat : []).slice(0, 10).map((line) => text(line, 100)).filter(Boolean),
       chatTotal: Math.max(0, Math.trunc(Number(window.chatTotal) || 0)),
+      chatPace: Math.min(99, Math.max(0, Math.round((Number(window.chatPace) || 0) * 10) / 10)),
       clips: (Array.isArray(window.clips) ? window.clips : []).slice(0, 5).flatMap((clip) => {
         const title = text(clip?.title, 100);
         return title ? [{ title, views: Math.max(0, Math.trunc(Number(clip.views) || 0)) }] : [];
@@ -107,7 +140,8 @@ export function readRequest(body) {
     game: text(body.stream?.game, 80),
   };
   const count = Math.min(MAX_MOMENTS, Math.max(1, Math.trunc(Number(body.count) || 8)));
-  return { stream, windows, count };
+  const language = LANGUAGES[body.language] ?? LANGUAGES.en;
+  return { stream, windows, count, language };
 }
 
 /** Words as lines broken at pauses and sentence ends, each stamped with its start. */
@@ -128,19 +162,22 @@ function lines(words) {
   return out;
 }
 
-export function promptFor({ stream, windows, count }) {
+export function promptFor({ stream, windows, count, language }) {
   const about = [stream.channel && `Channel: ${stream.channel}`, stream.game && `Game: ${stream.game}`, stream.title && `Stream title: ${stream.title}`].filter(Boolean).join("\n");
   const blocks = windows
     .filter((window) => window.words.length)
     .map((window) => {
       const parts = [`<window id="${window.id}" seconds="${window.length}">`];
       if (window.clips.length) parts.push(`Viewers clipped it as: ${window.clips.map((clip) => `"${clip.title}" (${clip.views} views)`).join(", ")}`);
-      if (window.chatTotal) parts.push(`Chat, ${window.chatTotal} messages, most typed: ${window.chat.join(" | ") || "nothing repeated"}`);
+      if (window.chatTotal) {
+        const pace = window.chatPace ? ` (${window.chatPace}× its usual pace)` : "";
+        parts.push(`Chat, ${window.chatTotal} messages${pace}, most typed: ${window.chat.join(" | ") || "nothing repeated"}`);
+      }
       parts.push("Transcript:", ...lines(window.words), "</window>");
       return parts.join("\n");
     })
     .join("\n\n");
-  return `${about}\n\nPick up to ${count} clips, best first.\n\n${blocks}`;
+  return `${about}\n\nPick up to ${count} clips, best first. Write each reason in ${language}.\n\n${blocks}`;
 }
 
 /** Snaps a cut to the nearest word edge within `reach` seconds, so no word is cut in half. */
@@ -175,7 +212,7 @@ export function answerFor(output, { windows, count }) {
       window: window.id,
       start: Math.round(start * 100) / 100,
       end: Math.round(end * 100) / 100,
-      score: Math.min(100, Math.max(0, Math.round(Number(pick.score) || 0))),
+      score: virality(pick),
       title,
       caption: text(pick.caption, 300),
       reason: text(pick.reason, 200),
