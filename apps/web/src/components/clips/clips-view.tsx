@@ -315,12 +315,6 @@ export function DashboardClipsView() {
 
 type Platform = "twitch" | "kick" | "youtube";
 
-const PLATFORMS: { id: Platform; label: string }[] = [
-  { id: "twitch", label: "Twitch" },
-  { id: "kick", label: "Kick" },
-  { id: "youtube", label: "YouTube" },
-];
-
 const platformOf = (link: string): Platform | null =>
   /kick\.com/i.test(link) ? "kick" : /youtube\.com|youtu\.be/i.test(link) ? "youtube" : /twitch\.tv/i.test(link) ? "twitch" : null;
 
@@ -342,72 +336,6 @@ function SourceMark(props: { id: Platform; class?: string }) {
   );
 }
 
-/** The three signals the scan reads, drawn on a made-up broadcast so the page shows what it looks for. */
-const PEAKS = [
-  { at: 0.2, height: 0.72, time: "0:41:08", icon: "ask-chat", label: msg("Chat lit up") },
-  { at: 0.5, height: 0.92, time: "1:43:52", icon: "volume", label: msg("Loudest moment") },
-  { at: 0.8, height: 0.72, time: "2:39:15", icon: "scissors", label: msg("Viewers clipped it") },
-] as const;
-const BARS = 132;
-const CLIP_WIDTH = 0.06;
-const HEAT = (() => {
-  let seed = 7;
-  const random = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
-  const raw = Array.from({ length: BARS }, () => random());
-  const bumps = [...PEAKS, { at: 0.35, height: 0.26 }, { at: 0.65, height: 0.26 }, { at: 0.05, height: 0.16 }, { at: 0.95, height: 0.16 }];
-  return raw.map((_, i) => {
-    const x = i / (BARS - 1);
-    const near = (raw[Math.max(0, i - 1)] + raw[i] * 2 + raw[Math.min(BARS - 1, i + 1)]) / 4;
-    const drift = 0.08 * Math.sin(x * 9.4) + 0.05 * Math.sin(x * 23);
-    const bump = Math.max(...bumps.map((entry) => entry.height * Math.exp(-((x - entry.at) ** 2) / 0.0004)));
-    const hot = PEAKS.some((peak) => Math.abs(x - peak.at) <= CLIP_WIDTH / 2);
-    return { value: Math.min(1, Math.max(0.08, 0.12 + 0.2 * near + drift + bump)), hot };
-  });
-})();
-
-function StreamHeat() {
-  return (
-    <div class="px-8 pt-2 pb-6 max-md:hidden" aria-hidden="true">
-      <div class="relative h-11">
-        <For each={PEAKS}>
-          {(peak) => (
-            <div class="absolute bottom-0 flex -translate-x-1/2 flex-col items-center" style={{ left: `${peak.at * 100}%` }}>
-              <span class="flex items-center gap-1.5 rounded-full bg-(--plane-surface-1) py-1 pr-2.5 pl-2 text-xs whitespace-nowrap text-foreground shadow-xs ring-1 ring-(--plane-border-subtle)">
-                <Icon name={peak.icon} class="size-3.5 text-primary" />
-                {t(peak.label)}
-                <span class="text-muted-foreground tabular-nums">{peak.time}</span>
-              </span>
-              <span class="h-2.5 w-px bg-primary/50" />
-            </div>
-          )}
-        </For>
-      </div>
-      <div class="relative flex h-20 items-end gap-[2px]">
-        <For each={PEAKS}>
-          {(peak) => (
-            <span
-              class="absolute -inset-y-1 -mx-1 rounded-md bg-primary/10"
-              style={{ left: `${(peak.at - CLIP_WIDTH / 2) * 100}%`, width: `${CLIP_WIDTH * 100}%` }}
-            />
-          )}
-        </For>
-        <For each={HEAT}>
-          {(bar) => (
-            <span
-              class={cx("relative min-w-0 flex-1 rounded-full", bar.hot ? "bg-primary" : "bg-foreground/14")}
-              style={{ height: `${bar.value * 100}%` }}
-            />
-          )}
-        </For>
-      </div>
-      <div class="mt-2 flex justify-between text-[11px] text-muted-foreground tabular-nums">
-        <span>0:00:00</span>
-        <span>3:12:40</span>
-      </div>
-    </div>
-  );
-}
-
 function Start(props: {
   link: string;
   onLink(value: string): void;
@@ -417,95 +345,55 @@ function Start(props: {
   onOpen(id: string): void;
   onRemove(stream: ClipStream): void;
 }) {
-  let field!: HTMLInputElement;
   const found = () => platformOf(props.link);
   const dated = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleDateString(intlLocale(), { day: "numeric", month: "short" }) : "");
-  const paste = async () => {
-    const text = await navigator.clipboard?.readText?.().catch(() => "");
-    if (text?.trim()) props.onLink(text.trim());
-    field.focus();
-  };
-
   return (
     <div class="flex min-h-0 flex-1 flex-col overflow-y-auto">
-      <div class="flex w-full flex-col gap-10 px-6 pt-6 pb-12 max-md:gap-8 max-md:px-4 max-md:pt-4">
-        <div class="overflow-hidden rounded-2xl border border-(--plane-border-subtle) bg-(--plane-layer-1)">
-          <form
-            class="flex flex-col items-center px-8 pt-12 pb-8 text-center max-md:p-5 max-md:text-left max-md:items-stretch"
-            onSubmit={(event) => {
-              event.preventDefault();
-              props.onFind();
-            }}
-          >
-            <h2 class="text-[32px] leading-tight font-semibold tracking-[-0.02em] text-foreground max-md:text-2xl">{t("Turn a stream into clips")}</h2>
-            <p class="mt-3 max-w-[600px] text-[15px] text-balance text-muted-foreground">
-              {t("Paste a past broadcast. Stream Clipper reads its chat, listens to it and checks what viewers clipped, then cuts the best moments into vertical clips with captions.")}
-            </p>
+      <div class="flex w-full flex-col items-center px-6 pt-20 pb-12 max-md:px-4 max-md:pt-10">
+        <h2 class="text-center text-[32px] leading-tight font-semibold tracking-[-0.02em] text-foreground max-md:text-2xl">{t("Turn a stream into clips")}</h2>
+        <p class="mt-2 text-center text-[15px] text-balance text-muted-foreground">{t("Paste a past broadcast and get its best moments as vertical clips with captions.")}</p>
 
-            <div class="mt-8 flex w-full max-w-[720px] gap-2 max-sm:flex-col">
-              <label class="flex h-12 min-w-0 flex-1 items-center gap-3 rounded-xl border border-(--plane-border-subtle) bg-(--plane-surface-1) pr-1.5 pl-3 shadow-xs focus-within:border-(--plane-border-strong)">
-                <Show when={found()} fallback={<PlaneIcon name="link" class="size-5 shrink-0 text-(--plane-text-placeholder)" />}>
-                  {(platform) => <SourceMark id={platform()} class="size-5" />}
-                </Show>
-                <input
-                  ref={field}
-                  class="min-w-0 flex-1 bg-transparent text-[15px] text-foreground outline-none placeholder:text-(--plane-text-placeholder)"
-                  value={props.link}
-                  onInput={(event) => props.onLink(event.currentTarget.value)}
-                  placeholder={t("Paste a Twitch, Kick or YouTube link")}
-                  aria-label={t("Stream link")}
-                  spellcheck={false}
-                  autocomplete="off"
-                  autofocus
-                />
-                <Show when={!props.link}>
-                  <Button type="button" variant="ghost" class="gap-1 pl-1.5 text-muted-foreground" onClick={() => void paste()}>
-                    <Icon name="clipboard" class="size-4" />
-                    {t("Paste")}
-                  </Button>
-                </Show>
-              </label>
-              <Button type="submit" class="h-12 gap-1.5 rounded-xl px-5 text-[15px]" disabled={!props.link.trim()}>
-                <PlaneIcon name="agent" class="size-4.5" />
-                {t("Find clips")}
-              </Button>
-            </div>
-
-            <div class="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-muted-foreground max-md:justify-start">
-              <For each={PLATFORMS}>
-                {(entry) => (
-                  <span class="flex items-center gap-1.5">
-                    <SourceMark id={entry.id} class="size-4 rounded-[4px]" />
-                    {entry.label}
-                  </span>
-                )}
-              </For>
-              <span class="h-3 w-px bg-(--plane-border-subtle) max-sm:hidden" />
-              <Show when={props.error} fallback={<span>{t("Uses about 35 minutes of your monthly captions.")}</span>}>
-                <span class="text-destructive" role="alert">
-                  {props.error}
-                </span>
-              </Show>
-            </div>
-          </form>
-          <StreamHeat />
-        </div>
-
-        <section class="flex flex-col gap-4">
-          <h3 class="flex items-baseline justify-center gap-2 px-0.5 text-base font-medium text-foreground max-sm:justify-start">
-            {t("Recent streams")}
-            <Show when={props.streams.length}>
-              <span class="text-sm font-normal text-muted-foreground tabular-nums">{props.streams.length}</span>
+        <form
+          class="mt-8 w-full max-w-[640px]"
+          onSubmit={(event) => {
+            event.preventDefault();
+            props.onFind();
+          }}
+        >
+          <label class="flex h-14 items-center gap-3 rounded-2xl border border-(--plane-border-subtle) bg-(--plane-surface-1) pr-2 pl-4 shadow-xs focus-within:border-(--plane-border-strong)">
+            <Show when={found()} fallback={<PlaneIcon name="link" class="size-5 shrink-0 text-(--plane-text-placeholder)" />}>
+              {(platform) => <SourceMark id={platform()} class="size-5" />}
             </Show>
-          </h3>
+            <input
+              class="min-w-0 flex-1 bg-transparent text-[15px] text-foreground outline-none placeholder:text-(--plane-text-placeholder)"
+              value={props.link}
+              onInput={(event) => props.onLink(event.currentTarget.value)}
+              placeholder={t("Paste a Twitch, Kick or YouTube link")}
+              aria-label={t("Stream link")}
+              spellcheck={false}
+              autocomplete="off"
+              autofocus
+            />
+            <Button type="submit" class="h-10 rounded-xl px-4" disabled={!props.link.trim()}>
+              {t("Find clips")}
+            </Button>
+          </label>
           <Show
-            when={props.streams.length}
-            fallback={
-              <div class="grid place-items-center rounded-2xl border border-dashed border-(--plane-border-subtle) px-6 py-14 text-center text-sm text-muted-foreground">
-                {t("Streams you clip show up here, so you can come back to their clips.")}
-              </div>
-            }
+            when={props.error}
+            fallback={<p class="mt-3 text-center text-xs text-muted-foreground">{t("Uses about 35 minutes of your monthly captions.")}</p>}
           >
+            <p class="mt-3 text-center text-xs text-destructive" role="alert">
+              {props.error}
+            </p>
+          </Show>
+        </form>
+
+        <Show when={props.streams.length}>
+          <section class="mt-20 flex w-full flex-col gap-4 max-md:mt-12">
+            <h3 class="flex items-baseline justify-center gap-2 px-0.5 text-base font-medium text-foreground max-sm:justify-start">
+              {t("Recent streams")}
+              <span class="text-sm font-normal text-muted-foreground tabular-nums">{props.streams.length}</span>
+            </h3>
             <div class="grid grid-cols-[repeat(auto-fit,minmax(260px,340px))] justify-center gap-x-4 gap-y-6 max-sm:grid-cols-1">
               <For each={props.streams}>
                 {(stream) => (
@@ -549,8 +437,8 @@ function Start(props: {
                 )}
               </For>
             </div>
-          </Show>
-        </section>
+          </section>
+        </Show>
       </div>
     </div>
   );
