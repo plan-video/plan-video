@@ -455,7 +455,7 @@
   "Paste a Twitch, Kick or YouTube link": "Twitch、Kick、YouTube のリンクを貼り付け",
   "Stream link": "配信のリンク",
   "Find clips": "クリップを探す",
-  "Uses about 35 minutes of your monthly captions.": "毎月の字幕のうち約35分を使います。",
+  "Each stream uses about 35 minutes of your monthly captions, however long it is.": "配信の長さに関係なく、1本につき毎月の字幕時間を約35分使います。",
   "Recent streams": "最近の配信",
   "Opening the stream": "配信を開いています",
   "Listening to it and reading chat": "音声を聞いてチャットを読んでいます",

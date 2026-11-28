@@ -18,11 +18,13 @@ import { useAuth } from "@/context/auth";
 import { track } from "@/lib/analytics";
 import { addedClip, clipFromMoment, clock, deleteStream, duplicateClip, loadStreams, saveStream, type ClipEdit, type ClipStream } from "@/lib/clip-studio";
 import { cx } from "@/lib/cva";
+import type { StreamLook } from "@/lib/facecam-find";
 import { msg, t } from "@/lib/i18n";
 import { ClipsRefused, scanStream, type ScanStep, type StreamVideo } from "@/lib/stream-clips";
 
 import { AddClip } from "./add-clip";
 import { ClipEditor } from "./clip-editor";
+import { fetchAhead } from "./clip-media";
 import { ClipList, StoryboardThumb } from "./clip-list";
 import { SOURCE_NAMES, sourceUrl } from "./sources";
 
@@ -87,6 +89,21 @@ export function DashboardClipsView() {
 
   const updateClip = (id: string) => (change: (clip: ClipEdit) => void) => {
     setOpen("stream", "clips", (clip) => clip.id === id, produce(change));
+    persist();
+  };
+
+  const lookEverywhere = (videoId: string, look: StreamLook) => {
+    if (open.stream?.video.id !== videoId) return;
+    setOpen(
+      "stream",
+      "clips",
+      (clip) => !clip.looked,
+      produce((clip) => {
+        clip.layout = look.layout;
+        clip.crops = structuredClone(look.crops);
+        clip.looked = true;
+      }),
+    );
     persist();
   };
 
@@ -275,6 +292,7 @@ export function DashboardClipsView() {
                     onOpen={(id) => setParams({ clip: id })}
                     onDuplicate={duplicate}
                     onDelete={removeClip}
+                    onUpNext={(open, next) => void fetchAhead(stream().video, open, next)}
                   />
                 </Show>
               </aside>
@@ -292,6 +310,7 @@ export function DashboardClipsView() {
                     video={stream().video}
                     clip={stream().clips.find((clip) => clip.id === id)!}
                     update={updateClip(id)}
+                    onStreamLook={(look) => lookEverywhere(stream().video.id, look)}
                     onBack={() => setParams({ clip: undefined })}
                   />
                 )}
@@ -399,7 +418,7 @@ function Start(props: {
             </div>
           </form>
           <div class="mx-4 flex items-center gap-3 rounded-b-xl border border-t-0 border-(--plane-border-subtle) bg-(--plane-layer-1) px-4 py-2.5 text-xs">
-            <Show when={props.error} fallback={<span class="text-muted-foreground">{t("Uses about 35 minutes of your monthly captions.")}</span>}>
+            <Show when={props.error} fallback={<span class="text-muted-foreground">{t("Each stream uses about 35 minutes of your monthly captions, however long it is.")}</span>}>
               <span class="text-destructive" role="alert">
                 {props.error}
               </span>
