@@ -6,6 +6,8 @@ const DAY = 24 * 60 * 60_000;
 export const WITHIN_MS = 2 * DAY;
 export const MAX_TRIES = 5;
 const BATCH = 50;
+/** Raise when a picture in /email/welcome changes: Gmail keeps its own copy of each picture address. */
+const PICTURES = 2;
 
 const FONT = "Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 const INK = "#0a0a0a";
@@ -72,7 +74,7 @@ const picture = (src, alt, radius) => `
               <td style="padding:0;"><img src="${src}" width="600" alt="${escape(alt)}" style="display:block;width:100%;max-width:600px;height:auto;border:0;border-radius:${radius};" /></td>
             </tr>`;
 
-const card = (item, images) => cardText(item, "24px 24px 0 0") + picture(`${images}/${item.image}`, item.alt, "0 0 24px 24px");
+const card = (item, images) => cardText(item, "24px 24px 0 0") + picture(`${images}/${item.image}?v=${PICTURES}`, item.alt, "0 0 24px 24px");
 
 const gap = `
             <tr><td style="height:16px;line-height:16px;font-size:0;">&nbsp;</td></tr>`;
@@ -135,13 +137,13 @@ export function composeWelcome({ publicUrl = "https://plan.video" } = {}) {
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;font-family:${FONT};">
             <tr>
               <td class="pad" bgcolor="#2563eb" style="background-color:#2563eb;border-radius:24px 24px 0 0;padding:36px 48px 0 48px;text-align:center;">
-                <img src="${images}/wordmark-white.png" width="131" height="26" alt="plan.video" style="display:block;width:131px;height:26px;margin:0 auto;border:0;color:#ffffff;font-size:19px;font-weight:600;" />
+                <img src="${images}/wordmark-white.png?v=${PICTURES}" width="131" height="26" alt="plan.video" style="display:block;width:131px;height:26px;margin:0 auto;border:0;color:#ffffff;font-size:19px;font-weight:600;" />
                 <div class="hero-title" style="padding-top:40px;font-size:44px;line-height:48px;font-weight:600;letter-spacing:-0.035em;color:#ffffff;">${escape(subject)}</div>
                 <div style="padding:16px 12px 0 12px;font-size:17px;line-height:26px;color:#dbe6ff;">Plan every post on one calendar. We send it to every network, on time.</div>
                 <div style="height:28px;line-height:28px;font-size:0;">&nbsp;</div>${button(dashboard, "Open your dashboard", { background: "#ffffff", color: "#1d4ed8" })}
                 <div style="height:28px;line-height:28px;font-size:0;">&nbsp;</div>
               </td>
-            </tr>${picture(`${images}/hero.jpg`, "The plan.video calendar with a month of posts", "0 0 24px 24px")}
+            </tr>${picture(`${images}/hero.jpg?v=${PICTURES}`, "The plan.video calendar with a month of posts", "0 0 24px 24px")}
             <tr>
               <td class="pad" style="padding:56px 64px 0 64px;text-align:center;font-size:17px;line-height:28px;color:${BODY};">
                 ${escape(intro)}
@@ -153,7 +155,7 @@ export function composeWelcome({ publicUrl = "https://plan.video" } = {}) {
             </tr>${heading("When you're ready.", "Two more things to try.", 72)}${card(EDITOR, images)}${gap}${cardText(agents, "24px")}
             <tr>
               <td align="center" style="padding:72px 40px 0 40px;">
-                <img src="${images}/mark.png" width="40" height="44" alt="" style="display:block;width:40px;height:44px;margin:0 auto;border:0;" />
+                <img src="${images}/mark.png?v=${PICTURES}" width="40" height="44" alt="" style="display:block;width:40px;height:44px;margin:0 auto;border:0;" />
               </td>
             </tr>
             <tr>
