@@ -123,10 +123,8 @@ export function ClipList(props: ClipListProps) {
                 <span class="flex min-w-0 flex-1 flex-col gap-1 pt-0.5">
                   <span class="line-clamp-2 text-xs font-medium text-foreground">{clip.title || t("Untitled clip")}</span>
                   <span class="flex items-center gap-1.5 text-xxs text-muted-foreground tabular-nums">
-                    {clock(clip.start)}
-                    <Show when={clip.score !== null}>
-                      <span aria-hidden="true">·</span>
-                      <span>{t("Virality {score}", { score: clip.score ?? 0 })}</span>
+                    <Show when={order() === "best" && clip.score !== null} fallback={clock(clip.start)}>
+                      {t("Virality {score}", { score: clip.score ?? 0 })}
                     </Show>
                     <Show when={clip.scheduled}>
                       <Icon name="circle-check" class="size-3.5 text-primary" aria-label={t("Sent to New post")} />
