@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { fetchStretch, type TwitchVideo } from "@/lib/twitch-clips";
+import { fetchStretch, type StreamVideo } from "@/lib/stream-clips";
 
 import type { ClipEdit } from "@/lib/clip-studio";
 
@@ -17,9 +17,9 @@ const peaks = new Map<string, Promise<ClipPeaks>>();
 /** Loudness from 0 to 1 across the whole file, which is `duration` seconds long. */
 export type ClipPeaks = { values: Float32Array; duration: number };
 
-const keyOf = (video: TwitchVideo, clip: ClipEdit) => `${video.id}:${clip.range.start}:${clip.range.end}`;
+const keyOf = (video: StreamVideo, clip: ClipEdit) => `${video.id}:${clip.range.start}:${clip.range.end}`;
 
-export function clipMedia(video: TwitchVideo, clip: ClipEdit): Promise<ClipMedia> {
+export function clipMedia(video: StreamVideo, clip: ClipEdit): Promise<ClipMedia> {
   const key = keyOf(video, clip);
   let pending = media.get(key);
   if (pending) {
@@ -47,7 +47,7 @@ export function clipMedia(video: TwitchVideo, clip: ClipEdit): Promise<ClipMedia
 }
 
 /** The file's loudness in `buckets` peaks, for the trim bar's waveform. */
-export function clipPeaks(video: TwitchVideo, clip: ClipEdit, buckets = 900): Promise<ClipPeaks> {
+export function clipPeaks(video: StreamVideo, clip: ClipEdit, buckets = 900): Promise<ClipPeaks> {
   const key = keyOf(video, clip);
   let pending = peaks.get(key);
   if (!pending) {

@@ -34,13 +34,14 @@ function overBaseline(series, radius, step, spread) {
   return out;
 }
 
-/** Each message weighs 1, a reaction 2 and "clip it" 4, moved back by the chat's lag and summed over 10 s. */
+/** Each message weighs 1, a reaction 2 and "clip it" 4 (times its own weight), moved back by the chat's lag and summed over 10 s. */
 export function chatHeat(messages, seconds) {
   const weight = new Float64Array(seconds);
   for (const message of messages) {
     const s = Math.floor(message.t) - CHAT_LAG;
     if (s < 0 || s >= seconds) continue;
-    weight[s] += CLIP_CALL.test(message.text) ? 4 : REACTION.test(message.text) ? 2 : 1;
+    // A sampled message stands for the stretch of chat that wasn't read.
+    weight[s] += (message.weight ?? 1) * (CLIP_CALL.test(message.text) ? 4 : REACTION.test(message.text) ? 2 : 1);
   }
   const summed = new Array(seconds).fill(0);
   let run = 0;

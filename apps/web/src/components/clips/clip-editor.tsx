@@ -24,10 +24,10 @@ import { ClipInspector } from "./clip-inspector";
 import { clipMedia, clipPeaks } from "./clip-media";
 import { TrimBar } from "./trim-bar";
 
-import type { TwitchVideo } from "@/lib/twitch-clips";
+import type { StreamVideo } from "@/lib/stream-clips";
 
 type ClipEditorProps = {
-  video: TwitchVideo;
+  video: StreamVideo;
   clip: ClipEdit;
   update(change: (clip: ClipEdit) => void): void;
   onBack(): void;

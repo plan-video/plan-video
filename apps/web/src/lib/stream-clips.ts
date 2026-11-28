@@ -8,11 +8,15 @@ import { askForAccount, inGuestMode } from "@/lib/guest";
 import { t } from "@/lib/i18n";
 import { supabase } from "@/lib/supabase";
 
-/** Twitch's seek-bar frames: sheets of `cols` × `rows` frames, one every `interval` seconds. */
+/** A platform's seek-bar frames: sheets of `cols` × `rows` frames, one every `interval` seconds. */
 export type Storyboard = { images: string[]; width: number; height: number; cols: number; rows: number; interval: number; count: number };
 
-export type TwitchVideo = {
+export type StreamSource = "twitch" | "kick" | "youtube";
+
+/** A past broadcast. `id` is Twitch's number, or "kick:" or "yt:" and the platform's own id. */
+export type StreamVideo = {
   id: string;
+  source?: StreamSource;
   title: string;
   seconds: number;
   channel: string;
@@ -23,7 +27,7 @@ export type TwitchVideo = {
 };
 
 /** A stretch of the broadcast worth a clip. Times are the broadcast's; `words` are all heard in `window`. */
-export type TwitchMoment = {
+export type StreamMoment = {
   start: number;
   end: number;
   score: number;
@@ -32,14 +36,16 @@ export type TwitchMoment = {
   reason: string;
   window?: { start: number; end: number };
   words: TranscriptWord[];
+  /** A frame of the moment, for platforms with no storyboard. */
+  thumb?: string;
 };
 
 export type ScanStep = { step: "listening" } | { step: "transcribing"; done: number; total: number } | { step: "picking" };
 
-export type ScanResult = { video: TwitchVideo; moments: TwitchMoment[]; note?: string };
+export type ScanResult = { video: StreamVideo; moments: StreamMoment[]; note?: string };
 
 type Line =
-  | { type: "video"; video: TwitchVideo }
+  | { type: "video"; video: StreamVideo }
   | ({ type: "step" } & ScanStep)
   | ({ type: "done" } & ScanResult)
   | { type: "error"; status: number; error: string };
@@ -61,14 +67,14 @@ async function refusal(response: Response): Promise<ClipsRefused> {
 }
 
 /** Reads the broadcast on the server and calls `onVideo` and `onStep` as it goes. */
-export async function scanTwitch(
+export async function scanStream(
   link: string,
   {
     onVideo,
     onStep,
     signal,
     again = false,
-  }: { onVideo?: (video: TwitchVideo) => void; onStep?: (step: ScanStep) => void; signal?: AbortSignal; again?: boolean } = {},
+  }: { onVideo?: (video: StreamVideo) => void; onStep?: (step: ScanStep) => void; signal?: AbortSignal; again?: boolean } = {},
 ): Promise<ScanResult> {
   let response: Response;
   try {
@@ -106,11 +112,11 @@ export async function scanTwitch(
 }
 
 /**
- * [start, end) of the broadcast as an MP4, and where in it `start` falls: the file is cut on Twitch's pieces.
+ * [start, end) of the broadcast as an MP4, and where in it `start` falls: the file is cut on the platform's pieces.
  * `preview` gets a small picture, for watching and editing before the clip is made.
  */
 export async function fetchStretch(
-  video: TwitchVideo,
+  video: StreamVideo,
   start: number,
   end: number,
   { signal, preview = false }: { signal?: AbortSignal; preview?: boolean } = {},

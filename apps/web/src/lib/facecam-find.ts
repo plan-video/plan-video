@@ -22,7 +22,7 @@ const STAYS = 0.6;
 /** A facecam's middle sits at least this far from the frame's middle, across. */
 const OFF_CENTRE = 0.2;
 const PADDING = 0.12;
-/** Twitch categories where the camera is the stream. */
+/** Twitch and Kick categories where the camera is the stream. */
 const CAMERA_CATEGORIES = new Set(["just chatting", "irl", "talk shows & podcasts", "music", "asmr", "art", "makers & crafting", "food & drink", "travel & outdoors", "pools, hot tubs, and beaches", "fitness & health", "beauty & body art"]);
 
 export const cameraIsTheStream = (category: string) => CAMERA_CATEGORIES.has(category.trim().toLowerCase());

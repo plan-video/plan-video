@@ -14,7 +14,7 @@ import type { Transcript, TranscriptWord } from "@plan.video/assets";
 import type { CaptionPreset, TextLookName } from "@plan.video/jsx";
 import type { Crops } from "@/lib/stream-layouts";
 import type { PostOptions } from "@/projects/post";
-import type { TwitchMoment, TwitchVideo } from "@/lib/twitch-clips";
+import type { StreamMoment, StreamVideo } from "@/lib/stream-clips";
 
 export type ClipCaptionStyle = {
   id: string;
@@ -73,6 +73,8 @@ export type ClipEdit = {
   caption: string;
   score: number | null;
   reason: string;
+  /** A frame of it, when the stream has no storyboard. */
+  thumb?: string;
   /** The project last made from this clip, what it was made from, and the stream's frame rate. */
   project?: { key: string; made: string; fps?: number | null };
   scheduled?: boolean;
@@ -80,7 +82,7 @@ export type ClipEdit = {
 };
 
 export type ClipStream = {
-  video: TwitchVideo;
+  video: StreamVideo;
   note?: string;
   clips: ClipEdit[];
   createdAt: number;
@@ -104,7 +106,7 @@ function rangeAround(start: number, end: number, seconds: number, from = start, 
 
 const newId = () => (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
 
-export function clipFromMoment(moment: TwitchMoment, video: TwitchVideo): ClipEdit {
+export function clipFromMoment(moment: StreamMoment, video: StreamVideo): ClipEdit {
   const style = CLIP_CAPTION_STYLES[0]!;
   return {
     id: newId(),
@@ -123,11 +125,12 @@ export function clipFromMoment(moment: TwitchMoment, video: TwitchVideo): ClipEd
     caption: moment.caption,
     score: moment.score,
     reason: moment.reason,
+    ...(moment.thumb ? { thumb: moment.thumb } : {}),
   };
 }
 
 /** A clip of `length` seconds at `at`, picked by hand. */
-export function addedClip(at: number, length: number, video: TwitchVideo, title: string): ClipEdit {
+export function addedClip(at: number, length: number, video: StreamVideo, title: string): ClipEdit {
   const start = Math.max(0, Math.min(at, video.seconds - LEAST_CLIP_SECONDS));
   const end = Math.min(video.seconds, start + Math.max(LEAST_CLIP_SECONDS, Math.min(length, MOST_CLIP_SECONDS)));
   const style = CLIP_CAPTION_STYLES[0]!;

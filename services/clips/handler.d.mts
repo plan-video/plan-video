@@ -7,6 +7,9 @@ export type ClipsEnv = {
   transcribeUrl: string;
   agentUrl: string;
   ffmpeg?: string;
+  ffprobe?: string;
+  ytdlp?: string;
+  ytdlpCookies?: string;
   tmpDir?: string;
 };
 

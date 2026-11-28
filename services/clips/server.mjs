@@ -2,7 +2,7 @@ import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
 
 import { handleScan, handleVideo, json, Refused } from "./handler.mjs";
-import { TwitchError } from "./twitch.mjs";
+import { StreamError } from "./hls.mjs";
 
 const HOST = "127.0.0.1";
 const PORT = 8800;
@@ -26,6 +26,7 @@ function loadEnv(path) {
 }
 
 const shared = loadEnv("/etc/plan-video/r2.env");
+const clips = loadEnv(process.env.CLIPS_ENV || "/etc/plan-video/clips.env");
 
 const env = {
   supabaseUrl: shared.SUPABASE_URL || "",
@@ -35,6 +36,10 @@ const env = {
   transcribeUrl: process.env.TRANSCRIBE_URL || "http://127.0.0.1:8792/api/transcribe",
   agentUrl: process.env.AGENT_URL || "http://127.0.0.1:8796/api/agent/moments",
   ffmpeg: process.env.FFMPEG || "ffmpeg",
+  ffprobe: process.env.FFPROBE || "ffprobe",
+  ytdlp: process.env.YTDLP || "yt-dlp",
+  // A Netscape cookies file, for when YouTube asks this server to sign in.
+  ytdlpCookies: clips.YTDLP_COOKIES || "",
   // Clips wait here while they're sent. Not /tmp: on the server that's held in memory.
   tmpDir: "/var/tmp",
 };
@@ -47,7 +52,7 @@ const server = createServer((req, res) => {
     return;
   }
   handle(req, res, env).catch((error) => {
-    if (error instanceof Refused || error instanceof TwitchError) json(res, error.status, { error: error.message });
+    if (error instanceof Refused || error instanceof StreamError) json(res, error.status, { error: error.message });
     else {
       console.error("clips:", error);
       json(res, 500, { error: "Finding clips isn't available right now." });

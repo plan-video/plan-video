@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { parsePieces, parseStoryboard, parseTwitchLink, pickVideo, readChat } from "./twitch.mjs";
+import { parsePieces, pickVideo } from "./hls.mjs";
+import { parseStoryboard, parseTwitchLink, readChat } from "./twitch.mjs";
 
 test("links to a broadcast or a channel are read, anything else isn't", () => {
   assert.deepEqual(parseTwitchLink("https://www.twitch.tv/videos/2940471411?t=1h2m3s"), { vod: "2940471411" });

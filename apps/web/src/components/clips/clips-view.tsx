@@ -19,19 +19,25 @@ import { track } from "@/lib/analytics";
 import { addedClip, clipFromMoment, clock, deleteStream, duplicateClip, loadStreams, saveStream, type ClipEdit, type ClipStream } from "@/lib/clip-studio";
 import { cx } from "@/lib/cva";
 import { intlLocale, msg, t } from "@/lib/i18n";
-import { ClipsRefused, scanTwitch, type ScanStep, type TwitchVideo } from "@/lib/twitch-clips";
+import { ClipsRefused, scanStream, type ScanStep, type StreamVideo } from "@/lib/stream-clips";
 
 import { AddClip } from "./add-clip";
 import { ClipEditor } from "./clip-editor";
 import { ClipList, StoryboardThumb } from "./clip-list";
-import { TwitchLogo } from "./twitch-logo";
+import { SOURCE_NAMES, SourceLogo, sourceUrl } from "./source-logo";
 
-type Scan = { link: string; video: TwitchVideo | null; step: ScanStep | null };
+type Scan = { link: string; video: StreamVideo | null; step: ScanStep | null };
 
-/** The broadcast a link names, when it names one, so a stream already found opens without finding it again. */
+/** The broadcast a link names, as its id here, so a stream already found opens without finding it again. */
 function vodOf(link: string): string | null {
   const text = link.trim();
-  return /^\d{6,12}$/.test(text) ? text : (/twitch\.tv\/(?:[^/]+\/v\/|videos\/)(\d{6,12})/i.exec(text)?.[1] ?? null);
+  if (/^\d{6,12}$/.test(text)) return text;
+  const twitch = /twitch\.tv\/(?:[^/]+\/v\/|videos\/)(\d{6,12})/i.exec(text)?.[1];
+  if (twitch) return twitch;
+  const kick = /kick\.com\/(?:video|[^/]+\/videos)\/([0-9a-f-]{36})/i.exec(text)?.[1];
+  if (kick) return `kick:${kick.toLowerCase()}`;
+  const youtube = /(?:youtube\.com\/(?:watch\?(?:.*&)?v=|live\/|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/i.exec(text)?.[1];
+  return youtube ? `yt:${youtube}` : null;
 }
 
 const SAVE_AFTER_MS = 400;
@@ -110,7 +116,7 @@ export function DashboardClipsView() {
     abort = new AbortController();
     setScan({ link: pasted, video: null, step: null });
     try {
-      const result = await scanTwitch(pasted, {
+      const result = await scanStream(pasted, {
         again,
         signal: abort.signal,
         onVideo: (video) => setScan((now) => now && { ...now, video }),
@@ -201,7 +207,7 @@ export function DashboardClipsView() {
     const stream = open.stream;
     if (!stream) return undefined;
     return [
-      { label: t("Twitch clips"), icon: "clips" as const, onClick: closeStream },
+      { label: t("Stream clips"), icon: "clips" as const, onClick: closeStream },
       { label: `${stream.video.channel} · ${stream.video.title}` },
     ];
   };
@@ -224,8 +230,8 @@ export function DashboardClipsView() {
                 </DropdownMenuTrigger>
                 <DropdownMenuPortal>
                   <DropdownMenuContent class="w-52">
-                    <DropdownMenuItem tone="neutral" onSelect={() => window.open(`https://www.twitch.tv/videos/${stream().video.id}`, "_blank", "noopener")}>
-                      {t("Watch on Twitch")}
+                    <DropdownMenuItem tone="neutral" onSelect={() => window.open(sourceUrl(stream().video.id, stream().video.source), "_blank", "noopener")}>
+                      {t("Watch on {platform}", { platform: SOURCE_NAMES[stream().video.source ?? "twitch"] })}
                     </DropdownMenuItem>
                     <DropdownMenuItem tone="neutral" onSelect={() => void find(stream().video.id, true)}>
                       {t("Find clips again")}
@@ -324,9 +330,9 @@ function Start(props: {
       <div class="flex w-full max-w-[560px] flex-col items-center gap-4 text-center">
         <ClipsArt />
         <div class="flex flex-col gap-1">
-          <h2 class="text-sm font-medium text-foreground">{t("Clips from a Twitch stream")}</h2>
+          <h2 class="text-sm font-medium text-foreground">{t("Clips from a stream")}</h2>
           <p class="max-w-sm text-xs text-balance text-muted-foreground">
-            {t("Paste a link to a past broadcast. plan.video finds up to 30 moments worth posting, and you finish each one here.")}
+            {t("Paste a link to a past stream on Twitch, Kick or YouTube. plan.video finds up to 30 moments worth posting, and you finish each one here.")}
           </p>
         </div>
         <form
@@ -337,13 +343,13 @@ function Start(props: {
           }}
         >
           <div class="relative min-w-0 flex-1">
-            <TwitchLogo class="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
+            <PlaneIcon name="link" class="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-(--plane-text-placeholder)" />
             <input
               class={cx(fieldControl, "h-9 w-full pl-8")}
               value={props.link}
               onInput={(event) => props.onLink(event.currentTarget.value)}
-              placeholder={t("twitch.tv/videos/… or a channel's link")}
-              aria-label={t("Twitch link")}
+              placeholder={t("A stream's link, or a channel's for its latest")}
+              aria-label={t("Stream link")}
               spellcheck={false}
               autocomplete="off"
               autofocus
@@ -358,6 +364,11 @@ function Start(props: {
             {props.error}
           </p>
         </Show>
+        <div class="flex items-center gap-3" aria-label={t("Works with Twitch, Kick and YouTube")}>
+          <SourceLogo source="twitch" />
+          <SourceLogo source="kick" />
+          <SourceLogo source="youtube" />
+        </div>
         <p class="text-xs text-muted-foreground">{t("Finding them uses about 35 minutes of your monthly captions, however long the stream.")}</p>
       </div>
 
@@ -369,9 +380,12 @@ function Start(props: {
               {(stream) => (
                 <li class="group relative">
                   <button type="button" class="flex w-full items-center gap-3 p-2 pr-10 text-left outline-none press hover:bg-(--plane-layer-1) focus-ring" onClick={() => props.onOpen(stream.video.id)}>
-                    <StoryboardThumb board={stream.video.storyboard} seconds={stream.clips[0]?.start ?? 0} class="w-20" />
+                    <StoryboardThumb board={stream.video.storyboard} seconds={stream.clips[0]?.start ?? 0} still={stream.clips[0]?.thumb} class="w-20" />
                     <span class="flex min-w-0 flex-1 flex-col gap-0.5">
-                      <span class="truncate text-sm text-foreground">{stream.video.title || stream.video.channel}</span>
+                      <span class="flex items-center gap-1.5">
+                        <SourceLogo source={stream.video.source} class="scale-75" />
+                        <span class="truncate text-sm text-foreground">{stream.video.title || stream.video.channel}</span>
+                      </span>
                       <span class="truncate text-xs text-muted-foreground">
                         {[stream.video.channel, dated(stream.video.createdAt), t("{count, plural, one {# clip} other {# clips}}", { count: stream.clips.length })].filter(Boolean).join(" · ")}
                       </span>

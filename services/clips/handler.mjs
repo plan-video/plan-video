@@ -1,4 +1,5 @@
-// Finds the moments of a past Twitch broadcast worth a short clip, and hands over just those stretches.
+// Finds the moments of a past Twitch, Kick or YouTube broadcast worth a short clip, and hands over just
+// those stretches.
 // The speech goes through /api/transcribe and the picking through /api/agent/moments, each under the
 // person's own sign-in, so the caption allowance and the agent's spending caps count as they always do.
 
@@ -8,9 +9,10 @@ import { mkdtemp, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { measureLoudness, pieceBytes, speechWav } from "./audio.mjs";
+import { measureLoudness, speechWav } from "./audio.mjs";
+import { StreamError } from "./hls.mjs";
 import { chatSummary, heat, pickWindows } from "./signals.mjs";
-import { findPlaylists, findVideo, findViewerClips, parseTwitchLink, pickVideo, piecesBetween, readChat, readPieces, readStoryboard, TwitchError } from "./twitch.mjs";
+import { openSource, parseLink, sourceOfId, writeStretch } from "./sources.mjs";
 
 const MIN_SECONDS = 60;
 const MAX_SECONDS = 14 * 3600;
@@ -35,7 +37,6 @@ const sessions = new Map();
 const windows = new Map();
 const scanning = new Set();
 const results = new Map();
-const playlists = new Map();
 let scans = 0;
 
 function limit(name, max, seconds, message) {
@@ -123,14 +124,6 @@ async function errorOf(res) {
   return typeof body?.error === "string" ? body.error : `It answered ${res.status}.`;
 }
 
-async function playlistsFor(vod, fetchImpl) {
-  const cached = playlists.get(vod);
-  if (cached && cached.until > Date.now()) return cached.lists;
-  const lists = await findPlaylists(vod, fetchImpl);
-  if (playlists.size > 500) playlists.clear();
-  playlists.set(vod, { lists, until: Date.now() + 10 * 60_000 });
-  return lists;
-}
 
 /** The window's words on the broadcast's timeline. */
 const onTimeline = (words, from) => words.map((word) => ({ text: word.text, start: +(from + word.start).toFixed(3), end: +(from + word.end).toFixed(3) }));
@@ -139,27 +132,33 @@ const onTimeline = (words, from) => words.map((word) => ({ text: word.text, star
  * The scan itself. `say` sends one progress line. Returns the broadcast and its moments, best first:
  * each with its stretch of the broadcast, a score, a title, a caption and the words said in it.
  */
-export async function scan(link, { req, user, env, say, fetchImpl = fetch, signal, sound = { measureLoudness, speechWav } }) {
-  const { previews, ...video } = await findVideo(link, fetchImpl);
+export async function scan(link, options) {
+  const dir = await mkdtemp(join(options.env.tmpDir || tmpdir(), "scan-"));
+  try {
+    return await scanIn(link, { ...options, dir });
+  } finally {
+    await rm(dir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
+async function scanIn(link, { req, user, env, say, fetchImpl = fetch, signal, dir, sound = { measureLoudness, speechWav }, open = openSource }) {
+  const source = await open(link, { fetchImpl, env, dir, signal });
+  const video = source.video;
   if (video.seconds < MIN_SECONDS) throw new Refused(422, "That broadcast is too short to clip.");
   if (video.seconds > MAX_SECONDS) throw new Refused(422, "That broadcast is longer than 14 hours. Pick a shorter one.");
   say({ type: "video", video });
 
-  const audioList = (await playlistsFor(video.id, fetchImpl)).find((entry) => entry.name === "audio_only");
-  if (!audioList) throw new Refused(502, "Twitch didn't offer that broadcast's sound.");
-  const audio = await readPieces(audioList.url, fetchImpl);
-  const seconds = Math.min(video.seconds, Math.floor(audio.seconds));
-
   say({ type: "step", step: "listening" });
-  const [clips, messages, loud, storyboard] = await Promise.all([
-    findViewerClips(video.id, fetchImpl).catch(() => []),
-    readChat(video.id, seconds, { fetchImpl }).catch(() => []),
+  const audio = await source.audio();
+  const seconds = Math.min(video.seconds, Math.floor(audio.seconds ?? video.seconds));
+  const [clips, messages, loud] = await Promise.all([
+    source.clips().catch(() => []),
+    source.chat(seconds).catch(() => []),
     sound.measureLoudness(audio, { fetchImpl, ffmpeg: env.ffmpeg, signal }),
-    readStoryboard(previews, fetchImpl),
   ]);
 
   const muted = new Uint8Array(seconds);
-  for (const piece of audio.pieces) if (piece.muted) muted.fill(1, Math.floor(piece.start), Math.min(seconds, Math.ceil(piece.start + piece.duration)));
+  for (const piece of audio.pieces ?? []) if (piece.muted) muted.fill(1, Math.floor(piece.start), Math.min(seconds, Math.ceil(piece.start + piece.duration)));
   const mostlyMuted = (window) => muted.subarray(window.start, window.end).reduce((a, b) => a + b, 0) > (window.end - window.start) / 2;
   const found = pickWindows(heat({ seconds, messages, loud, clips }), { count: WINDOWS, clips, muted: mostlyMuted });
   if (!found.length) throw new Refused(422, "Nothing stood out in that broadcast.");
@@ -230,7 +229,12 @@ export async function scan(link, { req, user, env, say, fetchImpl = fetch, signa
       words: onTimeline(entry.words, entry.window.start),
     }];
   });
-  return { video: { ...video, storyboard }, moments, ...(spent ? { note: spent } : {}) };
+  // Streams without a storyboard get a frame of each moment instead.
+  if (!video.storyboard && source.thumbs && moments.length) {
+    const frames = await source.thumbs(audio, moments.map((moment) => (moment.start + moment.end) / 2));
+    frames.forEach((frame, index) => frame && (moments[index].thumb = frame));
+  }
+  return { video, moments, ...(spent ? { note: spent } : {}) };
 }
 
 function ndjson(res) {
@@ -244,10 +248,10 @@ export async function handleScan(req, res, env, fetchImpl = fetch) {
   if (req.method !== "POST") throw new Refused(405, "Use POST.");
   const user = await userFor(req, env);
   const body = await readJson(req);
-  const link = parseTwitchLink(body?.link);
-  if (!link) throw new Refused(400, "Paste the link to a Twitch broadcast, like twitch.tv/videos/123456789, or a channel's link for its latest one.");
+  const link = parseLink(body?.link);
+  if (!link) throw new Refused(400, "Paste the link to a past broadcast on Twitch, Kick or YouTube, or a channel's link for its latest one.");
 
-  const key = `${user.id}:${link.vod ?? link.channel}`;
+  const key = `${user.id}:${link.source}:${link.vod ?? link.channel}`;
   const kept = results.get(key);
   if (kept && kept.until > Date.now() && body.again !== true) {
     const say = ndjson(res);
@@ -274,7 +278,7 @@ export async function handleScan(req, res, env, fetchImpl = fetch) {
     say({ type: "done", ...result });
   } catch (error) {
     if (!abort.signal.aborted) {
-      const known = error instanceof Refused || error instanceof TwitchError;
+      const known = error instanceof Refused || error instanceof StreamError;
       if (!known) console.error("clips:", error);
       say({ type: "error", status: known ? error.status : 500, error: known ? error.message : "Something went wrong finding clips. Try again." });
     }
@@ -298,14 +302,9 @@ export async function handleVideo(req, res, env, fetchImpl = fetch) {
   const vod = query.get("vod") ?? "";
   const start = Number(query.get("start"));
   const end = Number(query.get("end"));
-  if (!/^\d{6,12}$/.test(vod) || !Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end <= start) throw new Refused(400, "That stretch of the broadcast can't be read.");
+  if (!sourceOfId(vod) || !Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end <= start) throw new Refused(400, "That stretch of the broadcast can't be read.");
   if (end - start > MAX_CLIP_SECONDS) throw new Refused(400, "A clip can be at most two minutes.");
-
-  const picture = pickVideo(await playlistsFor(vod, fetchImpl), query.get("quality") === "preview" ? PREVIEW_LINES : 1080);
-  if (!picture) throw new Refused(502, "Twitch didn't offer that broadcast's picture.");
-  const { init, pieces } = await readPieces(picture.url, fetchImpl);
-  const wanted = piecesBetween(pieces, start, end);
-  if (!wanted.length) throw new Refused(416, "That stretch is past the end of the broadcast.");
+  const lines = query.get("quality") === "preview" ? PREVIEW_LINES : 1080;
 
   const dir = await mkdtemp(join(env.tmpDir || tmpdir(), "clip-"));
   const abort = new AbortController();
@@ -313,14 +312,19 @@ export async function handleVideo(req, res, env, fetchImpl = fetch) {
   res.on("close", stop);
   try {
     const file = join(dir, "clip.mp4");
-    await remux(pieceBytes(init, wanted, { fetchImpl, signal: abort.signal }), file, env.ffmpeg, abort.signal);
+    const offset = await writeStretch(vod, start, end, lines, file, {
+      fetchImpl,
+      env,
+      signal: abort.signal,
+      remux: (chunks, out) => remux(chunks, out, env.ffmpeg, abort.signal),
+    });
     const { size } = await stat(file);
     res.writeHead(200, {
       "Content-Type": "video/mp4",
       "Content-Length": size,
       "Cache-Control": "private, no-store",
       "X-Content-Type-Options": "nosniff",
-      "X-Clip-Offset": (start - wanted[0].start).toFixed(3),
+      "X-Clip-Offset": offset.toFixed(3),
       "Access-Control-Expose-Headers": "X-Clip-Offset",
     });
     await new Promise((resolve, reject) => createReadStream(file).on("error", reject).on("end", resolve).pipe(res));

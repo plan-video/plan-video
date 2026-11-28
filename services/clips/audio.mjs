@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { createReadStream } from "node:fs";
 
 const FETCH_AHEAD = 8;
 const PIECE_TIMEOUT_MS = 30_000;
@@ -6,11 +7,11 @@ const LOUDNESS_RATE = 8000;
 export const SPEECH_RATE = 16000;
 
 /** The init segment and then each piece's bytes, in order, fetching a few ahead. */
-export async function* pieceBytes(init, pieces, { fetchImpl = fetch, signal } = {}) {
+export async function* pieceBytes(init, pieces, { fetchImpl = fetch, signal, headers } = {}) {
   const get = async (url) => {
     for (let attempt = 0; ; attempt++) {
       try {
-        const res = await fetchImpl(url, { signal: AbortSignal.any([AbortSignal.timeout(PIECE_TIMEOUT_MS), ...(signal ? [signal] : [])]) });
+        const res = await fetchImpl(url, { headers, signal: AbortSignal.any([AbortSignal.timeout(PIECE_TIMEOUT_MS), ...(signal ? [signal] : [])]) });
         if (!res.ok) throw new Error(`Twitch answered ${res.status} for a piece of the broadcast.`);
         return Buffer.from(await res.arrayBuffer());
       } catch (error) {
@@ -31,14 +32,17 @@ export async function* pieceBytes(init, pieces, { fetchImpl = fetch, signal } = 
   }
 }
 
+/** A sound file's [from, from + seconds) as the decoder reads it. */
+const fileInput = (file, from, seconds) => ["-ss", String(from), "-t", String(seconds), "-i", file];
+
 /**
  * Pipes `chunks` into ffmpeg and hands each piece of mono 16-bit PCM it decodes to `onPcm`. Samples
  * follow the pieces back to back, not Twitch's timestamps: those can drift from the playlist's
  * timeline, which chat and viewers' clips are timed on.
  */
-export function decode(chunks, rate, onPcm, { ffmpeg = "ffmpeg", signal } = {}) {
+export function decode(chunks, rate, onPcm, { ffmpeg = "ffmpeg", signal, input = ["-i", "pipe:0"] } = {}) {
   return new Promise((resolve, reject) => {
-    const child = spawn(ffmpeg, ["-hide_banner", "-loglevel", "error", "-i", "pipe:0", "-vn", "-ac", "1", "-ar", String(rate), "-f", "s16le", "pipe:1"], {
+    const child = spawn(ffmpeg, ["-hide_banner", "-loglevel", "error", ...input, "-vn", "-ac", "1", "-ar", String(rate), "-f", "s16le", "pipe:1"], {
       stdio: ["pipe", "pipe", "pipe"],
     });
     let failed = null;
@@ -68,7 +72,7 @@ export function decode(chunks, rate, onPcm, { ffmpeg = "ffmpeg", signal } = {}) 
     child.stdin.on("error", () => {});
     (async () => {
       try {
-        for await (const chunk of chunks) {
+        for await (const chunk of chunks ?? []) {
           if (!child.stdin.write(chunk)) await new Promise((done) => child.stdin.once("drain", done));
         }
       } catch (error) {
@@ -111,10 +115,17 @@ export class SecondLoudness {
   }
 }
 
-/** Per-second loudness of the whole broadcast; seconds Twitch muted are null. */
+/**
+ * Per-second loudness of the whole broadcast; seconds Twitch muted are null. `audio` is a stream's pieces
+ * (`{ init, pieces, headers }`) or a downloaded `{ file }`.
+ */
 export async function measureLoudness(audio, { fetchImpl, ffmpeg, signal } = {}) {
   const meter = new SecondLoudness(LOUDNESS_RATE);
-  await decode(pieceBytes(audio.init, audio.pieces, { fetchImpl, signal }), LOUDNESS_RATE, (pcm) => meter.push(pcm), { ffmpeg, signal });
+  if (audio.file) {
+    await decode(createReadStream(audio.file), LOUDNESS_RATE, (pcm) => meter.push(pcm), { ffmpeg, signal });
+    return meter.done();
+  }
+  await decode(pieceBytes(audio.init, audio.pieces, { fetchImpl, signal, headers: audio.headers }), LOUDNESS_RATE, (pcm) => meter.push(pcm), { ffmpeg, signal });
   const loud = meter.done();
   for (const piece of audio.pieces) {
     if (!piece.muted) continue;
@@ -144,15 +155,21 @@ export function wav(samples, rate) {
 
 /** [from, to) of the broadcast as 16 kHz mono WAV, the form /api/transcribe takes. */
 export async function speechWav(audio, from, to, { fetchImpl, ffmpeg, signal } = {}) {
-  const pieces = audio.pieces.filter((piece) => piece.start < to && piece.start + piece.duration > from);
-  if (!pieces.length) return null;
-  const first = pieces[0].start;
   const chunks = [];
   let length = 0;
-  await decode(pieceBytes(audio.init, pieces, { fetchImpl, signal }), SPEECH_RATE, (pcm) => {
+  const keep = (pcm) => {
     chunks.push(pcm);
     length += pcm.length;
-  }, { ffmpeg, signal });
+  };
+  let first = from;
+  if (audio.file) {
+    await decode(null, SPEECH_RATE, keep, { ffmpeg, signal, input: fileInput(audio.file, from, to - from) });
+  } else {
+    const pieces = audio.pieces.filter((piece) => piece.start < to && piece.start + piece.duration > from);
+    if (!pieces.length) return null;
+    first = pieces[0].start;
+    await decode(pieceBytes(audio.init, pieces, { fetchImpl, signal, headers: audio.headers }), SPEECH_RATE, keep, { ffmpeg, signal });
+  }
   const all = new Int16Array(length);
   let at = 0;
   for (const chunk of chunks) {

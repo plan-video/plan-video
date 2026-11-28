@@ -17,9 +17,9 @@ Every post starts in **New post** in the dashboard.
   </Step>
 </Steps>
 
-## Clips from a Twitch stream
+## Clips from a stream
 
-Open **Projects → Twitch clips** and paste the link to a past broadcast, or a channel's link for its latest one. plan.video reads the broadcast's chat, how loud it gets and the clips viewers made, writes down what was said in the parts that stand out, and picks up to 30 moments that work on their own. A 2-hour stream takes about a minute; keep the page open while it works.
+Open **Projects → Stream clips** and paste the link to a past stream on Twitch, Kick or YouTube, or a channel's link for its latest one. plan.video reads the stream's chat, how loud it gets, and what viewers clipped or replayed most, writes down what was said in the parts that stand out, and picks up to 30 moments that work on their own. A 2-hour stream takes about a minute; keep the page open while it works.
 
 Each clip opens in its own editor, with a 9:16 preview that plays as the post will look:
 
@@ -31,7 +31,8 @@ Each clip opens in its own editor, with a 9:16 preview that plays as the post wi
 
 When a clip is ready, **Schedule** opens it in New post, **Download** saves the video, and **Open in editor** makes it a project you can change in every way the editor allows. **Add a clip** picks any other stretch of the stream by hand. Your clips and changes are kept on this device.
 
-- The stream has to be public: a broadcast for subscribers only can't be read.
+- The stream has to be public. A Twitch broadcast for subscribers only, a YouTube video for members only, and an age-restricted YouTube video can't be read.
+- A YouTube stream that's still live can be clipped once it has ended.
 - Finding the moments uses about 35 minutes of your monthly [captions](/docs/captions), however long the stream. When fewer are left, plan.video checks the best parts it has room for.
 - Parts Twitch muted for music are skipped.
 

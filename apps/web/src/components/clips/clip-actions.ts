@@ -9,7 +9,7 @@ import { getDefaultExportTemplate, type ExportConfig } from "@/components/sideba
 import { clipMade, clipPostOptions, type ClipEdit } from "@/lib/clip-studio";
 import { frameRateOf } from "@/lib/facecam-find";
 import { t } from "@/lib/i18n";
-import { fetchStretch, type TwitchVideo } from "@/lib/twitch-clips";
+import { fetchStretch, type StreamVideo } from "@/lib/stream-clips";
 import { projectKey, type ProjectInfo } from "@/projects";
 import { createPostProject } from "@/projects/post";
 import { exportProjectVideo } from "@/projects/post-export";
@@ -28,7 +28,7 @@ export function clipExportSettings(fps: number | null): ExportConfig | undefined
  * the full picture. `remember` keeps which project the clip made.
  */
 export async function clipProject(
-  video: TwitchVideo,
+  video: StreamVideo,
   clip: ClipEdit,
   remember: (made: NonNullable<ClipEdit["project"]>) => void,
   signal?: AbortSignal,

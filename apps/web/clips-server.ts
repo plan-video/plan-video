@@ -6,7 +6,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Plugin } from "vite";
 
 import { handleScan, handleVideo, json, Refused } from "../../services/clips/handler.mjs";
-import { TwitchError } from "../../services/clips/twitch.mjs";
+import { StreamError } from "../../services/clips/hls.mjs";
 import { serverEnv } from "./server-env";
 
 // Asks this dev server's own /api/transcribe and /api/agent/moments, so it needs their keys in server.env.
@@ -30,9 +30,12 @@ export function clipsDevPlugin(envDir: string, mode: string): Plugin {
           transcribeUrl: `${self}/api/transcribe`,
           agentUrl: `${self}/api/agent/moments`,
           ffmpeg: envFile.FFMPEG?.trim() || "ffmpeg",
+          ffprobe: envFile.FFPROBE?.trim() || "ffprobe",
+          ytdlp: envFile.YTDLP?.trim() || "yt-dlp",
+          ytdlpCookies: envFile.YTDLP_COOKIES?.trim() || "",
         };
         void handle(req as IncomingMessage, res as ServerResponse, env).catch((error: unknown) => {
-          if (error instanceof Refused || error instanceof TwitchError) json(res as ServerResponse, error.status, { error: error.message });
+          if (error instanceof Refused || error instanceof StreamError) json(res as ServerResponse, error.status, { error: error.message });
           else json(res as ServerResponse, 500, { error: error instanceof Error ? error.message : "Finding clips failed" });
         });
       });

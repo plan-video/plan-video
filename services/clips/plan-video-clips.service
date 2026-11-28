@@ -3,7 +3,8 @@ Description=plan.video clips from Twitch broadcasts
 After=network-online.target
 Wants=network-online.target
 
-# Reads SUPABASE_URL / SUPABASE_ANON_KEY from r2.env. Needs ffmpeg (apt install ffmpeg).
+# Reads SUPABASE_URL / SUPABASE_ANON_KEY from r2.env, and YTDLP_COOKIES, if any, from clips.env. Needs
+# ffmpeg, curl (Kick) and yt-dlp (YouTube), kept up to date.
 # Asks the transcribe and agent services on this server, under each person's own sign-in.
 
 [Service]

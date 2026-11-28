@@ -11,13 +11,13 @@ import { clock, type ClipEdit } from "@/lib/clip-studio";
 import { cx } from "@/lib/cva";
 import { t } from "@/lib/i18n";
 
-import type { Storyboard } from "@/lib/twitch-clips";
+import type { Storyboard } from "@/lib/stream-clips";
 
-/** The storyboard frame nearest `seconds`, drawn from its sheet; a dark box when there's none. */
-export function StoryboardThumb(props: { board: Storyboard | null | undefined; seconds: number; class?: string }) {
+/** The storyboard frame nearest `seconds`, drawn from its sheet, or `still` when there's no storyboard; else a dark box. */
+export function StoryboardThumb(props: { board: Storyboard | null | undefined; seconds: number; still?: string; class?: string }) {
   const style = () => {
     const board = props.board;
-    if (!board) return undefined;
+    if (!board) return props.still ? { "background-image": `url("${props.still}")`, "background-size": "cover", "background-position": "center" } : undefined;
     const perSheet = board.cols * board.rows;
     const index = Math.min(board.count - 1, Math.max(0, Math.round(props.seconds / board.interval)));
     const sheet = board.images[Math.floor(index / perSheet)];
@@ -96,7 +96,7 @@ export function ClipList(props: ClipListProps) {
                 onClick={() => props.onOpen(clip.id)}
               >
                 <span class="relative w-24 shrink-0">
-                  <StoryboardThumb board={props.board} seconds={(clip.start + clip.end) / 2} class="w-24" />
+                  <StoryboardThumb board={props.board} seconds={(clip.start + clip.end) / 2} still={clip.thumb} class="w-24" />
                   <span class="absolute right-1 bottom-1 rounded bg-black/70 px-1 text-[10px] font-medium tabular-nums text-white">
                     {Math.round(clip.end - clip.start)}s
                   </span>

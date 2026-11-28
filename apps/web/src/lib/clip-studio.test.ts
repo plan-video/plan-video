@@ -6,10 +6,10 @@ import { describe, expect, it } from "vitest";
 
 import { addedClip, clipFromMoment, clipMade, clipPostOptions, clipWords, readClock, trimmed } from "./clip-studio";
 
-import type { TwitchMoment, TwitchVideo } from "./twitch-clips";
+import type { StreamMoment, StreamVideo } from "./stream-clips";
 
-const video: TwitchVideo = { id: "1", title: "Stream", seconds: 3600, channel: "tarik", login: "tarik", game: "VALORANT" };
-const moment: TwitchMoment = {
+const video: StreamVideo = { id: "1", title: "Stream", seconds: 3600, channel: "tarik", login: "tarik", game: "VALORANT" };
+const moment: StreamMoment = {
   start: 1010,
   end: 1035,
   score: 80,

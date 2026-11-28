@@ -9,12 +9,7 @@ const TIMEOUT_MS = 15_000;
 const EMPTY_RETRIES = 3;
 const EMPTY_SKIP = 30;
 
-export class TwitchError extends Error {
-  constructor(status, message) {
-    super(message);
-    this.status = status;
-  }
-}
+import { StreamError as TwitchError, parseMaster } from "./hls.mjs";
 
 const LOGIN = /^[a-zA-Z0-9_]{2,25}$/;
 const NOT_CHANNELS = new Set(["videos", "directory", "settings", "downloads", "jobs", "p", "search", "subscriptions", "inventory", "wallet", "drops", "turbo", "prime"]);
@@ -140,63 +135,6 @@ export async function findPlaylists(vod, fetchImpl = fetch) {
   if (res.status === 403) throw new TwitchError(403, "That broadcast is for subscribers only.");
   if (!res.ok) throw new TwitchError(502, `Twitch answered ${res.status} for the broadcast.`);
   return parseMaster(await res.text());
-}
-
-export function parseMaster(text) {
-  const playlists = [];
-  const lines = text.split(/\r?\n/);
-  for (let i = 0; i < lines.length; i++) {
-    if (!lines[i].startsWith("#EXT-X-STREAM-INF:")) continue;
-    const info = lines[i];
-    const url = lines[i + 1]?.trim();
-    if (!url || url.startsWith("#")) continue;
-    const name = /VIDEO="([^"]+)"/.exec(info)?.[1] ?? "";
-    const height = Number(/RESOLUTION=\d+x(\d+)/.exec(info)?.[1]) || 0;
-    playlists.push({ name, height, url });
-  }
-  return playlists;
-}
-
-/** The sharpest picture up to `lines` tall, or the smallest above it. */
-export function pickVideo(playlists, lines = 1080) {
-  const videos = playlists.filter((entry) => entry.name !== "audio_only" && entry.height > 0);
-  const fits = videos.filter((entry) => entry.height <= lines).sort((a, b) => b.height - a.height);
-  return fits[0] ?? videos.sort((a, b) => a.height - b.height)[0] ?? null;
-}
-
-/** Pieces in order, with their place in the broadcast. Twitch names a piece it silenced for music `N-muted.mp4`. */
-export function parsePieces(text, playlistUrl) {
-  const base = playlistUrl.slice(0, playlistUrl.lastIndexOf("/") + 1);
-  const init = /#EXT-X-MAP:URI="([^"]+)"/.exec(text)?.[1];
-  const pieces = [];
-  let at = 0;
-  let duration = null;
-  for (const raw of text.split(/\r?\n/)) {
-    const line = raw.trim();
-    if (line.startsWith("#EXTINF:")) duration = Number.parseFloat(line.slice(8));
-    else if (line && !line.startsWith("#") && duration !== null) {
-      pieces.push({ url: new URL(line, base).href, start: at, duration, muted: /-muted\.\w+$/.test(line) });
-      at += duration;
-      duration = null;
-    }
-  }
-  return { init: init ? new URL(init, base).href : null, pieces, seconds: at };
-}
-
-export async function readPieces(playlistUrl, fetchImpl = fetch) {
-  let res;
-  try {
-    res = await fetchImpl(playlistUrl, { signal: AbortSignal.timeout(TIMEOUT_MS) });
-  } catch {
-    throw new TwitchError(502, "Twitch couldn't be reached. Try again in a moment.");
-  }
-  if (!res.ok) throw new TwitchError(502, `Twitch answered ${res.status} for the broadcast.`);
-  return parsePieces(await res.text(), playlistUrl);
-}
-
-/** Pieces covering [from, to). */
-export function piecesBetween(pieces, from, to) {
-  return pieces.filter((piece) => piece.start < to && piece.start + piece.duration > from);
 }
 
 /** Viewers' clips of this broadcast: their stretch of it, title and views. */

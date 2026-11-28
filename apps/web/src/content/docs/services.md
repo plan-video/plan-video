@@ -15,11 +15,11 @@ Everything that needs a secret runs on your server as a small Node.js service. E
 | `mcp` | 8791 | `/mcp` | The MCP server AI agents connect to |
 | `agent` | 8796 | `/api/agent` | The dashboard's Assistant and the editor's caption tools, with Claude |
 | `transcribe` | 8792 | `/api/transcribe` | Auto-captions, with ElevenLabs speech-to-text |
-| `clips` | 8800 | `/api/clips/` | Finds clips in Twitch streams for New post. It asks `transcribe` and `agent` for each person, and needs ffmpeg. |
+| `clips` | 8800 | `/api/clips/` | Finds clips in Twitch, Kick and YouTube streams for Stream clips. It asks `transcribe` and `agent` for each person, and needs ffmpeg, curl and yt-dlp. |
 | `billing` | 8799 | `/api/billing/` | Paid plans, with Stripe |
 | `monitor` | | | Checks the server every minute and reports to Healthchecks.io |
 
-You need `publisher`, `gateway`, `photos` and `storage`, plus the service of each network you connect. The rest are optional: without `mcp` agents can't connect, without `agent` there's no Assistant, without `transcribe` there are no auto-captions, without `clips` New post has no From Twitch, and without `billing` everyone stays on the Free plan unless you [give them a plan](/docs/self-hosting#give-yourself-a-plan).
+You need `publisher`, `gateway`, `photos` and `storage`, plus the service of each network you connect. The rest are optional: without `mcp` agents can't connect, without `agent` there's no Assistant, without `transcribe` there are no auto-captions, without `clips` there are no Stream clips, and without `billing` everyone stays on the Free plan unless you [give them a plan](/docs/self-hosting#give-yourself-a-plan).
 
 ## Settings files
 
@@ -48,7 +48,7 @@ Make each file owned by `root` and by the group of the service that reads it, wi
 
 ## Install a service
 
-The units expect each service in `/opt/plan-video-<name>`, each run by a user of its own, `planvideo-<name>`. They run `/usr/bin/node`, so install Node.js 22 there first, from your distribution or [nodejs.org](https://nodejs.org). `services/deploy.sh` also needs `git`, `rsync`, `curl`, and `node` and `npm` on your path, and runs as root. `clips` also needs `ffmpeg` (`apt install ffmpeg`).
+The units expect each service in `/opt/plan-video-<name>`, each run by a user of its own, `planvideo-<name>`. They run `/usr/bin/node`, so install Node.js 22 there first, from your distribution or [nodejs.org](https://nodejs.org). `services/deploy.sh` also needs `git`, `rsync`, `curl`, and `node` and `npm` on your path, and runs as root. `clips` also needs `ffmpeg` (`apt install ffmpeg`) and [yt-dlp](https://github.com/yt-dlp/yt-dlp#installation) for YouTube. YouTube changes often, so update yt-dlp now and then (`yt-dlp -U`, or through the package manager you installed it with). If YouTube asks your server to sign in, put a cookies file exported from a browser at a path the service can read and name it as `YTDLP_COOKIES` in `/etc/plan-video/clips.env`.
 
 <Steps>
   <Step title="Make the users">

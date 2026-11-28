@@ -15,12 +15,12 @@ import { t } from "@/lib/i18n";
 
 import { StoryboardThumb } from "./clip-list";
 
-import type { TwitchVideo } from "@/lib/twitch-clips";
+import type { StreamVideo } from "@/lib/stream-clips";
 
 const LENGTHS = ["15", "30", "45", "60", "90"] as const;
 
-/** Picks any stretch of the stream by hand, seeing where it is on Twitch's own frames. */
-export function AddClip(props: { video: TwitchVideo; onAdd(at: number, length: number): void }) {
+/** Picks any stretch of the stream by hand, seeing where it is on the platform's own frames. */
+export function AddClip(props: { video: StreamVideo; onAdd(at: number, length: number): void }) {
   const [open, setOpen] = createSignal(false);
   const [at, setAt] = createSignal(0);
   const [length, setLength] = createSignal<(typeof LENGTHS)[number]>("30");
