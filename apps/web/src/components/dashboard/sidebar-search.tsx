@@ -35,7 +35,7 @@ type SearchPage = {
 const PAGES: SearchPage[] = [
   { view: "new-post", name: msg("New post"), section: msg("Create"), icon: "document" },
   { view: "bulk-tools", name: msg("Bulk tools"), section: msg("Create"), icon: "layers" },
-  { view: "clips", name: msg("Stream clips"), section: msg("Create"), icon: "scissors", also: msg("Twitch, Kick, YouTube") },
+  { view: "clips", name: "ClipSquirrel", section: msg("Create"), icon: "scissors", also: msg("Stream clips") },
   { view: "calendar", name: msg("Calendar"), section: msg("Calendar"), icon: "calendar" },
   { view: "queue", name: msg("Auto-schedule"), section: msg("Calendar"), icon: "clock", also: msg("Queue") },
   { view: "posts", name: msg("Post list"), section: msg("Calendar"), icon: "list" },
