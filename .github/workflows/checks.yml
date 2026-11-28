@@ -35,6 +35,8 @@ jobs:
         run: npm test -w @plan.video/web -w @plan.video/agent-chat -w @plan.video/dapi -w @plan.video/runtime
       - name: Build
         run: npm run build
+      - name: MCP posting tools match the app
+        run: node services/mcp/scripts/build-posting.mjs && git diff --exit-code services/mcp/posting.mjs
 
   services:
     name: Services

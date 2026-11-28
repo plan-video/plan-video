@@ -6,7 +6,9 @@ Wants=network-online.target
 # Its own user, unlike the other services: this one is reachable by anyone on
 # the internet, so it must not be able to read their secrets. It needs only
 # /etc/plan-video/mcp.env (owned by planvideo-mcp, mode 600):
-#   SUPABASE_URL, SUPABASE_ANON_KEY, and optionally PUBLIC_URL, ALLOWED_ORIGINS.
+#   SUPABASE_URL, SUPABASE_ANON_KEY, and optionally PUBLIC_URL, STORAGE_URL, PUBLISHER_URL
+#   and OPENAI_APPS_CHALLENGE (the token ChatGPT's app review asks the domain to serve).
+# Every tool runs with the agent's own token, so it holds no database or publisher key.
 #
 #   useradd --system --no-create-home --shell /usr/sbin/nologin planvideo-mcp
 

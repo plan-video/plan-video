@@ -16,7 +16,6 @@ The website takes its settings when it's built. Each service reads its files fro
 | `VITE_UMAMI_WEBSITE_ID`, `VITE_UMAMI_SCRIPT_URL`, `VITE_UMAMI_DOMAINS` | | [Umami](https://umami.is) analytics. Off when empty. |
 | `VITE_PUBLISHER_URL` | | Where the dev server sends `/api/publisher`. Default `VITE_APP_URL`, else `https://plan.video`. Only the dev server reads it. |
 | `VITE_AGENT_CHAT_URL` | | An agent chat host for the editor. Without it, the editor's agent chat stays off. |
-| `VITE_CONNECTOR_DEV` | | `true` turns the agent connector on in the dev server too, through `/api/mcp`. Builds always have it. |
 | `VITE_GOOGLE_CLIENT_ID`, `VITE_GOOGLE_API_KEY` | | Adds files from Google Drive. Off unless both are set. See [Google Drive](#google-drive). |
 
 Keys with the `VITE_` prefix are built into the browser bundle, so `apps/web/.env` holds nothing else: the dev server and the build stop if it does.
@@ -163,7 +162,9 @@ node services/billing/scripts/db-key.mjs
 | `SUPABASE_URL` | Required | Your Supabase project's address. Agents sign in at its OAuth server. |
 | `SUPABASE_ANON_KEY` | Required | Its publishable key |
 | `PUBLIC_URL` | | Your site's address. It names the server to agents, and the site they ask people to open, so it must be right. Default `https://plan.video`. |
-| `ALLOWED_ORIGINS` | | Sites whose tabs may connect, separated by commas. Default `PUBLIC_URL` and its `www.` address. |
+| `STORAGE_URL` | | Where it reaches `storage` to attach files to agents' posts. Default `http://127.0.0.1:8788`, the same server. |
+| `PUBLISHER_URL` | | Where it reaches the publisher, through `gateway`, to send posts now and read networks. Default `http://127.0.0.1:8798`, the same server. |
+| `OPENAI_APPS_CHALLENGE` | | The token ChatGPT's app review asks your domain to serve at `/.well-known/openai-apps-challenge`. Only for listing your copy in ChatGPT. |
 
 ## monitor.env
 

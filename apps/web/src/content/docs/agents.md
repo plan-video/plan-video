@@ -22,11 +22,11 @@ plan.video runs an MCP server at `https://plan.video/mcp`. Any agent that suppor
 - see your connected accounts, media library and calendar
 - write, schedule, move and delete posts
 - read your Analytics, for TikTok, YouTube, Instagram, Facebook Pages, Threads and LinkedIn Pages, and pick good times
-- publish a post when you ask, once you've allowed it in your tab
+- publish a post when you ask
 
-<Warning>
-Keep plan.video open in a browser tab, signed in, while your agent works. The agent's requests run through that tab. Once a post is scheduled and its files have uploaded, it goes out on time whether the tab is open or not.
-</Warning>
+<Note>
+Your agent works with plan.video closed, on your phone too. Your agent's app asks you before it publishes, deletes or changes a post, the way it asks before any action it can't take back.
+</Note>
 
 ## Works with
 

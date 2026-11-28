@@ -10,6 +10,7 @@ import { ownerOf } from "@/lib/guest";
 import { t } from "@/lib/i18n";
 import { accountsLimit } from "@/lib/plans";
 import { hasSecrets, saveLogin, withoutSecrets } from "@/lib/publishing";
+import { readChoices } from "@/lib/post-rules";
 import { activeScope, activeWorkspaceId, storageKeyFor, workspaceKey, workspaces, type TeamScope } from "@/lib/workspaces";
 
 /** Its tokens go to the publisher as soon as it's made (lib/publishing); only who it is stays here. */
@@ -328,16 +329,7 @@ export async function loginReady(accountId: string): Promise<void> {
   });
 }
 
-/** Including older ones that held a single id per platform. */
-export function readChoices(value: unknown): AccountChoices {
-  const next: AccountChoices = {};
-  if (!value || typeof value !== "object") return next;
-  for (const [platform, ids] of Object.entries(value)) {
-    const list = typeof ids === "string" ? [ids] : Array.isArray(ids) ? ids.filter((id): id is string => typeof id === "string") : [];
-    if (list.length) next[platform] = [...new Set(list)];
-  }
-  return next;
-}
+export { readChoices };
 
 /**
  * Only a post that named none goes out from the only one connected, so a post is never silently sent

@@ -136,7 +136,7 @@ export function OAuthConsentPage() {
                   )}
                 </Show>
                 <p class="mt-4 text-[15px] leading-6 text-white/55">
-                  {t("It can see your connected accounts, media library and calendar, and your Analytics, such as YouTube views and top videos. It can schedule, change and delete posts, and publish them when you ask. It works through plan.video while it's open in your browser.")}
+                  {t("It can see your connected accounts, media library and calendar, and your Analytics, such as YouTube views and top videos. It can schedule, change and delete posts, and publish them when you ask.")}
                   <Show when={AGENTIC_EDITING}> {t('It can also change the project you have open, one undo step at a time.')}</Show>
                 </p>
                 <p class="mt-4 text-[14px] leading-5 text-white/40">

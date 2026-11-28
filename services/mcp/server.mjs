@@ -2,9 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Agents reach /mcp with a token from Supabase's OAuth server; the tools run in the user's
-// open plan.video tab over /api/mcp/tab. Stateless: each MCP request gets a fresh server and
-// transport, so the only state is the open tabs.
+// Agents reach /mcp with a token from Supabase's OAuth server. The tools run here (posting.mjs) with that token:
+// the database, storage and the publisher check who it speaks for. Stateless: each MCP request gets a fresh server
+// and transport.
 
 import { isIP } from "node:net";
 import { createServer } from "node:http";
@@ -12,20 +12,21 @@ import { readFileSync } from "node:fs";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-import { WebSocket, WebSocketServer } from "ws";
 
 import { bearer, createAuth } from "./auth.mjs";
-import { Relay, RelayError, tooManyValues } from "./relay.mjs";
+import { createPostingTools } from "./posting.mjs";
+import { createStore } from "./store.mjs";
 
 const HOST = "127.0.0.1";
 const PORT = Number(process.env.MCP_PORT) || 8791;
 const ENV_PATH = process.env.MCP_ENV || "/etc/plan-video/mcp.env";
 
 const MCP_PATH = "/mcp";
-const TAB_PATH = "/api/mcp/tab";
 const METADATA_PATHS = new Set(["/.well-known/oauth-protected-resource", `/.well-known/oauth-protected-resource${MCP_PATH}`]);
 /** What directories read when their scan stops at the sign-in. */
 const SERVER_CARD_PATH = "/.well-known/mcp/server-card.json";
+/** OpenAI's check that whoever lists the app in ChatGPT holds this domain. */
+const OPENAI_CHALLENGE_PATH = "/.well-known/openai-apps-challenge";
 
 // Any site may call /mcp from a browser: it only takes a bearer token, never a cookie.
 const CORS = {
@@ -39,25 +40,7 @@ const PREFLIGHT = {
   "Access-Control-Max-Age": "86400",
 };
 
-const KiB = 1024;
-const MiB = 1024 * KiB;
-const BODY_MAX = 512 * KiB;
-/** Six 720p frames, base64, with room to spare. */
-const TAB_MESSAGE_MAX = 24 * MiB;
-/** All a tab may send before its hello is accepted (a sign-in token in JSON), or at a time when no call is waiting on it. */
-const HELLO_MAX = 16 * KiB;
-/** Of frames past HELLO_MAX on their way, across all tabs, so a few accounts can't fill the process. */
-const BIG_FRAMES_MAX = 128 * MiB;
-/** An empty pong from a browser: a two-byte header and a four-byte mask. */
-const PONG_FRAME = 6;
-const MAX_UNVERIFIED = 500;
-const MAX_UNVERIFIED_PER_IP = 20;
-const MAX_TABS = 5000;
-/** The longest setTimeout takes. */
-const MAX_TIMER_MS = 2 ** 31 - 1;
-const MAX_IMAGES = 6;
-const HELLO_MS = 10_000;
-const HEARTBEAT_MS = 30_000;
+const BODY_MAX = 512 * 1024;
 
 function loadEnv(path) {
   const env = {};
@@ -71,19 +54,16 @@ function loadEnv(path) {
   return env;
 }
 
-function wwwOf(site) {
-  const url = new URL(site);
-  if (!url.hostname.startsWith("www.")) url.hostname = `www.${url.hostname}`;
-  return url.origin;
-}
-
 const env = loadEnv(ENV_PATH);
 for (const key of ["SUPABASE_URL", "SUPABASE_ANON_KEY"]) {
   if (!env[key]) throw new Error(`Missing ${key} in ${ENV_PATH}`);
 }
 const PUBLIC_URL = (env.PUBLIC_URL || "https://plan.video").replace(/\/$/, "");
-const ORIGINS = new Set((env.ALLOWED_ORIGINS || [PUBLIC_URL, wwwOf(PUBLIC_URL)].join(",")).split(",").map((origin) => origin.trim()));
 const RESOURCE = `${PUBLIC_URL}${MCP_PATH}`;
+const STORAGE_URL = (env.STORAGE_URL || "http://127.0.0.1:8788").replace(/\/$/, "");
+// The gateway in front of the publisher (services/gateway).
+const PUBLISHER_URL = (env.PUBLISHER_URL || "http://127.0.0.1:8798").replace(/\/$/, "");
+const OPENAI_CHALLENGE = (env.OPENAI_APPS_CHALLENGE || "").trim();
 const METADATA_URL = `${PUBLIC_URL}/.well-known/oauth-protected-resource${MCP_PATH}`;
 
 const { version } = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8"));
@@ -106,7 +86,8 @@ const SERVER_CARD = JSON.stringify({
 });
 
 const auth = createAuth({ supabaseUrl: env.SUPABASE_URL, supabaseAnonKey: env.SUPABASE_ANON_KEY });
-const relay = new Relay({ site: PUBLIC_URL });
+const postingFor = (token) =>
+  createPostingTools(createStore({ supabaseUrl: env.SUPABASE_URL, anonKey: env.SUPABASE_ANON_KEY, storageUrl: STORAGE_URL, publisherUrl: PUBLISHER_URL, token }), { site: PUBLIC_URL });
 
 // Rate limits live in memory: a restart only forgives a few minutes.
 
@@ -176,15 +157,7 @@ function unauthorized(res, description) {
 
 const toolError = (text) => ({ content: [{ type: "text", text }], isError: true });
 
-function toContent(output) {
-  const images = output.images
-    .filter((image) => image && image.mediaType === "image/png" && typeof image.data === "string")
-    .slice(0, MAX_IMAGES)
-    .map((image) => ({ type: "image", data: image.data, mimeType: "image/png" }));
-  return { content: [{ type: "text", text: output.text }, ...images] };
-}
-
-function mcpServer(userId) {
+function mcpServer(userId, token) {
   const server = new Server(
     SERVER_INFO,
     { capabilities: { tools: {} }, instructions: catalog.instructions },
@@ -195,12 +168,8 @@ function mcpServer(userId) {
     if (!TOOL_NAMES.has(name)) return toolError(`Unknown tool: ${name}`);
     if (name === "get_authoring_reference") return { content: [{ type: "text", text: catalog.reference }] };
     if (!allow(`call:${userId}`, 120, 60)) return toolError("Too many calls in a minute. Wait a moment, then go on.");
-    try {
-      return toContent(await relay.call(userId, name, args));
-    } catch (error) {
-      if (error instanceof RelayError) return toolError(error.message);
-      throw error;
-    }
+    const outcome = await postingFor(token).run(name, args);
+    return outcome.error ? toolError(outcome.text) : { content: [{ type: "text", text: outcome.text }] };
   });
   return server;
 }
@@ -227,7 +196,7 @@ async function handleMcp(req, res) {
     return json(res, error.status ?? 400, { jsonrpc: "2.0", error: { code: -32700, message: error.status ? error.message : "Parse error." }, id: null });
   }
 
-  const server = mcpServer(who.userId);
+  const server = mcpServer(who.userId, token);
   const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
   res.on("close", () => {
     void transport.close();
@@ -235,127 +204,6 @@ async function handleMcp(req, res) {
   });
   await server.connect(transport);
   await transport.handleRequest(req, res, body);
-}
-
-// A socket asked to close frees its place in a second, not after ws's default of 30.
-const tabs = new WebSocketServer({ noServer: true, maxPayload: TAB_MESSAGE_MAX, closeTimeout: 1000 });
-
-const unverified = new Map();
-let unverifiedTotal = 0;
-let arriving = 0;
-
-// The first message must be `{ type: "hello", token }`; then `call` / `result` messages
-// by id, and `{ type: "active" }` when the user comes back to the tab.
-function onTab(ws, socket, ip) {
-  let tab = null;
-  let greeting = false;
-  let alive = true;
-
-  // Past a hello's worth of bytes a socket is cut off before ws buffers the rest, or big frames
-  // fill the process, unless it's signed in and answering a call. Added up ahead of ws's own
-  // listener and judged after it, so only a frame still unfinished counts: ended ones are forgotten.
-  let waiting = true;
-  let received = 0;
-  const count = (chunk) => {
-    received += chunk.length;
-    arriving += chunk.length;
-  };
-  const judge = () => {
-    if (received > HELLO_MAX && (!tab || !relay.waitingOn(tab) || arriving > BIG_FRAMES_MAX)) ws.terminate();
-  };
-  const forget = (bytes) => {
-    received -= bytes;
-    arriving -= bytes;
-  };
-  const verified = () => {
-    if (!waiting) return;
-    waiting = false;
-    unverifiedTotal -= 1;
-    const left = unverified.get(ip) - 1;
-    if (left > 0) unverified.set(ip, left);
-    else unverified.delete(ip);
-  };
-  socket.prependListener("data", count);
-  socket.on("data", judge);
-  unverifiedTotal += 1;
-  unverified.set(ip, (unverified.get(ip) ?? 0) + 1);
-
-  const hello = setTimeout(() => ws.close(4401, "Sign in first."), HELLO_MS);
-  // A socket lasts as long as the sign-in it showed. The tab sends each new token before the last runs out.
-  let signedIn;
-  const signedInUntil = (expires) => {
-    clearTimeout(signedIn);
-    signedIn = setTimeout(() => ws.close(4401, "Sign in again."), Math.min(Math.max(0, expires - Date.now()), MAX_TIMER_MS));
-  };
-  const heartbeat = setInterval(() => {
-    if (!alive) return ws.terminate();
-    alive = false;
-    ws.ping();
-  }, HEARTBEAT_MS);
-  // No message ends a pong. Forgiven by its own size only, or pongs could hide a big frame's pieces.
-  ws.on("pong", (data) => {
-    alive = true;
-    forget(PONG_FRAME + data.length);
-  });
-
-  ws.on("message", async (data, isBinary) => {
-    if (tab) forget(received);
-    let message;
-    try {
-      if (isBinary || tooManyValues(data)) throw new Error();
-      message = JSON.parse(data.toString("utf8"));
-    } catch {
-      ws.close(1003, "Expected JSON.");
-      return;
-    }
-
-    if (!tab) {
-      if (greeting || message?.type !== "hello" || typeof message.token !== "string") {
-        ws.close(4401, "Sign in first.");
-        return;
-      }
-      greeting = true;
-      const who = await auth.editor(message.token).catch(() => null);
-      clearTimeout(hello);
-      if (ws.readyState !== WebSocket.OPEN) return;
-      if (!who) {
-        ws.close(4401, "Sign in again.");
-        return;
-      }
-      verified();
-      forget(received);
-      signedInUntil(who.expires);
-      tab = relay.attach(who.userId, { send: (text) => ws.send(text), close: (code, reason) => ws.close(code, reason) });
-      ws.send(JSON.stringify({ type: "ready" }));
-      return;
-    }
-
-    if (message?.type === "token" && typeof message.token === "string") {
-      // Sign-in that can't be checked right now leaves things as they are, until this token runs out.
-      const who = await auth.editor(message.token).catch(() => undefined);
-      if (who === undefined || ws.readyState !== WebSocket.OPEN) return;
-      if (!who || who.userId !== tab.userId) ws.close(4401, "Sign in again.");
-      else signedInUntil(who.expires);
-      return;
-    }
-
-    if (message?.type === "active") relay.touch(tab);
-    else if (message?.type === "result" && typeof message.id === "string") relay.receive(tab, message);
-  });
-
-  ws.on("close", () => {
-    forget(received);
-    verified();
-    clearTimeout(hello);
-    clearTimeout(signedIn);
-    clearInterval(heartbeat);
-    if (tab) relay.detach(tab);
-  });
-  ws.on("error", () => ws.terminate());
-}
-
-function refuseUpgrade(socket, status, text) {
-  socket.end(`HTTP/1.1 ${status} ${text}\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`);
 }
 
 const server = createServer((req, res) => {
@@ -369,6 +217,12 @@ const server = createServer((req, res) => {
       resource_name: "plan.video",
       resource_documentation: PUBLIC_URL,
     }, { "Access-Control-Allow-Origin": "*" });
+    return;
+  }
+
+  if (path === OPENAI_CHALLENGE_PATH && req.method === "GET" && OPENAI_CHALLENGE) {
+    res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" });
+    res.end(OPENAI_CHALLENGE);
     return;
   }
 
@@ -393,17 +247,6 @@ const server = createServer((req, res) => {
   }
 
   json(res, 404, { error: "Not found." });
-});
-
-server.on("upgrade", (req, socket, head) => {
-  const path = (req.url || "").split("?")[0];
-  if (path !== TAB_PATH) return refuseUpgrade(socket, 404, "Not Found");
-  if (!ORIGINS.has(String(req.headers.origin ?? ""))) return refuseUpgrade(socket, 403, "Forbidden");
-  const ip = clientIp(req);
-  if (!allow(`tab:${ip}`, 60, 60)) return refuseUpgrade(socket, 429, "Too Many Requests");
-  if ((unverified.get(ip) ?? 0) >= MAX_UNVERIFIED_PER_IP) return refuseUpgrade(socket, 429, "Too Many Requests");
-  if (relay.size >= MAX_TABS || unverifiedTotal >= MAX_UNVERIFIED) return refuseUpgrade(socket, 503, "Service Unavailable");
-  tabs.handleUpgrade(req, socket, head, (ws) => onTab(ws, socket, ip));
 });
 
 server.requestTimeout = 180_000;

@@ -43,8 +43,9 @@ import {
   shiftDay,
   WEEKDAY_NAMES,
 } from "./utils";
-import { awaitingApproval, canApprove, mustAskForApproval, type Approval } from "@/lib/approval-state";
-import { stable, type Base } from "@/lib/post-sync-core";
+import { canApprove, mustAskForApproval, type Approval } from "@/lib/approval-state";
+import { approvalRules } from "@/lib/post-rules";
+import type { Base } from "@/lib/post-sync-core";
 import type { TikTokPostSettings, YouTubePostSettings } from "@/lib/social";
 import type {
   Calendar,
@@ -658,24 +659,8 @@ function savedOver(input: StoredEvent & { timeZone: string }, saved: StoredEvent
   return { ...shiftSeries(input, daysBetween(seen.day, saved.day)), day: saved.day, start: saved.start, timeZone: zone };
 }
 
-/**
- * What a member changed in a scheduled post: everything but its status and when it was timed, as the database
- * compares. Its zone is left out too: an older post gains one on any write, such as a send's progress.
- */
-const contentOf = ({ status: _status, sendFrom: _sendFrom, deliveries: _deliveries, thumbnail: _thumbnail, timeZone: _zone, ...rest }: StoredEvent) =>
-  stable(rest);
-
-/**
- * Scheduled, a post waits for nobody: an owner or admin scheduling one that waits approves it, and a member's
- * waits until it's approved, as does any change of theirs to a scheduled post where members need approval.
- */
 export function withApprovalRules(saved: StoredEvent | undefined, next: StoredEvent, at = new Date().toISOString()): StoredEvent {
-  if (next.status !== "scheduled") return next;
-  if (canApprove()) return awaitingApproval(next) ? { ...next, approval: { state: "approved", via: "team", at } } : next;
-  if (saved?.status === "scheduled" && contentOf(saved) === contentOf(next)) return next;
-  if (!awaitingApproval(next) && !mustAskForApproval(undefined)) return next;
-  const approval: Approval = awaitingApproval(next) ? next.approval! : { state: "pending", at };
-  return { ...next, status: "draft", approval, sendFrom: at };
+  return approvalRules(saved, next, { approver: canApprove(), membersNeedApproval: mustAskForApproval(undefined) }, at);
 }
 
 function putEvent(input: StoredEvent, options?: { quiet?: boolean }) {

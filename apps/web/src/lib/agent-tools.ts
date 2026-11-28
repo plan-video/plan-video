@@ -109,12 +109,11 @@ async function listMedia(args: { kind?: "video" | "image"; search?: string; limi
   };
 }
 
-function context(user: () => User | null, signal: AbortSignal, confirm: ToolContext["confirm"], confirmEvery: boolean): ToolContext {
+function context(user: () => User | null, signal: AbortSignal, confirm: ToolContext["confirm"]): ToolContext {
   return {
     signal,
     media: libraryFile,
     confirm,
-    confirmEvery,
     app: {
       requireUser(reason) {
         const current = user();
@@ -129,7 +128,7 @@ function context(user: () => User | null, signal: AbortSignal, confirm: ToolCont
 export async function runAgentTool(
   name: string,
   input: unknown,
-  options: { user: () => User | null; signal: AbortSignal; confirm?: (request: ConfirmRequest) => Promise<boolean>; confirmEvery?: boolean },
+  options: { user: () => User | null; signal: AbortSignal; confirm?: (request: ConfirmRequest) => Promise<boolean> },
 ): Promise<{ text: string; error: boolean }> {
   if (!isAgentTool(name)) return { text: `There is no tool named ${name}.`, error: true };
   const schema = OWN_SCHEMAS[name]?.input ?? toolByName(name as ToolName).input;
@@ -144,7 +143,7 @@ export async function runAgentTool(
     if (current) loadWorkspaces(current.id);
     // Each handler takes its own parsed arguments; the map's union can't say so.
     const handler = HANDLERS[name as AgentToolName] as (args: unknown, ctx: ToolContext) => Promise<unknown>;
-    const output = await handler(parsed.data, context(options.user, options.signal, options.confirm, options.confirmEvery === true));
+    const output = await handler(parsed.data, context(options.user, options.signal, options.confirm));
     return { text: JSON.stringify(output), error: false };
   } catch (error) {
     const message = (error as Error).message || String(error);

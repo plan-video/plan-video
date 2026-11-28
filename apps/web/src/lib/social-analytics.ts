@@ -103,6 +103,42 @@ export function setSyncedNumbers(key: string, numbers: SyncedNumbers) {
   setSynced((current) => new Map(current).set(key, numbers));
 }
 
+/** For a server answering for one person after another: these numbers alone while `run` runs. It must not await. */
+export function withSyncedNumbers<T>(numbers: ReadonlyMap<string, SyncedNumbers>, run: () => T): T {
+  const before = synced();
+  setSynced(numbers);
+  try {
+    return run();
+  } finally {
+    setSynced(before);
+  }
+}
+
+type DayRow = { date: string; views: number; likes: number; comments: number };
+export type PostTotals = Totals & { id: string; title: string; postedAt: number; cover?: string; url?: string };
+
+/** For networks that report each post's totals: they count on the day it went out. */
+export function postingDayNumbers(posts: readonly (Totals & { postedAt: number })[]) {
+  const days = new Map<number, Totals>();
+  for (const post of posts) {
+    const day = dayOfKey(dayKeyOf(post.postedAt));
+    const before = days.get(day);
+    days.set(day, {
+      views: (before?.views ?? 0) + post.views,
+      likes: (before?.likes ?? 0) + post.likes,
+      comments: (before?.comments ?? 0) + post.comments,
+    });
+  }
+  return days;
+}
+
+/** YouTube's answer: it counts each day. */
+export function youtubeNumbers(found: { days?: readonly DayRow[]; videos?: readonly PostTotals[] }): SyncedNumbers {
+  const days = new Map<number, Totals>();
+  for (const row of found.days ?? []) days.set(dayOfKey(row.date), { views: row.views, likes: row.likes, comments: row.comments });
+  return { days, posts: found.videos ?? [] };
+}
+
 /** Null when its network didn't say. */
 export function followersOf(key: string): number | null {
   return synced().get(key)?.followers ?? null;

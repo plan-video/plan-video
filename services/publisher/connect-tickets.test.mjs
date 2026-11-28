@@ -134,6 +134,7 @@ async function setup(t, { clock = { now: T0 } } = {}) {
     worker: {},
     kick: () => undefined,
     users: {
+      agent: async () => null,
       from: async (req) => ({ id: req.headers.authorization.slice(7) }),
       access: async (req, owner, workspace) => {
         const role = owner === OWNER ? roles[`${req.headers.authorization.slice(7)}|${workspace}`] : undefined;

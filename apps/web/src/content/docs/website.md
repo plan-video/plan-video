@@ -54,8 +54,8 @@ your-domain.com {
 			flush_interval -1
 		}
 	}
-	# Agents, and the WebSocket each open tab keeps to the MCP server.
-	@mcp path /mcp /api/mcp/tab /.well-known/oauth-protected-resource* /.well-known/mcp/*
+	# Agents, and what MCP directories and ChatGPT's app review read.
+	@mcp path /mcp /.well-known/oauth-protected-resource* /.well-known/mcp/* /.well-known/openai-apps-challenge
 	handle @mcp {
 		reverse_proxy 127.0.0.1:8791
 	}
@@ -96,7 +96,6 @@ systemctl reload caddy
 A few things the services expect from the proxy, which this file does:
 
 - **No compression or buffering on the API.** `encode` stays in the website's block, so the Assistant's replies stream as they're written.
-- **WebSockets on `/api/mcp/tab`.** Caddy passes them through on its own.
 - **Large uploads on `/api/transcribe`**, up to 100 MB of audio. Caddy sets no limit unless you add one.
 
 Addresses with no page of their own, like `/dashboard`, get the app, which shows its own "not found" page for an address it doesn't know.

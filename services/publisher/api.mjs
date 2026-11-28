@@ -36,6 +36,18 @@ const NETWORK_READS = {
   },
 };
 
+/** All an agent's token may ask here, for services/mcp: send a post now, and read what its tools read. */
+const AGENT_ROUTES = new Set([
+  "/api/publisher/send",
+  "/api/publisher/tiktok/creator",
+  "/api/publisher/tiktok/videos",
+  "/api/publisher/youtube/analytics",
+  "/api/publisher/linkedin/analytics",
+  "/api/publisher/instagram/analytics",
+  "/api/publisher/facebook/analytics",
+  "/api/publisher/threads/analytics",
+]);
+
 export function json(res, status, body) {
   res.writeHead(status, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
   res.end(JSON.stringify(body));
@@ -166,6 +178,17 @@ export function createApi({ env, vault, worker, users, kick, bluesky, limits, pl
     return { actor: owner, role: access.role, workspace };
   }
 
+  /** An agent names the workspace it works in; the database says whether its person is in it. */
+  async function agentScopeOf(user, body) {
+    const owner = typeof body.team?.owner === "string" ? body.team.owner.toLowerCase() : "";
+    const workspace = typeof body.team?.workspace === "string" ? body.team.workspace : "";
+    if (!UUID.test(owner) || !ID.test(workspace)) throw new Refused(400, "That isn't a workspace.");
+    const role = await db.rpc("agent_role", { person: user.id, owner, workspace });
+    if (role === "owner") return { actor: user.id, role };
+    if (role !== "admin" && role !== "member") throw new Refused(403, "You're not in this workspace anymore.");
+    return { actor: owner, role, workspace };
+  }
+
   /** Who a connect ticket is for (ticketBinding in vault.mjs). */
   const holderOf = (user, scope) => ({ person: user.id, owner: scope.actor, workspace: scope.workspace ?? "" });
 
@@ -253,7 +276,8 @@ export function createApi({ env, vault, worker, users, kick, bluesky, limits, pl
       return;
     }
 
-    const user = await users.from(req);
+    const agent = AGENT_ROUTES.has(path) ? await users.agent(req) : null;
+    const user = agent?.user ?? (await users.from(req));
     limit(`api:${user.id}`, 600, 600);
     const body = await readBody(req);
 
@@ -286,7 +310,7 @@ export function createApi({ env, vault, worker, users, kick, bluesky, limits, pl
       return;
     }
 
-    const scope = await scopeOf(req, user, body);
+    const scope = agent ? await agentScopeOf(user, body) : await scopeOf(req, user, body);
 
     if (path === "/api/publisher/login/save") {
       const connectionId = connectionOf(body);
@@ -535,7 +559,7 @@ export function createApi({ env, vault, worker, users, kick, bluesky, limits, pl
 
 /**
  * Tokens granted to an outside app (Claude's connector, say) carry the OAuth client's `client_id` and are
- * only good at /mcp. One that can't be read isn't a token Supabase made, and Supabase turns it away.
+ * good only at /mcp and at AGENT_ROUTES. One that can't be read isn't a token Supabase made, and Supabase turns it away.
  */
 function grantedToApp(token) {
   try {
@@ -544,6 +568,8 @@ function grantedToApp(token) {
     return false;
   }
 }
+
+const UUID_TEXT = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function createUsers({ supabaseUrl, anonKey, requireInvite }) {
   const cache = new Map();
@@ -561,8 +587,39 @@ export function createUsers({ supabaseUrl, anonKey, requireInvite }) {
     return token;
   };
   const roles = new Map();
+  const agents = new Map();
+
+  /** Connector tokens name nobody to Supabase (the connector_tokens migration): only these functions, asked with the token, say whose it is. */
+  async function agentOf(token) {
+    const cached = agents.get(token);
+    if (cached && cached.until > Date.now()) return cached.agent;
+    const asked = async (name) => {
+      const response = await call(`/rest/v1/rpc/${name}`, token, { method: "POST", body: "{}" }).catch(() => null);
+      if (!response) throw new Refused(503, "plan.video can't check this sign-in right now. Try again in a moment.");
+      return { ok: response.ok, found: await response.json().catch(() => null) };
+    };
+    const identity = await asked("connector_identity");
+    const person = identity.ok && typeof identity.found?.user_id === "string" && UUID_TEXT.test(identity.found.user_id) ? identity.found.user_id.toLowerCase() : null;
+    if (!person || typeof identity.found?.client_id !== "string" || !identity.found.client_id) throw new Refused(401, "Your plan.video sign-in has expired. Connect again.");
+    if (requireInvite) {
+      const context = await asked("agent_context");
+      if (context.found?.letIn !== true) throw new Refused(403, "This account hasn't been let in yet.");
+    }
+    const agent = { user: { id: person } };
+    if (agents.size > 5000) agents.clear();
+    agents.set(token, { agent, until: Date.now() + 10_000 });
+    return agent;
+  }
 
   return {
+    /** For AGENT_ROUTES: who an agent's token speaks for, or null for any other sign-in. */
+    async agent(req) {
+      const header = req.headers.authorization ?? "";
+      const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+      if (!token || token.length > 4096 || !grantedToApp(token)) return null;
+      return agentOf(token);
+    },
+
     /** `waiting` lets in someone the invite gate hasn't yet, only for deleting their account. */
     async from(req, { waiting = false } = {}) {
       const token = tokenOf(req);

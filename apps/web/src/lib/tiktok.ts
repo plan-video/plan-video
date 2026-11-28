@@ -8,7 +8,7 @@ import { keepForLogin, takeFromLogin } from "@/lib/login-handoff";
 import { supabase } from "@/lib/supabase";
 import { askNetwork, exchangeOnServer } from "@/lib/publishing";
 import { loginReady, type TikTokSession } from "@/lib/social-connections";
-import type { TikTokPrivacy } from "@/lib/social";
+import { readTikTokCreator, type TikTokCreator } from "@/lib/post-rules";
 
 const TIKTOK_ORIGINS = new Set([...appOrigins(), "http://localhost:5173"]);
 
@@ -88,46 +88,14 @@ export async function loadTikTokAvatar(accountId: string): Promise<string> {
   return result.avatarUrl || "";
 }
 
-export type TikTokCreator = {
-  nickname: string;
-  username: string;
-  avatarUrl: string;
-  /** The picker lists these and nothing else. */
-  privacy: TikTokPrivacy[];
-  commentDisabled: boolean;
-  duetDisabled: boolean;
-  stitchDisabled: boolean;
-  maxVideoSeconds: number;
-};
-
-const PRIVACY_FROM_API: Record<string, TikTokPrivacy> = {
-  PUBLIC_TO_EVERYONE: "public",
-  MUTUAL_FOLLOW_FRIENDS: "friends",
-  FOLLOWER_OF_CREATOR: "followers",
-  SELF_ONLY: "private",
-};
+export type { TikTokCreator };
 
 /** Read again each time the post screen opens. */
 export async function loadTikTokCreator(accountId: string): Promise<TikTokCreator> {
   const result = await askTikTok<{ data?: Record<string, unknown> }>("tiktok/creator", accountId);
-  const data = result.data ?? {};
-  const listed = Array.isArray(data.privacy_level_options) ? data.privacy_level_options : [];
-  const privacy = listed.flatMap((item) => {
-    const mapped = typeof item === "string" ? PRIVACY_FROM_API[item] : undefined;
-    return mapped ? [mapped] : [];
-  });
-  if (!privacy.length) throw new Error(t("TikTok didn't say who can watch this post. Try again in a minute."));
-  const max = Number(data.max_video_post_duration_sec);
-  return {
-    nickname: typeof data.creator_nickname === "string" && data.creator_nickname ? data.creator_nickname : "TikTok",
-    username: typeof data.creator_username === "string" ? data.creator_username : "",
-    avatarUrl: typeof data.creator_avatar_url === "string" ? data.creator_avatar_url : "",
-    privacy,
-    commentDisabled: data.comment_disabled === true,
-    duetDisabled: data.duet_disabled === true,
-    stitchDisabled: data.stitch_disabled === true,
-    maxVideoSeconds: Number.isFinite(max) && max > 0 ? max : 10 * 60,
-  };
+  const creator = readTikTokCreator(result.data ?? {});
+  if (!creator) throw new Error(t("TikTok didn't say who can watch this post. Try again in a minute."));
+  return creator;
 }
 
 /** An older connection has to be made again. */

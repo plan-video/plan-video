@@ -17,8 +17,6 @@ export type ToolContext = {
    * own `agreed` is ignored. Unset, nothing is asked.
    */
   confirm?(request: ConfirmRequest): Promise<boolean>;
-  /** Set for agents connected at plan.video/mcp: every call that leaves a post scheduled asks, not only one due soon. */
-  confirmEvery?: boolean;
   app: {
     /** `reason` replaces the default message. */
     requireUser(reason?: string): User;

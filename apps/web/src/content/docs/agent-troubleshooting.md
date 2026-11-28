@@ -1,12 +1,12 @@
 <AccordionGroup>
-  <Accordion title="The agent says plan.video isn't open">
-    Your agent's requests run through your plan.video tab. Open [plan.video](https://plan.video) in a browser, sign in, and ask again.
+  <Accordion title="The agent says a post is still going out">
+    Some networks take a while to take a video. The post goes on going out without the agent: ask it to check the post in a minute, and don't ask it to publish again.
   </Accordion>
-  <Accordion title="The agent says I didn't confirm">
-    plan.video asks you in your open tab before an agent publishes, deletes or schedules, and no answer in time counts as no. Keep the tab where you can see it, and ask again.
+  <Accordion title="The agent says a post's files haven't reached plan.video">
+    A post made in the dashboard uploads its video or pictures from that browser. Open plan.video there until the post stops showing Uploading, then ask again.
   </Accordion>
-  <Accordion title="The tab didn't answer in time">
-    The tab may be in the background or still at work. Bring it to the front, check what was done, then ask again.
+  <Accordion title="The agent says the post changed in plan.video">
+    Someone changed the post while the agent was saving it, so the agent's change wasn't saved over theirs. Ask the agent to read the post again and make its change.
   </Accordion>
   <Accordion title="Too many calls in a minute">
     An agent can make 120 calls a minute. Wait a moment and ask it to go on.

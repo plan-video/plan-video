@@ -84,7 +84,7 @@ function DashboardClaudeSection() {
         </DashboardSurfaceCard>
         <p class="px-2 pt-3 text-xs text-muted-foreground">
           {t(
-            "Sign in with your plan.video account, then ask Claude to write, schedule, move or publish your posts. Keep plan.video open in a tab while it works.",
+            "Sign in with your plan.video account, then ask Claude to write, schedule, move or publish your posts. It asks you here before it publishes or deletes anything.",
           )}
         </p>
       </DashboardTitledSection>

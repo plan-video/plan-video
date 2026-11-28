@@ -10,7 +10,7 @@ import { createSignal } from "solid-js";
 import { t } from "@/lib/i18n";
 import { isMetaNetwork, type MetaNetwork } from "@/lib/meta";
 import { askMeta, askNetwork } from "@/lib/publishing";
-import { DAY_MS, HISTORY_DAYS, dayKeyOf, dayOfKey, setSyncedNumbers, type AnalyticsPost, type Totals } from "@/lib/social-analytics";
+import { DAY_MS, HISTORY_DAYS, postingDayNumbers, setSyncedNumbers, youtubeNumbers, type AnalyticsPost, type PostTotals, type Totals } from "@/lib/social-analytics";
 import { socialConnections, type SocialConnection } from "@/lib/social-connections";
 import { loadTikTokVideos, tiktokAllows } from "@/lib/tiktok";
 import { loadYouTubeAnalytics } from "@/lib/youtube";
@@ -33,12 +33,6 @@ function mark(key: string, state: string | null) {
   });
 }
 
-function byDay(days: readonly { date: string; views: number; likes: number; comments: number }[]) {
-  const map = new Map<number, Totals>();
-  for (const row of days) map.set(dayOfKey(row.date), { views: row.views, likes: row.likes, comments: row.comments });
-  return map;
-}
-
 /** UTC is close enough to the Pacific days YouTube counts in. */
 function isoDay(time: number) {
   return new Date(time).toISOString().slice(0, 10);
@@ -46,8 +40,7 @@ function isoDay(time: number) {
 
 async function syncYouTube(account: SocialConnection) {
   const now = Date.now();
-  const { days, videos } = await loadYouTubeAnalytics(account.id, isoDay(now - HISTORY_DAYS * DAY_MS), isoDay(now));
-  setSyncedNumbers(`youtube:${account.id}`, { days: byDay(days), posts: videos });
+  setSyncedNumbers(`youtube:${account.id}`, youtubeNumbers(await loadYouTubeAnalytics(account.id, isoDay(now - HISTORY_DAYS * DAY_MS), isoDay(now))));
 }
 
 /** TikTok only reports each video's totals, so they count on the day it went out. */
@@ -56,38 +49,14 @@ async function syncTikTok(account: SocialConnection, session: NonNullable<Social
     throw new Error(t("Disconnect TikTok in Connections and connect it again, so plan.video can read its numbers."));
   }
   const videos = await loadTikTokVideos(account.id);
-  const days = new Map<number, Totals>();
-  for (const video of videos) {
-    const day = dayOfKey(dayKeyOf(video.postedAt));
-    const before = days.get(day);
-    days.set(day, {
-      views: (before?.views ?? 0) + video.views,
-      likes: (before?.likes ?? 0) + video.likes,
-      comments: (before?.comments ?? 0) + video.comments,
-    });
-  }
-  setSyncedNumbers(`tiktok:${account.id}`, { days, posts: videos });
+  setSyncedNumbers(`tiktok:${account.id}`, { days: postingDayNumbers(videos), posts: videos });
 }
 
-function onPostingDays(posts: readonly (Totals & { postedAt: number })[]) {
-  const days = new Map<number, Totals>();
-  for (const post of posts) {
-    const day = dayOfKey(dayKeyOf(post.postedAt));
-    const before = days.get(day);
-    days.set(day, {
-      views: (before?.views ?? 0) + post.views,
-      likes: (before?.likes ?? 0) + post.likes,
-      comments: (before?.comments ?? 0) + post.comments,
-    });
-  }
-  return days;
-}
-
-type PostNumbers = { followers?: number | null; videos?: (Totals & { id: string; title: string; postedAt: number; cover?: string; url?: string })[] };
+type PostNumbers = { followers?: number | null; videos?: PostTotals[] };
 
 function keepPostNumbers(key: string, found: PostNumbers) {
   const posts = (found.videos ?? []).filter((post) => post.postedAt > 0);
-  setSyncedNumbers(key, { days: onPostingDays(posts), posts, followers: found.followers ?? null });
+  setSyncedNumbers(key, { days: postingDayNumbers(posts), posts, followers: found.followers ?? null });
 }
 
 /** Read by the publisher. */
@@ -103,8 +72,7 @@ async function syncLinkedInPage(account: SocialConnection) {
 export async function loadPostDays(userId: string | undefined, post: AnalyticsPost): Promise<ReadonlyMap<number, Totals>> {
   const account = socialConnections().find((item) => `${item.platform}:${item.id}` === post.source);
   if (!userId || !account?.youtube || !post.networkId) throw new Error(t("This post's account isn't connected anymore."));
-  const { days } = await loadYouTubeAnalytics(account.id, isoDay(post.postedAt), isoDay(Date.now()), post.networkId);
-  return byDay(days);
+  return youtubeNumbers(await loadYouTubeAnalytics(account.id, isoDay(post.postedAt), isoDay(Date.now()), post.networkId)).days;
 }
 
 /** Once each. */

@@ -44,7 +44,7 @@
 
 <AccordionGroup>
   <Accordion title="Which AI agents does it work with?">
-    Claude Code, Claude Desktop, Codex, Cursor, VS Code Copilot, Gemini CLI, Antigravity, Devin Desktop and OpenCode. Add plan.video's MCP server, plan.video/mcp, to it and sign in, and while plan.video is open in your browser, it can schedule and publish posts for you. See [Connect an agent](/docs/connect-an-agent).
+    Claude Code, Claude Desktop, Codex, Cursor, VS Code Copilot, Gemini CLI, Antigravity, Devin Desktop and OpenCode. Add plan.video's MCP server, plan.video/mcp, to it and sign in, and it can schedule and publish posts for you, even with plan.video closed. It asks you before it publishes or deletes anything. See [Connect an agent](/docs/connect-an-agent).
   </Accordion>
   <Accordion title="Is there an AI built in?">
     Yes. The [Assistant](/docs/assistant) is a chat in the dashboard that plans, writes and schedules posts and reads your numbers. Open it with the round button at the bottom right, or <kbd>⌘</kbd> <kbd>J</kbd>. It asks you before it publishes or deletes anything.
