@@ -454,7 +454,7 @@ var listMedia = defineTool({
   })
 });
 
-// ../../../../plan.video/node_modules/solid-js/dist/server.js
+// node_modules/solid-js/dist/server.js
 var ERROR = /* @__PURE__ */ Symbol("error");
 function castError(err) {
   if (err instanceof Error) return err;
