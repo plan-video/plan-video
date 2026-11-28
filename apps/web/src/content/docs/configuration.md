@@ -83,6 +83,7 @@ Read by every service except `mcp`, `monitor` and `photos`.
 | `SEND_FROM` | | A time in ISO 8601. Runs due before it are never sent. `make-keys` sets it; without it, runs that fell due while the publisher was down are skipped. |
 | `RESEND_API_KEY` | | A [Resend](https://resend.com) key, to email owners about failed posts and LinkedIn logins running out |
 | `NOTICE_FROM` | | Who those emails come from, at a domain your Resend account can send from. Set it with `RESEND_API_KEY`: the default, `plan.video <hello@plan.video>`, is plan.video's. |
+| `WELCOME_FROM` | | Who the welcome email comes from, sent once after someone's first sign-in. It's plan.video's own email, signed by its founder, so leave it out on your own copy and none is sent. Needs `RESEND_API_KEY` and the migration `20261128120000_welcome_emails.sql`. |
 | `SUPPORT_TO`, `SUPPORT_FROM` | | Who the site's support form emails, and from which address. Only plan.video's own website has that form, so a copy without it can leave these out. |
 | `BILLING_URL` | | Where the billing service is, to end a plan when an account is deleted. Default `http://127.0.0.1:8799`. |
 | `PHOTOS_URL` | | Where the photos service is, to make pictures for posts. Default `http://127.0.0.1:8793`. |

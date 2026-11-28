@@ -19,6 +19,7 @@ import { createHealth, createPassWatch } from "./health.mjs";
 import { createInviteMailer } from "./invites.mjs";
 import { createMedia } from "./media.mjs";
 import { createMailer, createNotices } from "./notices.mjs";
+import { createWelcomes } from "./welcome.mjs";
 import { blueskyNodeProblem, createBlueskyOAuth } from "./bluesky-oauth.mjs";
 import { createBluesky, useBlueskyOAuth } from "./networks/bluesky.mjs";
 import { createFacebook } from "./networks/facebook.mjs";
@@ -139,6 +140,9 @@ const notices = own.RESEND_API_KEY
   ? createNotices({ db, vault, publicUrl, mailer: createMailer({ apiKey: own.RESEND_API_KEY, from: own.NOTICE_FROM || "plan.video <hello@plan.video>" }) })
   : null;
 if (!notices) console.warn("[publisher] RESEND_API_KEY isn't set, so failed posts and expiring logins aren't emailed");
+// The welcome email is plan.video's own, signed by its founder, so a copy sends it only once WELCOME_FROM is set.
+const welcomes =
+  own.RESEND_API_KEY && own.WELCOME_FROM ? createWelcomes({ db, publicUrl, mailer: createMailer({ apiKey: own.RESEND_API_KEY, from: own.WELCOME_FROM }) }) : null;
 // The site's support form emails each report to SUPPORT_TO, with the sender as Reply-To (support.mjs).
 const support = createSupport({
   mailer: own.RESEND_API_KEY ? createMailer({ apiKey: own.RESEND_API_KEY, from: own.SUPPORT_FROM || "plan.video support <hello@plan.video>" }) : null,
@@ -278,7 +282,7 @@ server.listen(SENDER_PORT, HOST, () => {
         // With a key that opens no login, every send would fail: the posts wait for the right key instead.
         paused: () => health.keyWrong(),
         passed: (planned) => planned && passes.passed(),
-        afterPass: () => notices?.send(),
+        afterPass: () => Promise.all([notices?.send(), welcomes?.send()]),
         passMs: PASS_MS,
         dispatchMs: DISPATCH_MS,
         wakeAfterMs: WAKE_AFTER_MS,
