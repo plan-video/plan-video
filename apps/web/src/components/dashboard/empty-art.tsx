@@ -5,7 +5,6 @@
 import { For } from "solid-js";
 import { Dynamic } from "solid-js/web";
 import BellCheckLucide from "lucide-solid/icons/bell-check";
-import ScissorsLucide from "lucide-solid/icons/scissors";
 import CalendarDaysLucide from "lucide-solid/icons/calendar-days";
 import ChartLineLucide from "lucide-solid/icons/chart-line";
 import ClapperboardLucide from "lucide-solid/icons/clapperboard";
@@ -56,7 +55,6 @@ function Art(props: { icon: Glyph; class?: string }) {
 }
 
 export const ProjectsArt = (props: { class?: string }) => <Art icon={ClapperboardLucide} class={props.class} />;
-export const ClipsArt = (props: { class?: string }) => <Art icon={ScissorsLucide} class={props.class} />;
 export const FolderArt = (props: { class?: string }) => <Art icon={FolderLucide} class={props.class} />;
 export const MediaArt = (props: { class?: string }) => <Art icon={ImagesLucide} class={props.class} />;
 export const TemplatesArt = (props: { class?: string }) => <Art icon={LayoutTemplateLucide} class={props.class} />;
