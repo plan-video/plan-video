@@ -26,5 +26,5 @@ These are the tools plan.video gives your agent. You don't need to call them you
 - **Filter by failed posts.** `list_posts` shows draft, scheduled and posted, and says whether each send worked.
 
 <Warning>
-`publish_post` sends a post straight away and can't be undone. So whatever the agent, plan.video asks you in your open tab, with **Allow** and **Don't allow**, before it publishes, deletes, or schedules a post that goes out within 10 minutes or to your TikTok profile. Drafts and posts scheduled further ahead don't ask, and don't need the tab. No answer in time counts as no.
+`publish_post` sends a post straight away and can't be undone. plan.video marks it, `delete_post`, `update_post` and `ask_for_approval` as actions that can't be taken back, so your agent's app asks you before it runs them.
 </Warning>

@@ -3840,7 +3840,7 @@
   "This link is missing its request. Start connecting again from Claude.": "このリンクにはリクエストが含まれていません。Claudeからもう一度接続を始めてください。",
   "Allow {client} to manage your posts?": "{client}に投稿の管理を許可しますか？",
   "plan.video doesn't know this app. It calls itself “{name}”, but any app can pick that name. Only allow it if you started connecting from {host} yourself.": "plan.video はこのアプリを把握していません。このアプリは「{name}」と名乗っていますが、どのアプリでもその名前を名乗れます。ご自身で {host} から接続を始めた場合にのみ許可してください。",
-  "It can see your connected accounts, media library and calendar, and your Analytics, such as YouTube views and top videos. It can schedule, change and delete posts, and publish them when you ask. It works through plan.video while it's open in your browser.": "連携アカウント、メディアライブラリ、カレンダーに加え、YouTubeの再生数や人気動画などの分析も確認できます。投稿の予約・変更・削除のほか、指示があれば公開もできます。ブラウザでplan.videoを開いている間、plan.videoを通じて動作します。",
+  "It can see your connected accounts, media library and calendar, and your Analytics, such as YouTube views and top videos. It can schedule, change and delete posts, and publish them when you ask.": "連携アカウント、メディアライブラリ、カレンダーに加え、YouTubeの再生数や人気動画などの分析も確認できます。投稿の予約・変更・削除のほか、指示があれば公開もできます。",
   "It can also change the project you have open, one undo step at a time.": "開いているプロジェクトを編集することもできます。変更は1ステップずつ元に戻せます。",
   "Signed in as {email}. You'll go back to {host}.": "{email}でログイン中です。{host}に戻ります。",
   "Signed in as {email}": "{email}でログイン中",

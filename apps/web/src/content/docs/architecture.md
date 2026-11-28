@@ -17,7 +17,7 @@ plan.video is one web app plus a handful of small services. The browser does the
     - **storage**
       Signs links to your files
     - **mcp**
-      Runs agents' requests, and hands what needs you to your open tab
+      Runs agents' requests with each agent's own sign-in
     - **The other services**
       Network sign-ins, Assistant, captions, billing
   </Lane>
@@ -71,7 +71,7 @@ Nothing on the internet reaches the publisher directly. The [gateway](/docs/serv
 
 An agent adds `https://your-domain.com/mcp`. The `mcp` service points it to Supabase's OAuth server, where the agent registers itself and the person signs in and allows it on `/oauth/consent`.
 
-Every signed-in tab keeps a WebSocket open to `mcp`. When the agent calls a tool, such as `schedule_post`, `mcp` passes it to that person's most recently used tab. The tab runs it with the same code as the dashboard's Assistant and sends back the answer. That's why plan.video has to be open while an agent works. Posts it schedules still go out from the publisher.
+When the agent calls a tool, such as `schedule_post`, `mcp` runs it with the same rules as the dashboard, using the agent's own token. That token reaches only the `agent_*` database functions, `storage`'s copy of a library file onto a post, and the publisher's routes for sending a post now and reading networks. Each of them asks the database whose token it is and which workspace that person has open. Nothing needs plan.video open in a browser, and posts go out from the publisher.
 
 ## Where the secrets are
 

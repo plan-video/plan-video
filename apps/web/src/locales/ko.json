@@ -3840,7 +3840,7 @@
   "This link is missing its request. Start connecting again from Claude.": "이 링크에 요청 정보가 없어요. Claude에서 연결을 다시 시작하세요.",
   "Allow {client} to manage your posts?": "{client}에 게시물 관리를 허용할까요?",
   "plan.video doesn't know this app. It calls itself “{name}”, but any app can pick that name. Only allow it if you started connecting from {host} yourself.": "plan.video가 모르는 앱이에요. 스스로를 “{name}”(이)라고 부르지만 어떤 앱이든 그 이름을 쓸 수 있어요. 직접 {host}에서 연결을 시작한 경우에만 허용하세요.",
-  "It can see your connected accounts, media library and calendar, and your Analytics, such as YouTube views and top videos. It can schedule, change and delete posts, and publish them when you ask. It works through plan.video while it's open in your browser.": "연결된 계정, 미디어 라이브러리, 캘린더와 함께 YouTube 조회수, 인기 동영상 같은 분석도 볼 수 있어요. 게시물을 예약·수정·삭제하고, 요청하면 게시도 해요. plan.video가 브라우저에 열려 있는 동안 plan.video를 통해 작동해요.",
+  "It can see your connected accounts, media library and calendar, and your Analytics, such as YouTube views and top videos. It can schedule, change and delete posts, and publish them when you ask.": "연결된 계정, 미디어 라이브러리, 캘린더와 함께 YouTube 조회수, 인기 동영상 같은 분석도 볼 수 있어요. 게시물을 예약·수정·삭제하고, 요청하면 게시도 해요.",
   "It can also change the project you have open, one undo step at a time.": "열어 둔 프로젝트도 수정할 수 있어요. 수정한 내용은 한 단계씩 실행 취소할 수 있어요.",
   "Signed in as {email}. You'll go back to {host}.": "{email} 계정으로 로그인했어요. 이후 {host} 사이트로 돌아가요.",
   "Signed in as {email}": "{email} 계정으로 로그인됨",

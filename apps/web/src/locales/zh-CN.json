@@ -3840,7 +3840,7 @@
   "This link is missing its request. Start connecting again from Claude.": "此链接缺少授权请求。请从 Claude 重新发起连接。",
   "Allow {client} to manage your posts?": "允许 {client} 管理你的帖子？",
   "plan.video doesn't know this app. It calls itself “{name}”, but any app can pick that name. Only allow it if you started connecting from {host} yourself.": "plan.video 不认识这个应用。它自称“{name}”，但任何应用都可以取这个名字。只有在你亲自从 {host} 开始连接时才允许。",
-  "It can see your connected accounts, media library and calendar, and your Analytics, such as YouTube views and top videos. It can schedule, change and delete posts, and publish them when you ask. It works through plan.video while it's open in your browser.": "它可以查看你已连接的账号、媒体库和日历，以及你的数据分析，例如 YouTube 播放量和热门视频。它可以排期、修改和删除帖子，并在你要求时发布。只要 plan.video 在你的浏览器中打开着，它就能通过 plan.video 工作。",
+  "It can see your connected accounts, media library and calendar, and your Analytics, such as YouTube views and top videos. It can schedule, change and delete posts, and publish them when you ask.": "它可以查看你已连接的账号、媒体库和日历，以及你的数据分析，例如 YouTube 播放量和热门视频。它可以排期、修改和删除帖子，并在你要求时发布。",
   "It can also change the project you have open, one undo step at a time.": "它还能修改你当前打开的项目，每一步都可以撤销。",
   "Signed in as {email}. You'll go back to {host}.": "已登录为 {email}。完成后将返回 {host}。",
   "Signed in as {email}": "已登录为 {email}",
