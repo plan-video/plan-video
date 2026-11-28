@@ -1,11 +1,11 @@
 // Built by scripts/build-posting.mjs from apps/web/src/dapi/server/posts.ts. Don't edit: run `npm run posting`.
 
-// ../../packages/dapi/src/tool.ts
+// packages/dapi/src/tool.ts
 function defineTool(tool) {
   return tool;
 }
 
-// ../../packages/dapi/src/tools/posts.ts
+// packages/dapi/src/tools/posts.ts
 import { z } from "zod";
 var PlatformId = z.enum(["tiktok", "instagram", "youtube", "x", "facebook", "linkedin", "threads", "bluesky", "pinterest"]);
 var PostStatus = z.enum(["draft", "scheduled", "posted"]);
@@ -244,7 +244,7 @@ var publishPost = defineTool({
   output: ScheduledPost
 });
 
-// ../../packages/dapi/src/catalog.ts
+// packages/dapi/src/catalog.ts
 var catalog = [
   socialAccounts,
   socialSchema,
@@ -262,7 +262,7 @@ function toolByName(name) {
   return byName.get(name);
 }
 
-// ../../packages/dapi/src/errors.ts
+// packages/dapi/src/errors.ts
 var DapiError = class extends Error {
   code;
   constructor(code, message, options) {
@@ -275,7 +275,7 @@ function isDapiError(value) {
   return value instanceof DapiError;
 }
 
-// ../../packages/dapi/src/social-accounts.ts
+// packages/dapi/src/social-accounts.ts
 function chooseAccounts(platforms, requested, connected2, nameOf = (platform) => platform) {
   const unique = [...new Set(platforms)];
   if (unique.length === 0) return { ok: false, message: "Pick at least one platform." };
@@ -328,7 +328,7 @@ function chooseAccounts(platforms, requested, connected2, nameOf = (platform) =>
   return { ok: true, choices, accounts };
 }
 
-// ../../packages/dapi/src/tiktok.ts
+// packages/dapi/src/tiktok.ts
 var TIKTOK_MUSIC_USAGE = "https://www.tiktok.com/legal/page/global/music-usage-confirmation/en";
 var TIKTOK_BRANDED_POLICY = "https://www.tiktok.com/legal/page/global/bc-policy/en";
 function tiktokConsent(branded) {
@@ -373,7 +373,7 @@ function checkTikTokCreator(choices, creator, videoSeconds) {
   return { choices: next, errors, warnings };
 }
 
-// ../../packages/dapi/src/tools/analytics.ts
+// packages/dapi/src/tools/analytics.ts
 import { z as z2 } from "zod";
 var Numbers = z2.object({
   views: z2.int(),
@@ -425,7 +425,7 @@ var analytics = defineTool({
   })
 });
 
-// ../../packages/dapi/src/tools/library.ts
+// packages/dapi/src/tools/library.ts
 import { z as z3 } from "zod";
 var listMedia = defineTool({
   name: "list_media",
@@ -454,7 +454,7 @@ var listMedia = defineTool({
   })
 });
 
-// ../../../../../../plan.video/node_modules/solid-js/dist/server.js
+// ../../../../plan.video/node_modules/solid-js/dist/server.js
 var ERROR = /* @__PURE__ */ Symbol("error");
 function castError(err) {
   if (err instanceof Error) return err;
@@ -549,7 +549,7 @@ function createProvider(id) {
 }
 var SuspenseContext = createContext();
 
-// ../../apps/web/src/lib/i18n.ts
+// apps/web/src/lib/i18n.ts
 var LANGUAGES = [
   { code: "en", name: "English" },
   { code: "es", name: "Espa\xF1ol" },
@@ -687,13 +687,13 @@ function localized(make, english2) {
   };
 }
 
-// ../../apps/web/src/lib/account-sync-bus.ts
+// apps/web/src/lib/account-sync-bus.ts
 var pending = Promise.resolve();
 var teamPending = Promise.resolve();
 var postsPending = Promise.resolve();
 var [notificationTick, setNotificationTick] = createSignal(0);
 
-// ../../apps/web/src/lib/time-zone.ts
+// apps/web/src/lib/time-zone.ts
 var STORAGE_KEY = "plan.video.time-zone";
 var deviceZone;
 if (typeof document !== "undefined") {
@@ -796,7 +796,7 @@ function momentOf(day, time = "00:00", zone = timeZone()) {
   return new Date(zonedTime(year, month - 1, date, hours, minutes, zone));
 }
 
-// ../../apps/web/src/components/calendar/utils.ts
+// apps/web/src/components/calendar/utils.ts
 var dayFormatter = localized((locale) => new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", weekday: "short", timeZone: "UTC" }), "en-GB");
 var dayLongFormatter = localized((locale) => new Intl.DateTimeFormat(locale, { day: "numeric", month: "long", weekday: "long", timeZone: "UTC" }), "en-GB");
 var monthFormatter = localized((locale) => new Intl.DateTimeFormat(locale, { month: "long", year: "numeric", timeZone: "UTC" }), "en-GB");
@@ -939,7 +939,7 @@ function newId() {
   return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-// ../../apps/web/src/lib/plans.ts
+// apps/web/src/lib/plans.ts
 var FREE_SCHEDULED_PER_ACCOUNT = 10;
 var [scheduledLimit, setScheduledLimit] = createSignal();
 var [accountsLimit, setAccountsLimit] = createSignal();
@@ -1006,7 +1006,7 @@ var PLANS = [
   }
 ];
 
-// ../../apps/web/src/lib/social.ts
+// apps/web/src/lib/social.ts
 var POST_KINDS = [
   { id: "text", name: msg("Text"), plural: "text posts" },
   { id: "image", name: msg("Image"), plural: "image posts" },
@@ -1316,7 +1316,7 @@ function xCommunityId(raw) {
   return text.match(/^(?:https?:\/\/)?(?:www\.|mobile\.)?(?:twitter|x)\.com\/i\/communities\/(\d{5,19})\/?(?:[?#]\S*)?$/i)?.[1] ?? null;
 }
 
-// ../../apps/web/src/lib/thread.ts
+// apps/web/src/lib/thread.ts
 var THREAD_PLATFORMS = ["x", "linkedin", "bluesky"];
 var REPLY_MEDIA_PLATFORMS = ["x", "bluesky"];
 var REPLY_LIMITS = { x: 280, bluesky: 300, linkedin: 1250 };
@@ -1359,7 +1359,7 @@ function threadIssues(thread, platforms, media = () => null) {
   return issues;
 }
 
-// ../../apps/web/src/lib/post-sync-core.ts
+// apps/web/src/lib/post-sync-core.ts
 var TOO_MANY_POSTS = msg("This account has reached its limit of 100,000 posts. Delete some old posts to make room for new ones.");
 var OVERLAP_MS = 2 * 6e4;
 function stable(value) {
@@ -1371,7 +1371,7 @@ function stable(value) {
   return JSON.stringify(value) ?? "null";
 }
 
-// ../../apps/web/src/lib/post-rules.ts
+// apps/web/src/lib/post-rules.ts
 function postTitle(caption, fallback) {
   const line = caption.split("\n").map((part) => part.trim()).find(Boolean) ?? "";
   const title = line || fallback;
@@ -1674,7 +1674,7 @@ function tiktokCreatorView(accountId, creator) {
   };
 }
 
-// ../../apps/web/src/lib/social-analytics.ts
+// apps/web/src/lib/social-analytics.ts
 var ANALYTICS_PLATFORMS = [
   { id: "tiktok", name: "TikTok", color: "#2fd6e6" },
   { id: "youtube", name: "YouTube", color: "#ff4d4d" },
@@ -1967,7 +1967,7 @@ function engagement(row) {
 var compact = localized((locale) => new Intl.NumberFormat(locale, { notation: "compact", maximumFractionDigits: 1 }), "en");
 var whole = localized((locale) => new Intl.NumberFormat(locale), "en");
 
-// ../../apps/web/src/lib/posting-times.ts
+// apps/web/src/lib/posting-times.ts
 var WEEKDAY_NAMES2 = [msg("Monday"), msg("Tuesday"), msg("Wednesday"), msg("Thursday"), msg("Friday"), msg("Saturday"), msg("Sunday")];
 var WEEKDAY_SHORT = [msg("Mon"), msg("Tue"), msg("Wed"), msg("Thu"), msg("Fri"), msg("Sat"), msg("Sun")];
 function median(values) {
@@ -2006,7 +2006,7 @@ function postingTimes(posts2) {
   return { posts: posts2.length, weekdays, hours, slots };
 }
 
-// ../../apps/web/src/lib/analytics-answer.ts
+// apps/web/src/lib/analytics-answer.ts
 var WEEKDAYS2 = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 var TOP_POSTS = 8;
 var ENOUGH_POSTS = 10;
@@ -2072,7 +2072,7 @@ function analyticsAnswer(args, accounts, stateOf, now = Date.now()) {
   };
 }
 
-// ../../apps/web/src/dapi/server/analytics.ts
+// apps/web/src/dapi/server/analytics.ts
 var META = /* @__PURE__ */ new Set(["instagram", "facebook", "threads"]);
 var FAILED = "Couldn't load its numbers. Try again later.";
 var isoDay = (time) => new Date(time).toISOString().slice(0, 10);
@@ -2126,7 +2126,7 @@ async function readAnalytics(reads, scope, args, now) {
   });
 }
 
-// ../../apps/web/src/dapi/server/posts.ts
+// apps/web/src/dapi/server/posts.ts
 var GOING_OUT_MS = 5 * 6e4;
 var SCHEDULED_LIMIT = "On the Free plan, each account can have 10 scheduled posts waiting at a time. Upgrade for unlimited posts.";
 var CONFLICT = "The post changed in plan.video while this was saved, so nothing was changed. Read it again with list_posts and try again.";
