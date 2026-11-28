@@ -109,6 +109,7 @@ export function ClipList(props: ClipListProps) {
               <button
                 type="button"
                 aria-current={props.active === clip.id ? "true" : undefined}
+                title={clip.reason || undefined}
                 class="flex w-full items-start gap-2.5 rounded-lg p-1.5 pr-8 text-left outline-none press focus-ring"
                 classList={{ "bg-(--plane-layer-2)": props.active === clip.id, "hover:bg-(--plane-layer-1)": props.active !== clip.id }}
                 onClick={() => props.onOpen(clip.id)}
@@ -119,11 +120,8 @@ export function ClipList(props: ClipListProps) {
                     {Math.round(clip.end - clip.start)}s
                   </span>
                 </span>
-                <span class="flex min-w-0 flex-1 flex-col gap-0.5 pt-0.5">
+                <span class="flex min-w-0 flex-1 flex-col gap-1 pt-0.5">
                   <span class="line-clamp-2 text-xs font-medium text-foreground">{clip.title || t("Untitled clip")}</span>
-                  <Show when={clip.reason}>
-                    <span class="line-clamp-2 text-xxs text-muted-foreground">{clip.reason}</span>
-                  </Show>
                   <span class="flex items-center gap-1.5 text-xxs text-muted-foreground tabular-nums">
                     {clock(clip.start)}
                     <Show when={clip.score !== null}>
