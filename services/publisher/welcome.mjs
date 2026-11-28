@@ -153,7 +153,7 @@ export function composeWelcome({ publicUrl = "https://plan.video" } = {}) {
             </tr>${heading("When you're ready.", "Two more things to try.", 72)}${card(EDITOR, images)}${gap}${cardText(agents, "24px")}
             <tr>
               <td align="center" style="padding:72px 40px 0 40px;">
-                <img src="${images}/squirrel.png" width="44" alt="" style="display:block;width:44px;height:auto;margin:0 auto;border:0;" />
+                <img src="${images}/mark.png" width="40" height="44" alt="" style="display:block;width:40px;height:44px;margin:0 auto;border:0;" />
               </td>
             </tr>
             <tr>
