@@ -81,9 +81,11 @@ describe("agent tools", () => {
     assert.equal(context.role, "owner");
     assert.equal(context.timeZone, "Europe/Amsterdam");
     assert.deepEqual(context.connections, [
-      { id: "b1", platform: "bluesky", handle: "me.bsky.social", ready: true },
-      { id: "x1", platform: "x", handle: "@me", ready: false },
+      { id: "b1", platform: "bluesky", handle: "me.bsky.social", ready: true, scope: "", page: false },
+      { id: "x1", platform: "x", handle: "@me", ready: false, scope: "", page: false },
     ]);
+    assert.equal(context.letIn, true);
+    assert.equal(context.membersNeedApproval, false);
     assert.ok(!JSON.stringify(context).includes("SECRET"));
     assert.equal(context.library[0].id, "m1");
   });
@@ -172,6 +174,17 @@ describe("agent tools", () => {
     await refuses(copy(["media/m1", "posts/p1"], ["p4_e", "p4_e"]), "22023");
   });
 
+  test("the publisher knows an agent's token, and the workspace it works in, from the database", async () => {
+    const { createUsers } = await import("../../services/publisher/api.mjs");
+    await setLevel(owner.id, 3);
+    const users = createUsers({ supabaseUrl: URL, anonKey: ANON, requireInvite: true });
+    const as = (token) => ({ headers: { authorization: `Bearer ${token}` } });
+    assert.deepEqual(await users.agent(as(agent)), { user: { id: owner.id }, scope: { actor: owner.id, role: "owner" } });
+    assert.deepEqual(await users.agent(as(memberAgent)), { user: { id: member.id }, scope: { actor: owner.id, role: "member", workspace: "team" } });
+    assert.equal(await users.agent(as(owner.token)), null);
+    await assert.rejects(users.from(as(agent)), { status: 401 });
+  });
+
   test("a connector signed out speaks for nobody", async () => {
     const extra = await connect(owner);
     assert.equal((await rpc(extra, "agent_context")).owner, owner.id);
@@ -179,15 +192,52 @@ describe("agent tools", () => {
     await refuses(rpc(extra, "agent_context"), "28000");
   });
 
+  test("an agent working for a member is held to the workspace's approval rule, as the member is", async () => {
+    await setLevel(owner.id, 3);
+    sql(`insert into workspace_rules (owner_id, workspace_id, members_need_approval) values ('${owner.id}', 'team', true) on conflict (owner_id, workspace_id) do update set members_need_approval = true`);
+    assert.equal((await rpc(memberAgent, "agent_context")).membersNeedApproval, true);
+    await refuses(rpc(memberAgent, "agent_save_post", { owner: owner.id, workspace: "team", post: post("t3") }), "42501");
+    await refuses(rpc(memberAgent, "agent_save_post", { owner: owner.id, workspace: "team", post: post("t3", { status: "draft", approval: { state: "approved", at: "2026-11-27T00:00:00Z" } }) }), "42501");
+    const held = await rpc(memberAgent, "agent_save_post", { owner: owner.id, workspace: "team", post: post("t3", { status: "draft", approval: { state: "pending", at: "2026-11-27T00:00:00Z" } }) });
+    assert.equal(held.version, 1);
+    const owned = await rpc(agent, "agent_save_post", { owner: owner.id, workspace: "team", post: post("t4") });
+    assert.equal(owned.version, 1);
+    sql(`update workspace_rules set members_need_approval = false where owner_id = '${owner.id}' and workspace_id = 'team'`);
+  });
+
+  test("asking for approval takes a post off the schedule, shares its link once and notes the request once", async () => {
+    await setLevel(owner.id, 2);
+    const snapshot = { title: "Hello", caption: "Changed", platforms: [], day: "2026-12-01", start: "10:00", allDay: false, timeZone: null, status: "draft", media: null, youtubeTitle: null, link: null, workspaceId: "default" };
+    const [before] = await rpc(agent, "agent_posts", { owner: owner.id, workspace: "default", post_id: "p1" });
+    assert.deepEqual(await rpc(agent, "agent_ask_approval", { owner: owner.id, workspace: "default", post_id: "p1", base: before.version - 1, snapshot }), { conflict: true });
+    await refuses(rpc(agent, "agent_ask_approval", { owner: owner.id, workspace: "default", post_id: "p1", base: before.version, snapshot: { ...snapshot, workspaceId: "team" } }), "22023");
+    await refuses(rpc(strangerAgent, "agent_ask_approval", { owner: owner.id, workspace: "default", post_id: "p1", base: before.version, snapshot }), "42501");
+
+    const asked = await rpc(agent, "agent_ask_approval", { owner: owner.id, workspace: "default", post_id: "p1", base: before.version, snapshot });
+    const [held] = await rpc(agent, "agent_posts", { owner: owner.id, workspace: "default", post_id: "p1" });
+    assert.equal(held.version, asked.version);
+    assert.equal(held.data.status, "draft");
+    assert.equal(held.data.approval.state, "pending");
+    const again = await rpc(agent, "agent_ask_approval", { owner: owner.id, workspace: "default", post_id: "p1", base: held.version, snapshot });
+    assert.equal(again.preview, asked.preview);
+    assert.equal(again.version, held.version);
+    assert.equal(sql(`select count(*) from post_preview_comments where preview_id = '${asked.preview}' and kind = 'requested'`), "1");
+
+    await setLevel(owner.id, 1);
+    const free = await rpc(agent, "agent_save_post", { owner: owner.id, workspace: "default", post: post("p5") });
+    await refuses(rpc(agent, "agent_ask_approval", { owner: owner.id, workspace: "default", post_id: "p5", base: free.version, snapshot }), "42501");
+  });
+
   test("the MCP server's own tools schedule, change and list a post the publisher then reads", async () => {
     await setLevel(owner.id, 2);
-    const tools = createPostingTools(createStore({ supabaseUrl: URL, anonKey: ANON, storageUrl: "http://127.0.0.1:9", token: agent }));
+    const tools = createPostingTools(createStore({ supabaseUrl: URL, anonKey: ANON, storageUrl: "http://127.0.0.1:9", publisherUrl: "http://127.0.0.1:9", token: agent }));
     const run = async (name, args) => {
       const outcome = await tools.run(name, args);
-      assert.equal(outcome.error, false, outcome.text ?? outcome.tab);
+      assert.equal(outcome.error, false, outcome.text);
       return JSON.parse(outcome.text);
     };
-    const day = new Date(Date.now() + 3 * 86_400_000).toISOString().slice(0, 10);
+    // Clear of the fixtures' days, whatever today is.
+    const day = new Date(Date.now() + 40 * 86_400_000).toISOString().slice(0, 10);
     const made = await run("schedule_post", { caption: "From an agent", platforms: ["bluesky"], day, time: "10:00" });
     assert.equal(made.status, "scheduled");
     const changed = await run("update_post", { id: made.id, caption: "Changed by an agent" });

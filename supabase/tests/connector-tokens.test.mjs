@@ -249,7 +249,6 @@ describe("a connector's token", () => {
     const { createAuth } = await import(`${SERVICES}mcp/auth.mjs`);
     const auth = createAuth({ supabaseUrl: URL_, supabaseAnonKey: ANON });
     assert.equal((await auth.connector(old))?.userId, user.id);
-    assert.equal(await auth.editor(old), null);
     const list = await call("/storage/v1/object/list/avatars", { token: old, method: "POST", body: { prefix: user.id } });
     assert.deepEqual(list.data, []);
   });
@@ -261,8 +260,6 @@ describe("a connector's token", () => {
       (({ userId, clientId }) => ({ userId, clientId }))(await auth.connector(connector.token)),
       { userId: user.id, clientId: connector.clientId },
     );
-    assert.equal(await auth.editor(connector.token), null);
-    assert.equal((await auth.editor(user.session))?.userId, user.id);
     assert.equal(await auth.connector(user.session), null);
 
     const refreshed = await call("/auth/v1/oauth/token", { method: "POST", form: { grant_type: "refresh_token", refresh_token: connector.refresh, client_id: connector.clientId } });
